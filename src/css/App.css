@@ -1,0 +1,30 @@
+@import "../css/normalize.css";
+
+:root {
+	--navy: #0a192f;
+	--slate: #8892b0;
+	--nav-height: 100px;
+	--lightest-slate: #ccd6f6;
+}
+
+html {
+	font-size: 62.5%;
+}
+body {
+	width: 100%;
+	height: 100%;
+	overflow-x: hidden;
+	font-size: 2rem;
+	color: var(--slate);
+	background-color: var(--navy);
+}
+a {
+	display: inline-block;
+	text-decoration: none;
+	text-decoration-skip-ink: auto;
+	color: inherit;
+	position: relative;
+}
+.clickable {
+	cursor: pointer;
+}

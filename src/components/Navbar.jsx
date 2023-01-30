@@ -1,0 +1,51 @@
+import React, { useState, useEffect } from "react";
+// import Logo from "../assets/Logo.svg";
+// import {ReactComponent as Logo} from "../assets/Logo.svg";
+
+function Navbar(props) {
+	const routes = [
+		{
+			name: "About",
+			location: "about",
+		},
+		{
+			name: "Experience",
+			location: "jobs",
+		},
+		{
+			name: "Work",
+			location: "projects",
+		},
+		{
+			name: "Contact",
+			location: "contact",
+		},
+	];
+	return (
+		<header>
+			<nav>
+				<div className='logo'>
+					<a href='/'>
+						{/* <Logo /> */}
+						{/* <img src={Logo} alt='Logo' /> */}
+					</a>
+				</div>
+				<div className='nav_StyledLinks'>
+					<ol>
+						{routes.map((route, index) => (
+							<li key={index}>
+								<a href={`/#${route.location}`}>{route.name}</a>
+							</li>
+						))}
+					</ol>
+					<div className='button'>
+						<a target='_blank' href='/resume.pdf'>
+							Resume
+						</a>
+					</div>
+				</div>
+			</nav>
+		</header>
+	);
+}
+export default Navbar;

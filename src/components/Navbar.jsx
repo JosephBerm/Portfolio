@@ -36,8 +36,8 @@ function Navbar(props) {
 							</li>
 						))}
 					</ol>
-					<div className='button'>
-						<a target='_blank' href='/resume.pdf'>
+					<div className='button-container'>
+						<a className='button' target='_blank' href='/resume.pdf'>
 							Resume
 						</a>
 					</div>

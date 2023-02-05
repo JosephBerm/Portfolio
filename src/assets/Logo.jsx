@@ -7,8 +7,7 @@ function Logo(props) {
 			xmlns='http://www.w3.org/2000/svg'
 			viewBox='0 0 477 551'
 			shapeRendering='geometricPrecision'
-			textRendering='geometricPrecision'
-			style={{ backgroundColor: "transparent" }}>
+			textRendering='geometricPrecision'>
 			<polygon
 				points='65.75,22.72 34.25,22.72 18.5,50 34.25,77.28 65.75,77.28 81.5,50 65.75,22.72'
 				transform='matrix(6.924784-4.007492 4.007492 6.924784-308.113806 129.635437)'

@@ -5,11 +5,22 @@
 	--slate: #8892b0;
 	--nav-height: 100px;
 	--lightest-slate: #ccd6f6;
+	--green: #64ffda;
+	--lightest-slate: #ccd6f6;
+	--transition: all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1);
+	--fz-xxs: 1.2rem;
+	--fz-xs: 1.3rem;
+	--fz-s: 1.4rem;
+	--fz-md: 1.6rem;
+	--fz-lg: 1.8rem;
+	--fz-xl: 2rem;
+	--fz-xxl: 2.2rem;
 }
 
 html {
 	font-size: 62.5%;
 }
+
 body {
 	width: 100%;
 	height: 100%;
@@ -18,6 +29,11 @@ body {
 	color: var(--slate);
 	background-color: var(--navy);
 }
+
+.clickable {
+	cursor: pointer;
+}
+
 a {
 	display: inline-block;
 	text-decoration: none;
@@ -25,6 +41,55 @@ a {
 	color: inherit;
 	position: relative;
 }
-.clickable {
-	cursor: pointer;
+
+header {
+	height: 100px;
+	padding: 0 50px;
+}
+
+header nav {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	height: 100%;
+}
+
+nav .logo a {
+	width: 35px;
+}
+.nav_StyledLinks {
+	display: flex;
+	justify-content: space-evenly;
+	align-items: center;
+}
+
+.nav_StyledLinks ol {
+	list-style: none;
+	display: flex;
+	margin: 0 15px;
+	font-size: var(--fz-xs);
+	font-weight: 600;
+}
+
+.nav_StyledLinks ol li {
+	margin: 0 10px;
+	counter-increment: item 1;
+}
+
+.nav_StyledLinks ol li a {
+	color: var(--lightest-slate);
+	transition: var(--transition);
+	padding: 10px;
+}
+.nav_StyledLinks ol li a::before {
+	content: "0" counter(item) ".";
+	color: var(--green);
+	margin-right: 5px;
+	font-size: var(--fz-xxs);
+	text-align: right;
+}
+.nav_StyledLinks ol li a:hover,
+.nav_StyledLinks ol li a:focus {
+	color: var(--green);
+	transition: var(--transition);
 }

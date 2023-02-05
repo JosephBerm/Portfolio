@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-// import Logo from "../assets/Logo.svg";
-// import {ReactComponent as Logo} from "../assets/Logo.svg";
+import Logo from "../assets/Logo";
 
 function Navbar(props) {
 	const routes = [
@@ -26,8 +25,7 @@ function Navbar(props) {
 			<nav>
 				<div className='logo'>
 					<a href='/'>
-						{/* <Logo /> */}
-						{/* <img src={Logo} alt='Logo' /> */}
+						<Logo />
 					</a>
 				</div>
 				<div className='nav_StyledLinks'>

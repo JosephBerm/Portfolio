@@ -1,4 +1,5 @@
 @import "../css/normalize.css";
+@import "../css/Logo.css";
 
 :root {
 	--dark-navy: #020c1b;
@@ -53,20 +54,40 @@ header {
 	background-color: rgba(7, 19, 38, 0.1);
 }
 
+svg {
+	user-select: none;
+}
+
 header nav {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	height: 100%;
 }
+.fill-page {
+	position: fixed;
+	z-index: 1000;
+	width: 100%;
+	height: 100%;
+	background-color: var(--dark-navy);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	transition: all 1s ease;
+}
+.loading-logo {
+	width: 100px;
+	height: 100px;
+}
 
 nav .logo a {
 	width: 37px;
 }
+
 nav .logo a svg {
 	fill: none;
 	transition: var(--transition);
-	user-select: none;
 }
 
 /* Why is this not working? */

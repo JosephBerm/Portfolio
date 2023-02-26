@@ -4,11 +4,23 @@ import Navbar from "./components/Navbar";
 import "../src/css/App.css";
 
 function App() {
-	return (
-		<div className='App'>
+	const [isLoading, setIsLoading] = useState(true);
+
+	useEffect(() => {
+		setTimeout(() => {
+			setIsLoading(false);
+		}, 3100);
+	}, [isLoading]);
+
+	if (isLoading) {
+		return (
 			<div className='fill-page page-loader'>
 				<LoadingLogo />
 			</div>
+		);
+	}
+	return (
+		<div className='App'>
 			<Navbar />
 		</div>
 	);

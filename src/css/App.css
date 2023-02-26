@@ -118,19 +118,19 @@ nav .logo a svg {
 }
 
 .nav_StyledLinks ol li:nth-child(1) {
-	animation: fadeInDown 0.7s ease 3s forwards;
+	animation: fadeInDown 0.7s ease 0s forwards;
 }
 .nav_StyledLinks ol li:nth-child(2) {
-	animation: fadeInDown 0.7s ease 3.15s forwards;
+	animation: fadeInDown 0.7s ease 0.15s forwards;
 }
 .nav_StyledLinks ol li:nth-child(3) {
-	animation: fadeInDown 0.7s ease 3.3s forwards;
+	animation: fadeInDown 0.7s ease 0.3s forwards;
 }
 .nav_StyledLinks ol li:nth-child(4) {
-	animation: fadeInDown 0.7s ease 3.45s forwards;
+	animation: fadeInDown 0.7s ease 0.45s forwards;
 }
 .nav_StyledLinks .button-container {
-	animation: fadeInDown 0.7s ease 3.6s forwards;
+	animation: fadeInDown 0.7s ease 0.6s forwards;
 }
 
 .nav_StyledLinks ol li a {

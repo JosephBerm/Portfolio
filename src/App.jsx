@@ -1,23 +1,14 @@
 import React, { useState, useEffect } from "react";
-import "../src/css/App.css";
-import LoadingComponent from "./components/LoadingComponent";
+import LoadingLogo from "./components/LoadingLogo";
 import Navbar from "./components/Navbar";
+import "../src/css/App.css";
 
 function App() {
-	const [isLoading, setIsLoading] = useState(true);
-
-	useEffect(() => {
-		setTimeout(() => {
-			setIsLoading(false);
-		}, 3350);
-	}, []);
 	return (
 		<div className='App'>
-			{isLoading && (
-				<div className='fill-page'>
-					<LoadingComponent />
-				</div>
-			)}
+			<div className='fill-page page-loader'>
+				<LoadingLogo />
+			</div>
 			<Navbar />
 		</div>
 	);

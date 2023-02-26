@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 
-function LoadingLogo(props) {
+function LoadingSVG(props) {
 	useEffect(() => {
 		/* eslint-disable */
 		!(function (t, e) {
@@ -2675,4 +2675,4 @@ function LoadingLogo(props) {
 	);
 }
 
-export default LoadingLogo;
+export default LoadingSVG;

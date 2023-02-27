@@ -86,17 +86,17 @@ header nav {
 
 nav .logo a {
 	width: 37px;
+	opacity: 0;
+	animation: fade-in 0.5s ease-out 0.15s forwards;
 }
 
-nav .logo a svg {
-	fill: none;
+nav .logo a svg polygon {
+	fill-opacity: 0;
 	transition: var(--transition);
 }
-
-/* Why is this not working? */
-/* nav .logo a:hover svg {
-	fill: var(--green-tint);
-} */
+nav .logo a:hover svg polygon {
+	fill-opacity: 1;
+}
 
 .nav_StyledLinks {
 	display: flex;

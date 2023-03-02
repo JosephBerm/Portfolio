@@ -31,12 +31,12 @@ function Navbar(props) {
 				<div className='nav_StyledLinks'>
 					<ol>
 						{routes.map((route, index) => (
-							<li key={index}>
+							<li key={index} style={{ "--index": index + 1 }}>
 								<a href={`/#${route.location}`}>{route.name}</a>
 							</li>
 						))}
 					</ol>
-					<div className='button-container'>
+					<div className='button-container' style={{ "--index": routes.length }}>
 						<a className='button' target='_blank' href='/resume.pdf'>
 							Resume
 						</a>

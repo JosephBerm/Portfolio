@@ -115,22 +115,15 @@ nav .logo a:hover svg polygon {
 	margin: 0 10px;
 	counter-increment: item 1;
 	opacity: 0;
-}
-
-.nav_StyledLinks ol li:nth-child(1) {
-	animation: fadeInDown 0.7s ease 0s forwards;
-}
-.nav_StyledLinks ol li:nth-child(2) {
-	animation: fadeInDown 0.7s ease 0.15s forwards;
-}
-.nav_StyledLinks ol li:nth-child(3) {
-	animation: fadeInDown 0.7s ease 0.3s forwards;
-}
-.nav_StyledLinks ol li:nth-child(4) {
-	animation: fadeInDown 0.7s ease 0.45s forwards;
+	--delay-multiplier: 0.15;
+	--delay: calc((var(--index) - 1) * var(--delay-multiplier) * 1s);
+	animation: fadeInDown 0.7s ease forwards var(--delay);
 }
 .nav_StyledLinks .button-container {
-	animation: fadeInDown 0.7s ease 0.6s forwards;
+	opacity: 0;
+	--delay-multiplier: 0.15;
+	animation: fadeInDown 0.7s ease forwards
+		calc(var(--index) * var(--delay-multiplier) * 1s);
 }
 
 .nav_StyledLinks ol li a {
@@ -149,10 +142,6 @@ nav .logo a:hover svg polygon {
 .nav_StyledLinks ol li a:focus {
 	color: var(--green);
 	transition: var(--transition);
-}
-
-.nav_StyledLinks .button-container {
-	opacity: 0;
 }
 
 .nav_StyledLinks .button-container .button {

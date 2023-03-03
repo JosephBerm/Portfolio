@@ -9,12 +9,13 @@ function Navbar(props) {
 
 	useEffect(() => {
 		const handleScroll = () => {
+			let currentPos = window.scrollY;
 			setPrevScrollPos(currentScrollPos);
-			setCurrentScrollPos(window.scrollY);
+			setCurrentScrollPos(currentPos);
 
-			let visible = prevScrollPos > currentScrollPos || currentScrollPos === 0;
+			let visible = prevScrollPos > currentPos || currentPos === 0;
 			const cn = classNames("navbar", {
-				scrolled: currentScrollPos > 0,
+				scrolled: currentPos > 0,
 				hidden: !visible,
 			});
 

@@ -1,7 +1,32 @@
 import React, { useState, useEffect } from "react";
+import classNames from "classnames";
 import Logo from "../assets/Logo";
 
 function Navbar(props) {
+	const [prevScrollPos, setPrevScrollPos] = useState(0);
+	const [currentScrollPos, setCurrentScrollPos] = useState(0);
+	const [navClass, setNavClass] = useState("navbar");
+
+	useEffect(() => {
+		const handleScroll = () => {
+			setPrevScrollPos(currentScrollPos);
+			setCurrentScrollPos(window.scrollY);
+
+			let visible = prevScrollPos > currentScrollPos || currentScrollPos === 0;
+			const cn = classNames("navbar", {
+				scrolled: currentScrollPos > 0,
+				hidden: !visible,
+			});
+
+			setNavClass(cn);
+		};
+
+		window.addEventListener("scroll", handleScroll);
+		return () => {
+			window.removeEventListener("scroll", handleScroll);
+		};
+	}, [currentScrollPos, prevScrollPos]);
+
 	const routes = [
 		{
 			name: "About",
@@ -21,30 +46,8 @@ function Navbar(props) {
 		},
 	];
 
-	const [isVisible, setIsVisible] = useState(true);
-
-	useEffect(() => {
-		let prevScrollPos = window.pageYOffset;
-		const handleScroll = () => {
-			const currentScrollPos = window.pageYOffset;
-			if (prevScrollPos > currentScrollPos) {
-				setIsVisible(true);
-				//When setting is visible to true, check to see if the navbar should have a shadow
-				//a shadow is necessary when you're not at the very top of the page. When you're at the very top of the page, no shadow.
-				//height might not be the same. Ultimately, you might have to make the className dynamic as well.
-			} else {
-				setIsVisible(false);
-			}
-			prevScrollPos = currentScrollPos;
-		};
-		window.addEventListener("scroll", handleScroll);
-		return () => {
-			window.removeEventListener("scroll", handleScroll);
-		};
-	}, []);
-
 	return (
-		<nav className={isVisible ? "navbar" : "navbar hidden"}>
+		<nav className={navClass}>
 			<div className='logo'>
 				<a href='/'>
 					<Logo />

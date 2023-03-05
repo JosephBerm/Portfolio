@@ -1,5 +1,6 @@
-@import "../css/normalize.css";
-@import "../css/Logo.css";
+@import "./normalize.css";
+@import "./Logo.css";
+@import "./Fonts.css";
 
 :root {
 	--dark-navy: #020c1b;
@@ -21,8 +22,9 @@
 	--border-radius: 4px;
 	--nav-scroll-height: 70px;
 	--nav-shadow: rgba(2, 12, 27, 0.7);
-	--font-mono: "Courier New", Courier, monospace;
-	--font-sans: Arial, Helvetica, -apple-system, system-ui, sans-serif;
+	--font-mono: "firaCode", "STechMono", "Courier New", Courier, monospace;
+	--font-sans: "Golos", "FiraSans", Arial, Helvetica, -apple-system, system-ui,
+		sans-serif;
 }
 
 html {

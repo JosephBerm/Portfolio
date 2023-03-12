@@ -2,16 +2,16 @@ import React, { useState, useEffect } from "react";
 import classNames from "classnames";
 import Logo from "../assets/Logo";
 
-function Navbar(props) {
-	const [prevScrollPos, setPrevScrollPos] = useState(0);
-	const [currentScrollPos, setCurrentScrollPos] = useState(0);
+function Navbar({ scrolledRef }) {
 	const [navClass, setNavClass] = useState("navbar");
+	const [currentScrollPos, setCurrentScrollPos] = useState(0);
+	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
 
 	useEffect(() => {
 		const handleScroll = () => {
-			let currentPos = window.scrollY;
-			setPrevScrollPos(currentScrollPos);
+			let currentPos = scrolledRef.current.scrollTop;
 			setCurrentScrollPos(currentPos);
+			const prevScrollPos = currentScrollPos;
 
 			let visible = prevScrollPos > currentPos || currentPos === 0;
 			const cn = classNames("navbar", {
@@ -22,11 +22,12 @@ function Navbar(props) {
 			setNavClass(cn);
 		};
 
-		window.addEventListener("scroll", handleScroll);
+		const currentRef = scrolledRef.current;
+		currentRef.addEventListener("scroll", handleScroll);
 		return () => {
-			window.removeEventListener("scroll", handleScroll);
+			currentRef.removeEventListener("scroll", handleScroll);
 		};
-	}, [currentScrollPos, prevScrollPos]);
+	}, [currentScrollPos, scrolledRef]);
 
 	const routes = [
 		{
@@ -46,6 +47,14 @@ function Navbar(props) {
 			location: "contact",
 		},
 	];
+	const handleOpenNavBar = () => {
+		if (navStyleClassName.includes("opened")) {
+			setNavStyleClassName("nav_StyledLinks closed");
+		} else {
+			setNavStyleClassName("nav_StyledLinks opened");
+		}
+		scrolledRef.current.classList.toggle("blur");
+	};
 
 	return (
 		<nav className={navClass}>
@@ -54,7 +63,10 @@ function Navbar(props) {
 					<Logo />
 				</a>
 			</div>
-			<div className='nav_StyledLinks'>
+			<div className='burger-button' onClick={() => handleOpenNavBar()}>
+				<i className='fa-solid fa-bars' />
+			</div>
+			<div className={navStyleClassName}>
 				<ol>
 					{routes.map((route, index) => (
 						<li key={index} style={{ "--index": index + 1 }}>

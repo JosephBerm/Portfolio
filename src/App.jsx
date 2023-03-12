@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import LoadingLogo from "./components/LoadingLogo";
 import Navbar from "./components/Navbar";
 import "../src/css/App.css";
 
 function App() {
 	const [isLoading, setIsLoading] = useState(true);
+	const appRef = useRef(null);
 
 	useEffect(() => {
 		setTimeout(() => {
@@ -20,9 +21,11 @@ function App() {
 		);
 	}
 	return (
-		<div className='App'>
-			<Navbar />
-			<div className='large-box' />
+		<div className='App' ref={appRef}>
+			{appRef && <Navbar scrolledRef={appRef} />}
+			<div id='content'>
+				<div className='large-box'>Hello World</div>
+			</div>
 		</div>
 	);
 }

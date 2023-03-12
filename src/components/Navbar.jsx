@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import classNames from "classnames";
 import Logo from "../assets/Logo";
 
-function Navbar({ scrolledRef }) {
+function Navbar({ scrolledRef, sections }) {
 	const [navClass, setNavClass] = useState("navbar");
 	const [currentScrollPos, setCurrentScrollPos] = useState(0);
 	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
@@ -56,6 +56,14 @@ function Navbar({ scrolledRef }) {
 		scrolledRef.current.classList.toggle("blur");
 	};
 
+	const handleLinkClick = (e, location) => {
+		e.preventDefault();
+		sections[location].current.scrollIntoView({
+			behavior: "smooth",
+			block: "start",
+		});
+	};
+
 	return (
 		<nav className={navClass}>
 			<div className='logo'>
@@ -70,7 +78,11 @@ function Navbar({ scrolledRef }) {
 				<ol>
 					{routes.map((route, index) => (
 						<li key={index} style={{ "--index": index + 1 }}>
-							<a href={`/#${route.location}`}>{route.name}</a>
+							<button
+								className='clickable'
+								onClick={(e) => handleLinkClick(e, route.location)}>
+								{route.name}
+							</button>
 						</li>
 					))}
 				</ol>

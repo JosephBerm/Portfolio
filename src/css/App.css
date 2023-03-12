@@ -42,7 +42,18 @@ body {
 	font-family: var(--font-sans);
 }
 
-/* Style the scrollbar for a specific element */
+a {
+	display: inline-block;
+	text-decoration: none;
+	text-decoration-skip-ink: auto;
+	color: inherit;
+	position: relative;
+}
+
+svg {
+	user-select: none;
+}
+
 .App::-webkit-scrollbar {
 	width: 12px;
 }
@@ -76,18 +87,6 @@ body {
 
 .clickable {
 	cursor: pointer;
-}
-
-a {
-	display: inline-block;
-	text-decoration: none;
-	text-decoration-skip-ink: auto;
-	color: inherit;
-	position: relative;
-}
-
-svg {
-	user-select: none;
 }
 
 .fill-page {
@@ -150,9 +149,18 @@ svg {
 	border-top: 3px solid var(--green);
 }
 
+section {
+	padding: 0 150px;
+}
+.hero_section {
+	height: calc(100vh - 100px);
+}
+
+/*////////////////////////////////////////////////////////// TODO: 375px ~ App.vue////////////////////////////////////////////////////////// */
 @media screen and (min-width: 375px) {
 }
 
+/*////////////////////////////////////////////////////////// TODO: 768px ~ App.vue////////////////////////////////////////////////////////// */
 @media screen and (min-width: 768px) {
 	.App.blur #content > * {
 		filter: blur(0) brightness(1);

@@ -75,7 +75,10 @@ nav .logo a:hover svg polygon {
 
 	transition: all 0.3s ease-out;
 }
-
+.nav_StyledLinks button {
+	background: none;
+	border: none;
+}
 .nav_StyledLinks.opened {
 	animation: slideInRight 0.15s ease-out forwards;
 }
@@ -104,7 +107,7 @@ nav .logo a:hover svg polygon {
 	animation: fadeInDown 0.7s ease forwards var(--delay);
 }
 
-.nav_StyledLinks ol li a::before {
+.nav_StyledLinks ol li button::before {
 	content: "0" counter(item) ".";
 	color: var(--green);
 	margin-right: 5px;
@@ -133,13 +136,13 @@ nav .logo a:hover svg polygon {
 	font-size: var(--fz-s);
 }
 
-.nav_StyledLinks ol li a {
+.nav_StyledLinks ol li button {
 	color: var(--lightest-slate);
 	transition: var(--transition);
 	padding: 10px;
 }
-.nav_StyledLinks ol li a:hover,
-.nav_StyledLinks ol li a:focus {
+.nav_StyledLinks ol li button:hover,
+.nav_StyledLinks ol li button:focus {
 	color: var(--green);
 	transition: var(--transition);
 }
@@ -185,7 +188,7 @@ nav .logo a:hover svg polygon {
 		margin: 0 0 0 8px;
 		font-size: var(--fz-s);
 	}
-	.nav_StyledLinks ol li a::before {
+	.nav_StyledLinks ol li button::before {
 		position: relative;
 		top: unset;
 		left: unset;

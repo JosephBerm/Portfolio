@@ -1,0 +1,201 @@
+nav.navbar {
+	position: sticky;
+	top: 0;
+	left: 0;
+	right: 0;
+	min-height: var(--nav-height);
+	padding: 0 50px 0 5%;
+	background-color: rgba(10, 25, 47, 0.85);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	transform: translateY(0);
+	backdrop-filter: blur(10px);
+	transition: var(--transition);
+	font-family: var(--font-mono);
+	z-index: 1000;
+	box-sizing: border-box;
+}
+
+nav.navbar.scrolled {
+	height: var(--nav-scroll-height);
+	box-shadow: 0 10px 30px -10px var(--nav-shadow);
+	min-height: var(--nav-scroll-height);
+}
+
+nav.navbar.hidden {
+	transform: translateY(-100%);
+	min-height: 0;
+}
+
+nav .burger-button {
+	cursor: pointer;
+	font-size: 2.5rem;
+	z-index: 100;
+	color: var(--green);
+	width: 50px;
+	height: 50px;
+	box-sizing: border-box;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+nav .burger-button:hover {
+	border: 3px dashed var(--green);
+	border-radius: 5px;
+}
+
+nav .logo a {
+	width: 37px;
+	opacity: 0;
+	animation: fade-in 0.5s ease-out 0.15s forwards;
+}
+
+nav .logo a svg polygon {
+	fill-opacity: 0;
+	transition: var(--transition);
+}
+nav .logo a:hover svg polygon {
+	fill-opacity: 1;
+}
+
+.nav_StyledLinks {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	position: fixed;
+	right: 0;
+	top: 0;
+	height: 100vh;
+	width: 75%;
+	background: #112240;
+	transform: translateX(100%);
+	visibility: hidden;
+
+	transition: all 0.3s ease-out;
+}
+
+.nav_StyledLinks.opened {
+	animation: slideInRight 0.15s ease-out forwards;
+}
+
+.nav_StyledLinks.closed {
+	animation: slideOutRight 0.15s ease-out forwards;
+}
+
+.nav_StyledLinks ol {
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	font-weight: 400;
+	padding: 0;
+}
+
+.nav_StyledLinks ol li {
+	position: relative;
+	margin: 20px 0;
+	font-size: var(--fz-lg);
+	counter-increment: item 1;
+	opacity: 0;
+	--delay-multiplier: 0.15;
+	--delay: calc((var(--index) - 1) * var(--delay-multiplier) * 1s);
+	animation: fadeInDown 0.7s ease forwards var(--delay);
+}
+
+.nav_StyledLinks ol li a::before {
+	content: "0" counter(item) ".";
+	color: var(--green);
+	margin-right: 5px;
+	font-size: var(--fz-xs);
+	text-align: right;
+	position: absolute;
+	top: -15px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.nav_StyledLinks .button-container {
+	opacity: 0;
+	--delay-multiplier: 0.15;
+	animation: fadeInDown 0.7s ease forwards
+		calc(var(--index) * var(--delay-multiplier) * 1s);
+}
+
+.nav_StyledLinks .button-container .button {
+	color: var(--green);
+	background-color: transparent;
+	border: 1px solid var(--green);
+	border-radius: var(--border-radius);
+	padding: 1rem 1.5rem;
+	transition: var(--transition);
+	font-size: var(--fz-s);
+}
+
+.nav_StyledLinks ol li a {
+	color: var(--lightest-slate);
+	transition: var(--transition);
+	padding: 10px;
+}
+.nav_StyledLinks ol li a:hover,
+.nav_StyledLinks ol li a:focus {
+	color: var(--green);
+	transition: var(--transition);
+}
+
+.nav_StyledLinks .button-container .button:hover {
+	background-color: var(--green-tint);
+}
+
+/* TODO: 375px ~ NavBar */
+@media screen and (min-width: 375px) {
+}
+
+/* TODO: 768px ~ NavBar */
+@media screen and (min-width: 768px) {
+	nav.navbar {
+		padding: 0 50px;
+	}
+	nav .burger-button {
+		display: none !important;
+	}
+
+	.nav_StyledLinks {
+		flex-direction: row;
+		justify-content: space-evenly;
+		align-items: center;
+		position: relative;
+		inset: unset;
+		height: auto;
+		width: auto;
+		background: none;
+		transform: none;
+		visibility: visible;
+	}
+	.nav_StyledLinks.closed,
+	.nav_StyledLinks.opened {
+		animation: none;
+	}
+
+	.nav_StyledLinks ol {
+		flex-direction: row;
+	}
+	.nav_StyledLinks ol li {
+		margin: 0 0 0 8px;
+		font-size: var(--fz-s);
+	}
+	.nav_StyledLinks ol li a::before {
+		position: relative;
+		top: unset;
+		left: unset;
+		transform: unset;
+		font-size: var(--fz-xxs);
+	}
+
+	.nav_StyledLinks .button-container {
+	}
+	.nav_StyledLinks .button-container .button {
+		margin-left: 15px;
+	}
+}

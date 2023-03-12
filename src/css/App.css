@@ -150,7 +150,7 @@ svg {
 }
 
 section {
-	padding: 0 150px;
+	padding: 0 10%;
 }
 .hero_section {
 	height: calc(100vh - 100px);
@@ -167,6 +167,9 @@ section {
 		transition: none;
 		pointer-events: all;
 		user-select: auto;
+	}
+	section {
+		padding: 0 150px;
 	}
 }
 

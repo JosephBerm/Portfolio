@@ -1,0 +1,139 @@
+/* Monospace */
+@font-face {
+	font-family: "STechMono";
+	src: url("Fonts/Monospace/STechMono/sharetechmono-regular-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Monospace/STechMono/sharetechmono-regular-webfont.woff")
+			format("woff");
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "firaCode";
+	src: url("Fonts/Monospace/FiraCode/firacode-regular-webfont.woff2") format("woff2"),
+		url("Fonts/Monospace/FiraCode/firacode-regular-webfont.woff") format("woff");
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "firaCode";
+	src: url("Fonts/Monospace/FiraCode/firacode-bold-webfont.woff2") format("woff2"),
+		url("Fonts/Monospace/FiraCode/firacode-bold-webfont.woff") format("woff");
+	font-weight: 700;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "firaCode";
+	src: url("Fonts/Monospace/FiraCode/firacode-light-webfont.woff2") format("woff2"),
+		url("Fonts/Monospace/FiraCode/firacode-light-webfont.woff") format("woff");
+	font-weight: 300;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "firaCode";
+	src: url("Fonts/Monospace/FiraCode/firacode-medium-webfont.woff2") format("woff2"),
+		url("Fonts/Monospace/FiraCode/firacode-medium-webfont.woff") format("woff");
+	font-weight: 500;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "firaCode";
+	src: url("Fonts/Monospace/FiraCode/firacode-retina-webfont.woff2") format("woff2"),
+		url("Fonts/Monospace/FiraCode/firacode-retina-webfont.woff") format("woff");
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "firaCode";
+	src: url("Fonts/Monospace/FiraCode/firacode-semibold-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Monospace/FiraCode/firacode-semibold-webfont.woff") format("woff");
+	font-weight: 600;
+	font-style: normal;
+}
+
+/* sans-serif */
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-black-webfont.woff2") format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-black-webfont.woff") format("woff");
+	font-weight: 900;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-bold-webfont.woff2") format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-bold-webfont.woff") format("woff");
+	font-weight: bold;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-extrabold-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-extrabold-webfont.woff") format("woff");
+	font-weight: 800;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-extralight-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-extralight-webfont.woff") format("woff");
+	font-weight: 200;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-light-webfont.woff2") format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-light-webfont.woff") format("woff");
+	font-weight: 300;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-medium-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-medium-webfont.woff") format("woff");
+	font-weight: 200;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-regular-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-regular-webfont.woff") format("woff");
+	font-weight: 300;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraSans";
+	src: url("Fonts/Sans-Serif/Fira_Sans/firasans-semibold-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Sans-Serif/Fira_Sans/firasans-semibold-webfont.woff") format("woff");
+	font-weight: 300;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Golos";
+	src: url("Fonts/Sans-Serif/Golos/golostext-variablefont_wght-webfont.woff2")
+			format("woff2"),
+		url("Fonts/Sans-Serif/Golos/golostext-variablefont_wght-webfont.woff")
+			format("woff");
+	font-weight: normal;
+	font-style: normal;
+}

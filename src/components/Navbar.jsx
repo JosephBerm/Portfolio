@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import classNames from "classnames";
 import Logo from "../assets/Logo";
+import router from "./../services/router";
 
-function Navbar({ scrolledRef, sections }) {
+function Navbar({ scrolledRef }) {
 	const [navClass, setNavClass] = useState("navbar");
 	const [currentScrollPos, setCurrentScrollPos] = useState(0);
 	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
@@ -29,25 +30,7 @@ function Navbar({ scrolledRef, sections }) {
 		};
 	}, [currentScrollPos, scrolledRef]);
 
-	const routes = [
-		{
-			name: "About",
-			location: "about",
-		},
-		{
-			name: "Experience",
-			location: "jobs",
-		},
-		{
-			name: "Work",
-			location: "projects",
-		},
-		{
-			name: "Contact",
-			location: "contact",
-		},
-	];
-	const handleOpenNavBar = () => {
+	const toggleNavbar = () => {
 		if (navStyleClassName.includes("opened")) {
 			setNavStyleClassName("nav_StyledLinks closed");
 		} else {
@@ -56,12 +39,10 @@ function Navbar({ scrolledRef, sections }) {
 		scrolledRef.current.classList.toggle("blur");
 	};
 
-	const handleLinkClick = (e, location) => {
+	const routeAndClose = (e, location) => {
 		e.preventDefault();
-		sections[location].current.scrollIntoView({
-			behavior: "smooth",
-			block: "start",
-		});
+		router.changeRoute(location);
+		toggleNavbar();
 	};
 
 	return (
@@ -71,22 +52,24 @@ function Navbar({ scrolledRef, sections }) {
 					<Logo />
 				</a>
 			</div>
-			<div className='burger-button' onClick={() => handleOpenNavBar()}>
+			<div className='burger-button' onClick={() => toggleNavbar()}>
 				<i className='fa-solid fa-bars' />
 			</div>
 			<div className={navStyleClassName}>
 				<ol>
-					{routes.map((route, index) => (
+					{router.routes.map((route, index) => (
 						<li key={index} style={{ "--index": index + 1 }}>
 							<button
 								className='clickable'
-								onClick={(e) => handleLinkClick(e, route.location)}>
+								onClick={(e) => routeAndClose(e, route.location)}>
 								{route.name}
 							</button>
 						</li>
 					))}
 				</ol>
-				<div className='button-container' style={{ "--index": routes.length }}>
+				<div
+					className='button-container'
+					style={{ "--index": router.routes.length }}>
 					<a className='button' target='_blank' href='/resume.pdf'>
 						Resume
 					</a>

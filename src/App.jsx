@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import LoadingLogo from "./components/LoadingLogo";
 import Navbar from "./components/Navbar";
+import router from "./services/router";
 import "../src/css/App.css";
 
 function App() {
 	const [isLoading, setIsLoading] = useState(true);
-	const [sectionRefs, setSectionRefs] = useState(null);
 	const appRef = useRef(null);
 	const aboutRef = useRef(null);
 	const jobsRef = useRef(null);
@@ -23,7 +23,7 @@ function App() {
 			projects: projectsRef,
 			contact: contactRef,
 		};
-		setSectionRefs(sections);
+		router.linkRoutesTo(sections);
 	}, [isLoading]);
 
 	if (isLoading) {
@@ -35,9 +35,7 @@ function App() {
 	}
 	return (
 		<div className='App' ref={appRef}>
-			{appRef && sectionRefs && (
-				<Navbar scrolledRef={appRef} sections={sectionRefs} />
-			)}
+			{appRef && <Navbar scrolledRef={appRef} />}
 			<div id='content'>
 				<section className='hero_section'>
 					<div className='large-box'>Hello World</div>

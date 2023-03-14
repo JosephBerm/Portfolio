@@ -1,7 +1,6 @@
-Recently Completed:
+# App.css
 
-- Navbar links and resume button styling.
+# Navbar
 
-Next:
-
-- When hovering mouse over the `<a />` of the logo svg, the background of the polygon should change to the var `--green-tint`
+- [x] Create Responsive Navbar.
+- [ ] When user scrolls down one time and then back up, the height readjusts itself twice because the className is changed twice.

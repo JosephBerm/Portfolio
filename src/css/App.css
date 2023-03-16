@@ -3,11 +3,13 @@
 @import "./Fonts.css";
 @import "./Animate.css";
 @import "./Navbar.css";
+@import "./HeroSection.css";
 
 :root {
 	--dark-navy: #020c1b;
 	--navy: #0a192f;
 	--light-navy: #112240;
+	--lightest-navy: #233554;
 	--slate: #8892b0;
 	--nav-height: 100px;
 	--lightest-slate: #ccd6f6;
@@ -23,6 +25,8 @@
 	--fz-lg: 1.8rem;
 	--fz-xl: 2rem;
 	--fz-xxl: 2.2rem;
+	--fz-xxl: 2.5px;
+	--fz-heading: 32px;
 	--border-radius: 4px;
 	--nav-scroll-height: 70px;
 	--nav-shadow: rgba(2, 12, 27, 0.7);
@@ -40,6 +44,17 @@ body {
 	color: var(--slate);
 	background-color: var(--navy);
 	font-family: var(--font-sans);
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	margin: 0px 0px 10px;
+	font-weight: 600;
+	color: var(--lightest-slate);
+	line-height: 1.1;
 }
 
 a {
@@ -151,9 +166,41 @@ svg {
 
 section {
 	padding: 0 10%;
+	display: flex;
+	flex-direction: column;
 }
-.hero_section {
-	height: calc(100vh - 100px);
+
+section .section-header {
+}
+section:not(:first-child) {
+	counter-increment: section 1;
+}
+.section-header {
+	font-size: clamp(20px, 5vw, var(--fz-heading));
+	margin: 10px 0px 40px;
+	display: flex;
+	align-items: center;
+	position: relative;
+	white-space: nowrap;
+}
+.section-header::before {
+	position: relative;
+	bottom: -4px;
+	content: "0" counter(section) ".";
+	color: var(--green);
+	display: inline-block;
+	margin-right: 5px;
+	font-weight: 400;
+	font-family: var(--font-mono);
+	font-size: clamp(var(--fz-s), 3vw, var(--fz-xl));
+}
+.section-header::after {
+	content: "";
+	display: block;
+	height: 1px;
+	width: 100%;
+	background-color: var(--lightest-navy);
+	margin-left: 10px;
 }
 
 /*////////////////////////////////////////////////////////// TODO: 375px ~ App.vue////////////////////////////////////////////////////////// */

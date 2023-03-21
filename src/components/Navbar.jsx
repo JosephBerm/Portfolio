@@ -39,10 +39,11 @@ function Navbar({ scrolledRef }) {
 		scrolledRef.current.classList.toggle("blur");
 	};
 
-	const routeAndClose = (e, location) => {
-		e.preventDefault();
+	const routeAndClose = (location) => {
 		router.changeRoute(location);
-		toggleNavbar();
+		if (navStyleClassName.includes("opened")) {
+			toggleNavbar();
+		}
 	};
 
 	return (
@@ -61,7 +62,7 @@ function Navbar({ scrolledRef }) {
 						<li key={index} style={{ "--index": index + 1 }}>
 							<button
 								className='clickable'
-								onClick={(e) => routeAndClose(e, route.location)}>
+								onClick={() => routeAndClose(route.location)}>
 								{route.name}
 							</button>
 						</li>

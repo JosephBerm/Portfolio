@@ -4,6 +4,10 @@
 @import "./Animate.css";
 @import "./Navbar.css";
 @import "./HeroSection.css";
+@import "./AboutSection.css";
+@import "./JobsSection.css";
+@import "./ProjectsSection.css";
+@import "./ContactSection.css";
 
 :root {
 	--dark-navy: #020c1b;

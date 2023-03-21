@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import LoadingLogo from "./components/LoadingLogo";
 import Navbar from "./components/Navbar";
 import router from "./services/router";
-import "../src/css/App.css";
 import Introduction from "./components/Introduction";
 import AboutMe from "./components/AboutMe";
 import Experience from "./components/Experience";
 import Projects from "./components/Projects";
 import ContactMe from "./components/ContactMe";
+import "../src/css/App.css";
 
 function App() {
 	const [isLoading, setIsLoading] = useState(true);

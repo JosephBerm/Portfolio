@@ -4,7 +4,7 @@ nav.navbar {
 	left: 0;
 	right: 0;
 	min-height: var(--nav-height);
-	padding: 0 25px 0 5%;
+	padding: 0 25px 0 7%;
 	background-color: rgba(10, 25, 47, 0.85);
 	display: flex;
 	justify-content: space-between;

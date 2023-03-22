@@ -1,16 +1,35 @@
-.hero_section {
+section.hero_section {
+	min-height: 100vh;
+	align-items: flex-start;
+	padding: 0 25px 0 0;
 }
 
 .hero_section .intro {
 }
 
 .hero_section .intro h1 {
-	font-size: 2rem;
+	font-size: 1.6rem;
+	color: var(--green);
+	font-family: var(--font-mono);
+	font-size: clamp(var(--fz-s), 5vw, var(--fz-md));
+	font-weight: 400;
 }
 .hero_section .intro h2 {
+	font-weight: 600;
+	color: var(--lightest-slate);
+	line-height: 1.1;
 }
 .hero_section .intro h3 {
+	font-weight: 600;
+	margin-top: 5px;
+	color: var(--slate);
+	line-height: 0.9;
 }
 .hero_section .intro p {
 	font-size: 1.6rem;
+}
+
+.big-heading {
+	margin: 0px;
+	font-size: clamp(35px, 8vw, 80px);
 }

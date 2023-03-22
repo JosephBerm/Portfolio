@@ -42,7 +42,7 @@ function App() {
 		<div className='App' ref={appRef}>
 			{appRef && <Navbar scrolledRef={appRef} />}
 			<div id='content'>
-				<main>
+				<main className='fillHeight'>
 					<Introduction />
 					<AboutMe aboutRef={aboutRef} />
 					<Experience jobsRef={jobsRef} />

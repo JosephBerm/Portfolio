@@ -1,8 +1,8 @@
-import React from "react";
-import myPortfolio from "./../services/portfolioInformation";
+import React, { useContext } from "react";
+import UserContext from "../context/portfolioContext";
 
 function Experience({ jobsRef }) {
-	const { workExperience } = myPortfolio;
+	const { workExperience } = useContext(UserContext);
 	return (
 		<section ref={jobsRef} id='jobs' className='jobs_section'>
 			<h2 className='section-header'>Where I've Worked</h2>
@@ -21,7 +21,7 @@ function Experience({ jobsRef }) {
 					<div className='work-summary'>
 						<div className='title'>selected.titleOfPosition</div>
 						<div className='timeline'>selected.timeline</div>
-						<div className='highlights'>selected.highlights.map(()) =></div>
+						<div className='highlights'>selected.highlights.map(()) </div>
 					</div>
 				</div>
 			</div>

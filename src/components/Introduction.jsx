@@ -1,20 +1,16 @@
-import React from "react";
+import React, { useContext } from "react";
+import UserContext from "../context/portfolioContext";
 
 function Introduction(props) {
+	const { userProfile } = useContext(UserContext);
 	return (
 		<section className='hero_section'>
 			<div className='intro'>
 				<h1>Hi, my name is</h1>
-				<h2 className='big-heading'>Joseph Bermudez.</h2>
+				<h2 className='big-heading'>{userProfile.name}.</h2>
 				<h3 className='big-heading'>I build things for the web.</h3>
-				<p>
-					Lorem ipsum dolor, sit amet consectetur adipisicing elit. Modi alias, qui
-					eius neque obcaecati exercitationem officiis, adipisci omnis ullam libero
-					maxime sed quidem blanditiis, deleniti doloremque eveniet. Nemo doloribus
-					ex sapiente. Libero eos eius quisquam. Veritatis iste error, amet nam
-					magnam vero tenetur repellat at, quam alias dolor iusto.
-				</p>
-				<button>Contact Me</button>
+				<p>{userProfile.objective}</p>
+				<button className='contact-button'>Contact Me</button>
 			</div>
 		</section>
 	);

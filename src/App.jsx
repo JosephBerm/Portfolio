@@ -7,6 +7,8 @@ import AboutMe from "./components/AboutMe";
 import Experience from "./components/Experience";
 import Projects from "./components/Projects";
 import ContactMe from "./components/ContactMe";
+import PortfolioContext from "./context/portfolioContext";
+import myPortfolio from "./services/portfolioInformation";
 import "../src/css/App.css";
 
 function App() {
@@ -38,18 +40,21 @@ function App() {
 			</div>
 		);
 	}
+
 	return (
 		<div className='App' ref={appRef}>
-			{appRef && <Navbar scrolledRef={appRef} />}
-			<div id='content'>
-				<main className='fillHeight'>
-					<Introduction />
-					<AboutMe aboutRef={aboutRef} />
-					<Experience jobsRef={jobsRef} />
-					<Projects projectsRef={projectsRef} />
-					<ContactMe contactRef={contactRef} />
-				</main>
-			</div>
+			<PortfolioContext.Provider value={{ ...myPortfolio }}>
+				{appRef && <Navbar scrolledRef={appRef} />}
+				<div id='content'>
+					<main className='fillHeight'>
+						<Introduction />
+						<AboutMe aboutRef={aboutRef} />
+						<Experience jobsRef={jobsRef} />
+						<Projects projectsRef={projectsRef} />
+						<ContactMe contactRef={contactRef} />
+					</main>
+				</div>
+			</PortfolioContext.Provider>
 		</div>
 	);
 }

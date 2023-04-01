@@ -20,10 +20,12 @@ function App() {
 	const contactRef = useRef(null);
 
 	useEffect(() => {
-		setTimeout(() => {
-			setIsLoading(false);
-		}, 3100);
-
+		if (isLoading) {
+			setTimeout(() => {
+				setIsLoading(false);
+			}, 3100);
+			return;
+		}
 		const sections = {
 			about: aboutRef,
 			jobs: jobsRef,
@@ -31,7 +33,7 @@ function App() {
 			contact: contactRef,
 		};
 		router.linkRoutesTo(sections);
-	}, []);
+	}, [isLoading]);
 
 	if (isLoading) {
 		return (

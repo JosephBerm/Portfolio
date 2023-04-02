@@ -214,6 +214,16 @@ section .section-header {
 }
 section:not(:first-child) {
 	counter-increment: section 1;
+	/* temp putting line below to prevent lint error */
+	opacity: 0;
+	transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 20, 0, 1);
+}
+
+section.activated {
+	opacity: 1;
+	transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+	transition: opacity 0.5s cubic-bezier(0.645, 0.045, 0.355, 1) 0.2s,
+		transform 0.5s cubic-bezier(0.645, 0.045, 0.355, 1) 0.2s;
 }
 .section-header {
 	font-size: clamp(20px, 5vw, var(--fz-heading));

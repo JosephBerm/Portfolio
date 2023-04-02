@@ -9,10 +9,12 @@ import Projects from "./components/Projects";
 import ContactMe from "./components/ContactMe";
 import PortfolioContext from "./context/portfolioContext";
 import myPortfolio from "./services/portfolioInformation";
+import ScrollService from "./services/scrollAnimationService";
 import "../src/css/App.css";
 
 function App() {
 	const [isLoading, setIsLoading] = useState(true);
+	const [scrollService, setScrollService] = useState();
 	const appRef = useRef(null);
 	const aboutRef = useRef(null);
 	const jobsRef = useRef(null);
@@ -33,6 +35,9 @@ function App() {
 			contact: contactRef,
 		};
 		router.linkRoutesTo(sections);
+		setScrollService(
+			new ScrollService([aboutRef, jobsRef, projectsRef, contactRef], appRef)
+		);
 	}, [isLoading]);
 
 	if (isLoading) {
@@ -43,10 +48,14 @@ function App() {
 		);
 	}
 
+	const isNavReady = () => {
+		return appRef && scrollService;
+	};
+
 	return (
 		<div className='App' ref={appRef}>
 			<PortfolioContext.Provider value={{ ...myPortfolio }}>
-				{appRef && <Navbar scrolledRef={appRef} />}
+				{isNavReady() && <Navbar scrolledRef={appRef} scrollable={scrollService} />}
 				<div id='content'>
 					<main className='fillHeight'>
 						<Introduction />

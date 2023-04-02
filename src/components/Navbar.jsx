@@ -1,34 +1,16 @@
 import React, { useState, useEffect } from "react";
-import classNames from "classnames";
 import Logo from "../assets/Logo";
 import router from "./../services/router";
+import ScrollService from "../services/scrollAnimationService";
 
-function Navbar({ scrolledRef }) {
+function Navbar({ scrolledRef, scrollable }) {
 	const [navClass, setNavClass] = useState("navbar");
 	const [currentScrollPos, setCurrentScrollPos] = useState(0);
 	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
 
 	useEffect(() => {
-		const handleScroll = () => {
-			let currentPos = scrolledRef.current.scrollTop;
-			setCurrentScrollPos(currentPos);
-			const prevScrollPos = currentScrollPos;
-
-			let visible = prevScrollPos > currentPos || currentPos === 0;
-			const cn = classNames("navbar", {
-				scrolled: currentPos > 0,
-				hidden: !visible,
-			});
-
-			setNavClass(cn);
-		};
-
-		const currentRef = scrolledRef.current;
-		currentRef.addEventListener("scroll", handleScroll);
-		return () => {
-			currentRef.removeEventListener("scroll", handleScroll);
-		};
-	}, [currentScrollPos, scrolledRef]);
+		scrollable.setupScrollEvents(currentScrollPos, setCurrentScrollPos, setNavClass);
+	}, [currentScrollPos, scrollable]);
 
 	const toggleNavbar = () => {
 		if (navStyleClassName.includes("opened")) {

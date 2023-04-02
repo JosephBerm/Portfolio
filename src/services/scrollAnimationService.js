@@ -1,15 +1,41 @@
+import classNames from "classnames";
+
 class ScrollService {
-	constructor(sections) {
+	onScroll = null;
+	sections = null;
+	scrolledRef = null;
+
+	constructor(sections, scrolledRef) {
 		this.sections = sections;
+		this.scrolledRef = scrolledRef;
 	}
 
 	getSections = () => {
 		return this.sections;
 	};
+	setupScrollEvents = (currentScrollPos, setCurrentScrollPos, setNavClass) => {
+		this.onScroll = () => {
+			this.animateIntoView();
+			let currentPos = this.scrolledRef.current.scrollTop;
+			setCurrentScrollPos(currentPos);
+			const prevScrollPos = currentScrollPos;
 
-	handleScroll = () => {
+			let visible = prevScrollPos > currentPos || currentPos === 0;
+			const cn = classNames("navbar", {
+				scrolled: currentPos > 0,
+				hidden: !visible,
+			});
+
+			setNavClass(cn);
+		};
+
+		this.setupScrollEvent();
+		this.cleanScrollEvent();
+	};
+
+	animateIntoView = () => {
 		const windowHeight = window.innerHeight;
-		const scrollTop = this.scrolledRef.current.scrollTop - 150;
+		const scrollTop = this.scrolledRef.current.scrollTop - 175;
 		// Loop through each section and check if it's visible
 		this.sections.forEach((section) => {
 			const sectionTop = section.current.offsetTop;
@@ -26,22 +52,14 @@ class ScrollService {
 		});
 	};
 
-	linkMain = (scrolledRef) => {
-		this.scrolledRef = scrolledRef;
-		//this might work for creating the events outside the useEffect so it happens once?
-		this.setupScrollEvent();
-		return this.cleanScrollEvent();
-	};
-
 	setupScrollEvent = () => {
 		if (!this.scrolledRef.current) return;
-		console.log("after return HANDLER", this.scrolledRef.current);
-		this.scrolledRef.current.addEventListener("scroll", this.handleScroll);
+		this.scrolledRef.current.addEventListener("scroll", this.onScroll);
 	};
 
 	cleanScrollEvent = () => {
 		return () => {
-			this.scrolledRef.removeEventListener("scroll", this.handleScroll);
+			this.scrolledRef.removeEventListener("scroll", this.onScroll);
 		};
 	};
 }

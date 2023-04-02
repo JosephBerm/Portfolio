@@ -41,3 +41,11 @@ section.hero_section {
 	margin-top: 25px;
 	height: 50px;
 }
+
+section.hero_section .fadeup-enter {
+	opacity: 0;
+	transform: translateY(35%);
+}
+section.hero_section .fadeup-enter.active {
+	animation: fadeInUp 0.6s calc(var(--index) * 0.2s) forwards;
+}

@@ -8,6 +8,9 @@ section.hero_section {
 	display: flex;
 	flex-direction: column;
 }
+/* .hero_section .intro > * {
+	padding-right: calc(var(--scrollbar-width) - 2px);
+} */
 
 .hero_section .intro h1 {
 	font-size: 1.6rem;

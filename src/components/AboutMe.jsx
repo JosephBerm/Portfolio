@@ -1,6 +1,9 @@
 import React from "react";
 
 function AboutMe({ aboutRef }) {
+	// useEffect(() =>
+	// {
+	// }, []);
 	return (
 		<section ref={aboutRef} id='about' className='about_section'>
 			<h2 className='section-header'>About Me</h2>

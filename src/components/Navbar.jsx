@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Logo from "../assets/Logo";
 import router from "./../services/router";
-import ScrollService from "../services/scrollAnimationService";
 
 function Navbar({ scrolledRef, scrollable }) {
 	const [navClass, setNavClass] = useState("navbar");

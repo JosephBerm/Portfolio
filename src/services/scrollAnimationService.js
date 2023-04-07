@@ -35,7 +35,8 @@ class ScrollService {
 
 	animateIntoView = () => {
 		const windowHeight = window.innerHeight;
-		const scrollTop = this.scrolledRef.current.scrollTop - 175;
+		const offset = 300;
+		const scrollTop = this.scrolledRef.current.scrollTop - offset;
 		// Loop through each section and check if it's visible
 		this.sections.forEach((section) => {
 			const sectionTop = section.current.offsetTop;

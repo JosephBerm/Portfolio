@@ -1,42 +1,46 @@
 section.hero_section {
-	min-height: 100vh;
+	display: flex;
+	justify-content: center;
 	align-items: flex-start;
+	min-height: 100vh;
+	height: auto;
+	padding: 0;
+	padding-top: var(--nav-height);
 }
 
-.hero_section .intro {
-	width: 100%;
-	display: flex;
-	flex-direction: column;
-}
-/* .hero_section .intro > * {
+/* .hero_section > * {
 	padding-right: calc(var(--scrollbar-width) - 2px);
 } */
 
-.hero_section .intro h1 {
-	font-size: 1.6rem;
+.hero_section .greeting h1 {
 	color: var(--green);
 	font-family: var(--font-mono);
 	font-size: clamp(var(--fz-s), 5vw, var(--fz-md));
 	font-weight: 400;
+	margin: 0px 0px 20px 2px;
 }
-.hero_section .intro h2 {
+.hero_section .name h2 {
 	font-weight: 600;
 	color: var(--lightest-slate);
 	line-height: 1.1;
 }
-.hero_section .intro h3 {
+.hero_section .myJob h3 {
 	font-weight: 600;
 	margin-top: 5px;
 	color: var(--slate);
 	line-height: 0.9;
 }
-.hero_section .intro p {
+.hero_section .objective p {
 	font-size: 1.6rem;
+}
+.hero_section .contactMe,
+.hero_section .contact-button {
+	width: 100%;
 }
 
 .big-heading {
 	margin: 0px;
-	font-size: clamp(35px, 8vw, 80px);
+	font-size: clamp(34px, 8vw, 80px);
 }
 
 .contact-button {
@@ -47,8 +51,24 @@ section.hero_section {
 
 section.hero_section .fadeup-enter {
 	opacity: 0;
-	transform: translateY(35%);
+	transform: translateY(15%);
 }
 section.hero_section .fadeup-enter.active {
-	animation: fadeInUp 0.6s calc(var(--index) * 0.2s) forwards;
+	opacity: 0.01;
+	animation: fadeInUp 0.3s calc(var(--index) * 0.1s) forwards;
+}
+
+/*////////////////////////////////////////////////////////// TODO: 375px ~ HeroSection.vue////////////////////////////////////////////////////////// */
+@media screen and (min-width: 480px) {
+}
+
+/*////////////////////////////////////////////////////////// TODO: 768px ~ HeroSection.vue////////////////////////////////////////////////////////// */
+@media screen and (min-width: 768px) {
+}
+
+/*////////////////////////////////////////////////////////// TODO: 1024px ~ HeroSection.vue////////////////////////////////////////////////////////// */
+@media screen and (min-width: 1024px) {
+	section.hero_section {
+		padding: 0;
+	}
 }

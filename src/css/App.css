@@ -22,6 +22,7 @@
 	--green-tint: rgba(100, 255, 218, 0.1);
 	--lightest-slate: #ccd6f6;
 	--transition: all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1);
+	--easing: cubic-bezier(0.645, 0.045, 0.355, 1);
 	--fz-xxs: 1.2rem;
 	--fz-xs: 1.3rem;
 	--fz-s: 1.4rem;
@@ -98,6 +99,25 @@ h6 {
 	font-weight: 600;
 	color: var(--lightest-slate);
 	line-height: 1.1;
+}
+h2 {
+	display: block;
+	font-size: 1.5em;
+	margin-block-start: 0.83em;
+	margin-block-end: 0.83em;
+	margin-inline-start: 0px;
+	margin-inline-end: 0px;
+	font-weight: bold;
+}
+
+h3 {
+	display: block;
+	font-size: 1.17em;
+	margin-block-start: 1em;
+	margin-block-end: 1em;
+	margin-inline-start: 0px;
+	margin-inline-end: 0px;
+	font-weight: bold;
 }
 
 a {
@@ -210,9 +230,10 @@ section {
 	margin: 0px auto;
 	display: flex;
 	flex-direction: column;
+	padding: 60px 0px;
 }
-section .section-header {
-}
+/* section .section-header {
+} */
 section:not(:first-child) {
 	counter-increment: section 1;
 	/* temp putting line below to prevent lint error */
@@ -276,12 +297,17 @@ section.activated {
 		user-select: auto;
 	}
 	section {
-		padding: 0 150px;
+		padding: 80px 0px;
 	}
 }
 
 @media screen and (min-width: 1024px) {
 	main.fillHeight {
 		padding: 0px 150px;
+	}
+	section {
+		margin: 0px auto;
+		padding: 100px 0px;
+		max-width: 1000px;
 	}
 }

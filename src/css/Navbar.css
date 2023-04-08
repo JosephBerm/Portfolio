@@ -1,31 +1,45 @@
-nav.navbar {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	min-height: var(--nav-height);
-	padding: 0 25px 0 7%;
-	background-color: rgba(10, 25, 47, 0.85);
+header.header {
 	display: flex;
+	-webkit-box-pack: justify;
 	justify-content: space-between;
+	-webkit-box-align: center;
 	align-items: center;
-	transform: translateY(0);
+	position: fixed;
+	top: 0px;
+	z-index: 11;
+	padding: 0px 25px;
+	width: 100%;
+	height: var(--nav-height);
+	background-color: rgba(10, 25, 47, 0.85);
 	backdrop-filter: blur(10px);
 	transition: var(--transition);
-	font-family: var(--font-mono);
-	z-index: 1000;
-	box-sizing: border-box;
+	filter: none !important;
+	pointer-events: auto !important;
+	user-select: auto !important;
 }
-
-nav.navbar.scrolled {
+header.header.scrolled {
 	height: var(--nav-scroll-height);
 	box-shadow: 0 10px 30px -10px var(--nav-shadow);
 	min-height: var(--nav-scroll-height);
 }
 
-nav.navbar.hidden {
-	transform: translateY(-100%);
-	min-height: 0;
+header.header.hidden {
+	height: var(--nav-scroll-height);
+	transform: translateY(calc(var(--nav-scroll-height) * -1));
+	box-shadow: 0 10px 30px -10px var(--navy-shadow);
+}
+
+nav.navbar {
+	display: flex;
+	-webkit-box-pack: justify;
+	justify-content: space-between;
+	-webkit-box-align: center;
+	align-items: center;
+	position: relative;
+	width: 100%;
+	color: var(--lightest-slate);
+	font-family: var(--font-mono);
+	z-index: 12;
 }
 
 nav .burger-button {
@@ -157,8 +171,8 @@ nav .logo a:hover svg polygon {
 
 /* TODO: 768px ~ NavBar */
 @media screen and (min-width: 768px) {
-	nav.navbar {
-		padding: 0 50px;
+	header.header {
+		padding: 0px 40px;
 	}
 	nav .burger-button {
 		display: none !important;
@@ -200,5 +214,13 @@ nav .logo a:hover svg polygon {
 	}
 	.nav_StyledLinks .button-container .button {
 		margin-left: 15px;
+	}
+}
+
+/*////////////////////////////////////////////////////////// TODO: 1024px ~ NavBar.vue
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 1024px) {
+	header.header {
+		padding: 0px 50px;
 	}
 }

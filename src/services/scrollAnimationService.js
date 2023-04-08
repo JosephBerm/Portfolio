@@ -21,7 +21,7 @@ class ScrollService {
 			const prevScrollPos = currentScrollPos;
 
 			let visible = prevScrollPos > currentPos || currentPos === 0;
-			const cn = classNames("navbar", {
+			const cn = classNames("header", {
 				scrolled: currentPos > 0,
 				hidden: !visible,
 			});

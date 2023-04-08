@@ -3,7 +3,7 @@ import Logo from "../assets/Logo";
 import router from "./../services/router";
 
 function Navbar({ scrolledRef, scrollable }) {
-	const [navClass, setNavClass] = useState("navbar");
+	const [navClass, setNavClass] = useState("header");
 	const [currentScrollPos, setCurrentScrollPos] = useState(0);
 	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
 
@@ -28,36 +28,38 @@ function Navbar({ scrolledRef, scrollable }) {
 	};
 
 	return (
-		<nav className={navClass}>
-			<div className='logo'>
-				<a href='/'>
-					<Logo />
-				</a>
-			</div>
-			<div className='burger-button' onClick={() => toggleNavbar()}>
-				<i className='fa-solid fa-bars' />
-			</div>
-			<div className={navStyleClassName}>
-				<ol>
-					{router.routes.map((route, index) => (
-						<li key={index} style={{ "--index": index + 1 }}>
-							<button
-								className='clickable'
-								onClick={() => routeAndClose(route.location)}>
-								{route.name}
-							</button>
-						</li>
-					))}
-				</ol>
-				<div
-					className='button-container'
-					style={{ "--index": router.routes.length }}>
-					<a className='button' target='_blank' href='/resume.pdf'>
-						Resume
+		<header className={navClass}>
+			<nav className='navbar'>
+				<div className='logo'>
+					<a href='/'>
+						<Logo />
 					</a>
 				</div>
-			</div>
-		</nav>
+				<div className='burger-button' onClick={() => toggleNavbar()}>
+					<i className='fa-solid fa-bars' />
+				</div>
+				<div className={navStyleClassName}>
+					<ol>
+						{router.routes.map((route, index) => (
+							<li key={index} style={{ "--index": index + 1 }}>
+								<button
+									className='clickable'
+									onClick={() => routeAndClose(route.location)}>
+									{route.name}
+								</button>
+							</li>
+						))}
+					</ol>
+					<div
+						className='button-container'
+						style={{ "--index": router.routes.length }}>
+						<a className='button' target='_blank' href='/resume.pdf'>
+							Resume
+						</a>
+					</div>
+				</div>
+			</nav>
+		</header>
 	);
 }
 export default Navbar;

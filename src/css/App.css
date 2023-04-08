@@ -10,12 +10,15 @@
 @import "./ContactSection.css";
 
 :root {
-	--dark-navy: #020c1b;
 	--navy: #0a192f;
 	--light-navy: #112240;
+	--dark-navy: #020c1b;
 	--lightest-navy: #233554;
-	--slate: #8892b0;
+	--navy-shadow: rgba(2, 12, 27, 0.7);
 	--nav-height: 100px;
+	--nav-scroll-height: 70px;
+	--nav-shadow: rgba(2, 12, 27, 0.7);
+	--slate: #8892b0;
 	--lightest-slate: #ccd6f6;
 	--dark-slate: #495670;
 	--green: #64ffda;
@@ -33,8 +36,6 @@
 	--fz-xxl: 2.5px;
 	--fz-heading: 32px;
 	--border-radius: 4px;
-	--nav-scroll-height: 70px;
-	--nav-shadow: rgba(2, 12, 27, 0.7);
 	--font-mono: "firaCode", "STechMono", "Courier New", Courier, monospace;
 	--font-sans: "Golos", "FiraSans", Arial, Helvetica, -apple-system, system-ui,
 		sans-serif;
@@ -59,6 +60,10 @@ html {
 	background-color: var(--dark-slate);
 	border: 3px solid var(--navy);
 	border-radius: 10px;
+}
+::selection {
+	background-color: var(--lightest-navy);
+	color: var(--lightest-slate);
 }
 
 body {

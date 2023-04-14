@@ -1,15 +1,32 @@
 import React, { useState, useEffect } from "react";
 import Logo from "../assets/Logo";
 import router from "./../services/router";
+import classNames from "classnames";
 
-function Navbar({ scrolledRef, scrollable }) {
+function Navbar({ scrollable }) {
 	const [navClass, setNavClass] = useState("header");
 	const [currentScrollPos, setCurrentScrollPos] = useState(0);
 	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
+	const [isNavSet, setIsNavSet] = useState(false);
 
 	useEffect(() => {
-		scrollable.setupScrollEvents(currentScrollPos, setCurrentScrollPos, setNavClass);
-	}, [currentScrollPos, scrollable]);
+		if (!scrollable) return;
+
+		console.log("navbar useEffect called");
+		let currentPos = document.body.scrollTop;
+
+		const prevScrollPos = currentScrollPos;
+		let visible = prevScrollPos > currentPos || currentPos === 0;
+		const cn = classNames("header", {
+			scrolled: currentPos > 0,
+			hidden: !visible,
+		});
+		setNavClass(cn);
+		if (!isNavSet) {
+			scrollable.setupNavControl(setCurrentScrollPos);
+			setIsNavSet(true);
+		}
+	}, [currentScrollPos, scrollable, isNavSet]);
 
 	const toggleNavbar = () => {
 		if (navStyleClassName.includes("opened")) {
@@ -17,7 +34,7 @@ function Navbar({ scrolledRef, scrollable }) {
 		} else {
 			setNavStyleClassName("nav_StyledLinks opened");
 		}
-		scrolledRef.current.classList.toggle("blur");
+		document.body.classList.toggle("blur");
 	};
 
 	const routeAndClose = (location) => {

@@ -67,7 +67,7 @@ html {
 }
 
 body {
-	font-size: 1.8rem;
+	font-size: var(--fz-lg);
 	color: var(--slate);
 	background-color: var(--navy);
 	font-family: var(--font-sans);
@@ -152,15 +152,21 @@ button {
 	align-self: center;
 }
 
-.App {
-	overflow-x: hidden;
-	overflow-y: hidden;
+#root {
+	min-height: 100vh;
+	display: grid;
+	grid-template-rows: 1fr auto;
+	grid-template-columns: 100%;
 }
-.App.blur {
+
+.App {
+	overflow: hidden;
+}
+.blur {
 	overflow-y: hidden;
 }
 
-.App.blur #content > * {
+.blur #content > * {
 	filter: blur(5px) brightness(0.7);
 	transition: var(--transition);
 	pointer-events: none;
@@ -185,6 +191,9 @@ button {
 .fill-page.page-loader {
 	animation: fade-out 0.2s ease-in 3s;
 	animation-fill-mode: forwards;
+}
+.fill-page.page-loader.hidden {
+	display: none;
 }
 .loading-logo {
 	width: 100px;
@@ -291,10 +300,10 @@ section.activated {
 	main.fillHeight {
 		padding: 0px 100px;
 	}
-	.App.blur {
+	.blur {
 		overflow-y: auto;
 	}
-	.App.blur #content > * {
+	.blur #content > * {
 		filter: blur(0) brightness(1);
 		transition: none;
 		pointer-events: all;

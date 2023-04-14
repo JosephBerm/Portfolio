@@ -1,44 +1,35 @@
-import classNames from "classnames";
-
 class ScrollService {
-	onScroll = null;
-	sections = null;
-	scrolledRef = null;
-
-	constructor(sections, scrolledRef) {
-		this.sections = sections;
-		this.scrolledRef = scrolledRef;
+	constructor(elements) {
+		this.onScroll = null;
+		this.bodyElem = document.body;
+		this.elements = elements ? elements : null;
+		console.log("ScrollService Constructor called: ", this.bodyElem);
+	}
+	get allElements() {
+		return this.elements;
 	}
 
-	getSections = () => {
-		return this.sections;
+	addElement = (elem) => {
+		this.elements.push(elem);
 	};
-	setupScrollEvents = (currentScrollPos, setCurrentScrollPos, setNavClass) => {
+	setupNavControl = (setCurrentScrollPos) => {
 		this.onScroll = () => {
+			console.log("called onScroll");
 			this.animateIntoView();
-			let currentPos = this.scrolledRef.current.scrollTop;
+			let currentPos = this.bodyElem.scrollTop;
 			setCurrentScrollPos(currentPos);
-			const prevScrollPos = currentScrollPos;
-
-			let visible = prevScrollPos > currentPos || currentPos === 0;
-			const cn = classNames("header", {
-				scrolled: currentPos > 0,
-				hidden: !visible,
-			});
-
-			setNavClass(cn);
 		};
 
 		this.setupScrollEvent();
-		this.cleanScrollEvent();
+		// this.cleanScrollEvent();
 	};
 
 	animateIntoView = () => {
 		const windowHeight = window.innerHeight;
 		const offset = 300;
-		const scrollTop = this.scrolledRef.current.scrollTop - offset;
+		const scrollTop = this.bodyElem.scrollTop - offset;
 		// Loop through each section and check if it's visible
-		this.sections.forEach((section) => {
+		this.elements.forEach((section) => {
 			const sectionTop = section.current.offsetTop;
 			const sectionHeight = section.current.offsetHeight;
 
@@ -54,13 +45,14 @@ class ScrollService {
 	};
 
 	setupScrollEvent = () => {
-		if (!this.scrolledRef.current) return;
-		this.scrolledRef.current.addEventListener("scroll", this.onScroll);
+		if (!this.bodyElem) return;
+		console.log("this.onScroll is a:", typeof this.onScroll);
+		this.bodyElem.addEventListener("scroll2", this.onScroll);
 	};
 
 	cleanScrollEvent = () => {
 		return () => {
-			this.scrolledRef.removeEventListener("scroll", this.onScroll);
+			this.bodyElem.removeEventListener("scroll", this.onScroll);
 		};
 	};
 }

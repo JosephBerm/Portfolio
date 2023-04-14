@@ -7,6 +7,6 @@
 
 # Hero Section
 
-[.] Last thing I did was try to adjust the widths of the inner section containers. For some reasont he hero container is going out of the viewport. There is padding on the `main` element but why is this happening?
+[.] I last fixed the scrollbar going over the navigation bar. I now need to change the scroll events from being on the app ref to the body of the app. I am now working in [Scroll Animate Service](../src/services/scrollAnimationService.js)
 
-[!] I LEFT OFF ON LINE 15 IN HEROSECTION.CSS
+THE COMBINATION OF 100VH AND OVERFLOW-X CAUSES THE SCROLLBAR TO GO UNDER THE NAVBAR.

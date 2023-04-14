@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import LoadingLogo from "./components/LoadingLogo";
 import Navbar from "./components/Navbar";
 import router from "./services/router";
 import Introduction from "./components/Introduction";
@@ -10,52 +9,41 @@ import ContactMe from "./components/ContactMe";
 import PortfolioContext from "./context/portfolioContext";
 import myPortfolio from "./services/portfolioInformation";
 import ScrollService from "./services/scrollAnimationService";
+import LoadingPage from "./components/LoadingPage";
 import "../src/css/App.css";
 
 function App() {
-	const [isLoading, setIsLoading] = useState(true);
-	const [scrollService, setScrollService] = useState();
-	const appRef = useRef(null);
+	const [scrollService, setScrollService] = useState(null);
 	const aboutRef = useRef(null);
 	const jobsRef = useRef(null);
 	const projectsRef = useRef(null);
 	const contactRef = useRef(null);
 
 	useEffect(() => {
-		if (isLoading) {
-			setTimeout(() => {
-				setIsLoading(false);
-			}, 3100);
-			return;
-		}
-		const sections = {
-			about: aboutRef,
-			jobs: jobsRef,
-			projects: projectsRef,
-			contact: contactRef,
-		};
-		router.linkRoutesTo(sections);
-		setScrollService(
-			new ScrollService([aboutRef, jobsRef, projectsRef, contactRef], appRef)
-		);
-	}, [isLoading]);
+		// const sections = {
+		// 	about: aboutRef,
+		// 	jobs: jobsRef,
+		// 	projects: projectsRef,
+		// 	contact: contactRef,
+		// };
+		// router.linkRoutesTo(sections);
+		// const scrollable = new ScrollService([
+		// 	aboutRef,
+		// 	jobsRef,
+		// 	projectsRef,
+		// 	contactRef,
+		// ]);
+		// setScrollService(scrollable);
+		console.log("inner log");
+	}, []);
 
-	if (isLoading) {
-		return (
-			<div className='fill-page page-loader'>
-				<LoadingLogo />
-			</div>
-		);
-	}
-
-	const isNavReady = () => {
-		return appRef && scrollService;
-	};
+	console.log("outer log");
 
 	return (
-		<div className='App' ref={appRef}>
+		<div className='App'>
 			<PortfolioContext.Provider value={{ ...myPortfolio }}>
-				{isNavReady() && <Navbar scrolledRef={appRef} scrollable={scrollService} />}
+				<LoadingPage />
+				<Navbar scrollable={scrollService} />
 				<div id='content'>
 					<main className='fillHeight'>
 						<Introduction />

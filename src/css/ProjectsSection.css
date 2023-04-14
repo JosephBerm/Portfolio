@@ -2,3 +2,13 @@
 	/* temp putting line below to prevent lint error */
 	visibility: visible;
 }
+
+.projects-grid {
+	list-style: none;
+	display: grid;
+	grid-template-rows: repeat(2, 1fr);
+	grid-template-columns: repeat(3, 0.2fr);
+	gap: 50px;
+	justify-items: center;
+	padding: 0;
+}

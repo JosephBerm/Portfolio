@@ -37,6 +37,9 @@
 	--font-mono: "firaCode", "STechMono", "Courier New", Courier, monospace;
 	--font-sans: "Golos", "FiraSans", Arial, Helvetica, -apple-system, system-ui,
 		sans-serif;
+	--card-color-1: #5ddcff;
+	--card-color-2: #3c67e3;
+	--card-color-3: #4e00c2;
 }
 
 html {
@@ -205,6 +208,39 @@ section:not(:first-child) {
 	width: 100%;
 	background-color: var(--lightest-navy);
 	margin-left: 10px;
+}
+
+@property --gradiant-angle {
+	syntax: "<angle>";
+	initial-value: 0deg;
+	inherits: false;
+}
+.card {
+	height: 304px;
+	aspect-ratio: 1 / 0.94;
+	background: var(--light-navy);
+	border-radius: var(--border-radius);
+	position: relative;
+}
+.card::before,
+.card::after {
+	content: "";
+	position: absolute;
+	inset: -0.5rem;
+	z-index: -1;
+	background: conic-gradient(
+		from var(--gradiant-angle),
+		var(--card-color-1),
+		var(--card-color-2),
+		var(--card-color-3),
+		var(--card-color-2),
+		var(--card-color-1)
+	);
+	border-radius: inherit;
+	animation: rotation 5s linear infinite;
+}
+.card::after {
+	filter: blur(1.5rem);
 }
 
 /*////////////////////////////////////////////////////////// TODO: 375px ~ App.vue////////////////////////////////////////////////////////// */

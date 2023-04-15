@@ -1,4 +1,5 @@
 import React from "react";
+import Card from "./Card";
 
 function Projects({ projectsRef }) {
 	return (
@@ -13,12 +14,24 @@ function Projects({ projectsRef }) {
 				<h3>Other Noteworthy Projects</h3>
 				<p>view the archive</p>
 				<ul className='projects-grid'>
-					<li>1</li>
-					<li>2</li>
-					<li>3</li>
-					<li>4</li>
-					<li>5</li>
-					<li>6</li>
+					<li>
+						<Card>Card 1</Card>
+					</li>
+					<li>
+						<Card>Card 2</Card>
+					</li>
+					<li>
+						<Card>Card 3</Card>
+					</li>
+					<li>
+						<Card>Card 4</Card>
+					</li>
+					<li>
+						<Card>Card 5</Card>
+					</li>
+					<li>
+						<Card>Card 6</Card>
+					</li>
 				</ul>
 				<button>Show More</button>
 			</div>

@@ -101,3 +101,12 @@
 		visibility: visible;
 	}
 }
+
+@keyframes rotation {
+	0% {
+		--gradiant-angle: 0deg;
+	}
+	100% {
+		--gradiant-angle: 360deg;
+	}
+}

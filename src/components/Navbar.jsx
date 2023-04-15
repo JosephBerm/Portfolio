@@ -3,30 +3,64 @@ import Logo from "../assets/Logo";
 import router from "./../services/router";
 import classNames from "classnames";
 
-function Navbar({ scrollable }) {
+function Navbar(props) {
 	const [navClass, setNavClass] = useState("header");
+	const [sections, setSections] = useState();
 	const [currentScrollPos, setCurrentScrollPos] = useState(0);
 	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
-	const [isNavSet, setIsNavSet] = useState(false);
 
 	useEffect(() => {
-		if (!scrollable) return;
+		if (!sections) {
+			const aboutSection = document.getElementById("about");
+			const experienceSection = document.getElementById("jobs");
+			const projectsSection = document.getElementById("projects");
+			const contactSection = document.getElementById("contact");
 
-		console.log("navbar useEffect called");
-		let currentPos = document.body.scrollTop;
-
-		const prevScrollPos = currentScrollPos;
-		let visible = prevScrollPos > currentPos || currentPos === 0;
-		const cn = classNames("header", {
-			scrolled: currentPos > 0,
-			hidden: !visible,
-		});
-		setNavClass(cn);
-		if (!isNavSet) {
-			scrollable.setupNavControl(setCurrentScrollPos);
-			setIsNavSet(true);
+			console.log("reeeeee");
+			setSections([
+				aboutSection,
+				experienceSection,
+				projectsSection,
+				contactSection,
+			]);
 		}
-	}, [currentScrollPos, scrollable, isNavSet]);
+		const handleScroll = () => {
+			let currentPos = window.pageYOffset;
+			setCurrentScrollPos(currentPos);
+			const prevScrollPos = currentScrollPos;
+
+			let visible = prevScrollPos > currentPos || currentPos === 0;
+			const cn = classNames("header", {
+				scrolled: currentPos > 0,
+				hidden: !visible,
+			});
+
+			const windowHeight = window.innerHeight;
+			const offset = 300;
+			const scrollTop = currentPos - offset;
+
+			sections?.forEach((section) => {
+				const sectionTop = section.offsetTop;
+				const sectionHeight = section.offsetHeight;
+
+				if (
+					sectionTop < scrollTop + windowHeight &&
+					sectionTop + sectionHeight > scrollTop
+				) {
+					if (!section.classList.contains("activated")) {
+						section.classList.add("activated");
+					}
+				}
+			});
+
+			setNavClass(cn);
+		};
+
+		window.addEventListener("scroll", handleScroll);
+		return () => {
+			window.removeEventListener("scroll", handleScroll);
+		};
+	}, [currentScrollPos, sections]);
 
 	const toggleNavbar = () => {
 		if (navStyleClassName.includes("opened")) {

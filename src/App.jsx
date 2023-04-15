@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "./components/Navbar";
-import router from "./services/router";
 import Introduction from "./components/Introduction";
 import AboutMe from "./components/AboutMe";
 import Experience from "./components/Experience";
@@ -8,49 +7,31 @@ import Projects from "./components/Projects";
 import ContactMe from "./components/ContactMe";
 import PortfolioContext from "./context/portfolioContext";
 import myPortfolio from "./services/portfolioInformation";
-import ScrollService from "./services/scrollAnimationService";
 import LoadingPage from "./components/LoadingPage";
 import "../src/css/App.css";
 
 function App() {
-	const [scrollService, setScrollService] = useState(null);
-	const aboutRef = useRef(null);
-	const jobsRef = useRef(null);
-	const projectsRef = useRef(null);
-	const contactRef = useRef(null);
-
+	console.log("rendered app");
+	const [isLoading, setIsLoading] = useState(true);
 	useEffect(() => {
-		// const sections = {
-		// 	about: aboutRef,
-		// 	jobs: jobsRef,
-		// 	projects: projectsRef,
-		// 	contact: contactRef,
-		// };
-		// router.linkRoutesTo(sections);
-		// const scrollable = new ScrollService([
-		// 	aboutRef,
-		// 	jobsRef,
-		// 	projectsRef,
-		// 	contactRef,
-		// ]);
-		// setScrollService(scrollable);
-		console.log("inner log");
-	}, []);
-
-	console.log("outer log");
-
+		setTimeout(() => {
+			setIsLoading(false);
+		}, 3100);
+	});
+	if (isLoading) return <LoadingPage />;
 	return (
 		<div className='App'>
+			<div id='stars'></div>
+			<div id='stars2'></div>
 			<PortfolioContext.Provider value={{ ...myPortfolio }}>
-				<LoadingPage />
-				<Navbar scrollable={scrollService} />
+				<Navbar />
 				<div id='content'>
 					<main className='fillHeight'>
 						<Introduction />
-						<AboutMe aboutRef={aboutRef} />
-						<Experience jobsRef={jobsRef} />
-						<Projects projectsRef={projectsRef} />
-						<ContactMe contactRef={contactRef} />
+						<AboutMe />
+						<Experience />
+						<Projects />
+						<ContactMe />
 					</main>
 				</div>
 			</PortfolioContext.Provider>

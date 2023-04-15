@@ -4,11 +4,12 @@ import UserContext from "../context/portfolioContext";
 function Introduction(props) {
 	const { userProfile } = useContext(UserContext);
 	const [animatedClassName, setAnimatedClassName] = useState(" fadeup-enter");
+
 	useEffect(() => {
 		setTimeout(() => {
 			setAnimatedClassName(" fadeup-enter active");
 		}, 650);
-	}, [animatedClassName]);
+	}, []);
 
 	return (
 		<section className='hero_section'>

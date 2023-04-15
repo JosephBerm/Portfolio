@@ -26,8 +26,8 @@ function handleLinkClick(location) {
 	});
 }
 
-function linkRoutesTo(refs) {
-	sections = refs;
+function linkRoutesTo() {
+	console.log("called link route to");
 }
 
 const router = {

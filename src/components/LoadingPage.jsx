@@ -1,16 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import LoadingLogo from "./LoadingLogo";
 
 function LoadingPage(props) {
-	const [componentClassName, setComponentClassName] = useState("");
-
-	useEffect(() => {
-		setTimeout(() => {
-			setComponentClassName(" hidden");
-		}, 3100);
-	}, []);
 	return (
-		<div className={`fill-page page-loader${componentClassName}`}>
+		<div className='fill-page page-loader'>
 			<LoadingLogo />
 		</div>
 	);

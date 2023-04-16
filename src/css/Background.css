@@ -621,3 +621,15 @@
 		transform: translateY(-75vh);
 	}
 }
+
+@media screen and (min-width: 2000px) {
+	#stars {
+		display: none;
+	}
+	#stars2 {
+		display: none;
+	}
+	#stars3 {
+		display: none;
+	}
+}

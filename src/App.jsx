@@ -21,9 +21,9 @@ function App() {
 	if (isLoading) return <LoadingPage />;
 	return (
 		<div className='App'>
-			{/* <div id='stars'></div>
+			<div id='stars'></div>
 			<div id='stars2'></div>
-			<div id='stars3'></div> */}
+			<div id='stars3'></div>
 			<PortfolioContext.Provider value={{ ...myPortfolio }}>
 				<Navbar />
 				<div id='content'>

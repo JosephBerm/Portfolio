@@ -135,7 +135,7 @@ nav .logo a:hover svg polygon {
 
 .nav_StyledLinks .button-container {
 	opacity: 0;
-	--delay-multiplier: 0.15;
+	--delay-multiplier: 0.1;
 	animation: fadeInDown 0.7s ease forwards
 		calc(var(--index) * var(--delay-multiplier) * 1s);
 }

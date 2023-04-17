@@ -2,28 +2,20 @@ import React, { useState, useEffect } from "react";
 import Logo from "../assets/Logo";
 import router from "./../services/router";
 import classNames from "classnames";
+import observe from "../services/intersectionObserver";
 
 function Navbar(props) {
 	const [navClass, setNavClass] = useState("header");
-	const [sections, setSections] = useState();
 	const [currentScrollPos, setCurrentScrollPos] = useState(0);
 	const [navStyleClassName, setNavStyleClassName] = useState("nav_StyledLinks");
 
 	useEffect(() => {
-		if (!sections) {
-			const aboutSection = document.getElementById("about");
-			const experienceSection = document.getElementById("jobs");
-			const projectsSection = document.getElementById("projects");
-			const contactSection = document.getElementById("contact");
+		const sections = [...document.querySelectorAll(".section")];
+		router.linkRoutesTo(sections);
+		observe(sections);
+	}, []);
 
-			console.log("reeeeee");
-			setSections([
-				aboutSection,
-				experienceSection,
-				projectsSection,
-				contactSection,
-			]);
-		}
+	useEffect(() => {
 		const handleScroll = () => {
 			let currentPos = window.pageYOffset;
 			setCurrentScrollPos(currentPos);
@@ -35,24 +27,6 @@ function Navbar(props) {
 				hidden: !visible,
 			});
 
-			const windowHeight = window.innerHeight;
-			const offset = 300;
-			const scrollTop = currentPos - offset;
-
-			sections?.forEach((section) => {
-				const sectionTop = section.offsetTop;
-				const sectionHeight = section.offsetHeight;
-
-				if (
-					sectionTop < scrollTop + windowHeight &&
-					sectionTop + sectionHeight > scrollTop
-				) {
-					if (!section.classList.contains("activated")) {
-						section.classList.add("activated");
-					}
-				}
-			});
-
 			setNavClass(cn);
 		};
 
@@ -60,7 +34,7 @@ function Navbar(props) {
 		return () => {
 			window.removeEventListener("scroll", handleScroll);
 		};
-	}, [currentScrollPos, sections]);
+	}, [currentScrollPos]);
 
 	const toggleNavbar = () => {
 		if (navStyleClassName.includes("opened")) {
@@ -103,7 +77,7 @@ function Navbar(props) {
 					</ol>
 					<div
 						className='button-container'
-						style={{ "--index": router.routes.length }}>
+						style={{ "--index": router.routes.length + 1 }}>
 						<a className='button' target='_blank' href='/resume.pdf'>
 							Resume
 						</a>

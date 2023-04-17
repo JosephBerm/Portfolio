@@ -3,7 +3,7 @@ import Card from "./Card";
 
 function Projects({ projectsRef }) {
 	return (
-		<section ref={projectsRef} id='projects' className='projects_section'>
+		<section ref={projectsRef} id='projects' className='section projects_section'>
 			<h2 className='section-header'>Some Things I've Built</h2>
 			<div className='section-body'>
 				<ul className='projects-list'>

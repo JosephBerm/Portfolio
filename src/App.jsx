@@ -9,22 +9,23 @@ import PortfolioContext from "./context/portfolioContext";
 import myPortfolio from "./services/portfolioInformation";
 import LoadingPage from "./components/LoadingPage";
 import "../src/css/App.css";
+import Background from "./components/Background";
 
 function App() {
-	console.log("rendered app");
 	const [isLoading, setIsLoading] = useState(true);
+
 	useEffect(() => {
 		setTimeout(() => {
 			setIsLoading(false);
 		}, 3100);
-	});
+	}, []);
+
 	if (isLoading) return <LoadingPage />;
+
 	return (
 		<div className='App'>
-			<div id='stars'></div>
-			<div id='stars2'></div>
-			<div id='stars3'></div>
 			<PortfolioContext.Provider value={{ ...myPortfolio }}>
+				<Background />
 				<Navbar />
 				<div id='content'>
 					<main className='fillHeight'>

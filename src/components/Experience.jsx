@@ -4,7 +4,7 @@ import UserContext from "../context/portfolioContext";
 function Experience({ jobsRef }) {
 	const { workExperience } = useContext(UserContext);
 	return (
-		<section ref={jobsRef} id='jobs' className='jobs_section'>
+		<section ref={jobsRef} id='jobs' className='section jobs_section'>
 			<h2 className='section-header'>Where I've Worked</h2>
 			<div className='section-body'>
 				<div className='tab-menu'>

@@ -2,7 +2,7 @@ import React from "react";
 
 function ContactMe({ contactRef }) {
 	return (
-		<section ref={contactRef} id='contact' className='contact_section'>
+		<section ref={contactRef} id='contact' className='section contact_section'>
 			<h2 className='section-header'>Get In Touch</h2>
 			<div className='section-body'>
 				<p>

@@ -1,16 +1,81 @@
-.hero_section {
+section.hero_section {
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+	min-height: 100vh;
+	height: auto;
+	padding: 0;
+	padding-top: var(--nav-height);
 }
 
-.hero_section .intro {
+.hero_section .greeting h1 {
+	color: var(--green);
+	font-family: var(--font-mono);
+	font-size: clamp(var(--fz-s), 5vw, var(--fz-md));
+	font-weight: 400;
+	margin: 0px 0px 20px 2px;
 }
-
-.hero_section .intro h1 {
-	font-size: 2rem;
+.hero_section .name h2 {
+	color: var(--lightest-slate);
+	line-height: 1.1;
 }
-.hero_section .intro h2 {
+.hero_section .myJob h3 {
+	margin-top: 5px;
+	color: var(--slate);
+	line-height: 0.9;
 }
-.hero_section .intro h3 {
-}
-.hero_section .intro p {
+.hero_section .objective p {
+	margin: 20px 0px 0px;
+	max-width: 540px;
 	font-size: 1.6rem;
+}
+.hero_section .contactMe,
+.hero_section .contact-button {
+	width: 100%;
+}
+.hero_section .contactMe {
+	max-width: 230px;
+}
+.hero_section button.contact-button {
+	margin-top: 50px;
+	padding: 2rem 1.75rem;
+}
+
+.big-heading {
+	margin: 0px;
+	font-size: clamp(35px, 8vw, 75px);
+}
+
+section.hero_section .fadeup-enter {
+	opacity: 0;
+	transform: translateY(15%);
+}
+section.hero_section .fadeup-enter.active {
+	opacity: 0.01;
+	animation: fadeInUp 0.3s calc(var(--index) * 0.1s) forwards;
+}
+
+/*////////////////////////////////////////////////////////// TODO: 375px ~ HeroSection.vue////////////////////////////////////////////////////////// */
+@media screen and (min-width: 480px) {
+	.hero_section .greeting h1 {
+		margin: 0px 0px 30px 4px;
+	}
+}
+
+/*////////////////////////////////////////////////////////// TODO: 768px ~ HeroSection.vue////////////////////////////////////////////////////////// */
+@media screen and (min-width: 768px) {
+}
+
+/*////////////////////////////////////////////////////////// TODO: 1024px ~ HeroSection.vue////////////////////////////////////////////////////////// */
+@media screen and (min-width: 1024px) {
+}
+
+/*////////////////////////////////////////////////////////// TODO: HEIGHT-700px ~ HeroSection.vue////////////////////////////////////////////////////////// */
+@media screen and (min-height: 700px) and (max-height: 250px) {
+	section.hero_section {
+		padding-top: 0;
+	}
+	.hero_section .objective p {
+		line-height: 1.5;
+	}
 }

@@ -1,3 +1,9 @@
+const userProfile = {
+	name: "Joseph Bermudez",
+	objective:
+		"As a software engineer, I have a deep passion for crafting one-of-a-kind digital experiences that captivate users and deliver measurable results. I thrive on working with innovative companies and products that push the boundaries of what's possible in the tech world.",
+};
+
 const workExperience = [
 	{
 		companyName: "Atlantic Coast Automotive Inc.",
@@ -63,6 +69,7 @@ const workExperience = [
 
 const myPortfolio = {
 	workExperience,
+	userProfile,
 };
 
 export default myPortfolio;

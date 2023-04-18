@@ -17,17 +17,19 @@ const routes = [
 	},
 ];
 
-let sections;
-
 function handleLinkClick(location) {
-	sections[location].current.scrollIntoView({
-		behavior: "smooth",
-		block: "start",
-	});
+	routes
+		.find((r) => r.location === location)
+		.section.scrollIntoView({
+			behavior: "smooth",
+			block: "start",
+		});
 }
 
-function linkRoutesTo(refs) {
-	sections = refs;
+function linkRoutesTo(sections) {
+	routes.forEach((r) => {
+		r.section = sections.find((s) => r.location === s.id);
+	});
 }
 
 const router = {

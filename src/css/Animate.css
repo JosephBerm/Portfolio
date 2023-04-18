@@ -29,27 +29,27 @@
 
 @keyframes fadeInUp {
 	0% {
-		opacity: 0;
-		-webkit-transform: translate3d(0, 100%, 0);
-		transform: translate3d(0, 100%, 0);
+		opacity: 0.01;
+		transform: translateY(15%);
+		transition: all var(--easing);
 	}
-	to {
+	100% {
 		opacity: 1;
-		-webkit-transform: translateZ(0);
-		transform: translateZ(0);
+		transform: translateY(0);
+		transition: all var(--easing);
 	}
 }
 
 @keyframes fadeInDown {
 	0% {
 		opacity: 0;
-		-webkit-transform: translate3d(0, -100%, 0);
-		transform: translate3d(0, -100%, 0);
+		-webkit-transform: translateY(-100%);
+		transform: translateY(-100%);
 	}
-	to {
+	100% {
 		opacity: 1;
-		-webkit-transform: translateZ(0);
-		transform: translateZ(0);
+		-webkit-transform: translateY(0);
+		transform: translateY(0);
 	}
 }
 

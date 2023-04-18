@@ -71,7 +71,7 @@ section.hero_section .fadeup-enter.active {
 }
 
 /*////////////////////////////////////////////////////////// TODO: HEIGHT-700px ~ HeroSection.vue////////////////////////////////////////////////////////// */
-@media screen and (min-height: 700px) {
+@media screen and (min-height: 700px) and (max-height: 250px) {
 	section.hero_section {
 		padding-top: 0;
 	}

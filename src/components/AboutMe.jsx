@@ -9,38 +9,32 @@ function AboutMe({ aboutRef }) {
 			<h2 className='section-header'>About Me</h2>
 			<div className='section-body'>
 				<p>
-					Hello! My name is Joseph and... Lorem ipsum dolor sit amet consectetur
-					adipisicing elit. Veniam, dolor nostrum sapiente ullam repudiandae labore.
-					Blanditiis ea consequuntur aspernatur alias fugiat totam! Illum, aut
-					blanditiis.
+					Hello! My name is Joseph, and I am passionate about the internet of things.
+					My journey to becoming a software engineer began in the summer of 2013,
+					during which I worked with my father in maintenance at an office building.
+					It was there that I met a man who would go on to change my life.
 				</p>
 				<p>
-					Lorem ipsum dolor, sit amet consectetur adipisicing elit. Modi alias, qui
-					eius neque obcaecati exercitationem officiis, adipisci omnis ullam libero
-					maxime sed quidem blanditiis, deleniti doloremque eveniet. Nemo doloribus
-					ex sapiente. Libero eos eius quisquam. Veritatis iste error, amet nam
-					magnam vero tenetur repellat at, quam alias dolor iusto!
+					For the first time in my life, I witnessed a concept come to life before my
+					eyes. I was amazed as I watched the man input gibberish on the screen and
+					transform it into a tangible product. That experience ignited a spark
+					within me that would propel me towards my current profession.
 				</p>
 				<p>
-					Lorem ipsum dolor sit amet, consectetur adipisicing elit. Dignissimos nam
-					quisquam tempore mollitia optio ut dolores incidunt hic, quas dolor
-					voluptate! <strong>Expedita, natus omnis, quia,</strong> voluptates optio
-					error non libero accusamus voluptatem distinctio atque facere.
-				</p>
-				<p>
-					Lorem ipsum dolor sit amet <strong>consectetur adipisicing elit.</strong>{" "}
-					Ab atque ex distinctio, aut quam expedita aperiam eaque magnam dolor
-					corrupti.
+					Today, I continue to pursue that magical feeling that comes with creating
+					something from scratch and seeing it function as intended. My primary
+					objective is to be at the forefront of cutting-edge technology and provide
+					a unique digital experience that can change the world.
 				</p>
 				<p>Here are a few technologies I've been working with recently:</p>
-				<ol className='skills_list'>
+				<ul className='skills_list'>
 					<li>JavaScript (ES6+)</li>
 					<li>React</li>
 					<li>Node.js</li>
 					<li>TypeScript</li>
 					<li>.NET Core</li>
 					<li>Vue.js</li>
-				</ol>
+				</ul>
 				<div className='photo-container'>
 					<img src='' alt='' />
 					<div className='background-border' />

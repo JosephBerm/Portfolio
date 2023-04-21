@@ -1,3 +1,42 @@
+#galaxy-bg div.shooting-stars {
+	opacity: 0;
+	width: 5px;
+	height: 85px;
+	border-top-left-radius: 50%;
+	border-top-right-radius: 50%;
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	background: linear-gradient(
+		to top,
+		rgba(255, 255, 255, 0),
+		rgba(255, 255, 255, 1)
+	);
+	animation: animShootingStar 3s 7s linear forwards;
+}
+
+@keyframes animShootingStar {
+	from {
+		transform: translateY(0px) translateX(0px) rotate(-45deg);
+		opacity: 1;
+		height: 10px;
+	}
+	to {
+		transform: translateY(-150vh) translateX(-150vw) rotate(-45deg);
+		opacity: 1;
+		height: 250px;
+	}
+}
+
+#galaxy-bg.gravity #stars {
+	animation: animStarGravityFast 50s linear forwards;
+}
+#galaxy-bg.gravity #stars2 {
+	animation: animStarGravityNorm 50s linear forwards;
+}
+#galaxy-bg.gravity #stars3 {
+	animation: animStarGravitySlow 50s linear forwards;
+}
 #stars {
 	position: fixed;
 	content: "e";
@@ -227,7 +266,7 @@
 		1110px 1708px #fff, 797px 1480px #fff, 1516px 684px #fff, 559px 1733px #fff,
 		1265px 718px #fff, 1263px 54px #fff, 693px 113px #fff, 1456px 1459px #fff,
 		1527px 1324px #fff;
-	animation: animStar 50s linear infinite;
+	animation: animStarFast 50s linear forwards;
 }
 
 #stars:after {
@@ -503,7 +542,7 @@
 		781px 1394px var(--red-stars), 367px 42px var(--red-stars),
 		100px 690px var(--red-stars), 1831px 458px var(--red-stars),
 		1884px 1878px var(--red-stars), 814px 1013px var(--red-stars);
-	animation: animStar 100s linear infinite;
+	animation: animStarNorm 50s linear forwards;
 }
 #stars2:after {
 	content: " ";
@@ -703,7 +742,7 @@
 		725px 1231px #fff, 1749px 1432px #fff, 1948px 303px #fff, 1889px 252px #fff,
 		1114px 1400px #fff, 759px 646px #fff, 222px 571px #fff, 1908px 1401px #fff,
 		1856px 1204px #fff, 338px 1645px #fff, 1528px 1050px #fff;
-	animation: animStar 150s linear infinite;
+	animation: animStarSlow 50s linear forwards;
 }
 #stars3:after {
 	content: " ";
@@ -747,26 +786,62 @@
 		1856px 1204px #fff, 338px 1645px #fff, 1528px 1050px #fff;
 }
 
-@keyframes animStar {
+@keyframes animStarSlow {
 	0% {
 		transform: translateY(0px);
 	}
-	50% {
+	100% {
+		transform: translateY(-15vh);
+	}
+}
+
+@keyframes animStarNorm {
+	0% {
+		transform: translateY(0px);
+	}
+	100% {
+		transform: translateY(-25vh);
+	}
+}
+
+@keyframes animStarFast {
+	0% {
+		transform: translateY(0px);
+	}
+	100% {
+		transform: translateY(-50vh);
+	}
+}
+
+@keyframes animStarGravitySlow {
+	0% {
+		transform: translateY(-15vh);
+	}
+	100% {
+		transform: translateY(0);
+	}
+}
+
+@keyframes animStarGravityNorm {
+	0% {
 		transform: translateY(-25vh);
 	}
 	100% {
-		transform: translateY(0px);
+		transform: translateY(0);
+	}
+}
+
+@keyframes animStarGravityFast {
+	0% {
+		transform: translateY(-50vh);
+	}
+	100% {
+		transform: translateY(0);
 	}
 }
 
 @media screen and (min-width: 2000px) {
-	#stars {
-		display: none;
-	}
-	#stars2 {
-		display: none;
-	}
-	#stars3 {
+	#galaxy-bg {
 		display: none;
 	}
 }

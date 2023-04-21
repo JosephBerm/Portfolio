@@ -51,8 +51,8 @@ section.hero_section .fadeup-enter {
 	transform: translateY(15%);
 }
 section.hero_section .fadeup-enter.active {
-	opacity: 0.01;
-	animation: fadeInUp 0.3s calc(var(--index) * 0.1s) forwards;
+	opacity: 0.03;
+	animation: fadeInUp 0.3s calc(var(--index) * 0.1s) var(--easing) forwards;
 }
 
 /*////////////////////////////////////////////////////////// TODO: 375px ~ HeroSection.vue////////////////////////////////////////////////////////// */

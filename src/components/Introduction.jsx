@@ -8,7 +8,7 @@ function Introduction(props) {
 	useEffect(() => {
 		setTimeout(() => {
 			setAnimatedClassName(" fadeup-enter active");
-		}, 650);
+		}, 1000);
 	}, []);
 
 	return (

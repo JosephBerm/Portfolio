@@ -1,3 +1,6 @@
+#galaxy-bg {
+	user-select: none;
+}
 #galaxy-bg div.shooting-stars {
 	opacity: 0;
 	width: 5px;
@@ -12,7 +15,12 @@
 		rgba(255, 255, 255, 0),
 		rgba(255, 255, 255, 1)
 	);
-	animation: animShootingStar 3s 7s linear forwards;
+}
+#galaxy-bg div.shooting-stars.north {
+	animation: animShootingStar 3s 5s linear forwards;
+}
+#galaxy-bg div.shooting-stars.south {
+	animation: animShootingStarGravity 3s 55s linear forwards;
 }
 
 @keyframes animShootingStar {
@@ -23,6 +31,19 @@
 	}
 	to {
 		transform: translateY(-150vh) translateX(-150vw) rotate(-45deg);
+		opacity: 1;
+		height: 250px;
+	}
+}
+
+@keyframes animShootingStarGravity {
+	from {
+		transform: translateY(-85vh) translateX(0) rotate(240deg);
+		opacity: 1;
+		height: 10px;
+	}
+	to {
+		transform: translateY(50vh) translateX(-150vw) rotate(240deg);
 		opacity: 1;
 		height: 250px;
 	}

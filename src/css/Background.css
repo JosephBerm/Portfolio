@@ -17,10 +17,10 @@
 	);
 }
 #galaxy-bg div.shooting-stars.north {
-	animation: animShootingStar 3s 5s linear forwards;
+	animation: animShootingStar 3s 15s linear forwards;
 }
 #galaxy-bg div.shooting-stars.south {
-	animation: animShootingStarGravity 3s 55s linear forwards;
+	animation: animShootingStarGravity 3s 15s linear forwards;
 }
 
 @keyframes animShootingStar {
@@ -38,7 +38,7 @@
 
 @keyframes animShootingStarGravity {
 	from {
-		transform: translateY(-85vh) translateX(0) rotate(240deg);
+		transform: translateY(-85vh) translateX(0) rotate(225deg);
 		opacity: 1;
 		height: 10px;
 	}

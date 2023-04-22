@@ -52,3 +52,12 @@ p:last-of-type {
 	font-family: var(--font-mono);
 	font-size: var(--fz-xs);
 }
+
+.about_section .section-body {
+	display: flex;
+	gap: 20px;
+}
+
+.about_section .photo-container {
+	display: inline-block;
+}

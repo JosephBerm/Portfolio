@@ -13,8 +13,11 @@ function Background(props) {
 			<div id='stars' />
 			<div id='stars2' />
 			<div id='stars3' />
-			<div className='shooting-stars north' />
-			<div className='shooting-stars south' />
+			{gravity ? (
+				<div className='shooting-stars south' />
+			) : (
+				<div className='shooting-stars north' />
+			)}
 		</div>
 	);
 }

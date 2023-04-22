@@ -143,6 +143,9 @@ button {
 	padding: 1.25rem 1.75rem;
 	align-self: center;
 }
+p {
+	font-size: var(--fz-md);
+}
 
 #root {
 	min-height: 100vh;

@@ -7,7 +7,7 @@
 	height: 85px;
 	border-top-left-radius: 50%;
 	border-top-right-radius: 50%;
-	position: absolute;
+	position: fixed;
 	bottom: 0;
 	right: 0;
 	background: linear-gradient(
@@ -17,7 +17,7 @@
 	);
 }
 #galaxy-bg div.shooting-stars.north {
-	animation: animShootingStar 3s 15s linear forwards;
+	animation: animShootingStar 3s linear forwards;
 }
 #galaxy-bg div.shooting-stars.south {
 	animation: animShootingStarGravity 3s 15s linear forwards;

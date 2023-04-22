@@ -1,6 +1,7 @@
 .about_section {
 }
 .about_section p {
+	text-indent: 20px;
 	margin: 0px 0px 15px;
 }
 .about_section p:last-child,
@@ -55,9 +56,96 @@ p:last-of-type {
 
 .about_section .section-body {
 	display: flex;
+	flex-direction: column;
 	gap: 20px;
 }
+.enclosed {
+	position: relative;
+	max-width: 300px;
+	margin: 50px auto 0px;
+	width: 70%;
+}
+.img-wrapper {
+	box-shadow: 0 10px 30px -15px var(--navy-shadow);
+	transition: var(--transition);
+	display: block;
+	position: relative;
+	width: 100%;
+	border-radius: var(--border-radius);
+	background-color: var(--green);
+}
+.img-wrapper::before,
+.img-wrapper::after {
+	content: "";
+	display: block;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	border-radius: var(--border-radius);
+	transition: var(--transition);
+}
+.img-wrapper::before {
+	top: 0px;
+	left: 0px;
+	background-color: var(--navy);
+	mix-blend-mode: screen;
+}
 
-.about_section .photo-container {
-	display: inline-block;
+.img-wrapper::after {
+	border: 2px solid var(--green);
+	top: 14px;
+	left: 14px;
+	z-index: -1;
+}
+.img-wrapper:hover::after,
+.img-wrapper:focus::after {
+	transform: translate(8px, 8px);
+}
+
+.img-wrapper:hover,
+.img-wrapper:focus {
+	outline: 0px;
+	transform: translate(-4px, -4px);
+	box-shadow: 0 20px 30px -15px var(--navy-shadow);
+	background: unset;
+	filter: unset;
+}
+.img-wrapper:hover::before,
+.img-wrapper:focus::before {
+	background-color: unset;
+}
+.img-wrapper:hover .photo-container,
+.img-wrapper:focus .photo-container {
+	filter: unset;
+}
+
+.img-wrapper .photo-container {
+	position: relative;
+	border-radius: var(--border-radius);
+	mix-blend-mode: multiply;
+	filter: grayscale(100%) contrast(1);
+	transition: var(--transition);
+	width: 100%;
+	max-width: 100%;
+	vertical-align: middle;
+}
+.img-wrapper .photo-container::before,
+.img-wrapper .photo-container::after {
+	inset: -0.3rem;
+}
+
+.img-wrapper .photo-container img {
+	bottom: 0;
+	height: 100%;
+	left: 0;
+	margin: 0;
+	padding: 0;
+	right: 0;
+	top: 0;
+	width: 100%;
+	object-fit: cover;
+	max-width: 100%;
+	display: block;
+	position: static;
+	border-radius: var(--border-radius);
 }

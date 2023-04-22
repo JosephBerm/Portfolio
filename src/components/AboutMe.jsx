@@ -18,9 +18,9 @@ function AboutMe({ aboutRef }) {
 						life.
 					</p>
 					<p>
-						For the first time in my life, I witnessed a concept come to life before
-						my eyes. I was amazed as I watched the man input gibberish on the screen
-						and transform it into a tangible product. That experience ignited a spark
+						For the first time ever, I witnessed a concept come to life before my
+						eyes. I was amazed as I watched the man input gibberish on the screen and
+						transform it into a tangible product. That experience ignited a spark
 						within me that would propel me towards my current profession.
 					</p>
 					<p>
@@ -39,12 +39,17 @@ function AboutMe({ aboutRef }) {
 						<li>Vue.js</li>
 					</ul>
 				</div>
-				<div className='photo-container'>
-					<img src={samplePicture} alt='Professional headshot of Joseph Bermudez' />
-					<div className='background-border' />
-					{/* Both are position absolute to the parent. img goes up-left a bit.
-               The background-border goes down-right. Simply make a transition that moves
-               background-border to the normal position of the whole container. */}
+				<div className='enclosed'>
+					<div className='img-wrapper'>
+						<picture className='photo-container'>
+							<img
+								src={samplePicture}
+								alt='Professional headshot of Joseph Bermudez'
+								style={{ maxWidth: "100%", display: "block", position: "static" }}
+							/>
+						</picture>
+						<div className='background-border' />
+					</div>
 				</div>
 			</div>
 		</section>

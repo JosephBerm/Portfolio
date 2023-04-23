@@ -1,7 +1,6 @@
 .about_section {
 }
 .about_section p {
-	text-indent: 20px;
 	margin: 0px 0px 15px;
 }
 .about_section p:last-child,

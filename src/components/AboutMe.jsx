@@ -11,23 +11,25 @@ function AboutMe({ aboutRef }) {
 			<div className='section-body'>
 				<div className='text-container'>
 					<p>
-						Hello! My name is Joseph, and I am passionate about the internet of
-						things. My journey to becoming a software engineer began in the summer of
-						2013, during which I worked with my father in maintenance at an office
-						building. It was there that I met a man who would go on to change my
-						life.
+						Hello! My name is Joseph and I am passionate about the Internet of
+						Things. My journey towards becoming a software engineer had its inception
+						during the summer of 2013 when I worked alongside my father in
+						maintenance at an office building. Fate had it that I would meet a man
+						who would transform my life forever.
 					</p>
 					<p>
-						For the first time ever, I witnessed a concept come to life before my
-						eyes. I was amazed as I watched the man input gibberish on the screen and
-						transform it into a tangible product. That experience ignited a spark
-						within me that would propel me towards my current profession.
+						It was during this time that I witnessed the awe-inspiring process of
+						bringing a concept to life right before my very eyes. Watching the man
+						take gibberish and seamlessly transform it into a tangible product left
+						me spellbound. This encounter ignited a spark of curiosity and creativity
+						in me that has guided my professional journey ever since.
 					</p>
 					<p>
-						Today, I continue to pursue that magical feeling that comes with creating
-						something from scratch and seeing it function as intended. My primary
-						objective is to be at the forefront of cutting-edge technology and
-						provide a unique digital experience that can change the world.
+						As of today, I strive to capture the magical essence that arises from
+						creating something from scratch and observing it seamlessly function. My
+						ultimate goal is to remain at the vanguard of state-of-the-art technology
+						and to provide an unparalleled digital experience that can revolutionize
+						the world.
 					</p>
 					<p>Here are a few technologies I've been working with recently:</p>
 					<ul className='skills_list'>

@@ -143,6 +143,10 @@ button {
 	padding: 1.25rem 1.75rem;
 	align-self: center;
 }
+p {
+	font-size: var(--fz-md);
+	line-height: 2.2rem;
+}
 
 #root {
 	min-height: 100vh;
@@ -153,6 +157,9 @@ button {
 
 .App {
 	overflow: hidden;
+}
+#content {
+	z-index: 1;
 }
 .blur {
 	overflow-y: hidden;
@@ -251,7 +258,7 @@ section.activated {
 		transform 0.5s cubic-bezier(0.645, 0.045, 0.355, 1);
 }
 .section-header {
-	font-size: clamp(20px, 5vw, var(--fz-heading));
+	font-size: clamp(22px, 5vw, var(--fz-heading));
 	margin: 10px 0px 40px;
 	display: flex;
 	align-items: center;
@@ -310,15 +317,27 @@ section.activated {
 .card::after {
 	filter: blur(1.5rem);
 }
-/*////////////////////////////////////////////////////////// TODO: 375px ~ App.vue////////////////////////////////////////////////////////// */
+/*////////////////////////////////////////////////////////// TODO: 375px ~ App.css
+////////////////////////////////////////////////////////// */
 @media screen and (min-width: 480px) {
 	main.fillHeight {
 		padding: 0px 50px;
 	}
 }
 
-/*////////////////////////////////////////////////////////// TODO: 768px ~ App.vue////////////////////////////////////////////////////////// */
+/*////////////////////////////////////////////////////////// TODO: 600px ~ App.css
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 600px) {
+	.section-header::after {
+		margin-left: 20px;
+	}
+}
+/*////////////////////////////////////////////////////////// TODO: 768px ~ App.css
+////////////////////////////////////////////////////////// */
 @media screen and (min-width: 768px) {
+	p {
+		line-height: 2.4rem;
+	}
 	main.fillHeight {
 		padding: 0px 100px;
 	}
@@ -334,6 +353,9 @@ section.activated {
 	section {
 		padding: 80px 0px;
 	}
+	.section-header::after {
+		width: 200px;
+	}
 }
 
 @media screen and (min-width: 1024px) {
@@ -344,5 +366,11 @@ section.activated {
 		margin: 0px auto;
 		padding: 100px 0px;
 		max-width: 1000px;
+	}
+}
+
+@media screen and (min-width: 1080px) {
+	.section-header::after {
+		width: 300px;
 	}
 }

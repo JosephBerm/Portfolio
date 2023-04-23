@@ -1,54 +1,6 @@
 #galaxy-bg {
 	user-select: none;
 }
-#galaxy-bg div.shooting-stars {
-	opacity: 0;
-	width: 5px;
-	height: 85px;
-	border-top-left-radius: 50%;
-	border-top-right-radius: 50%;
-	position: fixed;
-	bottom: 0;
-	right: 0;
-	background: linear-gradient(
-		to top,
-		rgba(255, 255, 255, 0),
-		rgba(255, 255, 255, 1)
-	);
-}
-#galaxy-bg div.shooting-stars.north {
-	animation: animShootingStar 3s linear forwards;
-}
-#galaxy-bg div.shooting-stars.south {
-	animation: animShootingStarGravity 3s 15s linear forwards;
-}
-
-@keyframes animShootingStar {
-	from {
-		transform: translateY(0px) translateX(0px) rotate(-45deg);
-		opacity: 1;
-		height: 10px;
-	}
-	to {
-		transform: translateY(-150vh) translateX(-150vw) rotate(-45deg);
-		opacity: 1;
-		height: 250px;
-	}
-}
-
-@keyframes animShootingStarGravity {
-	from {
-		transform: translateY(-85vh) translateX(0) rotate(225deg);
-		opacity: 1;
-		height: 10px;
-	}
-	to {
-		transform: translateY(50vh) translateX(-150vw) rotate(240deg);
-		opacity: 1;
-		height: 250px;
-	}
-}
-
 #galaxy-bg.gravity #stars {
 	animation: animStarGravityFast 50s linear forwards;
 }
@@ -860,6 +812,181 @@
 		transform: translateY(0);
 	}
 }
+
+#galaxy-bg div.shooting-stars {
+	opacity: 0;
+	width: 5px;
+	height: 85px;
+	border-top-left-radius: 50%;
+	border-top-right-radius: 50%;
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	background: linear-gradient(
+		to top,
+		rgba(255, 255, 255, 0),
+		rgba(255, 255, 255, 1)
+	);
+}
+#galaxy-bg div.shooting-stars .head {
+	position: absolute;
+	opacity: 0.25;
+	top: 0;
+	width: 4px;
+	height: 4px;
+	background: #fff;
+	border-radius: 50%;
+	box-shadow: 0 0 15px 4px rgba(255, 255, 255, 0.1),
+		0 0 0 8px rgba(255, 255, 255, 0.1), 0 0 20px rgba(255, 255, 255, 1);
+}
+#galaxy-bg div.shooting-stars::before,
+#galaxy-bg div.shooting-stars::after {
+	content: "";
+	position: absolute;
+	inset: 1px;
+	z-index: -1;
+	box-shadow: 0 0 75px 3px rgba(255, 255, 255, 0.3);
+	border-radius: inherit;
+}
+
+#galaxy-bg div.shooting-stars.north {
+	animation: animShootingStar 2s linear forwards;
+}
+#galaxy-bg div.shooting-stars.south {
+	animation: animShootingStarGravity 2s 15s linear forwards;
+}
+
+@keyframes animShootingStar {
+	from {
+		transform: translateY(0px) translateX(0px) rotate(-30deg);
+		opacity: 1;
+		height: 10px;
+	}
+	to {
+		transform: translateY(-150vh) translateX(-162vw) rotate(-30deg);
+		opacity: 1;
+		height: 250px;
+	}
+}
+@keyframes animShootingStarGravity {
+	from {
+		transform: translateY(-85vh) translateX(0) rotate(207deg);
+		opacity: 1;
+		height: 10px;
+	}
+	to {
+		transform: translateY(70vh) translateX(-162vw) rotate(207deg);
+		opacity: 1;
+		height: 250px;
+	}
+}
+/*////////////////////////////////////////////////////////// TODO: 480px ~ Background.
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 480px) {
+	#galaxy-bg div.shooting-stars.north {
+		animation-duration: 2.5s;
+	}
+	#galaxy-bg div.shooting-stars.south {
+		animation-duration: 2.5s;
+	}
+	@keyframes animShootingStar {
+		from {
+			transform: translateY(0px) translateX(0px) rotate(-30deg);
+			opacity: 1;
+			height: 10px;
+		}
+		to {
+			transform: translateY(-150vh) translateX(-162vw) rotate(-30deg);
+			opacity: 1;
+			height: 250px;
+		}
+	}
+	@keyframes animShootingStarGravity {
+		from {
+			transform: translateY(-85vh) translateX(0) rotate(215deg);
+			opacity: 1;
+			height: 10px;
+		}
+		to {
+			transform: translateY(50vh) translateX(-145vw) rotate(215deg);
+			opacity: 1;
+			height: 250px;
+		}
+	}
+}
+
+/*////////////////////////////////////////////////////////// TODO: 768px ~ Background.
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 768px) {
+	#galaxy-bg div.shooting-stars.north {
+		animation-duration: 3s;
+	}
+	#galaxy-bg div.shooting-stars.south {
+		animation-duration: 3s;
+	}
+	@keyframes animShootingStar {
+		from {
+			transform: translateY(0px) translateX(0px) rotate(-37deg);
+			opacity: 1;
+			height: 10px;
+		}
+		to {
+			transform: translateY(-150vh) translateX(-162vw) rotate(-37deg);
+			opacity: 1;
+			height: 250px;
+		}
+	}
+	@keyframes animShootingStarGravity {
+		from {
+			transform: translateY(-85vh) translateX(0) rotate(225deg);
+			opacity: 1;
+			height: 10px;
+		}
+		to {
+			transform: translateY(55vh) translateX(-150vw) rotate(225deg);
+			opacity: 1;
+			height: 250px;
+		}
+	}
+}
+
+/*////////////////////////////////////////////////////////// TODO: 1024px ~ Background.
+////////////////////////////////////////////////////////// */
+
+@media screen and (min-width: 1024px) {
+	#galaxy-bg div.shooting-stars.north {
+		animation-duration: 3.25s;
+	}
+	#galaxy-bg div.shooting-stars.south {
+		animation-duration: 3.25s;
+	}
+	@keyframes animShootingStar {
+		from {
+			transform: translateY(0px) translateX(0px) rotate(-50deg);
+			opacity: 1;
+			height: 10px;
+		}
+		to {
+			transform: translateY(-150vh) translateX(-150vw) rotate(-50deg);
+			opacity: 1;
+			height: 250px;
+		}
+	}
+	@keyframes animShootingStarGravity {
+		from {
+			transform: translateY(-85vh) translateX(0) rotate(240deg);
+			opacity: 1;
+			height: 10px;
+		}
+		to {
+			transform: translateY(55vh) translateX(-150vw) rotate(240deg);
+			opacity: 1;
+			height: 250px;
+		}
+	}
+}
+/*////////////////////////////////////////////////////////// TODO: 2000px ~ Background.
+////////////////////////////////////////////////////////// */
 
 @media screen and (min-width: 2000px) {
 	#galaxy-bg {

@@ -32,10 +32,10 @@ function AboutMe({ aboutRef }) {
 					<p>Here are a few technologies I've been working with recently:</p>
 					<ul className='skills_list'>
 						<li>JavaScript (ES6+)</li>
-						<li>React</li>
 						<li>Node.js</li>
-						<li>TypeScript</li>
+						<li>React</li>
 						<li>.NET Core</li>
+						<li>TypeScript</li>
 						<li>Vue.js</li>
 					</ul>
 				</div>

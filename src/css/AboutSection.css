@@ -3,6 +3,9 @@
 .about_section p {
 	margin: 0px 0px 15px;
 }
+.about_section ul.skills_list li:nth-child(even) {
+	margin-left: -15px;
+}
 .about_section p:last-child,
 p:last-of-type {
 	margin: 0px;
@@ -148,7 +151,16 @@ p:last-of-type {
 	position: static;
 	border-radius: var(--border-radius);
 }
+/*////////////////////////////////////////////////////////// TODO: 300px ~ AboutSection.css
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 300px) {
+	.about_section ul.skills_list li:nth-child(even) {
+		margin-left: unset;
+	}
+}
 
+/*////////////////////////////////////////////////////////// TODO: 768px ~ AboutSection.css
+////////////////////////////////////////////////////////// */
 @media screen and (min-width: 768px) {
 	.about_section .section-body {
 		display: grid;
@@ -163,6 +175,8 @@ p:last-of-type {
 	}
 }
 
+/*////////////////////////////////////////////////////////// TODO: 1024px ~ App.css
+////////////////////////////////////////////////////////// */
 @media screen and (min-width: 1024px) {
 	.about_section p {
 		text-align: justify;

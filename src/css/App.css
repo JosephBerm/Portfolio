@@ -317,6 +317,19 @@ section.activated {
 .card::after {
 	filter: blur(1.5rem);
 }
+ul {
+	overflow: hidden;
+	list-style: none;
+	padding: 0px;
+}
+ul li::before {
+	content: "▹";
+	position: absolute;
+	left: 0px;
+	color: var(--green);
+	font-size: var(--fz-lg);
+	line-height: var(--fz-md);
+}
 /*////////////////////////////////////////////////////////// TODO: 375px ~ App.css
 ////////////////////////////////////////////////////////// */
 @media screen and (min-width: 480px) {

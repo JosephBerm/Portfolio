@@ -1,4 +1,54 @@
 .jobs_section {
-	/* temp putting line below to prevent lint error */
-	visibility: visible;
+}
+.jobs_section .section-body {
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+}
+.jobs_section ul li {
+	position: relative;
+	padding-left: 30px;
+	margin-bottom: 10px;
+}
+
+.jobs_section .tabList {
+	position: relative;
+	z-index: 3;
+	width: max-content;
+	padding: 0px;
+	margin: 0px;
+	list-style: none;
+}
+
+.jobs_section .tabList button.tabList-item {
+	display: flex;
+	justify-content: flex-start;
+	border: none;
+	width: 100%;
+	color: var(--slate);
+	border-radius: 0;
+	padding: 1.5rem 2.25rem;
+}
+.jobs_section .tabList button.tabList-item.selected {
+	color: var(--green);
+}
+
+.jobs_section .tabList button.tabList-item:hover {
+	background-color: var(--light-navy);
+}
+
+.jobs_section .tabList button.tabList-item span {
+	white-space: nowrap;
+}
+
+.jobs_section .work-summary {
+	position: relative;
+	width: 100%;
+	margin-left: 20px;
+}
+
+@media (min-width: 700px) {
+	.jobs_section .section-body {
+		min-height: 340px;
+	}
 }

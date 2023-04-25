@@ -6,7 +6,7 @@ const userProfile = {
 
 const workExperience = [
 	{
-		companyName: "Atlantic Coast Automotive Inc.",
+		companyName: "A.C.A.I",
 		titleOfPosition: "Full-Stack Software Engineer",
 		timeline: "April 2022 - Present",
 		highlights: [

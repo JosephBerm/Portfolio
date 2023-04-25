@@ -15,6 +15,9 @@ function Experience({ jobsRef }) {
 
 		return className;
 	};
+	const getSelectedIndex = () => {
+		return workExperience.findIndex((wE) => wE === selectedWork);
+	};
 	return (
 		<section ref={jobsRef} id='jobs' className='section jobs_section'>
 			<h2 className='section-header'>Where I've Worked</h2>
@@ -28,15 +31,18 @@ function Experience({ jobsRef }) {
 							<span>{wE.companyName}</span>
 						</button>
 					))}
-					<div className='higlighted-job' />
+					<div
+						className='highlighted-job'
+						style={{ "--index": getSelectedIndex() }}
+					/>
 				</div>
 				<div className='work-summary'>
 					<div className='title'>{selectedWork.titleOfPosition}</div>
 					<div className='timeline'>{selectedWork.timeline}</div>
 					<div className='highlights'>
 						<ul>
-							{selectedWork.highlights.map((hl) => (
-								<li>{hl}</li>
+							{selectedWork.highlights.map((hl, index) => (
+								<li key={index}>{hl}</li>
 							))}
 						</ul>
 					</div>

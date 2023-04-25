@@ -1,9 +1,7 @@
 .jobs_section {
 }
 .jobs_section .section-body {
-	display: flex;
-	justify-content: center;
-	align-items: flex-start;
+	display: block;
 }
 .jobs_section ul li {
 	position: relative;
@@ -14,20 +12,41 @@
 .jobs_section .tabList {
 	position: relative;
 	z-index: 3;
-	width: max-content;
 	padding: 0px;
 	margin: 0px;
 	list-style: none;
+	width: calc(100% + 50px);
+	padding-left: 25px;
+	margin-left: -25px;
+	display: flex;
+	overflow-x: auto;
+	margin-bottom: 30px;
+}
+
+.jobs_section .highlighted-job {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	z-index: 10;
+	width: 2px;
+	height: var(--tab-height);
+	border-radius: var(--border-radius);
+	background: var(--green);
+	transform: translateY(calc(var(--index) * var(--tab-height)));
+	transition: transform 0.25s cubic-bezier(0.645, 0.045, 0.355, 1) 0.1s;
 }
 
 .jobs_section .tabList button.tabList-item {
 	display: flex;
 	justify-content: flex-start;
+	align-items: center;
 	border: none;
 	width: 100%;
 	color: var(--slate);
 	border-radius: 0;
-	padding: 1.5rem 2.25rem;
+	height: var(--tab-height);
+	padding: 0 2.25rem;
+	border-left: 2px solid var(--lightest-navy);
 }
 .jobs_section .tabList button.tabList-item.selected {
 	color: var(--green);
@@ -45,6 +64,29 @@
 	position: relative;
 	width: 100%;
 	margin-left: 20px;
+}
+
+@media (min-width: 480px) {
+	.jobs_section .tabList {
+		width: calc(100% + 100px);
+		padding-left: 50px;
+		margin-left: -50px;
+	}
+}
+
+@media (min-width: 600px) {
+	.jobs_section .section-body {
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+	}
+	.jobs_section .tabList {
+		display: unset;
+		overflow-x: unset;
+		width: max-content;
+		padding-left: unset;
+		margin-left: unset;
+	}
 }
 
 @media (min-width: 700px) {

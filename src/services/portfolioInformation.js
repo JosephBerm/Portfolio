@@ -26,7 +26,7 @@ const workExperience = [
 		],
 	},
 	{
-		companyName: "Cardano Foundation",
+		companyName: "IOHK",
 		titleOfPosition: "Software Engineer Intern",
 		timeline: "August - December 2020",
 		highlights: [

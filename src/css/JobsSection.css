@@ -25,39 +25,50 @@
 
 .jobs_section .highlighted-job {
 	position: absolute;
-	top: 0px;
+	top: auto;
+	bottom: 0px;
+	width: 100%;
 	left: 0px;
+	margin-left: 25px;
 	z-index: 10;
-	width: 2px;
-	height: var(--tab-height);
+	max-width: var(--tab-width);
+	height: 2px;
+	transform: translateX(calc(var(--index) * var(--tab-width)));
 	border-radius: var(--border-radius);
 	background: var(--green);
-	transform: translateY(calc(var(--index) * var(--tab-height)));
 	transition: transform 0.25s cubic-bezier(0.645, 0.045, 0.355, 1) 0.1s;
 }
 
 .jobs_section .tabList button.tabList-item {
 	display: flex;
-	justify-content: flex-start;
+	justify-content: center;
 	align-items: center;
-	border: none;
-	width: 100%;
+	text-align: center;
+	min-width: 120px;
+	padding: 0px 2.25rem;
 	color: var(--slate);
-	border-radius: 0;
 	height: var(--tab-height);
-	padding: 0 2.25rem;
-	border-left: 2px solid var(--lightest-navy);
+	font-size: var(--fz-xs);
+	font-family: var(--font-mono);
+	border-radius: 0;
+	border: none;
+	border-bottom: 2px solid var(--lightest-navy);
+	transition: var(--transition);
 }
+
 .jobs_section .tabList button.tabList-item.selected {
 	color: var(--green);
+}
+.jobs_section .tabList button.tabList-item span {
+	white-space: nowrap;
 }
 
 .jobs_section .tabList button.tabList-item:hover {
 	background-color: var(--light-navy);
 }
 
-.jobs_section .tabList button.tabList-item span {
-	white-space: nowrap;
+.jobs_section .tabList button.tabList-item:hover span {
+	color: var(--green);
 }
 
 .jobs_section .work-summary {
@@ -71,6 +82,9 @@
 		width: calc(100% + 100px);
 		padding-left: 50px;
 		margin-left: -50px;
+	}
+	.jobs_section .highlighted-job {
+		margin-left: 50px;
 	}
 }
 
@@ -86,6 +100,19 @@
 		width: max-content;
 		padding-left: unset;
 		margin-left: unset;
+	}
+	.jobs_section .highlighted-job {
+		top: 0px;
+		width: 2px;
+		margin-left: unset;
+		height: var(--tab-height);
+		transform: translateY(calc(var(--index) * var(--tab-height)));
+	}
+	.jobs_section .tabList button.tabList-item {
+		justify-content: flex-start;
+		width: 100%;
+		border: none;
+		border-left: 2px solid var(--lightest-navy);
 	}
 }
 

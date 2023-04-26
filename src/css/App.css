@@ -43,6 +43,7 @@
 	--border-radius: 4px;
 	--scrollbar-width: 12px;
 	--tab-height: 42px;
+	--tab-width: 120px;
 	--transition: all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1);
 	--easing: cubic-bezier(0.645, 0.045, 0.355, 1);
 	--font-mono: "firaCode", "STechMono", "Courier New", Courier, monospace;
@@ -72,6 +73,9 @@ html {
 ::selection {
 	background-color: var(--lightest-navy);
 	color: var(--lightest-slate);
+}
+:focus-visible {
+	outline: none;
 }
 
 body {
@@ -145,7 +149,7 @@ button {
 	align-self: center;
 }
 button:hover {
-	background-color: var(--green-tint) !important;
+	background-color: var(--green-tint);
 }
 
 p {

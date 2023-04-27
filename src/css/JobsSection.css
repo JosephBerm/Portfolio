@@ -9,6 +9,9 @@
 	padding-left: 30px;
 	margin-bottom: 10px;
 }
+.jobs_section ul.sfx li::before {
+	top: 2px;
+}
 
 .jobs_section .tabList {
 	position: relative;

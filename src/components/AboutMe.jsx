@@ -32,7 +32,7 @@ function AboutMe({ aboutRef }) {
 						the world.
 					</p>
 					<p>Here are a few technologies I've been working with recently:</p>
-					<ul className='skills_list'>
+					<ul className='skills_list sfx'>
 						<li>JavaScript (ES6+)</li>
 						<li>Node.js</li>
 						<li>React</li>

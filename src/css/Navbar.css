@@ -63,7 +63,7 @@ nav .logo a {
 	width: 40px;
 	top: 3px;
 	opacity: 0;
-	animation: fade-in 0.5s ease-out 0.15s forwards;
+	animation: fade-in 0.75s 0.1s forwards;
 }
 
 nav .logo a svg polygon {

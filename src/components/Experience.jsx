@@ -36,7 +36,7 @@ function Experience({ jobsRef }) {
 						style={{ "--index": getSelectedIndex() }}
 					/>
 				</div>
-				<div className='work-summary'>
+				<div className='work-summary fadeIn' key={getSelectedIndex()}>
 					<h3 className='position'>
 						<span>{selectedWork.titleOfPosition}</span>
 						<span className='company'>

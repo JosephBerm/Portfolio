@@ -77,6 +77,11 @@
 	width: 100%;
 }
 
+.jobs_section .fadeIn {
+	opacity: 0;
+	animation: fade-in 0.5s forwards;
+}
+
 .jobs_section .work-summary h3.position {
 	margin-bottom: 2px;
 	font-size: var(--fz-l);

@@ -1,4 +1,5 @@
 .jobs_section {
+	max-width: 700px;
 }
 .jobs_section .section-body {
 	display: block;
@@ -74,7 +75,66 @@
 .jobs_section .work-summary {
 	position: relative;
 	width: 100%;
-	margin-left: 20px;
+}
+
+.jobs_section .work-summary h3.position {
+	margin-bottom: 2px;
+	font-size: var(--fz-l);
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.jobs_section .work-summary .company {
+	color: var(--green);
+}
+
+.jobs_section .work-summary a.inline-link {
+	display: inline-block;
+	position: relative;
+	color: var(--green);
+	transition: var(--transition);
+}
+
+.jobs_section .work-summary a.inline-link::after {
+	content: "";
+	display: block;
+	width: 0px;
+	height: 2px;
+	position: relative;
+	bottom: 0.1em;
+	background-color: var(--green);
+	opacity: 0.5;
+}
+
+.jobs_section .work-summary a.inline-link:hover::after,
+.jobs_section .work-summary a.inline-link:focus-visible::after {
+	width: 100%;
+}
+
+.jobs_section .work-summary a.inline-link:hover,
+.jobs_section .work-summary a.inline-link:focus-visible {
+	color: var(--green);
+	outline: 0px;
+}
+
+.jobs_section .work-summary p.timeline {
+	margin-bottom: 25px;
+	color: var(--light-slate);
+	font-family: var(--font-mono);
+	font-size: var(--fz-xs);
+}
+
+.jobs_section .work-summary ul.experienceList {
+	padding: 0px;
+	margin: 0px;
+	list-style: none;
+	font-size: var(--fz-md);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	a.inline-link::after {
+		transition: var(--transition);
+	}
 }
 
 @media (min-width: 480px) {
@@ -114,9 +174,15 @@
 		border: none;
 		border-left: 2px solid var(--lightest-navy);
 	}
+	.jobs_section .work-summary {
+		margin-left: 20px;
+	}
 }
 
 @media (min-width: 700px) {
+	.jobs_section {
+		min-height: 625px;
+	}
 	.jobs_section .section-body {
 		min-height: 340px;
 	}

@@ -37,10 +37,22 @@ function Experience({ jobsRef }) {
 					/>
 				</div>
 				<div className='work-summary'>
-					<div className='title'>{selectedWork.titleOfPosition}</div>
-					<div className='timeline'>{selectedWork.timeline}</div>
+					<h3 className='position'>
+						<span>{selectedWork.titleOfPosition}</span>
+						<span className='company'>
+							&nbsp;@&nbsp;
+							<a
+								className='inline-link'
+								href={selectedWork.link}
+								target='_blank'
+								rel='noopener noreferrer'>
+								{selectedWork.companyName}
+							</a>
+						</span>
+					</h3>
+					<p className='timeline'>{selectedWork.timeline}</p>
 					<div className='highlights'>
-						<ul>
+						<ul className='experienceList'>
 							{selectedWork.highlights.map((hl, index) => (
 								<li key={index}>{hl}</li>
 							))}

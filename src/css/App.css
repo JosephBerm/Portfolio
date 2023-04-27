@@ -311,7 +311,7 @@ section.activated {
 .card::after {
 	content: "";
 	position: absolute;
-	inset: -0.5rem;
+	inset: -0.3rem;
 	z-index: -1;
 	background: conic-gradient(
 		from var(--gradiant-angle),
@@ -332,7 +332,7 @@ ul {
 	list-style: none;
 	padding: 0px;
 }
-ul li::before {
+ul.sfx li::before {
 	content: "▹";
 	position: absolute;
 	left: 0px;

@@ -52,7 +52,7 @@ function Experience({ jobsRef }) {
 					</h3>
 					<p className='timeline'>{selectedWork.timeline}</p>
 					<div className='highlights'>
-						<ul className='experienceList'>
+						<ul className='experienceList sfx'>
 							{selectedWork.highlights.map((hl, index) => (
 								<li key={index}>{hl}</li>
 							))}

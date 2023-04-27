@@ -2,6 +2,11 @@
 	/* temp putting line below to prevent lint error */
 	visibility: visible;
 }
+.projects_section ul.projects-list {
+	list-style: none;
+	padding: 0px;
+	margin: 0px;
+}
 
 .projects-grid {
 	list-style: none;

@@ -75,9 +75,37 @@ const workExperience = [
 	},
 ];
 
+const projects = [
+	{
+		title: "Project 1",
+		description:
+			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore.",
+		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+		githubLink: "https://github.com/JosephBerm",
+		projectLink: "https://github.com/JosephBerm?tab=repositories",
+	},
+	{
+		title: "Project 2",
+		description:
+			"Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur qui ratione voluptatem sequi nesciunt.",
+		technologiesUsed: ["Vue.js", ".Net Core", "TypeScript", "ChatGPT API"],
+		githubLink: "https://github.com/JosephBerm",
+		projectLink: "https://github.com/JosephBerm?tab=repositories",
+	},
+	{
+		title: "Project 3",
+		description:
+			"Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat.",
+		technologiesUsed: ["SolidJS", "Express", "TypeScript", "ChatGPT API"],
+		githubLink: "https://github.com/JosephBerm",
+		projectLink: "https://github.com/JosephBerm?tab=repositories",
+	},
+];
+
 const myPortfolio = {
 	workExperience,
 	userProfile,
+	projects,
 };
 
 export default myPortfolio;

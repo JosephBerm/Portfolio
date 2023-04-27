@@ -10,6 +10,7 @@ import myPortfolio from "./services/portfolioInformation";
 import LoadingPage from "./components/LoadingPage";
 import "../src/css/App.css";
 import Background from "./components/Background";
+import OtherProjects from "./components/OtherProjects";
 
 function App() {
 	const [isLoading, setIsLoading] = useState(true);
@@ -33,6 +34,7 @@ function App() {
 						<AboutMe />
 						<Experience />
 						<Projects />
+						<OtherProjects />
 						<ContactMe />
 					</main>
 				</div>

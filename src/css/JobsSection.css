@@ -96,35 +96,6 @@
 	color: var(--green);
 }
 
-.jobs_section .work-summary a.inline-link {
-	display: inline-block;
-	position: relative;
-	color: var(--green);
-	transition: var(--transition);
-}
-
-.jobs_section .work-summary a.inline-link::after {
-	content: "";
-	display: block;
-	width: 0px;
-	height: 2px;
-	position: relative;
-	bottom: 0.1em;
-	background-color: var(--green);
-	opacity: 0.5;
-}
-
-.jobs_section .work-summary a.inline-link:hover::after,
-.jobs_section .work-summary a.inline-link:focus-visible::after {
-	width: 100%;
-}
-
-.jobs_section .work-summary a.inline-link:hover,
-.jobs_section .work-summary a.inline-link:focus-visible {
-	color: var(--green);
-	outline: 0px;
-}
-
 .jobs_section .work-summary p.timeline {
 	margin-bottom: 25px;
 	color: var(--light-slate);

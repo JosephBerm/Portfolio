@@ -1,4 +1,194 @@
 .jobs_section {
-	/* temp putting line below to prevent lint error */
-	visibility: visible;
+	max-width: 700px;
+}
+.jobs_section .section-body {
+	display: block;
+}
+.jobs_section ul li {
+	position: relative;
+	padding-left: 30px;
+	margin-bottom: 10px;
+}
+
+.jobs_section .tabList {
+	position: relative;
+	z-index: 3;
+	padding: 0px;
+	margin: 0px;
+	list-style: none;
+	width: calc(100% + 50px);
+	padding-left: 25px;
+	margin-left: -25px;
+	display: flex;
+	overflow-x: auto;
+	margin-bottom: 30px;
+}
+
+.jobs_section .highlighted-job {
+	position: absolute;
+	top: auto;
+	bottom: 0px;
+	width: 100%;
+	left: 0px;
+	margin-left: 25px;
+	z-index: 10;
+	max-width: var(--tab-width);
+	height: 2px;
+	transform: translateX(calc(var(--index) * var(--tab-width)));
+	border-radius: var(--border-radius);
+	background: var(--green);
+	transition: transform 0.25s cubic-bezier(0.645, 0.045, 0.355, 1) 0.1s;
+}
+
+.jobs_section .tabList button.tabList-item {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	min-width: 120px;
+	padding: 0px 2.25rem;
+	color: var(--slate);
+	height: var(--tab-height);
+	font-size: var(--fz-xs);
+	font-family: var(--font-mono);
+	border-radius: 0;
+	border: none;
+	border-bottom: 2px solid var(--lightest-navy);
+	transition: var(--transition);
+}
+
+.jobs_section .tabList button.tabList-item.selected {
+	color: var(--green);
+}
+.jobs_section .tabList button.tabList-item span {
+	white-space: nowrap;
+}
+
+.jobs_section .tabList button.tabList-item:hover {
+	background-color: var(--light-navy);
+}
+
+.jobs_section .tabList button.tabList-item:hover span {
+	color: var(--green);
+}
+
+.jobs_section .work-summary {
+	position: relative;
+	width: 100%;
+}
+
+.jobs_section .fadeIn {
+	opacity: 0;
+	animation: fade-in 0.5s forwards;
+}
+
+.jobs_section .work-summary h3.position {
+	margin-bottom: 2px;
+	font-size: var(--fz-l);
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.jobs_section .work-summary .company {
+	color: var(--green);
+}
+
+.jobs_section .work-summary a.inline-link {
+	display: inline-block;
+	position: relative;
+	color: var(--green);
+	transition: var(--transition);
+}
+
+.jobs_section .work-summary a.inline-link::after {
+	content: "";
+	display: block;
+	width: 0px;
+	height: 2px;
+	position: relative;
+	bottom: 0.1em;
+	background-color: var(--green);
+	opacity: 0.5;
+}
+
+.jobs_section .work-summary a.inline-link:hover::after,
+.jobs_section .work-summary a.inline-link:focus-visible::after {
+	width: 100%;
+}
+
+.jobs_section .work-summary a.inline-link:hover,
+.jobs_section .work-summary a.inline-link:focus-visible {
+	color: var(--green);
+	outline: 0px;
+}
+
+.jobs_section .work-summary p.timeline {
+	margin-bottom: 25px;
+	color: var(--light-slate);
+	font-family: var(--font-mono);
+	font-size: var(--fz-xs);
+}
+
+.jobs_section .work-summary ul.experienceList {
+	padding: 0px;
+	margin: 0px;
+	list-style: none;
+	font-size: var(--fz-md);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	a.inline-link::after {
+		transition: var(--transition);
+	}
+}
+
+@media (min-width: 480px) {
+	.jobs_section .tabList {
+		width: calc(100% + 100px);
+		padding-left: 50px;
+		margin-left: -50px;
+	}
+	.jobs_section .highlighted-job {
+		margin-left: 50px;
+	}
+}
+
+@media (min-width: 600px) {
+	.jobs_section .section-body {
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+	}
+	.jobs_section .tabList {
+		display: unset;
+		overflow-x: unset;
+		width: max-content;
+		padding-left: unset;
+		margin-left: unset;
+	}
+	.jobs_section .highlighted-job {
+		top: 0px;
+		width: 2px;
+		margin-left: unset;
+		height: var(--tab-height);
+		transform: translateY(calc(var(--index) * var(--tab-height)));
+	}
+	.jobs_section .tabList button.tabList-item {
+		justify-content: flex-start;
+		width: 100%;
+		border: none;
+		border-left: 2px solid var(--lightest-navy);
+	}
+	.jobs_section .work-summary {
+		margin-left: 20px;
+	}
+}
+
+@media (min-width: 700px) {
+	.jobs_section {
+		min-height: 625px;
+	}
+	.jobs_section .section-body {
+		min-height: 340px;
+	}
 }

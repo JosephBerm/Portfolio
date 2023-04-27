@@ -6,18 +6,21 @@ const userProfile = {
 
 const workExperience = [
 	{
-		companyName: "Atlantic Coast Automotive Inc.",
+		companyName: "A.C.A.I",
 		titleOfPosition: "Full-Stack Software Engineer",
+		link: "https://www.linkedin.com/company/atlantic-coast-automotive-inc/",
 		timeline: "April 2022 - Present",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
+			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
 		],
 	},
 	{
 		companyName: "Bizzie Co.",
 		titleOfPosition: "Software Engineer Intern",
+		link: "https://bizzieco.com/",
 		timeline: "January - May 2021",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
@@ -26,8 +29,9 @@ const workExperience = [
 		],
 	},
 	{
-		companyName: "Cardano Foundation",
+		companyName: "IOHK",
 		titleOfPosition: "Software Engineer Intern",
+		link: "https://iohk.io/",
 		timeline: "August - December 2020",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
@@ -38,6 +42,7 @@ const workExperience = [
 	{
 		companyName: "Tesla",
 		titleOfPosition: "Software Engineer Intern",
+		link: "https://www.tesla.com/",
 		timeline: "January - May 2020",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
@@ -48,16 +53,19 @@ const workExperience = [
 	{
 		companyName: "SpaceX",
 		titleOfPosition: "Director of Rockets",
+		link: "https://www.spacex.com/",
 		timeline: "August - December 2019",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
+			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
 		],
 	},
 	{
 		companyName: "NASA",
 		titleOfPosition: "Intern for Director of Rocekts",
+		link: "https://www.nasa.gov/",
 		timeline: "January - May 2020",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",

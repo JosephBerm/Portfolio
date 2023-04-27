@@ -60,7 +60,8 @@ nav .burger-button:hover {
 }
 
 nav .logo a {
-	width: 37px;
+	width: 40px;
+	top: 3px;
 	opacity: 0;
 	animation: fade-in 0.5s ease-out 0.15s forwards;
 }
@@ -155,6 +156,7 @@ nav .logo a:hover svg polygon {
 .nav_StyledLinks ol li button:focus {
 	color: var(--green);
 	transition: var(--transition);
+	background: unset;
 }
 
 .nav_StyledLinks .button-container .button:hover {

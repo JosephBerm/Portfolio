@@ -9,7 +9,7 @@ function OtherProjects({ OtherProjectsRef }) {
 			className='section other-projects_section'>
 			<h2>Other Noteworthy Projects</h2>
 			<a
-				class='inline-link archive-link'
+				className='inline-link archive-link'
 				href='http://localhost:3000/'
 				target='_blank'
 				rel='noopener noreferrer'>

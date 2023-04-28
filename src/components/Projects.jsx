@@ -11,8 +11,8 @@ function Projects({ projectsRef }) {
 			<div className='section-body'>
 				<ul className='projects-list'>
 					{projects.map((projectDetails, index) => (
-						<li style={{ "--index": index }}>
-							<FeaturedProject projectDetails={projectDetails} key={index} />
+						<li style={{ "--index": index }} key={index}>
+							<FeaturedProject projectDetails={projectDetails} />
 						</li>
 					))}
 				</ul>

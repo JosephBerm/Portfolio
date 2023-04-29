@@ -14,7 +14,7 @@ function Projects({ projectsRef }) {
 					{projects.map((project, index) => (
 						<li style={{ "--index": index }} key={index}>
 							<FeaturedProject projectDetails={project.info} />
-							<ProjectImage imageDetails={project.imageDetails} />
+							<ProjectImage imageDetails={project.imageDetails} index={index} />
 						</li>
 					))}
 				</ul>

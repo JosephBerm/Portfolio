@@ -9,6 +9,11 @@
 	margin: 0px;
 }
 
+.projects_section ul.projects-list a {
+	position: relative;
+	z-index: 1;
+}
+
 .projects_section ul.projects-list > li {
 	position: relative;
 	display: grid;
@@ -174,6 +179,78 @@
 	padding: 10px;
 }
 
+.projects_section .project-image {
+	position: relative;
+	z-index: 1;
+	height: 100%;
+	opacity: 0.25;
+	grid-area: 1 / 6 / -1 / -1;
+	grid-column: 1 / -1;
+	transition: var(--transition);
+	box-shadow: 0 10px 30px -15px var(--navy-shadow);
+}
+
+.projects_section .project-image a {
+	width: 100%;
+	height: 100%;
+	background-color: var(--green);
+	border-radius: var(--border-radius);
+	vertical-align: middle;
+}
+
+.projects_section .project-image a::before {
+	content: "";
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	inset: 0px;
+	z-index: 3;
+	transition: var(--transition);
+	background-color: var(--navy);
+	mix-blend-mode: screen;
+}
+img,
+svg,
+.image-wrapper {
+	width: 100%;
+	max-width: 100%;
+	vertical-align: middle;
+}
+
+.projects_section .project-image .image-wrapper {
+	object-fit: cover;
+	width: auto;
+	height: 100%;
+	filter: grayscale(100%) contrast(1) brightness(50%);
+	border-radius: var(--border-radius);
+	mix-blend-mode: multiply;
+	display: inline-block;
+	position: relative;
+	overflow: hidden;
+}
+
+.projects_section .project-image .image-wrapper img {
+	bottom: 0;
+	height: 100%;
+	left: 0;
+	margin: 0;
+	max-width: none;
+	padding: 0;
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: 100%;
+	object-fit: cover;
+	opacity: 1;
+}
+
+.projects_section .project-image .image-wrapper img[data-main-image] {
+	opacity: 0;
+	transform: translateZ(0);
+	transition: opacity 0.25s linear;
+	will-change: opacity;
+}
+
 /*////////////////////////////////////////////////////////// TODO: 480px ~ Projects.css
 ////////////////////////////////////////////////////////// */
 @media screen and (min-width: 480px) {
@@ -257,9 +334,24 @@
 		margin-left: 0px;
 		margin-right: -10px;
 	}
+	.projects_section ul.projects-list .project-image {
+		grid-column: unset;
+		height: unset;
+		opacity: unset;
+	}
+
+	.projects_section ul.projects-list > li:nth-of-type(2n + 1) .project-image {
+		grid-column: 1 / 8;
+	}
+
+	.projects_section .project-image .image-wrapper {
+		object-fit: unset;
+		width: 100%;
+		filter: grayscale(100%) contrast(1) brightness(90%);
+	}
 }
 
-/*////////////////////////////////////////////////////////// TODO: 768px ~ Projects.css
+/*////////////////////////////////////////////////////////// TODO: 1080px ~ Projects.css
 ////////////////////////////////////////////////////////// */
 @media screen and (min-width: 1080px) {
 	.projects_section ul.projects-list .project-content {

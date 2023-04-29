@@ -1,6 +1,28 @@
 import React from "react";
 
 function FeaturedProject({ projectDetails }) {
+	function getTextWithLinks() {
+		let desc = projectDetails.description;
+		let descLinks = projectDetails.descriptionLinks;
+
+		for (let key in descLinks) {
+			const { text, link } = descLinks[key];
+			const regex = new RegExp(text, "g");
+			desc = desc.replace(
+				regex,
+				`<a
+					href=${link} 
+					target="_blank"
+					rel='noopener noreferrer'
+					>
+					${text}
+				</a>`
+			);
+		}
+
+		return <p dangerouslySetInnerHTML={{ __html: desc }} />;
+	}
+
 	return (
 		<div className='project-content'>
 			<p className='project-overline'>Featured Project</p>
@@ -12,39 +34,7 @@ function FeaturedProject({ projectDetails }) {
 					{projectDetails.title}
 				</a>
 			</h3>
-			<div className='project-description'>
-				<p>
-					{projectDetails.description}{" "}
-					<a
-						href={projectDetails.githubLink}
-						target='_blank'
-						rel='noopener noreferrer'>
-						Example Link
-					</a>
-					,{" "}
-					<a
-						href={projectDetails.githubLink}
-						target='_blank'
-						rel='noopener noreferrer'>
-						Link 2 Example
-					</a>
-					,{" "}
-					<a
-						href={projectDetails.githubLink}
-						target='_blank'
-						rel='noopener noreferrer'>
-						Another Example
-					</a>
-					, and{" "}
-					<a
-						href={projectDetails.githubLink}
-						target='_blank'
-						rel='noopener noreferrer'>
-						Last One
-					</a>
-					.
-				</p>
-			</div>
+			<div className='project-description'>{getTextWithLinks()}</div>
 			<ul className='project-tech-list'>
 				{projectDetails.technologiesUsed.map((tech, index) => (
 					<li key={index}>{tech}</li>

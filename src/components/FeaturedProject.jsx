@@ -13,7 +13,37 @@ function FeaturedProject({ projectDetails }) {
 				</a>
 			</h3>
 			<div className='project-description'>
-				<p>{projectDetails.description}</p>
+				<p>
+					{projectDetails.description}
+					<a
+						href={projectDetails.githubLink}
+						target='_blank'
+						rel='noopener noreferrer'>
+						Example Link
+					</a>
+					,
+					<a
+						href={projectDetails.githubLink}
+						target='_blank'
+						rel='noopener noreferrer'>
+						Link 2 Example
+					</a>
+					,
+					<a
+						href={projectDetails.githubLink}
+						target='_blank'
+						rel='noopener noreferrer'>
+						Another Example
+					</a>
+					, and
+					<a
+						href={projectDetails.githubLink}
+						target='_blank'
+						rel='noopener noreferrer'>
+						Last One
+					</a>
+					.
+				</p>
 			</div>
 			<ul className='project-tech-list'>
 				{projectDetails.technologiesUsed.map((tech, index) => (

@@ -31,6 +31,7 @@
 	--red-stars: #900603;
 	--yellow-stars: #ffcc6f;
 	--blue-stars: #1f51ff;
+	--white: #e6f1ff;
 	--fz-xxs: 1.2rem;
 	--fz-xs: 1.3rem;
 	--fz-s: 1.4rem;
@@ -133,6 +134,11 @@ a {
 	position: relative;
 }
 
+a:hover,
+a:focus {
+	color: var(--green);
+}
+
 svg {
 	user-select: none;
 }
@@ -156,8 +162,12 @@ button:hover {
 }
 
 p {
-	font-size: var(--fz-md);
-	line-height: 2.2rem;
+	font-size: var(--fz-s);
+	line-height: 1.5;
+}
+p:last-child,
+p:last-of-type {
+	margin: 0px;
 }
 
 #root {
@@ -385,6 +395,10 @@ a.inline-link:focus-visible {
 @media screen and (min-width: 600px) {
 	.section-header::after {
 		margin-left: 20px;
+	}
+	p {
+		font-size: var(--fz-md);
+		line-height: 1.4;
 	}
 }
 /*////////////////////////////////////////////////////////// TODO: 768px ~ App.css

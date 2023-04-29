@@ -157,6 +157,9 @@
 	.jobs_section .work-summary {
 		margin-left: 20px;
 	}
+	.jobs_section .work-summary ul.experienceList {
+		font-size: var(--fz-md);
+	}
 }
 
 @media (min-width: 700px) {

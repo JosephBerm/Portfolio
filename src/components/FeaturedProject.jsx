@@ -14,28 +14,28 @@ function FeaturedProject({ projectDetails }) {
 			</h3>
 			<div className='project-description'>
 				<p>
-					{projectDetails.description}
+					{projectDetails.description}{" "}
 					<a
 						href={projectDetails.githubLink}
 						target='_blank'
 						rel='noopener noreferrer'>
 						Example Link
 					</a>
-					,
+					,{" "}
 					<a
 						href={projectDetails.githubLink}
 						target='_blank'
 						rel='noopener noreferrer'>
 						Link 2 Example
 					</a>
-					,
+					,{" "}
 					<a
 						href={projectDetails.githubLink}
 						target='_blank'
 						rel='noopener noreferrer'>
 						Another Example
 					</a>
-					, and
+					, and{" "}
 					<a
 						href={projectDetails.githubLink}
 						target='_blank'

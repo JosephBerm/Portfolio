@@ -162,8 +162,8 @@ button:hover {
 }
 
 p {
-	font-size: var(--fz-s);
-	line-height: 1.5;
+	font-size: var(--fz-md);
+	line-height: 1.4;
 }
 p:last-child,
 p:last-of-type {
@@ -382,6 +382,29 @@ a.inline-link:focus-visible {
 	outline: 0px;
 }
 
+p > a:hover,
+p > a:focus-visible {
+	color: var(--green);
+	outline: 0px;
+}
+
+p > a::after {
+	content: "";
+	display: block;
+	width: 0px;
+	height: 1px;
+	position: relative;
+	bottom: 0.37em;
+	background-color: var(--green);
+	opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	p > a::after {
+		transition: var(--transition);
+	}
+}
+
 /*////////////////////////////////////////////////////////// TODO: 375px ~ App.css
 ////////////////////////////////////////////////////////// */
 @media screen and (min-width: 480px) {
@@ -405,7 +428,7 @@ a.inline-link:focus-visible {
 ////////////////////////////////////////////////////////// */
 @media screen and (min-width: 768px) {
 	p {
-		line-height: 2.4rem;
+		line-height: 1.55;
 	}
 	main.fillHeight {
 		padding: 0px 100px;

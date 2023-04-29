@@ -1,6 +1,7 @@
 import React, { useContext } from "react";
 import UserContext from "../context/portfolioContext";
 import FeaturedProject from "./FeaturedProject";
+import ProjectImage from "./ProjectImage";
 
 function Projects({ projectsRef }) {
 	const { projects } = useContext(UserContext);
@@ -10,9 +11,10 @@ function Projects({ projectsRef }) {
 			<h2 className='section-header'>Some Things I've Built</h2>
 			<div className='section-body'>
 				<ul className='projects-list'>
-					{projects.map((projectDetails, index) => (
+					{projects.map((project, index) => (
 						<li style={{ "--index": index }} key={index}>
-							<FeaturedProject projectDetails={projectDetails} />
+							<FeaturedProject projectDetails={project.info} />
+							<ProjectImage imageDetails={project.imageDetails} />
 						</li>
 					))}
 				</ul>

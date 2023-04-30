@@ -1,56 +1,37 @@
 import React from "react";
+import { getTextWithLinks } from "../services/utils";
 
 function FeaturedProject({ projectDetails }) {
-	function getTextWithLinks() {
-		let desc = projectDetails.description;
-		let descLinks = projectDetails.descriptionLinks;
-
-		for (let key in descLinks) {
-			const { text, link } = descLinks[key];
-			const regex = new RegExp(text, "g");
-			desc = desc.replace(
-				regex,
-				`<a
-					href=${link} 
-					target="_blank"
-					rel='noopener noreferrer'
-					>
-					${text}
-				</a>`
-			);
-		}
-
-		return <p dangerouslySetInnerHTML={{ __html: desc }} />;
-	}
+	const {
+		projectLink,
+		title,
+		technologiesUsed,
+		githubLink,
+		description,
+		descriptionLinks,
+	} = projectDetails;
 
 	return (
 		<div className='project-content'>
 			<p className='project-overline'>Featured Project</p>
 			<h3 className='project-title'>
-				<a
-					href={projectDetails.projectLink}
-					target='_blank'
-					rel='noopener noreferrer'>
-					{projectDetails.title}
+				<a href={projectLink} target='_blank' rel='noopener noreferrer'>
+					{title}
 				</a>
 			</h3>
-			<div className='project-description'>{getTextWithLinks()}</div>
+			<div className='project-description'>
+				{getTextWithLinks(description, descriptionLinks)}
+			</div>
 			<ul className='project-tech-list'>
-				{projectDetails.technologiesUsed.map((tech, index) => (
+				{technologiesUsed.map((tech, index) => (
 					<li key={index}>{tech}</li>
 				))}
 			</ul>
 			<div className='project-links'>
-				<a
-					href={projectDetails.githubLink}
-					target='_blank'
-					rel='noopener noreferrer'>
+				<a href={githubLink} target='_blank' rel='noopener noreferrer'>
 					💫
 				</a>
-				<a
-					href={projectDetails.projectLink}
-					target='_blank'
-					rel='noopener noreferrer'>
+				<a href={projectLink} target='_blank' rel='noopener noreferrer'>
 					💢
 				</a>
 			</div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Logo from "../assets/Logo";
 import router from "./../services/router";
 import classNames from "classnames";
-import observe from "../services/intersectionObserver";
+import observeSection from "../services/sectionObserver";
 
 function Navbar(props) {
 	const [navClass, setNavClass] = useState("header");
@@ -12,7 +12,7 @@ function Navbar(props) {
 	useEffect(() => {
 		const sections = [...document.querySelectorAll(".section")];
 		router.linkRoutesTo(sections);
-		observe(sections);
+		observeSection(sections);
 	}, []);
 
 	useEffect(() => {

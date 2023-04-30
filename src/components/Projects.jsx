@@ -1,10 +1,16 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import UserContext from "../context/portfolioContext";
 import FeaturedProject from "./FeaturedProject";
 import ProjectImage from "./ProjectImage";
+import observeElem from "../services/elementObserver";
 
 function Projects({ projectsRef }) {
 	const { projects } = useContext(UserContext);
+
+	useEffect(() => {
+		const listItems = [...document.querySelectorAll(".projects-list-item")];
+		observeElem(listItems, 1);
+	}, []);
 
 	return (
 		<section ref={projectsRef} id='projects' className='section projects_section'>
@@ -12,9 +18,12 @@ function Projects({ projectsRef }) {
 			<div className='section-body'>
 				<ul className='projects-list'>
 					{projects.map((project, index) => (
-						<li style={{ "--index": index }} key={index}>
+						<li
+							className='projects-list-item'
+							style={{ "--index": index }}
+							key={index}>
 							<FeaturedProject projectDetails={project.info} />
-							<ProjectImage imageDetails={project.imageDetails} index={index} />
+							<ProjectImage imageDetails={project.imageDetails} />
 						</li>
 					))}
 				</ul>

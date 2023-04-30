@@ -1,5 +1,5 @@
+/* temp putting line below to prevent lint error */
 .projects_section {
-	/* temp putting line below to prevent lint error */
 	visibility: visible;
 }
 
@@ -190,6 +190,11 @@
 	box-shadow: 0 10px 30px -15px var(--navy-shadow);
 }
 
+.projects_section .project-image:hover,
+.projects_section .project-image:focus-visible {
+	box-shadow: 0 20px 30px -15px var(--navy-shadow);
+}
+
 .projects_section .project-image a {
 	width: 100%;
 	height: 100%;
@@ -209,6 +214,20 @@
 	background-color: var(--navy);
 	mix-blend-mode: screen;
 }
+
+.projects_section .project-image a:hover,
+.projects_section .project-image a:focus {
+	background: transparent;
+	outline: 0px;
+}
+.projects_section .project-image a:hover::before,
+.projects_section .project-image a:focus::before,
+.projects_section .project-image a:hover .image-wrapper,
+.projects_section .project-image a:focus .image-wrapper {
+	background: transparent;
+	filter: none;
+}
+
 img,
 svg,
 .image-wrapper {
@@ -249,6 +268,18 @@ svg,
 	transform: translateZ(0);
 	transition: opacity 0.25s linear;
 	will-change: opacity;
+}
+
+.projects_section ul.projects-list > li.projects-list-item {
+	opacity: 0;
+	transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 30, 0, 1);
+}
+
+.projects_section ul.projects-list > li.projects-list-item.activated {
+	opacity: 1;
+	transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+	transition: opacity 0.5s cubic-bezier(0.645, 0.045, 0.355, 1),
+		transform 0.5s cubic-bezier(0.645, 0.045, 0.355, 1);
 }
 
 /*////////////////////////////////////////////////////////// TODO: 480px ~ Projects.css
@@ -338,6 +369,11 @@ svg,
 		grid-column: unset;
 		height: unset;
 		opacity: unset;
+		box-shadow: 0 10px 30px -15px var(--navy-shadow);
+		transition: var(--transition);
+		grid-area: 1 / 6 / -1 / -1;
+		position: relative;
+		z-index: 1;
 	}
 
 	.projects_section ul.projects-list > li:nth-of-type(2n + 1) .project-image {

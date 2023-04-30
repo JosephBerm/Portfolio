@@ -1,3 +1,7 @@
+import ChatGPT from "../assets/chatGPT.jpg";
+import SpaceX from "../assets/spaceX.jpg";
+import Tesla from "../assets/tesla.jpg";
+
 const userProfile = {
 	name: "Joseph Bermudez",
 	objective:
@@ -75,9 +79,87 @@ const workExperience = [
 	},
 ];
 
+const projects = [
+	{
+		info: {
+			title: "Project 1",
+			description:
+				"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
+			descriptionLinks: [
+				{
+					text: "Example Link",
+					link: "https://github.com/JosephBerm",
+				},
+				{
+					text: "Link 2 Example",
+					link: "https://github.com/JosephBerm",
+				},
+				{
+					text: "Another Example",
+					link: "https://github.com/JosephBerm",
+				},
+				{
+					text: "Last One",
+					link: "https://github.com/JosephBerm",
+				},
+			],
+			technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+			githubLink: "https://github.com/JosephBerm",
+			projectLink: "https://github.com/JosephBerm?tab=repositories",
+		},
+		imageDetails: {
+			link: "https://github.com/JosephBerm",
+			imgUrl: ChatGPT,
+			imgAlt: "ChatGPT",
+		},
+	},
+	{
+		info: {
+			title: "Project 2",
+			description:
+				"Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur qui ratione voluptatem sequi nesciunt.",
+			descriptionLinks: [],
+			technologiesUsed: ["Vue.js", ".Net Core", "TypeScript", "ChatGPT API"],
+			githubLink: "https://github.com/JosephBerm",
+			projectLink: "https://github.com/JosephBerm?tab=repositories",
+		},
+		imageDetails: {
+			link: "https://github.com/JosephBerm",
+			imgUrl: SpaceX,
+			imgAlt: "Starlink",
+		},
+	},
+	{
+		info: {
+			title: "Project 3",
+			description:
+				"Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat.",
+			descriptionLinks: [
+				{
+					text: "dolorem",
+					link: "https://github.com/JosephBerm",
+				},
+				{
+					text: "fugiat",
+					link: "https://github.com/JosephBerm",
+				},
+			],
+			technologiesUsed: ["SolidJS", "Express", "TypeScript", "ChatGPT API"],
+			githubLink: "https://github.com/JosephBerm",
+			projectLink: "https://github.com/JosephBerm?tab=repositories",
+		},
+		imageDetails: {
+			link: "https://github.com/JosephBerm",
+			imgUrl: Tesla,
+			imgAlt: "Tesla",
+		},
+	},
+];
+
 const myPortfolio = {
 	workExperience,
 	userProfile,
+	projects,
 };
 
 export default myPortfolio;

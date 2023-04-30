@@ -3,10 +3,7 @@
 .about_section p {
 	margin: 0px 0px 15px;
 }
-.about_section p:last-child,
-p:last-of-type {
-	margin: 0px;
-}
+
 .about_section p > a::after {
 	content: "";
 	display: block;

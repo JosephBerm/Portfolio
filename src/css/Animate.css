@@ -46,6 +46,17 @@
 	}
 }
 
+@keyframes cardEnter {
+	from {
+		opacity: 0.01;
+		transform: translateY(-25%);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 @keyframes rotate-one {
 	0% {
 		transform: rotateX(35deg) rotateY(-45deg) rotateZ(0deg);

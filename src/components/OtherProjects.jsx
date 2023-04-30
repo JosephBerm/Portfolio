@@ -1,7 +1,15 @@
-import React from "react";
+import React, { useEffect, useContext } from "react";
+import UserContext from "../context/portfolioContext";
+import observeElem from "../services/elementObserver";
 import Card from "./Card";
 
 function OtherProjects({ OtherProjectsRef }) {
+	const { otherProjects: projList } = useContext(UserContext);
+
+	useEffect(() => {
+		const listItems = [...document.querySelectorAll(".other-projects-list-item")];
+		observeElem(listItems);
+	}, []);
 	return (
 		<section
 			ref={OtherProjectsRef}
@@ -16,24 +24,11 @@ function OtherProjects({ OtherProjectsRef }) {
 				view the archive
 			</a>
 			<ul className='projects-grid'>
-				<li>
-					<Card>Card 1</Card>
-				</li>
-				<li>
-					<Card>Card 2</Card>
-				</li>
-				<li>
-					<Card>Card 3</Card>
-				</li>
-				<li>
-					<Card>Card 4</Card>
-				</li>
-				<li>
-					<Card>Card 5</Card>
-				</li>
-				<li>
-					<Card>Card 6</Card>
-				</li>
+				{projList.map((proj, index) => (
+					<li className='other-projects-list-item' style={{ "--delay": index }}>
+						<Card>{proj.title}</Card>
+					</li>
+				))}
 			</ul>
 			<button>Show More</button>
 		</section>

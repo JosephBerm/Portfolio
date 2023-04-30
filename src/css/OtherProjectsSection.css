@@ -24,3 +24,12 @@
 	justify-items: center;
 	padding: 50px;
 }
+
+.other-projects_section .other-projects-list-item {
+	opacity: 0;
+	transform: translateY(-25%);
+}
+
+.other-projects_section .other-projects-list-item.activated {
+	animation: cardEnter 0.3s forwards calc(var(--delay) * 0.15s);
+}

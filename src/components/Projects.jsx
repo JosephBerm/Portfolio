@@ -5,7 +5,7 @@ import ProjectImage from "./ProjectImage";
 import observeElem from "../services/elementObserver";
 
 function Projects({ projectsRef }) {
-	const { projects } = useContext(UserContext);
+	const { featuredProjects } = useContext(UserContext);
 
 	useEffect(() => {
 		const listItems = [...document.querySelectorAll(".projects-list-item")];
@@ -17,7 +17,7 @@ function Projects({ projectsRef }) {
 			<h2 className='section-header'>Some Things I've Built</h2>
 			<div className='section-body'>
 				<ul className='projects-list'>
-					{projects.map((project, index) => (
+					{featuredProjects.map((project, index) => (
 						<li
 							className='projects-list-item'
 							style={{ "--index": index }}

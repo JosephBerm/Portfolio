@@ -9,7 +9,7 @@ function Projects({ projectsRef }) {
 
 	useEffect(() => {
 		const listItems = [...document.querySelectorAll(".projects-list-item")];
-		observeElem(listItems, 1);
+		observeElem(listItems);
 	}, []);
 
 	return (

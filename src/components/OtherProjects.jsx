@@ -25,7 +25,10 @@ function OtherProjects({ OtherProjectsRef }) {
 			</a>
 			<ul className='projects-grid'>
 				{projList.map((proj, index) => (
-					<li className='other-projects-list-item' style={{ "--delay": index }}>
+					<li
+						className='other-projects-list-item'
+						style={{ "--delay": index }}
+						key={index}>
 						<Card>{proj.title}</Card>
 					</li>
 				))}

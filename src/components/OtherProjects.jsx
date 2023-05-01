@@ -27,7 +27,7 @@ function OtherProjects({ OtherProjectsRef }) {
 				{projList.map((proj, index) => (
 					<li
 						className='other-projects-list-item'
-						style={{ "--delay": index }}
+						style={{ "--delay": index % 3 }}
 						key={index}>
 						<Card>{proj.title}</Card>
 					</li>

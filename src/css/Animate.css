@@ -51,7 +51,7 @@
 		opacity: 0;
 		transform: translateX(50%);
 	}
-	90% {
+	85% {
 		transform: translateX(-3%);
 	}
 	to {
@@ -65,7 +65,7 @@
 		opacity: 0;
 		transform: translateX(-50%);
 	}
-	90% {
+	85% {
 		transform: translateX(3%);
 	}
 	to {

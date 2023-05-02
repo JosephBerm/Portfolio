@@ -1,7 +1,7 @@
-function callBack(entries) {
-	entries.forEach((entry) => {
-		entry.target.classList.toggle("activated", entry.isIntersecting);
-		if (entry.isIntersecting) observer.unobserve(entry.target);
+function callBack(elements) {
+	elements.forEach((element) => {
+		element.target.classList.toggle("activated", element.isIntersecting);
+		if (element.isIntersecting) observer.unobserve(element.target);
 	});
 }
 
@@ -11,8 +11,8 @@ let options = {
 
 const observer = new IntersectionObserver(callBack, options);
 
-export default function observe(sections) {
-	sections.forEach((s) => {
+export default function observe(elements) {
+	elements.forEach((s) => {
 		observer.observe(s);
 	});
 }

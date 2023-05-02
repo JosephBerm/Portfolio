@@ -314,8 +314,9 @@ section.activated {
 	inherits: false;
 }
 .card {
-	height: 304px;
-	aspect-ratio: 1 / 0.94;
+	height: 300px;
+	width: 100%;
+	max-width: 85vw;
 	background: var(--light-navy);
 	border-radius: var(--border-radius);
 	position: relative;
@@ -453,6 +454,10 @@ img:not([alt]) {
 	}
 	.section-header::after {
 		width: 200px;
+	}
+	.card {
+		height: 300px;
+		max-width: 275px;
 	}
 }
 

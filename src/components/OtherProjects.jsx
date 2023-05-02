@@ -33,7 +33,7 @@ function OtherProjects({ OtherProjectsRef }) {
 					</li>
 				))}
 			</ul>
-			<button>Show More</button>
+			<button className='more-button'>Show More</button>
 		</section>
 	);
 }

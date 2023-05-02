@@ -2,7 +2,6 @@
 	padding: 60px 0px;
 	display: flex;
 	flex-direction: column;
-	-webkit-box-align: center;
 	align-items: center;
 }
 .other-projects_section h2 {
@@ -17,19 +16,72 @@
 
 .other-projects_section ul.projects-grid {
 	list-style: none;
+	padding: 0px;
+	margin: 50px 0px 0px;
 	display: grid;
-	grid-template-rows: repeat(2, 1fr);
-	grid-template-columns: repeat(3, 0.2fr);
-	gap: 25px;
-	justify-items: center;
-	padding: 50px;
+	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+	gap: 15px;
+	position: relative;
 }
 
 .other-projects_section .other-projects-list-item {
 	opacity: 0;
-	transform: translateY(-25%);
+	transform: translateY(15%);
+	position: relative;
+	cursor: default;
 }
 
 .other-projects_section .other-projects-list-item.activated {
-	animation: cardEnter 0.3s forwards calc(var(--delay) * 0.15s);
+	animation: fadeInUp 0.5s forwards;
+}
+
+.other-projects_section .more-button {
+	padding: 2rem 2.55rem;
+	margin: 80px auto 0px;
+}
+
+/*////////////////////////////////////////////////////////// 
+TODO: 480px ~ OtherProjects
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 480px) {
+}
+
+/*////////////////////////////////////////////////////////// 
+TODO: 600px ~ OtherProjects
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 600px) {
+}
+/*////////////////////////////////////////////////////////// 
+TODO: 768px ~ OtherProjects
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 768px) {
+	.other-projects_section .other-projects-list-item {
+		opacity: 0;
+		transform: translateY(-25%);
+	}
+
+	.other-projects_section .other-projects-list-item.activated {
+		animation: cardEnter 0.3s forwards calc(var(--delay) * 0.15s);
+	}
+}
+
+/*////////////////////////////////////////////////////////// 
+TODO: 1024px ~ OtherProjects
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 1024px) {
+}
+
+/*////////////////////////////////////////////////////////// 
+TODO: 1080px ~ OtherProjects
+////////////////////////////////////////////////////////// */
+@media screen and (min-width: 1080px) {
+	.other-projects_section ul.projects-grid {
+		list-style: none;
+		padding: 0px;
+		margin: 50px 0px 0px;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 15px;
+		position: relative;
+	}
 }

@@ -36,7 +36,7 @@ function OtherProjects({ OtherProjectsRef }) {
 									<div className='project-links'>
 										{proj.githubLink.length !== 0 && (
 											<a
-												href=''
+												href={proj.githubLink}
 												className='external'
 												rel='noopener noreferrer'
 												aria-label='External Link'
@@ -46,7 +46,7 @@ function OtherProjects({ OtherProjectsRef }) {
 										)}
 										{proj.projectLink.length !== 0 && (
 											<a
-												href=''
+												href={proj.projectLink}
 												className='external'
 												rel='noopener noreferrer'
 												aria-label='External Link'
@@ -57,7 +57,10 @@ function OtherProjects({ OtherProjectsRef }) {
 									</div>
 								</div>
 								<h3 className='project-title'>
-									<a href='' target='_blank' rel='noopener noreferrer'>
+									<a
+										href={proj.projectLink}
+										target='_blank'
+										rel='noopener noreferrer'>
 										{proj.title}
 									</a>
 								</h3>

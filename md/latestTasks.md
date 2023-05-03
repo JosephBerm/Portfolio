@@ -8,3 +8,8 @@
 # Contact Me
 
 [.] Must style for mobile next.
+
+# App Footer
+
+[.] Apply appropriate HTML for the section.
+[.] Must style the footer.

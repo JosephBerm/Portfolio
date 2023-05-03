@@ -2,17 +2,24 @@ import React from "react";
 
 function ContactMe({ contactRef }) {
 	return (
-		<section ref={contactRef} id='contact' className='section contact_section'>
-			<h2 className='section-header'>Get In Touch</h2>
-			<div className='section-body'>
-				<p>
-					Lorem, ipsum dolor sit amet consectetur adipisicing elit. Laboriosam omnis
-					amet eius molestiae, numquam, cupiditate rem maxime sed, modi vitae
-					possimus sapiente adipisci? Qui sapiente, nemo laudantium dolores, quos
-					sequi ducimus enim facere omnis maiores corporis atque consequuntur.
-				</p>
-				<button>Say Hello</button>
-			</div>
+		<section
+			ref={contactRef}
+			id='contact'
+			className='section contact_section isNumbered'>
+			<h2 className='section-header lineless'>What's Next?</h2>
+			<h2 className='title'>Get In Touch</h2>
+			<p>
+				I'm always on the lookout for new ways to innovate. If you'd like to explore
+				an idea together or just want to say hi, feel free to shoot me an email. I'll
+				do my best to respond promptly and look forward to hearing from you!
+			</p>
+			<a
+				className='button email-link'
+				href='mailto:jcbtechs@gmail.com'
+				rel='noopener noreferrer'
+				target='_blank'>
+				Say Hello
+			</a>
 		</section>
 	);
 }

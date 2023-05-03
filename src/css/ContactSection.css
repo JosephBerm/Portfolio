@@ -1,4 +1,27 @@
 .contact_section {
-	/* temp putting line below to prevent lint error */
-	visibility: visible;
+	max-width: 600px;
+	margin: 0px auto 100px;
+	text-align: center;
+}
+.contact_section .section-header.lineless {
+	display: block;
+	margin-bottom: 20px;
+	color: var(--green);
+	font-family: var(--font-mono);
+	font-size: var(--fz-md);
+	font-weight: 400;
+}
+
+.contact_section .title {
+	font-size: clamp(35px, 5vw, 55px);
+}
+
+.contact_section p {
+	line-height: 1.5;
+}
+
+.contact_section .button.email-link {
+	padding: 2rem 2.75rem;
+	font-size: var(--fz-s);
+	margin-top: 50px;
 }

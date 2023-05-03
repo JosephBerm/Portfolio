@@ -180,7 +180,7 @@ const otherProjects = [
 			},
 		],
 		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
-		githubLink: "https://github.com/JosephBerm",
+		githubLink: "",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{
@@ -207,7 +207,7 @@ const otherProjects = [
 			},
 		],
 		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
-		githubLink: "https://github.com/JosephBerm",
+		githubLink: "",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{
@@ -225,7 +225,7 @@ const otherProjects = [
 			"Lorem ipsum dolor consectetur, adipisicing elit. Magni odit placeat asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
 		descriptionLinks: [],
 		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
-		githubLink: "https://github.com/JosephBerm",
+		githubLink: "",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{

@@ -29,7 +29,50 @@ function OtherProjects({ OtherProjectsRef }) {
 						className='other-projects-list-item'
 						style={{ "--delay": index % 3 }}
 						key={index}>
-						<Card>{proj.title}</Card>
+						<Card>
+							<header>
+								<div className='project-top'>
+									<div className='folder'>folderSVG</div>
+									<div className='project-links'>
+										{proj.githubLink.length !== 0 && (
+											<a
+												href=''
+												className='external'
+												rel='noopener noreferrer'
+												aria-label='External Link'
+												target='_blank'>
+												Git
+											</a>
+										)}
+										{proj.projectLink.length !== 0 && (
+											<a
+												href=''
+												className='external'
+												rel='noopener noreferrer'
+												aria-label='External Link'
+												target='_blank'>
+												link
+											</a>
+										)}
+									</div>
+								</div>
+								<h3 className='project-title'>
+									<a href='' target='_blank' rel='noopener noreferrer'>
+										{proj.title}
+									</a>
+								</h3>
+								<div className='project-description'>
+									<p>{proj.description}</p>
+								</div>
+							</header>
+							<footer>
+								<ul className='project-tech-list'>
+									{proj.technologiesUsed.map((tech, index) => (
+										<li key={index}>{tech}</li>
+									))}
+								</ul>
+							</footer>
+						</Card>
 					</li>
 				))}
 			</ul>

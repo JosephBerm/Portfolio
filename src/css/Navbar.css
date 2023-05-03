@@ -61,7 +61,6 @@ nav .burger-button:hover {
 
 nav .logo a {
 	width: 40px;
-	top: 3px;
 	opacity: 0;
 	animation: fade-in 0.75s 0.1s forwards;
 }

@@ -1,7 +1,15 @@
-import React from "react";
+import React, { useEffect, useContext } from "react";
+import UserContext from "../context/portfolioContext";
+import observeElem from "../services/elementObserver";
 import Card from "./Card";
 
 function OtherProjects({ OtherProjectsRef }) {
+	const { otherProjects: projList } = useContext(UserContext);
+
+	useEffect(() => {
+		const listItems = [...document.querySelectorAll(".other-projects-list-item")];
+		observeElem(listItems);
+	}, []);
 	return (
 		<section
 			ref={OtherProjectsRef}
@@ -16,26 +24,62 @@ function OtherProjects({ OtherProjectsRef }) {
 				view the archive
 			</a>
 			<ul className='projects-grid'>
-				<li>
-					<Card>Card 1</Card>
-				</li>
-				<li>
-					<Card>Card 2</Card>
-				</li>
-				<li>
-					<Card>Card 3</Card>
-				</li>
-				<li>
-					<Card>Card 4</Card>
-				</li>
-				<li>
-					<Card>Card 5</Card>
-				</li>
-				<li>
-					<Card>Card 6</Card>
-				</li>
+				{projList.map((proj, index) => (
+					<li
+						className='other-projects-list-item'
+						style={{ "--delay": index % 3 }}
+						key={index}>
+						<Card>
+							<header>
+								<div className='project-top'>
+									<div className='folder'>folderSVG</div>
+									<div className='project-links'>
+										{proj.githubLink.length !== 0 && (
+											<a
+												href={proj.githubLink}
+												className='external'
+												rel='noopener noreferrer'
+												aria-label='External Link'
+												target='_blank'>
+												Git
+											</a>
+										)}
+										{proj.projectLink.length !== 0 && (
+											<a
+												href={proj.projectLink}
+												className='external'
+												rel='noopener noreferrer'
+												aria-label='External Link'
+												target='_blank'>
+												link
+											</a>
+										)}
+									</div>
+								</div>
+								<h3 className='project-title'>
+									<a
+										href={proj.projectLink}
+										target='_blank'
+										rel='noopener noreferrer'>
+										{proj.title}
+									</a>
+								</h3>
+								<div className='project-description'>
+									<p>{proj.description}</p>
+								</div>
+							</header>
+							<footer>
+								<ul className='project-tech-list'>
+									{proj.technologiesUsed.map((tech, index) => (
+										<li key={index}>{tech}</li>
+									))}
+								</ul>
+							</footer>
+						</Card>
+					</li>
+				))}
 			</ul>
-			<button>Show More</button>
+			<button className='more-button'>Show More</button>
 		</section>
 	);
 }

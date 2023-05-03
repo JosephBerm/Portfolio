@@ -314,11 +314,12 @@ section.activated {
 	inherits: false;
 }
 .card {
-	height: 304px;
-	aspect-ratio: 1 / 0.94;
+	height: 300px;
+	width: 100%;
+	position: relative;
+	transition: var(--transition);
 	background: var(--light-navy);
 	border-radius: var(--border-radius);
-	position: relative;
 }
 .card::before,
 .card::after {
@@ -338,7 +339,8 @@ section.activated {
 	animation: rotation 5s linear infinite;
 }
 .card::after {
-	filter: blur(1.5rem);
+	transition: var(--transition);
+	filter: blur(0.2rem);
 }
 ul {
 	overflow: hidden;
@@ -454,6 +456,12 @@ img:not([alt]) {
 	.section-header::after {
 		width: 200px;
 	}
+	.card {
+		height: 300px;
+	}
+	.card::after {
+		filter: blur(0.5rem);
+	}
 }
 
 @media screen and (min-width: 1024px) {
@@ -464,6 +472,9 @@ img:not([alt]) {
 		margin: 0px auto;
 		padding: 100px 0px;
 		max-width: 1000px;
+	}
+	.card::after {
+		filter: blur(0.75rem);
 	}
 }
 

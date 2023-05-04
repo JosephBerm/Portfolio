@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useContext } from "react";
+import PortfolioContext from "./../context/portfolioContext";
 
 function ContactMe({ contactRef }) {
+	const { userProfile } = useContext(PortfolioContext);
 	return (
 		<section
 			ref={contactRef}
@@ -15,7 +17,7 @@ function ContactMe({ contactRef }) {
 			</p>
 			<a
 				className='button email-link'
-				href='mailto:jcbtechs@gmail.com'
+				href={`mailto:${userProfile.email}`}
 				rel='noopener noreferrer'
 				target='_blank'>
 				Say Hello

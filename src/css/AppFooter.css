@@ -11,3 +11,6 @@
 .app-footer a {
 	padding: 10px;
 }
+.app-footer p {
+	font-size: clamp(var(--fz-xxs), 5vw, var(--fz-xs));
+}

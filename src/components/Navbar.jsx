@@ -12,7 +12,14 @@ function Navbar(props) {
 	useEffect(() => {
 		const sections = [...document.querySelectorAll(".section")];
 		router.linkRoutesTo(sections);
-		observeSection(sections);
+		const thresholdMap = {
+			about: 0.2,
+			jobs: 0.2,
+			projects: 0.1,
+			"other-projects": 0.1,
+			contact: 0.4,
+		};
+		observeSection(sections, thresholdMap);
 	}, []);
 
 	useEffect(() => {

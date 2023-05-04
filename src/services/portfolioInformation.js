@@ -7,6 +7,11 @@ const userProfile = {
 	objective:
 		"As a software engineer, I have a deep passion for crafting one-of-a-kind digital experiences that captivate users and deliver measurable results. I thrive on working with innovative companies and products that push the boundaries of what's possible in the tech world.",
 	gitHubLink: "https://github.com/JosephBerm",
+	email: "jcbtechs@gmail.com",
+	linkedinLink: "https://www.linkedin.com/in/joseph-bermudez-3rd",
+	twitterLink: "https://twitter.com/J0edyy",
+	instagramLink: "https://www.instagram.com/j0edy",
+	codepenLink: "",
 };
 
 const workExperience = [

@@ -9,7 +9,7 @@ function AppFooter(props) {
 			<div className='normal-footer'>
 				<a href={userProfile.gitHubLink} rel='noopener noreferrer' target='_blank'>
 					<p>Designed &amp; Built by {userProfile.name}</p>
-					<div class='special-thanks'>
+					<div className='special-thanks'>
 						<p>
 							I would like to give a special thank you to Brittany Chiang. She
 							inspired me to build my first portfolio.

@@ -8,9 +8,37 @@
 	padding: 15px;
 	text-align: center;
 }
+
+.mobile-footer {
+	display: block;
+	width: 100%;
+	max-width: 270px;
+	margin: 0px auto 10px px;
+	color: var(--light-slate);
+}
+
+.mobile-footer ul {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0px;
+	margin: 0px;
+	list-style: none;
+}
+
+.mobile-footer ul a {
+	padding: 10px;
+}
+
 .app-footer a {
 	padding: 10px;
 }
 .app-footer p {
 	font-size: clamp(var(--fz-xxs), 5vw, var(--fz-xs));
+}
+
+@media screen and (min-width: 768px) {
+	.mobile-footer {
+		display: none;
+	}
 }

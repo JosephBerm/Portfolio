@@ -10,6 +10,7 @@
 @import "./ContactSection.css";
 @import "./Background.css";
 @import "./OtherProjectsSection.css";
+@import "./AppFooter.css";
 
 :root {
 	--navy: #0a192f;
@@ -144,7 +145,8 @@ svg {
 	user-select: none;
 }
 
-button {
+button,
+.button {
 	color: var(--green);
 	background-color: transparent;
 	border: 1px solid var(--green);
@@ -158,7 +160,8 @@ button {
 	padding: 1.25rem 1.75rem;
 	align-self: center;
 }
-button:hover {
+button:hover,
+.button:hover {
 	background-color: var(--green-tint);
 }
 
@@ -267,8 +270,10 @@ section {
 }
 /* section .section-header {
 } */
-section:not(:first-child) {
+section.isNumbered {
 	counter-increment: section 1;
+}
+section:not(:first-child) {
 	/* temp putting line below to prevent lint error */
 	opacity: 0;
 	transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 30, 0, 1);
@@ -299,7 +304,7 @@ section.activated {
 	font-family: var(--font-mono);
 	font-size: clamp(var(--fz-s), 3vw, var(--fz-xl));
 }
-.section-header::after {
+.section-header:not(.lineless):after {
 	content: "";
 	display: block;
 	height: 1px;

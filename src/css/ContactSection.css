@@ -1,4 +1,48 @@
 .contact_section {
-	/* temp putting line below to prevent lint error */
-	visibility: visible;
+	max-width: 600px;
+	margin: 0px auto 50px;
+	text-align: center;
+}
+.contact_section .section-header.lineless {
+	display: block;
+	margin-bottom: 20px;
+	color: var(--green);
+	font-family: var(--font-mono);
+	font-size: var(--fz-md);
+	font-weight: 400;
+}
+.contact_section .section-header.lineless::before {
+	bottom: 1px;
+	font-size: var(--fz-xs);
+	margin-right: 5px;
+}
+
+.contact_section .title {
+	font-size: clamp(35px, 5vw, 55px);
+}
+
+.contact_section p {
+	font-size: clamp(var(--fz-xs), 5vw, var(--fz-md));
+	line-height: 1.5;
+}
+
+.contact_section .button.email-link {
+	padding: 2rem 2.75rem;
+	font-size: var(--fz-xs);
+	margin-top: 50px;
+}
+
+@media screen and (min-width: 480px) {
+	.contact_section .section-header.lineless::before {
+		margin-right: 10px;
+		bottom: 0px;
+	}
+}
+
+@media screen and (min-width: 768px) {
+	.contact_section {
+		margin: 0px auto 100px;
+	}
+}
+@media screen and (min-width: 1080px) {
 }

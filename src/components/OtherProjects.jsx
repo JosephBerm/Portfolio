@@ -1,6 +1,6 @@
 import React, { useEffect, useContext } from "react";
 import UserContext from "../context/portfolioContext";
-import observeElem from "../services/elementObserver";
+import observe from "../services/elementObserver";
 import Card from "./Card";
 
 function OtherProjects({ OtherProjectsRef }) {
@@ -8,7 +8,10 @@ function OtherProjects({ OtherProjectsRef }) {
 
 	useEffect(() => {
 		const listItems = [...document.querySelectorAll(".other-projects-list-item")];
-		observeElem(listItems);
+		const thresholdMap = {
+			project: 0.5,
+		};
+		observe(listItems, thresholdMap);
 	}, []);
 	return (
 		<section
@@ -28,7 +31,8 @@ function OtherProjects({ OtherProjectsRef }) {
 					<li
 						className='other-projects-list-item'
 						style={{ "--delay": index % 3 }}
-						key={index}>
+						key={index}
+						id='project'>
 						<Card>
 							<header>
 								<div className='project-top'>

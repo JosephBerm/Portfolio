@@ -1,18 +1,17 @@
-function callBack(elements) {
-	elements.forEach((element) => {
-		element.target.classList.toggle("activated", element.isIntersecting);
-		if (element.isIntersecting) observer.unobserve(element.target);
-	});
-}
-
-let options = {
-	threshold: 0.5,
-};
-
-const observer = new IntersectionObserver(callBack, options);
-
-export default function observe(elements) {
-	elements.forEach((s) => {
+export default function observe(sections, thresholdMap) {
+	const observers = sections.map((s) => {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					entry.target.classList.toggle("activated", entry.isIntersecting);
+					if (entry.isIntersecting) observer.unobserve(entry.target);
+				});
+			},
+			{ threshold: thresholdMap[s.id] }
+		);
 		observer.observe(s);
+		return observer;
 	});
+
+	return observers;
 }

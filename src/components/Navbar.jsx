@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Logo from "../assets/Logo";
 import router from "./../services/router";
 import classNames from "classnames";
-import observeSection from "../services/sectionObserver";
+import observe from "../services/elementObserver";
 
 function Navbar(props) {
 	const [navClass, setNavClass] = useState("header");
@@ -12,7 +12,14 @@ function Navbar(props) {
 	useEffect(() => {
 		const sections = [...document.querySelectorAll(".section")];
 		router.linkRoutesTo(sections);
-		observeSection(sections);
+		const thresholdMap = {
+			about: 0.2,
+			jobs: 0.2,
+			projects: 0.1,
+			"other-projects": 0.1,
+			contact: 0.4,
+		};
+		observe(sections, thresholdMap);
 	}, []);
 
 	useEffect(() => {

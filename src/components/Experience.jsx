@@ -19,7 +19,7 @@ function Experience({ jobsRef }) {
 		return workExperience.findIndex((wE) => wE === selectedWork);
 	};
 	return (
-		<section ref={jobsRef} id='jobs' className='section jobs_section'>
+		<section ref={jobsRef} id='jobs' className='section jobs_section isNumbered'>
 			<h2 className='section-header'>Where I've Worked</h2>
 			<div className='section-body'>
 				<div className='tabList'>

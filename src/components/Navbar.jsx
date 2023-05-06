@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Logo from "../assets/Logo";
 import router from "./../services/router";
 import classNames from "classnames";
-import observeSection from "../services/sectionObserver";
+import observe from "../services/elementObserver";
 
 function Navbar(props) {
 	const [navClass, setNavClass] = useState("header");
@@ -19,7 +19,7 @@ function Navbar(props) {
 			"other-projects": 0.1,
 			contact: 0.4,
 		};
-		observeSection(sections, thresholdMap);
+		observe(sections, thresholdMap);
 	}, []);
 
 	useEffect(() => {

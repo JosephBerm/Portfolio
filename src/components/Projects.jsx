@@ -2,14 +2,17 @@ import React, { useContext, useEffect } from "react";
 import UserContext from "../context/portfolioContext";
 import FeaturedProject from "./FeaturedProject";
 import ProjectImage from "./ProjectImage";
-import observeElem from "../services/elementObserver";
+import observe from "../services/elementObserver";
 
 function Projects({ projectsRef }) {
 	const { featuredProjects } = useContext(UserContext);
 
 	useEffect(() => {
 		const listItems = [...document.querySelectorAll(".projects-list-item")];
-		observeElem(listItems);
+		const thresholdMap = {
+			project: 0.5,
+		};
+		observe(listItems, thresholdMap);
 	}, []);
 
 	return (
@@ -24,7 +27,8 @@ function Projects({ projectsRef }) {
 						<li
 							className='projects-list-item'
 							style={{ "--index": index }}
-							key={index}>
+							key={index}
+							id='project'>
 							<FeaturedProject projectDetails={project.info} />
 							<ProjectImage imageDetails={project.imageDetails} />
 						</li>

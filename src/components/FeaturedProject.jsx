@@ -1,5 +1,7 @@
 import React from "react";
 import { getTextWithLinks } from "../services/utils";
+import ExternalLinkSVG from "./../common/ExternalLinkSVG";
+import GitHubSVG from "./../common/GitHubSVG";
 
 function FeaturedProject({ projectDetails }) {
 	const {
@@ -29,10 +31,10 @@ function FeaturedProject({ projectDetails }) {
 			</ul>
 			<div className='project-links'>
 				<a href={githubLink} target='_blank' rel='noopener noreferrer'>
-					💫
+					<GitHubSVG />
 				</a>
 				<a href={projectLink} target='_blank' rel='noopener noreferrer'>
-					💢
+					<ExternalLinkSVG />
 				</a>
 			</div>
 		</div>

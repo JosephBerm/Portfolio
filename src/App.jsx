@@ -1,3 +1,4 @@
+import "../src/css/App.css";
 import React, { useState, useEffect } from "react";
 import Navbar from "./components/Navbar";
 import Introduction from "./components/Introduction";
@@ -8,10 +9,11 @@ import ContactMe from "./components/ContactMe";
 import PortfolioContext from "./context/portfolioContext";
 import myPortfolio from "./services/portfolioInformation";
 import LoadingPage from "./components/LoadingPage";
-import "../src/css/App.css";
 import Background from "./components/Background";
 import OtherProjects from "./components/OtherProjects";
 import AppFooter from "./components/AppFooter";
+import LeftSidePane from "./components/LeftSidePane";
+import RightSidePane from "./components/RightSidePane";
 
 function App() {
 	const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +31,8 @@ function App() {
 			<PortfolioContext.Provider value={{ ...myPortfolio }}>
 				<Background />
 				<Navbar />
+				<LeftSidePane />
+				<RightSidePane />
 				<div id='content'>
 					<main className='fillHeight'>
 						<Introduction />

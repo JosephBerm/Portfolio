@@ -1,0 +1,85 @@
+.LeftSidePane,
+.RightSidePane {
+	display: none;
+	width: 40px;
+	position: fixed;
+	bottom: 0px;
+	z-index: 10;
+	color: var(--light-slate);
+	opacity: 0;
+	animation: fade-in 0.75s ease-out 2s forwards;
+}
+.LeftSidePane {
+	left: 20px;
+	right: auto;
+}
+.RightSidePane {
+	left: auto;
+	right: 20px;
+}
+.RightSidePane .email-wrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	position: relative;
+}
+.RightSidePane .email-wrapper::after {
+	content: "";
+	display: block;
+	width: 1px;
+	height: 90px;
+	margin: 0px auto;
+	background-color: var(--light-slate);
+}
+.RightSidePane .email-wrapper a {
+	margin: 20px auto;
+	padding: 10px;
+	font-family: var(--font-mono);
+	font-size: var(--fz-xxs);
+	line-height: var(--fz-lg);
+	letter-spacing: 0.2em;
+	-webkit-writing-mode: vertical-rl;
+	writing-mode: vertical-rl;
+}
+
+.LeftSidePane ul {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin: 0px;
+	padding: 0px;
+	list-style: none;
+}
+.LeftSidePane ul::after {
+	content: "";
+	display: block;
+	width: 1px;
+	height: 90px;
+	margin: 0px auto;
+	background-color: var(--light-slate);
+}
+.LeftSidePane ul li a {
+	padding: 10px;
+}
+.LeftSidePane ul li a svg {
+	width: 20px;
+	height: 20px;
+}
+.LeftSidePane ul li a:hover,
+.LeftSidePane ul li a:focus {
+	transform: translateY(-3px);
+}
+
+@media screen and (min-width: 768px) {
+	.LeftSidePane,
+	.RightSidePane {
+		display: unset;
+	}
+}
+
+@media screen and (min-width: 1080px) {
+	.LeftSidePane {
+		left: 40px;
+		right: auto;
+	}
+}

@@ -1,29 +1,14 @@
 import React, { useContext } from "react";
 import PortfolioContext from "../context/portfolioContext";
+import LinksList from "./../common/LinksList";
 
 function AppFooter(props) {
 	const { userProfile } = useContext(PortfolioContext);
 
-	const getLinks = () => {
-		let links = [];
-		for (let key in userProfile.links) {
-			let site = userProfile.links[key];
-			links.push(
-				<li key={key}>
-					<a href={site.link} rel='noopener noreferrer' target='_blank'>
-						{site.svg}
-					</a>
-				</li>
-			);
-		}
-
-		return links;
-	};
-
 	return (
 		<footer className='app-footer'>
 			<div className='mobile-footer'>
-				<ul>{getLinks()}</ul>
+				<LinksList />
 			</div>
 			<div className='normal-footer'>
 				<a

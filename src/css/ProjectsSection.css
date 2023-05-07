@@ -161,6 +161,7 @@
 	margin-top: 10px;
 	margin-left: -10px;
 	color: var(--lightest-slate);
+	width: fit-content;
 }
 
 .projects_section
@@ -177,6 +178,11 @@
 	justify-content: center;
 	align-items: center;
 	padding: 10px;
+}
+
+.projects_section .project-links a svg {
+	width: 20px;
+	height: 20px;
 }
 
 .projects_section .project-image {
@@ -380,6 +386,9 @@ svg,
 	.projects_section ul.projects-list > li .project-tech-list li {
 		margin: 0px 20px 5px 0px;
 		color: var(--light-slate);
+	}
+	.projects_section .project-links {
+		width: unset;
 	}
 
 	.projects_section

@@ -2,6 +2,12 @@ import ChatGPT from "../assets/chatGPT.jpg";
 import SpaceX from "../assets/spaceX.jpg";
 import Tesla from "../assets/tesla.jpg";
 
+import GitHubSVG from "../common/GitHubSVG";
+import CodePenSVG from "../common/CodePenSVG";
+import TwitterSVG from "../common/TwitterSVG";
+import LinkedInSVG from "../common/LinkedInSVG";
+import InstagramSVG from "../common/InstagramSVG";
+
 const userProfile = {
 	name: "Joseph Bermudez",
 	objective:
@@ -9,24 +15,29 @@ const userProfile = {
 	email: "jcbtechs@gmail.com",
 	links: {
 		github: {
+			name: "GitHub",
 			link: "https://github.com/JosephBerm",
-			svg: "g",
+			svg: <GitHubSVG />,
 		},
 		instagram: {
+			name: "Instagram",
 			link: "https://www.instagram.com/j0edy",
-			svg: "ig",
+			svg: <InstagramSVG />,
 		},
 		twitter: {
+			name: "Twitter",
 			link: "https://twitter.com/J0edyy",
-			svg: "t",
+			svg: <TwitterSVG />,
 		},
 		linkedin: {
+			name: "LinkedIn",
 			link: "https://www.linkedin.com/in/joseph-bermudez-3rd",
-			svg: "ll",
+			svg: <LinkedInSVG />,
 		},
 		codepenLink: {
+			name: "CodePen",
 			link: "",
-			svg: "cpen",
+			svg: <CodePenSVG />,
 		},
 	},
 };

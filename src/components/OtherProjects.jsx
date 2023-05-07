@@ -1,6 +1,9 @@
 import React, { useEffect, useContext } from "react";
 import UserContext from "../context/portfolioContext";
 import observe from "../services/elementObserver";
+import ExternalLinkSVG from "./../common/ExternalLinkSVG";
+import GitHubSVG from "./../common/GitHubSVG";
+import FolderSVG from "./../common/FolderSVG";
 import Card from "./Card";
 
 function OtherProjects({ OtherProjectsRef }) {
@@ -36,16 +39,18 @@ function OtherProjects({ OtherProjectsRef }) {
 						<Card>
 							<header>
 								<div className='project-top'>
-									<div className='folder'>folderSVG</div>
+									<div className='folder'>
+										<FolderSVG />
+									</div>
 									<div className='project-links'>
 										{proj.githubLink.length !== 0 && (
 											<a
 												href={proj.githubLink}
-												className='external'
+												className='github'
 												rel='noopener noreferrer'
 												aria-label='External Link'
 												target='_blank'>
-												Git
+												<GitHubSVG />
 											</a>
 										)}
 										{proj.projectLink.length !== 0 && (
@@ -55,7 +60,7 @@ function OtherProjects({ OtherProjectsRef }) {
 												rel='noopener noreferrer'
 												aria-label='External Link'
 												target='_blank'>
-												link
+												<ExternalLinkSVG />
 											</a>
 										)}
 									</div>

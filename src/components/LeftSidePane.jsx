@@ -3,7 +3,7 @@ import LinksList from "../common/LinksList";
 
 function LeftSidePane(props) {
 	return (
-		<div orientation='left' class='LeftSidePane'>
+		<div orientation='left' className='LeftSidePane'>
 			<LinksList />
 		</div>
 	);

@@ -13,6 +13,9 @@ function Background(props) {
 			<div id='stars' />
 			<div id='stars2' />
 			<div id='stars3' />
+			<div id='stars4' />
+			<div id='stars5' />
+			<div id='stars6' />
 			{gravity ? (
 				<div className='shooting-stars south'>
 					<div className='head' />

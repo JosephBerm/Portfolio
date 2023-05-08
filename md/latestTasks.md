@@ -7,11 +7,6 @@
 - [x] Create Responsive Navbar.
 - [ ] When user scrolls down one time and then back up, the height readjusts itself twice because the className is changed twice.
 
-# Contact Me
+# Background
 
-[.] Must style for mobile next.
-
-# App Footer
-
-[.] Apply appropriate HTML for the section.
-[.] Must style the footer.
+[.] I left off styling the stars that don't appear when the screen is wider than 2000px.

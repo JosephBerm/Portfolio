@@ -15,11 +15,11 @@ function AppFooter(props) {
 					href={userProfile.links.github.link}
 					rel='noopener noreferrer'
 					target='_blank'>
-					<p>Designed &amp; Built by {userProfile.name}</p>
+					<p>Built by {userProfile.name}</p>
 					<div className='special-thanks'>
 						<p>
-							I would like to give a special thank you to Brittany Chiang. She
-							inspired me to build my first portfolio.
+							I would like to extend a special thank you to Brittany Chiang, whose
+							remarkable journey and work have inspired this version of my portfolio.
 						</p>
 					</div>
 				</a>

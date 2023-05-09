@@ -930,54 +930,54 @@
 
 @keyframes animStarFastOuter {
 	0% {
-		transform: translate(1750px, 0px);
+		transform: translate(1950px, 0px);
 	}
 	100% {
-		transform: translate(1750px, -50vh);
+		transform: translate(1950px, -50vh);
 	}
 }
 
 @keyframes animStarGravityFastOuter {
 	0% {
-		transform: translate(1750px, -50vh);
+		transform: translate(1950px, -50vh);
 	}
 	100% {
-		transform: translate(1750px, 0);
+		transform: translate(1950px, 0);
 	}
 }
 @keyframes animStarSlowOuter {
 	0% {
-		transform: translate(1750px, 0px);
+		transform: translate(1950px, 0px);
 	}
 	100% {
-		transform: translate(1750px, -15vh);
+		transform: translate(1950px, -15vh);
 	}
 }
 
 @keyframes animStarGravitySlowOuter {
 	0% {
-		transform: translate(1750px, -15vh);
+		transform: translate(1950px, -15vh);
 	}
 	100% {
-		transform: translate(1750px, 0);
+		transform: translate(1950px, 0);
 	}
 }
 
 @keyframes animStarNormOuter {
 	0% {
-		transform: translate(1750px, 0px);
+		transform: translate(1950px, 0px);
 	}
 	100% {
-		transform: translate(1750px, -25vh);
+		transform: translate(1950px, -25vh);
 	}
 }
 
 @keyframes animStarGravityNormOuter {
 	0% {
-		transform: translate(1750px, -25vh);
+		transform: translate(1950px, -25vh);
 	}
 	100% {
-		transform: translate(1750px, 0);
+		transform: translate(1950px, 0);
 	}
 }
 

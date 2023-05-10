@@ -88,7 +88,7 @@ function OtherProjects({ OtherProjectsRef }) {
 					</li>
 				))}
 			</ul>
-			<button className='more-button'>Show More</button>
+			{projList.length > 6 && <button className='more-button'>Show More</button>}
 		</section>
 	);
 }

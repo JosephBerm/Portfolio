@@ -46,7 +46,7 @@ const workExperience = [
 	{
 		companyName: "A.C.A.I",
 		titleOfPosition: "Full-Stack Software Engineer",
-		link: "https://www.linkedin.com/company/atlantic-coast-automotive-inc/",
+		link: "https://www.saturn-app.com",
 		timeline: "April 2022 - Present",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",

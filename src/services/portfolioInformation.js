@@ -49,10 +49,10 @@ const workExperience = [
 		link: "https://www.saturn-app.com",
 		timeline: "April 2022 - Present",
 		highlights: [
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
+			"Led the development of a camera and screen recording component, embraced company-wide to optimize business transactions.",
+			"Crafted highly efficient and reusable pages and components using Vue, elevating the overall performance and user experience of the web application.",
+			"Developed resilient and scalable data storage solutions by leveraging Azure Blob Storage and File System, ensuring optimal reliability and flexibility.",
+			"Elevated the visual appeal and user experience by seamlessly integrating elegant web components with smooth transitions, resulting in a captivating and immersive interface.",
 		],
 	},
 	{
@@ -61,14 +61,15 @@ const workExperience = [
 		link: "https://bizzieco.com/",
 		timeline: "January - May 2021",
 		highlights: [
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
+			"Made significant contributions to the development of a cutting-edge business application, utilizing Flutter, React, and Firebase.",
+			"Fostered seamless collaboration within a cross-functional team, driving sprint goals and successfully delivering a minimum viable product.",
+			"Played a vital role in data analysis and metadata management, leveraging the power of Firebase to ensure efficient data handling.",
+			"Designed and developed an engaging landing page for the application using React, showcasing a profound understanding of hooks and their lifecycles.",
 		],
 	},
 	{
-		companyName: "IOHK",
-		titleOfPosition: "Software Engineer Intern",
+		companyName: "N/A",
+		titleOfPosition: "N/A",
 		link: "https://iohk.io/",
 		timeline: "August - December 2020",
 		highlights: [

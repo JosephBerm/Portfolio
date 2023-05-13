@@ -10,6 +10,13 @@
 	color: var(--light-slate);
 }
 
+.app-footer a {
+	padding: 10px;
+}
+.app-footer p {
+	font-size: clamp(var(--fz-xxs), 5vw, var(--fz-xs));
+}
+
 .mobile-footer {
 	display: block;
 	width: 100%;
@@ -35,11 +42,8 @@
 	height: 20px;
 }
 
-.app-footer a {
-	padding: 10px;
-}
-.app-footer p {
-	font-size: clamp(var(--fz-xxs), 5vw, var(--fz-xs));
+.app-footer .normal-footer a {
+	max-width: 85%;
 }
 
 @media screen and (min-width: 768px) {

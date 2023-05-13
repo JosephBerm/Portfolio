@@ -46,7 +46,7 @@ const workExperience = [
 	{
 		companyName: "A.C.A.I",
 		titleOfPosition: "Full-Stack Software Engineer",
-		link: "https://www.saturn-app.com",
+		link: "https://www.linkedin.com/company/atlantic-coast-automotive-inc",
 		timeline: "April 2022 - Present",
 		highlights: [
 			"Led the development of a camera and screen recording component, embraced company-wide to optimize business transactions.",
@@ -71,7 +71,7 @@ const workExperience = [
 		companyName: "N/A",
 		titleOfPosition: "N/A",
 		link: "https://iohk.io/",
-		timeline: "August - December 2020",
+		timeline: "From - To YYYY",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
@@ -79,10 +79,10 @@ const workExperience = [
 		],
 	},
 	{
-		companyName: "Tesla",
-		titleOfPosition: "Software Engineer Intern",
+		companyName: "N/A",
+		titleOfPosition: "N/A",
 		link: "https://www.tesla.com/",
-		timeline: "January - May 2020",
+		timeline: "From - To YYYY",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
@@ -90,10 +90,10 @@ const workExperience = [
 		],
 	},
 	{
-		companyName: "SpaceX",
-		titleOfPosition: "Director of Rockets",
+		companyName: "N/A",
+		titleOfPosition: "N/A",
 		link: "https://www.spacex.com/",
-		timeline: "August - December 2019",
+		timeline: "From - To YYYY",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
@@ -102,10 +102,10 @@ const workExperience = [
 		],
 	},
 	{
-		companyName: "NASA",
-		titleOfPosition: "Intern for Director of Rocekts",
+		companyName: "N/A",
+		titleOfPosition: "N/A",
 		link: "https://www.nasa.gov/",
-		timeline: "January - May 2020",
+		timeline: "From - To YYYY",
 		highlights: [
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
 			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",

@@ -344,16 +344,11 @@ section.activated {
 	);
 	border-radius: inherit;
 	animation: rotation 5s linear infinite;
+	transition: var(--transition);
 }
 .card::after {
-	transition: var(--transition);
 	filter: blur(0.2rem);
 }
-/* 
-.card:hover:before,
-.card:hover::after {
-	display: unset;
-} */
 
 ul {
 	overflow: hidden;

@@ -102,10 +102,6 @@
 .img-wrapper:focus::before {
 	background-color: unset;
 }
-.img-wrapper:hover .photo-container,
-.img-wrapper:focus .photo-container {
-	filter: unset;
-}
 
 .img-wrapper .photo-container {
 	position: relative;
@@ -120,6 +116,11 @@
 .img-wrapper .photo-container::before,
 .img-wrapper .photo-container::after {
 	inset: -0.3rem;
+}
+.img-wrapper:hover .photo-container,
+.img-wrapper:focus .photo-container {
+	filter: unset;
+	mix-blend-mode: unset;
 }
 
 .img-wrapper .photo-container img {

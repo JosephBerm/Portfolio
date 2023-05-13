@@ -17,7 +17,7 @@ function ContactMe({ contactRef }) {
 			</p>
 			<a
 				className='button email-link'
-				href={`mailto:${userProfile.email}`}
+				href={`mailTo:${userProfile.email}`}
 				rel='noopener noreferrer'
 				target='_blank'>
 				Say Hello

@@ -26,7 +26,13 @@ function Introduction(props) {
 				<p>{userProfile.objective}</p>
 			</div>
 			<div className={"contactMe" + animatedClassName} style={{ "--index": 5 }}>
-				<button className='contact-button'>Contact Me</button>
+				<a
+					className='button contact-button'
+					href={`mailTo:${userProfile.email}`}
+					target='_blank'
+					rel='noopener noreferrer'>
+					Contact Me
+				</a>
 			</div>
 		</section>
 	);

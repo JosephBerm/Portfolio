@@ -50,7 +50,6 @@ function AboutMe({ aboutRef }) {
 								style={{ maxWidth: "100%", display: "block", position: "static" }}
 							/>
 						</picture>
-						<div className='background-border' />
 					</div>
 				</div>
 			</div>

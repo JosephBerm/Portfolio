@@ -30,9 +30,11 @@ function FeaturedProject({ projectDetails }) {
 				))}
 			</ul>
 			<div className='project-links'>
-				<a href={githubLink} target='_blank' rel='noopener noreferrer'>
-					<GitHubSVG />
-				</a>
+				{githubLink.length !== 0 && (
+					<a href={githubLink} target='_blank' rel='noopener noreferrer'>
+						<GitHubSVG />
+					</a>
+				)}
 				<a href={projectLink} target='_blank' rel='noopener noreferrer'>
 					<ExternalLinkSVG />
 				</a>

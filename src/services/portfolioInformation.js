@@ -1,4 +1,5 @@
 import ChatGPT from "../assets/chatGPT.jpg";
+import Cardano from "../assets/cardano.jpg";
 import SpaceX from "../assets/spaceX.jpg";
 import Tesla from "../assets/tesla.jpg";
 
@@ -117,76 +118,116 @@ const workExperience = [
 const featuredProjects = [
 	{
 		info: {
-			title: "Project 1",
+			title: "ChatGPT",
 			description:
-				"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
+				"ChatGPT revolutionizes communication with advanced AI-powered chatbots. It enables human-like interactions, adapts to conversational styles, and transforms customer support, information retrieval, and virtual assistance. Experience the future of seamless human-AI interaction.",
 			descriptionLinks: [
 				{
-					text: "Example Link",
-					link: "https://github.com/JosephBerm",
+					text: "AI-powered chatbots",
+					link: "https://www.247.ai/insights/all-about-ai-powered-chatbots",
 				},
 				{
-					text: "Link 2 Example",
-					link: "https://github.com/JosephBerm",
-				},
-				{
-					text: "Another Example",
-					link: "https://github.com/JosephBerm",
-				},
-				{
-					text: "Last One",
-					link: "https://github.com/JosephBerm",
+					text: "Experience the future",
+					link: "https://chat.openai.com/",
 				},
 			],
-			technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
-			githubLink: "https://github.com/JosephBerm",
-			projectLink: "https://github.com/JosephBerm?tab=repositories",
+			technologiesUsed: [
+				"TensorFlow",
+				"Python",
+				"Large-scale language models",
+				"Natural Language Processing (NLP)",
+			],
+			githubLink: "",
+			projectLink: "https://openai.com/blog/chatgpt",
 		},
 		imageDetails: {
-			link: "https://github.com/JosephBerm",
+			link: "https://openai.com/blog/chatgpt",
 			imgUrl: ChatGPT,
-			imgAlt: "ChatGPT",
+			imgAlt: "ChatGPT and the emergence of AI.",
 		},
 	},
 	{
 		info: {
-			title: "Project 2",
+			title: "Full Self-Driving (FSD)",
 			description:
-				"Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur qui ratione voluptatem sequi nesciunt.",
-			descriptionLinks: [],
-			technologiesUsed: ["Vue.js", ".Net Core", "TypeScript", "ChatGPT API"],
-			githubLink: "https://github.com/JosephBerm",
-			projectLink: "https://github.com/JosephBerm?tab=repositories",
-		},
-		imageDetails: {
-			link: "https://github.com/JosephBerm",
-			imgUrl: Tesla,
-			imgAlt: "Starlink",
-		},
-	},
-	{
-		info: {
-			title: "Project 3",
-			description:
-				"Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat.",
+				"Tesla's Full Self-Driving is reshaping transportation with advanced sensors, machine learning, and real-time data. It aims to prevent accidents, optimize traffic flow, and revolutionize our commutes, making them safer, efficient, and enjoyable. This is the future of autonomous driving.",
 			descriptionLinks: [
 				{
-					text: "dolorem",
-					link: "https://github.com/JosephBerm",
+					text: "Tesla's Full Self-Driving",
+					link: "https://www.tesla.com/support/autopilot",
 				},
 				{
-					text: "fugiat",
-					link: "https://github.com/JosephBerm",
+					text: "This is the future",
+					link: "https://www.notateslaapp.com/tesla-reference/1353/tesla-pioneers-the-future-how-electric-and-autonomous-cars-will-transform-car-ownership-and-transportation",
 				},
 			],
-			technologiesUsed: ["SolidJS", "Express", "TypeScript", "ChatGPT API"],
-			githubLink: "https://github.com/JosephBerm",
-			projectLink: "https://github.com/JosephBerm?tab=repositories",
+			technologiesUsed: ["OpenCV", "TensorFlow", "Python"],
+			githubLink: "",
+			projectLink: "https://www.tesla.com/",
 		},
 		imageDetails: {
-			link: "https://github.com/JosephBerm",
+			link: "https://www.tesla.com/",
+			imgUrl: Tesla,
+			imgAlt: "Tesla Vehicles and Full Self Driving.",
+		},
+	},
+	{
+		info: {
+			title: "Starship",
+			description:
+				"Embark on an extraordinary journey as Starship opens the door to boundless possibilities of exploration and colonization beyond Earth, bringing us closer to becoming an interplanetary species. SpaceX's visionary spacecraft is set to redefine space exploration and enable the establishment of sustainable habitats in the cosmos.",
+			descriptionLinks: [
+				{
+					text: "colonization beyond Earth",
+					link: "https://www.spacex.com/vehicles/starship/assets/media/Starbase%20Overview.pdf",
+				},
+				{
+					text: "SpaceX's",
+					link: "https://www.spacex.com/",
+				},
+			],
+			technologiesUsed: ["Rocket Propulsion", "Avionics", "C++", "Python"],
+			githubLink: "",
+			projectLink: "https://www.spacex.com/vehicles/starship/",
+		},
+		imageDetails: {
+			link: "https://www.spacex.com/vehicles/starship/",
 			imgUrl: SpaceX,
-			imgAlt: "Tesla",
+			imgAlt: "Starship and the future of humanity.",
+		},
+	},
+	{
+		info: {
+			title: "Cardano",
+			description:
+				"Cardano is a blockchain platform pioneering a secure and sustainable ecosystem for decentralized applications. With a scientific approach, it leverages peer-reviewed research, formal verification, and a unique layered architecture to ensure scalability, interoperability, and financial inclusivity. This is the future of blockchain technology.",
+			descriptionLinks: [
+				{
+					text: "peer-reviewed research",
+					link: "https://iohk.io/en/research/library/",
+				},
+				{
+					text: "unique",
+					link: "https://emurgo.io/fibo-101-cardano-nft-energy-consumption/",
+				},
+				{
+					text: "This is the future",
+					link: "https://www.essentialcardano.io/",
+				},
+			],
+			technologiesUsed: [
+				"Haskell",
+				"Ouroboros consensus algorithm",
+				"Plutus",
+				"Marlowe financial contract language",
+			],
+			githubLink: "",
+			projectLink: "https://www.cardano.org/",
+		},
+		imageDetails: {
+			link: "https://www.cardano.org/",
+			imgUrl: Cardano,
+			imgAlt: "Cardano is the future.",
 		},
 	},
 ];

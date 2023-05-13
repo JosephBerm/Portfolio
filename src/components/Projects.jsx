@@ -20,7 +20,7 @@ function Projects({ projectsRef }) {
 			ref={projectsRef}
 			id='projects'
 			className='section projects_section isNumbered'>
-			<h2 className='section-header'>Some Things I've Built</h2>
+			<h2 className='section-header'>My Favorite Projects</h2>
 			<div className='section-body'>
 				<ul className='projects-list'>
 					{featuredProjects.map((project, index) => (

@@ -6,7 +6,7 @@ function RightSidePane(props) {
 	return (
 		<div orientation='right' className='RightSidePane'>
 			<div className='email-wrapper'>
-				<a href={`mailto:${userProfile.email}`}>{userProfile.email}</a>
+				<a href={`mailTo:${userProfile.email}`}>{userProfile.email}</a>
 			</div>
 		</div>
 	);

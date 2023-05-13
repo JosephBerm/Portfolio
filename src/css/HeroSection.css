@@ -35,9 +35,12 @@ section.hero_section {
 .hero_section .contactMe {
 	max-width: 230px;
 }
-.hero_section button.contact-button {
+.hero_section .contact-button {
 	margin-top: 50px;
 	padding: 2rem 1.75rem;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 
 .big-heading {

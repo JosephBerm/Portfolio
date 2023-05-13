@@ -160,7 +160,7 @@ const featuredProjects = [
 		},
 		imageDetails: {
 			link: "https://github.com/JosephBerm",
-			imgUrl: SpaceX,
+			imgUrl: Tesla,
 			imgAlt: "Starlink",
 		},
 	},
@@ -185,7 +185,7 @@ const featuredProjects = [
 		},
 		imageDetails: {
 			link: "https://github.com/JosephBerm",
-			imgUrl: Tesla,
+			imgUrl: SpaceX,
 			imgAlt: "Tesla",
 		},
 	},

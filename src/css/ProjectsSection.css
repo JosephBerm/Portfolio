@@ -400,7 +400,6 @@ svg,
 		margin-right: -10px;
 	}
 	.projects_section ul.projects-list .project-image {
-		grid-column: unset;
 		height: unset;
 		opacity: unset;
 		box-shadow: 0 10px 30px -15px var(--navy-shadow);

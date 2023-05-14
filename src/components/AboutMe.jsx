@@ -1,5 +1,5 @@
 import React from "react";
-import samplePicture from "../assets/sample-picture.jpg";
+import myPicture from "../assets/myPicture.jpg";
 
 function AboutMe({ aboutRef }) {
 	// useEffect(() =>
@@ -45,7 +45,7 @@ function AboutMe({ aboutRef }) {
 					<div className='img-wrapper'>
 						<picture className='photo-container'>
 							<img
-								src={samplePicture}
+								src={myPicture}
 								alt='Professional headshot of Joseph Bermudez'
 								style={{ maxWidth: "100%", display: "block", position: "static" }}
 							/>

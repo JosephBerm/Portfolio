@@ -59,6 +59,14 @@ function Navbar(props) {
 		}
 	};
 
+	const handlePDFOpen = () => {
+		window.open(
+			process.env.PUBLIC_URL + "/resume.pdf",
+			"_blank",
+			"noopener,noreferrer"
+		);
+	};
+
 	return (
 		<header className={navClass}>
 			<nav className='navbar'>
@@ -85,9 +93,13 @@ function Navbar(props) {
 					<div
 						className='button-container'
 						style={{ "--index": router.routes.length + 1 }}>
-						<a className='button' target='_blank' href='/resume.pdf'>
+						<button
+							className='button'
+							target='_blank'
+							rel='noopener noreferrer'
+							onClick={handlePDFOpen}>
 							Resume
-						</a>
+						</button>
 					</div>
 				</div>
 			</nav>

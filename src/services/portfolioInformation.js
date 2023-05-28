@@ -68,51 +68,51 @@ const workExperience = [
 			"Designed and developed an engaging landing page for the application using React, showcasing a profound understanding of hooks and their lifecycles.",
 		],
 	},
-	{
-		companyName: "N/A",
-		titleOfPosition: "N/A",
-		link: "https://iohk.io/",
-		timeline: "From - To YYYY",
-		highlights: [
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-		],
-	},
-	{
-		companyName: "N/A",
-		titleOfPosition: "N/A",
-		link: "https://www.tesla.com/",
-		timeline: "From - To YYYY",
-		highlights: [
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-		],
-	},
-	{
-		companyName: "N/A",
-		titleOfPosition: "N/A",
-		link: "https://www.spacex.com/",
-		timeline: "From - To YYYY",
-		highlights: [
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-		],
-	},
-	{
-		companyName: "N/A",
-		titleOfPosition: "N/A",
-		link: "https://www.nasa.gov/",
-		timeline: "From - To YYYY",
-		highlights: [
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-		],
-	},
+	// {
+	// 	companyName: "N/A",
+	// 	titleOfPosition: "N/A",
+	// 	link: "https://iohk.io/",
+	// 	timeline: "From - To YYYY",
+	// 	highlights: [
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
+	// 	],
+	// },
+	// {
+	// 	companyName: "N/A",
+	// 	titleOfPosition: "N/A",
+	// 	link: "https://www.tesla.com/",
+	// 	timeline: "From - To YYYY",
+	// 	highlights: [
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
+	// 	],
+	// },
+	// {
+	// 	companyName: "N/A",
+	// 	titleOfPosition: "N/A",
+	// 	link: "https://www.spacex.com/",
+	// 	timeline: "From - To YYYY",
+	// 	highlights: [
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
+	// 	],
+	// },
+	// {
+	// 	companyName: "N/A",
+	// 	titleOfPosition: "N/A",
+	// 	link: "https://www.nasa.gov/",
+	// 	timeline: "From - To YYYY",
+	// 	highlights: [
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
+	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
+	// 	],
+	// },
 ];
 
 const featuredProjects = [
@@ -236,48 +236,48 @@ const otherProjects = [
 	{
 		title: "Project 1",
 		description:
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
-		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
+		technologiesUsed: ["React", "Express", "TypeScript"],
 		githubLink: "",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{
 		title: "Project 2",
 		description:
-			"Lorem sit amet consectetur, adipisicing elit. Magni odit placeat asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
-		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
+		technologiesUsed: ["React", "Express", "TypeScript"],
 		githubLink: "https://github.com/JosephBerm",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{
 		title: "Project 3",
 		description:
-			"Lorem ipsum amet consectetur, adipisicing elit. Magni odit placeat asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
-		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
+		technologiesUsed: ["React", "Express", "TypeScript"],
 		githubLink: "",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{
 		title: "Project 4",
 		description:
-			"Lorem ipsum dolor sit consectetur, adipisicing elit. Magni odit placeat asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
-		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
+		technologiesUsed: ["React", "Express", "TypeScript"],
 		githubLink: "https://github.com/JosephBerm",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{
 		title: "Project 5",
 		description:
-			"Lorem ipsum dolor consectetur, adipisicing elit. Magni odit placeat asperiores inventore. Example Link, Link 2 Example, Another Example, and Last One",
-		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
+		technologiesUsed: ["React", "Express", "TypeScript"],
 		githubLink: "",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},
 	{
 		title: "Project 6",
 		description:
-			"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit inventore. Example Link, Link 2 Example, Another Example, and Last One",
-		technologiesUsed: ["React", "Express", "TypeScript", "ChatGPT API"],
+			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
+		technologiesUsed: ["React", "Express", "TypeScript"],
 		githubLink: "https://github.com/JosephBerm",
 		projectLink: "https://github.com/JosephBerm?tab=repositories",
 	},

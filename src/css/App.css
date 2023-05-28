@@ -331,7 +331,7 @@ section.activated {
 	content: "";
 	/* display: none; */
 	position: absolute;
-	inset: -0.3rem;
+	inset: -0.1rem;
 	z-index: -1;
 	background: conic-gradient(
 		from var(--gradiant-angle),

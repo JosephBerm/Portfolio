@@ -60,11 +60,11 @@ function Navbar(props) {
 	};
 
 	const handlePDFOpen = () => {
-		window.open(
-			process.env.PUBLIC_URL + "/resume.pdf",
-			"_blank",
-			"noopener,noreferrer"
-		);
+		// window.open(
+		// 	process.env.PUBLIC_URL + "/resume.pdf",
+		// 	"_blank",
+		// 	"noopener,noreferrer"
+		// );
 	};
 
 	return (

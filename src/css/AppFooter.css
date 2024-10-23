@@ -44,6 +44,9 @@
 
 .app-footer .normal-footer a {
 	max-width: 85%;
+	text-wrap: nowrap;
+	text-align: center;
+	width: fit-content;
 }
 
 @media screen and (min-width: 768px) {

@@ -1,27 +1,24 @@
-import React, { useEffect, useContext } from "react";
-import UserContext from "../context/portfolioContext";
-import observe from "../services/elementObserver";
-import ExternalLinkSVG from "./../common/ExternalLinkSVG";
-import GitHubSVG from "./../common/GitHubSVG";
-import FolderSVG from "./../common/FolderSVG";
-import Card from "./Card";
+import React, { useEffect, useContext } from 'react'
+import UserContext from '../context/portfolioContext'
+import observe from '../services/elementObserver'
+import ExternalLinkSVG from './../common/ExternalLinkSVG'
+import GitHubSVG from './../common/GitHubSVG'
+import FolderSVG from './../common/FolderSVG'
+import Card from './Card'
 
 function OtherProjects({ OtherProjectsRef }) {
-	const { otherProjects: projList } = useContext(UserContext);
+	const { otherProjects: projList } = useContext(UserContext)
 
 	useEffect(() => {
-		const listItems = [...document.querySelectorAll(".other-projects-list-item")];
+		const listItems = [...document.querySelectorAll('.other-projects-list-item')]
 		const thresholdMap = {
 			project: 0.5,
-		};
-		observe(listItems, thresholdMap);
-	}, []);
+		}
+		observe(listItems, thresholdMap)
+	}, [])
 	return (
-		<section
-			ref={OtherProjectsRef}
-			id='other-projects'
-			className='section other-projects_section'>
-			<h2>Other Noteworthy Projects</h2>
+		<section ref={OtherProjectsRef} id='other-projects' className='section other-projects_section'>
+			<h2>My Projects</h2>
 			<a
 				className='inline-link archive-link'
 				href='http://localhost:3000/'
@@ -31,11 +28,7 @@ function OtherProjects({ OtherProjectsRef }) {
 			</a>
 			<ul className='projects-grid'>
 				{projList.map((proj, index) => (
-					<li
-						className='other-projects-list-item'
-						style={{ "--delay": index % 3 }}
-						key={index}
-						id='project'>
+					<li className='other-projects-list-item' style={{ '--delay': index % 3 }} key={index} id='project'>
 						<Card>
 							<header>
 								<div className='project-top'>
@@ -66,10 +59,7 @@ function OtherProjects({ OtherProjectsRef }) {
 									</div>
 								</div>
 								<h3 className='project-title'>
-									<a
-										href={proj.projectLink}
-										target='_blank'
-										rel='noopener noreferrer'>
+									<a href={proj.projectLink} target='_blank' rel='noopener noreferrer'>
 										{proj.title}
 									</a>
 								</h3>
@@ -90,7 +80,7 @@ function OtherProjects({ OtherProjectsRef }) {
 			</ul>
 			{projList.length > 6 && <button className='more-button'>Show More</button>}
 		</section>
-	);
+	)
 }
 
-export default OtherProjects;
+export default OtherProjects

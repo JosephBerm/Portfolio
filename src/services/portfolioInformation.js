@@ -1,71 +1,71 @@
-import ChatGPT from "../assets/chatGPT.jpg";
-import Cardano from "../assets/cardano.jpg";
-import SpaceX from "../assets/spaceX.jpg";
-import Tesla from "../assets/tesla.jpg";
+import ChatGPT from '../assets/chatGPT.jpg'
+import Cardano from '../assets/cardano.jpg'
+import SpaceX from '../assets/spaceX.jpg'
+import Tesla from '../assets/tesla.jpg'
 
-import GitHubSVG from "../common/GitHubSVG";
-import CodePenSVG from "../common/CodePenSVG";
-import TwitterSVG from "../common/TwitterSVG";
-import LinkedInSVG from "../common/LinkedInSVG";
-import InstagramSVG from "../common/InstagramSVG";
+import GitHubSVG from '../common/GitHubSVG'
+import CodePenSVG from '../common/CodePenSVG'
+import TwitterSVG from '../common/TwitterSVG'
+import LinkedInSVG from '../common/LinkedInSVG'
+import InstagramSVG from '../common/InstagramSVG'
 
 const userProfile = {
-	name: "Joseph Bermudez",
+	name: 'Joseph Bermudez',
 	objective:
 		"As a software engineer, I have a deep passion for crafting one-of-a-kind digital experiences that captivate users and deliver measurable results. I thrive on working with innovative companies and products that push the boundaries of what's possible in the tech world.",
-	email: "jcbtechs@gmail.com",
+	email: 'jcbtechs@gmail.com',
 	links: {
 		github: {
-			name: "GitHub",
-			link: "https://github.com/JosephBerm",
+			name: 'GitHub',
+			link: 'https://github.com/JosephBerm',
 			svg: <GitHubSVG />,
 		},
 		instagram: {
-			name: "Instagram",
-			link: "https://www.instagram.com/j0edy",
+			name: 'Instagram',
+			link: 'https://www.instagram.com/j0edy',
 			svg: <InstagramSVG />,
 		},
 		twitter: {
-			name: "Twitter",
-			link: "https://twitter.com/J0edyy",
+			name: 'Twitter',
+			link: 'https://twitter.com/J0edyy',
 			svg: <TwitterSVG />,
 		},
 		linkedin: {
-			name: "LinkedIn",
-			link: "https://www.linkedin.com/in/joseph-bermudez-3rd",
+			name: 'LinkedIn',
+			link: 'https://www.linkedin.com/in/joseph-bermudez-3rd',
 			svg: <LinkedInSVG />,
 		},
 		codepenLink: {
-			name: "CodePen",
-			link: "",
+			name: 'CodePen',
+			link: '',
 			svg: <CodePenSVG />,
 		},
 	},
-};
+}
 
 const workExperience = [
 	{
-		companyName: "A.C.A.I",
-		titleOfPosition: "Full-Stack Software Engineer",
-		link: "https://www.linkedin.com/company/atlantic-coast-automotive-inc",
-		timeline: "April 2022 - Present",
+		companyName: 'ACA Inc.',
+		titleOfPosition: 'Mid-Level Software Engineer',
+		link: 'https://www.linkedin.com/company/atlantic-coast-automotive-inc',
+		timeline: 'April 2022 - Present',
 		highlights: [
-			"Led the development of a camera and screen recording component, embraced company-wide to optimize business transactions.",
-			"Crafted highly efficient and reusable pages and components using Vue, elevating the overall performance and user experience of the web application.",
-			"Developed resilient and scalable data storage solutions by leveraging Azure Blob Storage and File System, ensuring optimal reliability and flexibility.",
-			"Elevated the visual appeal and user experience by seamlessly integrating elegant web components with smooth transitions, resulting in a captivating and immersive interface.",
+			'Led the development and successful implementation of a robust two-factor authentication (2FA) sign-in process for the company’s internal application.',
+			'Published an auto-updated desktop app built with Selenium, improving efficiency in accessing internal web application.',
+			'Optimized the company’s internal web app by leveraging WebSocket to streamline communication between desktop and web platforms.',
+			'Integrated cloud-based solutions using Azure to streamline data storage.',
 		],
 	},
 	{
-		companyName: "Bizzie Co.",
-		titleOfPosition: "Software Engineer Intern",
-		link: "https://bizzieco.com/",
-		timeline: "January - May 2021",
+		companyName: 'Bizzie Co.',
+		titleOfPosition: 'Software Engineer Intern',
+		link: 'https://bizzieco.com/',
+		timeline: 'January - May 2021',
 		highlights: [
-			"Made significant contributions to the development of a cutting-edge business application, utilizing Flutter, React, and Firebase.",
-			"Fostered seamless collaboration within a cross-functional team, driving sprint goals and successfully delivering a minimum viable product.",
-			"Played a vital role in data analysis and metadata management, leveraging the power of Firebase to ensure efficient data handling.",
-			"Designed and developed an engaging landing page for the application using React, showcasing a profound understanding of hooks and their lifecycles.",
+			'Assisted in building, testing, debugging, and deploying the mobile application.',
+			'Contributed to the development of a business application using Flutter, React, and Firebase.',
+			'Played a vital role in data analysis and metadata management, leveraging the power of Firebase to ensure efficient data handling.',
+			'Designed and developed an engaging landing page for the application using React, showcasing a profound understanding of hooks and their lifecycles.',
 		],
 	},
 	// {
@@ -113,181 +113,181 @@ const workExperience = [
 	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
 	// 	],
 	// },
-];
+]
 
 const featuredProjects = [
 	{
 		info: {
-			title: "ChatGPT",
+			title: 'ChatGPT',
 			description:
-				"ChatGPT revolutionizes communication with advanced AI-powered chatbots. It enables human-like interactions, adapts to conversational styles, and transforms customer support, information retrieval, and virtual assistance. Experience the future of seamless human-AI interaction.",
+				'ChatGPT revolutionizes communication with advanced AI-powered chatbots. It enables human-like interactions, adapts to conversational styles, and transforms customer support, information retrieval, and virtual assistance. Experience the future of seamless human-AI interaction.',
 			descriptionLinks: [
 				{
-					text: "AI-powered chatbots",
-					link: "https://www.247.ai/insights/all-about-ai-powered-chatbots",
+					text: 'AI-powered chatbots',
+					link: 'https://www.247.ai/insights/all-about-ai-powered-chatbots',
 				},
 				{
-					text: "Experience the future",
-					link: "https://chat.openai.com/",
+					text: 'Experience the future',
+					link: 'https://chat.openai.com/',
 				},
 			],
 			technologiesUsed: [
-				"TensorFlow",
-				"Python",
-				"Large-scale language models",
-				"Natural Language Processing (NLP)",
+				'TensorFlow',
+				'Python',
+				'Large-scale language models',
+				'Natural Language Processing (NLP)',
 			],
-			githubLink: "",
-			projectLink: "https://openai.com/blog/chatgpt",
+			githubLink: '',
+			projectLink: 'https://openai.com/blog/chatgpt',
 		},
 		imageDetails: {
-			link: "https://openai.com/blog/chatgpt",
+			link: 'https://openai.com/blog/chatgpt',
 			imgUrl: ChatGPT,
-			imgAlt: "ChatGPT and the emergence of AI.",
+			imgAlt: 'ChatGPT and the emergence of AI.',
 		},
 	},
 	{
 		info: {
-			title: "Full Self-Driving (FSD)",
+			title: 'Full Self-Driving (FSD)',
 			description:
 				"Tesla's Full Self-Driving is reshaping transportation with advanced sensors, machine learning, and real-time data. It aims to prevent accidents, optimize traffic flow, and revolutionize our commutes, making them safer, efficient, and enjoyable. This is the future of autonomous driving.",
 			descriptionLinks: [
 				{
 					text: "Tesla's Full Self-Driving",
-					link: "https://www.tesla.com/support/autopilot",
+					link: 'https://www.tesla.com/support/autopilot',
 				},
 				{
-					text: "This is the future",
-					link: "https://www.notateslaapp.com/tesla-reference/1353/tesla-pioneers-the-future-how-electric-and-autonomous-cars-will-transform-car-ownership-and-transportation",
+					text: 'This is the future',
+					link: 'https://www.notateslaapp.com/tesla-reference/1353/tesla-pioneers-the-future-how-electric-and-autonomous-cars-will-transform-car-ownership-and-transportation',
 				},
 			],
-			technologiesUsed: ["OpenCV", "TensorFlow", "Python"],
-			githubLink: "",
-			projectLink: "https://www.tesla.com/",
+			technologiesUsed: ['OpenCV', 'TensorFlow', 'Python'],
+			githubLink: '',
+			projectLink: 'https://www.tesla.com/',
 		},
 		imageDetails: {
-			link: "https://www.tesla.com/",
+			link: 'https://www.tesla.com/',
 			imgUrl: Tesla,
-			imgAlt: "Tesla Vehicles and Full Self Driving.",
+			imgAlt: 'Tesla Vehicles and Full Self Driving.',
 		},
 	},
 	{
 		info: {
-			title: "Starship",
+			title: 'Starship',
 			description:
 				"Embark on an extraordinary journey as Starship opens the door to boundless possibilities of exploration and colonization beyond Earth, bringing us closer to becoming an interplanetary species. SpaceX's visionary spacecraft is set to redefine space exploration and enable the establishment of sustainable habitats in the cosmos.",
 			descriptionLinks: [
 				{
-					text: "colonization beyond Earth",
-					link: "https://www.spacex.com/vehicles/starship/assets/media/Starbase%20Overview.pdf",
+					text: 'colonization beyond Earth',
+					link: 'https://www.spacex.com/vehicles/starship/assets/media/Starbase%20Overview.pdf',
 				},
 				{
 					text: "SpaceX's",
-					link: "https://www.spacex.com/",
+					link: 'https://www.spacex.com/',
 				},
 			],
-			technologiesUsed: ["Rocket Propulsion", "Avionics", "C++", "Python"],
-			githubLink: "",
-			projectLink: "https://www.spacex.com/vehicles/starship/",
+			technologiesUsed: ['Rocket Propulsion', 'Avionics', 'C++', 'Python'],
+			githubLink: '',
+			projectLink: 'https://www.spacex.com/vehicles/starship/',
 		},
 		imageDetails: {
-			link: "https://www.spacex.com/vehicles/starship/",
+			link: 'https://www.spacex.com/vehicles/starship/',
 			imgUrl: SpaceX,
-			imgAlt: "Starship and the future of humanity.",
+			imgAlt: 'Starship and the future of humanity.',
 		},
 	},
 	{
 		info: {
-			title: "Cardano",
+			title: 'Cardano',
 			description:
-				"Cardano is a blockchain platform pioneering a secure and sustainable ecosystem for decentralized applications. With a scientific approach, it leverages peer-reviewed research, formal verification, and a unique layered architecture to ensure scalability, interoperability, and financial inclusivity. This is the future of blockchain technology.",
+				'Cardano is a blockchain platform pioneering a secure and sustainable ecosystem for decentralized applications. With a scientific approach, it leverages peer-reviewed research, formal verification, and a unique layered architecture to ensure scalability, interoperability, and financial inclusivity. This is the future of blockchain technology.',
 			descriptionLinks: [
 				{
-					text: "peer-reviewed research",
-					link: "https://iohk.io/en/research/library/",
+					text: 'peer-reviewed research',
+					link: 'https://iohk.io/en/research/library/',
 				},
 				{
-					text: "unique",
-					link: "https://emurgo.io/fibo-101-cardano-nft-energy-consumption/",
+					text: 'unique',
+					link: 'https://emurgo.io/fibo-101-cardano-nft-energy-consumption/',
 				},
 				{
-					text: "This is the future",
-					link: "https://www.essentialcardano.io/",
+					text: 'This is the future',
+					link: 'https://www.essentialcardano.io/',
 				},
 			],
 			technologiesUsed: [
-				"Haskell",
-				"Ouroboros consensus algorithm",
-				"Plutus",
-				"Marlowe financial contract language",
+				'Haskell',
+				'Ouroboros consensus algorithm',
+				'Plutus',
+				'Marlowe financial contract language',
 			],
-			githubLink: "",
-			projectLink: "https://www.cardano.org/",
+			githubLink: '',
+			projectLink: 'https://www.cardano.org/',
 		},
 		imageDetails: {
-			link: "https://www.cardano.org/",
+			link: 'https://www.cardano.org/',
 			imgUrl: Cardano,
-			imgAlt: "Cardano is the future.",
+			imgAlt: 'Cardano is the future.',
 		},
 	},
-];
+]
 
 const otherProjects = [
 	{
-		title: "Project 1",
+		title: 'Project 1',
 		description:
 			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
-		technologiesUsed: ["React", "Express", "TypeScript"],
-		githubLink: "",
-		projectLink: "https://github.com/JosephBerm?tab=repositories",
+		technologiesUsed: ['React', 'Express', 'TypeScript'],
+		githubLink: '',
+		projectLink: 'https://github.com/JosephBerm?tab=repositories',
 	},
 	{
-		title: "Project 2",
+		title: 'Project 2',
 		description:
 			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
-		technologiesUsed: ["React", "Express", "TypeScript"],
-		githubLink: "https://github.com/JosephBerm",
-		projectLink: "https://github.com/JosephBerm?tab=repositories",
+		technologiesUsed: ['React', 'Express', 'TypeScript'],
+		githubLink: 'https://github.com/JosephBerm',
+		projectLink: 'https://github.com/JosephBerm?tab=repositories',
 	},
 	{
-		title: "Project 3",
+		title: 'Project 3',
 		description:
 			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
-		technologiesUsed: ["React", "Express", "TypeScript"],
-		githubLink: "",
-		projectLink: "https://github.com/JosephBerm?tab=repositories",
+		technologiesUsed: ['React', 'Express', 'TypeScript'],
+		githubLink: '',
+		projectLink: 'https://github.com/JosephBerm?tab=repositories',
 	},
 	{
-		title: "Project 4",
+		title: 'Project 4',
 		description:
 			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
-		technologiesUsed: ["React", "Express", "TypeScript"],
-		githubLink: "https://github.com/JosephBerm",
-		projectLink: "https://github.com/JosephBerm?tab=repositories",
+		technologiesUsed: ['React', 'Express', 'TypeScript'],
+		githubLink: 'https://github.com/JosephBerm',
+		projectLink: 'https://github.com/JosephBerm?tab=repositories',
 	},
 	{
-		title: "Project 5",
+		title: 'Project 5',
 		description:
 			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
-		technologiesUsed: ["React", "Express", "TypeScript"],
-		githubLink: "",
-		projectLink: "https://github.com/JosephBerm?tab=repositories",
+		technologiesUsed: ['React', 'Express', 'TypeScript'],
+		githubLink: '',
+		projectLink: 'https://github.com/JosephBerm?tab=repositories',
 	},
 	{
-		title: "Project 6",
+		title: 'Project 6',
 		description:
 			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
-		technologiesUsed: ["React", "Express", "TypeScript"],
-		githubLink: "https://github.com/JosephBerm",
-		projectLink: "https://github.com/JosephBerm?tab=repositories",
+		technologiesUsed: ['React', 'Express', 'TypeScript'],
+		githubLink: 'https://github.com/JosephBerm',
+		projectLink: 'https://github.com/JosephBerm?tab=repositories',
 	},
-];
+]
 
 const myPortfolio = {
 	workExperience,
 	userProfile,
 	featuredProjects,
 	otherProjects,
-};
+}
 
-export default myPortfolio;
+export default myPortfolio

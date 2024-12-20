@@ -17,7 +17,7 @@ function Projects({ projectsRef }) {
 
 	return (
 		<section ref={projectsRef} id='projects' className='section projects_section isNumbered'>
-			<h2 className='section-header'>My Favorite Topics</h2>
+			<h2 className='section-header'>Projects I Keep Up With</h2>
 			<div className='section-body'>
 				<ul className='projects-list'>
 					{featuredProjects.map((project, index) => (

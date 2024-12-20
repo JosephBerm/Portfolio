@@ -2,34 +2,27 @@ import React from "react";
 import myPicture from "../assets/myPicture.jpg";
 
 function AboutMe({ aboutRef }) {
-	// useEffect(() =>
-	// {
-	// }, []);
 	return (
 		<section ref={aboutRef} id='about' className='section about_section isNumbered'>
 			<h2 className='section-header'>About Me</h2>
 			<div className='section-body'>
 				<div className='text-container'>
 					<p>
-						Hello! My name is Joseph and I am passionate about the Internet of
-						Things. My journey towards becoming a software engineer had its inception
-						during the summer of 2013 when I worked alongside my father in
-						maintenance at an office building. Fate had it that I would meet a man
-						who would transform my life forever.
+						Hi, I’m Joseph, and I’m passionate about the Internet of Things. My path to becoming a software
+						engineer began in the summer of 2013, when I worked alongside my father doing maintenance at an
+						office building. It was there that I met someone who completely changed how I saw the world.
 					</p>
 					<p>
-						It was during this time that I witnessed the awe-inspiring process of
-						bringing a concept to life right before my very eyes. Watching the man
-						take gibberish and seamlessly transform it into a tangible product left
-						me spellbound. This encounter ignited a spark of curiosity and creativity
-						in me that has guided my professional journey ever since.
+						During our conversations, I saw firsthand how an idea could evolve from a simple concept into
+						something tangible and impactful. Watching him turn lines of code into a working product sparked
+						my curiosity and creativity—it was the moment I realized the power of technology to bring ideas
+						to life.
 					</p>
 					<p>
-						As of today, I strive to capture the magical essence that arises from
-						creating something from scratch and observing it seamlessly function. My
-						ultimate goal is to remain at the vanguard of state-of-the-art technology
-						and to provide an unparalleled digital experience that can revolutionize
-						the world.
+						Today, I’m driven by that same curiosity. I aim to build solutions from the ground up, combining
+						innovation with functionality to make a meaningful impact. My goal is to stay at the forefront
+						of cutting-edge technology and contribute to creating digital experiences that truly make a
+						difference.
 					</p>
 					<p>Here are a few technologies I've been working with recently:</p>
 					<ul className='skills_list sfx'>
@@ -47,14 +40,14 @@ function AboutMe({ aboutRef }) {
 							<img
 								src={myPicture}
 								alt='Professional headshot of Joseph Bermudez'
-								style={{ maxWidth: "100%", display: "block", position: "static" }}
+								style={{ maxWidth: '100%', display: 'block', position: 'static' }}
 							/>
 						</picture>
 					</div>
 				</div>
 			</div>
 		</section>
-	);
+	)
 }
 
 export default AboutMe;

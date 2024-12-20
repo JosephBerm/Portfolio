@@ -45,19 +45,6 @@ const userProfile = {
 
 const workExperience = [
 	{
-		companyName: 'ACA Inc.',
-		titleOfPosition: 'Mid-Level Software Engineer',
-		link: 'https://www.linkedin.com/company/atlantic-coast-automotive-inc',
-		timeline: 'April 2022 - Present',
-		highlights: [
-			'Integrated cloud-based solutions using Azure to streamline data storage and retrieval.',
-			'Utilized ASP.NET Core, SignalR, Elasticsearch, and MySQL in the back-end to achieve project goals and meet business requirements.',
-			'Utilizes TypeScript, Vue 3, and Pinia in the front-end to build powerful components and efficient user web pages.',
-			'Led the development and successful implementation of a robust two-factor authentication (2FA) sign-in process for the company’s internal application – following ISO 27001 standards.',
-			"Created and deployed a Selenium desktop application to enhance the company's usability and efficiency of the internal web application.",
-		],
-	},
-	{
 		companyName: 'Medsource',
 		titleOfPosition: 'Senior Software Engineer',
 		link: 'https://www.medsourcepro.com',
@@ -69,6 +56,19 @@ const workExperience = [
 			'Designed a robust front-end structure with state management powered by Zustand, delivering dynamic and personalized content efficiently.',
 			'Optimized web performance, achieving sub-second load times and exceptional responsiveness across all devices, enhancing user engagement and retention.',
 			"Collaborated with stakeholders to align the website's functionality with business goals, ensuring a user-centered design approach",
+		],
+	},
+	{
+		companyName: 'ACA Inc.',
+		titleOfPosition: 'Mid-Level Software Engineer',
+		link: 'https://www.linkedin.com/company/atlantic-coast-automotive-inc',
+		timeline: 'April 2022 - Present',
+		highlights: [
+			'Integrated cloud-based solutions using Azure to streamline data storage and retrieval.',
+			'Utilized ASP.NET Core, SignalR, Elasticsearch, and MySQL in the back-end to achieve project goals and meet business requirements.',
+			'Utilizes TypeScript, Vue 3, and Pinia in the front-end to build powerful components and efficient user web pages.',
+			'Led the development and successful implementation of a robust two-factor authentication (2FA) sign-in process for the company’s internal application – following ISO 27001 standards.',
+			"Created and deployed a Selenium desktop application to enhance the company's usability and efficiency of the internal web application.",
 		],
 	},
 	{
@@ -87,40 +87,6 @@ const workExperience = [
 	// 	companyName: "N/A",
 	// 	titleOfPosition: "N/A",
 	// 	link: "https://iohk.io/",
-	// 	timeline: "From - To YYYY",
-	// 	highlights: [
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-	// 	],
-	// },
-	// {
-	// 	companyName: "N/A",
-	// 	titleOfPosition: "N/A",
-	// 	link: "https://www.tesla.com/",
-	// 	timeline: "From - To YYYY",
-	// 	highlights: [
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-	// 	],
-	// },
-	// {
-	// 	companyName: "N/A",
-	// 	titleOfPosition: "N/A",
-	// 	link: "https://www.spacex.com/",
-	// 	timeline: "From - To YYYY",
-	// 	highlights: [
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore? Lorem ipsum dolor sit amet consectetur, adipisicing elit.",
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore adipisci asperiores inventore?",
-	// 	],
-	// },
-	// {
-	// 	companyName: "N/A",
-	// 	titleOfPosition: "N/A",
-	// 	link: "https://www.nasa.gov/",
 	// 	timeline: "From - To YYYY",
 	// 	highlights: [
 	// 		"Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni odit placeat dolor adipisci asperiores inventore?",

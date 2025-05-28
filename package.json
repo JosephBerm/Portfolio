@@ -13,10 +13,10 @@
 		"zustand": "^5.0.5"
 	},
 	"scripts": {
-		"dev": "cls && vite",
-		"build": "cls && vite build",
-		"preview": "cls && vite preview",
-		"tsc": "cls && tsc --noEmit"
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"tsc": "tsc --noEmit"
 	},
 	"eslintConfig": {
 		"extends": [

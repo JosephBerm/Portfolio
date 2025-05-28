@@ -1,0 +1,36 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ESNext",
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"baseUrl": "./",
+		"experimentalDecorators": true,
+		"allowJs": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"noEmit": true,
+		"esModuleInterop": true,
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"jsx": "preserve",
+		"incremental": true,
+		"paths": {
+			"@/*": ["./src/*"],
+			"@/components/*": ["src/components/*"],
+			"@/interfaces/*": ["src/interfaces/*"],
+			"@/decorators/*": ["src/decorators/*"],
+			"@/utilities/*": ["src/utilities/*"],
+			"@/services/*": ["src/services/*"],
+			"@/classes/*": ["src/classes/*"],
+			"@/helpers/*": ["src/helpers/*"],
+			"@/context/*": ["src/context/*"],
+			"@/common/*": ["src/common/*"],
+			"@/assets/*": ["src/assets/*"],
+			"@/styles/*": ["src/styles/*"],
+			"@/hooks/*": ["src/hooks/*"],
+			"@/types/*": ["src/types/*"]
+		}
+	},
+	"include": ["src", "**/*.ts", "**/*.tsx", "vite-env.d.ts"]
+}

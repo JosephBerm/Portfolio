@@ -1,14 +1,9 @@
 import React from 'react'
 import myPicture from '@/assets/myPicture.jpg'
 
-interface IAboutMeProps {
-	aboutRef: React.RefObject<HTMLElement | null>
-}
-
-const AboutMe: React.FC<IAboutMeProps> = ({ aboutRef }) => {
+const AboutMe: React.FC = () => {
 	return (
 		<section
-			ref={aboutRef}
 			id='about'
 			className='section about_section isNumbered'>
 			<h2 className='section-header'>About Me</h2>
@@ -34,11 +29,11 @@ const AboutMe: React.FC<IAboutMeProps> = ({ aboutRef }) => {
 					</p>
 					<p>Here are a few technologies I&apos;ve been working with recently:</p>
 					<ul className='skills_list sfx'>
-						<li>JavaScript (ES6+)</li>
-						<li>Node.js</li>
-						<li>React</li>
-						<li>.NET Core</li>
+						<li>JavaScript (2025)</li>
+						<li>React.js</li>
 						<li>TypeScript</li>
+						<li>Next.js</li>
+						<li>.NET Framework</li>
 						<li>Vue.js</li>
 					</ul>
 				</div>

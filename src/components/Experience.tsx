@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { usePortfolioStore } from '@/store/portfolioStore'
 import { IWorkExperience } from '@/services/portfolioInformation'
 
-const Experience: React.FC<{ jobsRef: React.RefObject<HTMLElement | null> }> = ({ jobsRef }) => {
+const Experience: React.FC = () => {
 	const { workExperience } = usePortfolioStore()
 	const [selectedWork, setSelectedWork] = useState(workExperience[0]);
 
@@ -20,7 +20,7 @@ const Experience: React.FC<{ jobsRef: React.RefObject<HTMLElement | null> }> = (
 		return workExperience.findIndex((wE) => wE === selectedWork);
 	};
 	return (
-		<section ref={jobsRef} id='jobs' className='section jobs_section isNumbered'>
+		<section id='jobs' className='section jobs_section isNumbered'>
 			<h2 className='section-header'>Where I've Worked</h2>
 			<div className='section-body'>
 				<div className='tabList'>

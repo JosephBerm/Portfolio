@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { usePortfolioStore } from "@/store/portfolioStore";
 
-function Introduction() {
+const Introduction: React.FC = () => {
 	const { userProfile } = usePortfolioStore();
 	const [animatedClassName, setAnimatedClassName] = useState(" fadeup-enter");
 

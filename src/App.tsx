@@ -15,11 +15,6 @@ import RightSidePane from './components/RightSidePane'
 
 const App: React.FC = () => {
 	const [isLoading, setIsLoading] = useState<boolean>(true)
-	const aboutRef = useRef<HTMLElement>(null)
-	const jobsRef = useRef<HTMLElement>(null)
-	const projectsRef = useRef<HTMLElement>(null)
-	const otherProjectsRef = useRef<HTMLElement>(null)
-	const contactRef = useRef<HTMLElement>(null)
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -31,7 +26,7 @@ const App: React.FC = () => {
 
 	if (isLoading) return <LoadingPage />
 
-return (
+	return (
 		<div className='App'>
 			<Background />
 			<Navbar />
@@ -40,11 +35,11 @@ return (
 			<div id='content'>
 				<main className='fillHeight'>
 					<Introduction />
-					<AboutMe aboutRef={aboutRef} />
-					<Experience jobsRef={jobsRef} />
-					<Projects projectsRef={projectsRef} />
-					<OtherProjects otherProjectsRef={otherProjectsRef} />
-					<ContactMe contactRef={contactRef} />
+					<AboutMe />
+					<Experience />
+					<Projects />
+					<OtherProjects />
+					<ContactMe />
 				</main>
 				<AppFooter />
 			</div>

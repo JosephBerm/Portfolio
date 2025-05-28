@@ -6,7 +6,7 @@ import GitHubSVG from '../common/GitHubSVG'
 import FolderSVG from '../common/FolderSVG'
 import Card from './Card'
 
-const OtherProjects: React.FC<{ otherProjectsRef: React.RefObject<HTMLElement | null> }> = ({ otherProjectsRef }) => {
+const OtherProjects: React.FC = () => {
 	const { otherProjects: projList } = usePortfolioStore()
 
 	useEffect(() => {
@@ -17,7 +17,7 @@ const OtherProjects: React.FC<{ otherProjectsRef: React.RefObject<HTMLElement | 
 		observe(listItems, thresholdMap)
 	}, [])
 	return (
-		<section ref={otherProjectsRef} id='other-projects' className='section other-projects_section'>
+		<section id='other-projects' className='section other-projects_section'>
 			<h2>My Projects</h2>
 			<a
 				className='inline-link archive-link'

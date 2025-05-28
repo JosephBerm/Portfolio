@@ -4,7 +4,7 @@ import FeaturedProject from '@/components/FeaturedProject'
 import ProjectImage from '@/components/ProjectImage'
 import observe from '@/services/elementObserver'
 
-const Projects: React.FC<{ projectsRef: React.RefObject<HTMLElement | null> }> = ({ projectsRef }) => {
+const Projects: React.FC = () => {
 	const { featuredProjects } = usePortfolioStore()
 
 	useEffect(() => {
@@ -16,7 +16,7 @@ const Projects: React.FC<{ projectsRef: React.RefObject<HTMLElement | null> }> =
 	}, [])
 
 	return (
-		<section ref={projectsRef} id='projects' className='section projects_section isNumbered'>
+		<section id='projects' className='section projects_section isNumbered'>
 			<h2 className='section-header'>Projects I Keep Up With</h2>
 			<div className='section-body'>
 				<ul className='projects-list'>

@@ -11,7 +11,10 @@ function AppFooter() {
 				<LinksList />
 			</div>
 			<div className='normal-footer'>
-				<a href={userProfile.links.github.link} rel='noopener noreferrer' target='_blank'>
+				<a
+					href={userProfile.links.github.link}
+					rel='noopener noreferrer'
+					target='_blank'>
 					<p>
 						Built by <br />
 						{userProfile.name}

@@ -1,5 +1,5 @@
 import '@/css/App.css'
-import React, { useState, useEffect, useRef } from 'react'
+import React from 'react'
 import Navbar from '@/components/Navbar'
 import Introduction from '@/components/Introduction'
 import AboutMe from '@/components/AboutMe'
@@ -14,20 +14,9 @@ import LeftSidePane from '@/components/LeftSidePane'
 import RightSidePane from '@/components/RightSidePane'
 
 const App: React.FC = () => {
-	const [isLoading, setIsLoading] = useState<boolean>(true)
-
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setIsLoading(false)
-		}, 3100)
-
-		return () => clearTimeout(timer)
-	}, [])
-
-	if (isLoading) return <LoadingPage />
-
 	return (
 		<div className='App'>
+			<LoadingPage />
 			<Background />
 			<Navbar />
 			<LeftSidePane />

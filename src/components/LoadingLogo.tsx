@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import LoadingSVG from '@/assets/LoadingSVG'
 
 function LoadingLogo() {
-	useEffect(() => {}, [])
 	return (
 		<div className='loading-logo'>
 			<LoadingSVG />

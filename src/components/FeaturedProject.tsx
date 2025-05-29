@@ -1,7 +1,6 @@
 import React from 'react'
-import { getTextWithLinks } from '../services/utils'
-import ExternalLinkSVG from '../common/ExternalLinkSVG'
-import GitHubSVG from '../common/GitHubSVG'
+import ExternalLinkSVG from '@/common/ExternalLinkSVG'
+import GitHubSVG from '@/common/GitHubSVG'
 import { FeaturedProjectDescriptionLinkType, FeaturedProjectInfoType } from '@/services/portfolioInformation'
 
 interface IFeaturedProjectProps {

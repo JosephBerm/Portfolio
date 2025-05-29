@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
-import Logo from "../assets/Logo";
-import router from "../services/router";
-import classNames from "classnames";
-import observe from "../services/elementObserver";
+import React, { useState, useEffect } from 'react'
+import Logo from '@/assets/Logo'
+import router from '@/services/router'
+import classNames from 'classnames'
+import observe from '@/services/elementObserver'
 
 function Navbar() {
 	const [navClass, setNavClass] = useState("header");

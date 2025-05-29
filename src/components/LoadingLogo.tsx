@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import LoadingSVG from '../assets/LoadingSVG'
+import LoadingSVG from '@/assets/LoadingSVG'
 
 function LoadingLogo() {
 	useEffect(() => {}, [])

@@ -1,6 +1,6 @@
 import React from 'react'
 import { usePortfolioStore } from '@/store/portfolioStore'
-import LinksList from '../common/LinksList'
+import LinksList from '@/common/LinksList'
 
 function AppFooter() {
 	const { userProfile } = usePortfolioStore()

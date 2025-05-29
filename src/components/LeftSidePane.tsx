@@ -1,5 +1,5 @@
 import React from "react";
-import LinksList from "../common/LinksList";
+import LinksList from "@/common/LinksList";
 
 function LeftSidePane() {
 	return (

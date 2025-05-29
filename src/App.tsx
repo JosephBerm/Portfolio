@@ -1,5 +1,5 @@
 import '@/css/App.css'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Navbar from '@/components/Navbar'
 import Introduction from '@/components/Introduction'
 import AboutMe from '@/components/AboutMe'
@@ -14,9 +14,21 @@ import LeftSidePane from '@/components/LeftSidePane'
 import RightSidePane from '@/components/RightSidePane'
 
 const App: React.FC = () => {
+	const [isLoading, setIsLoading] = useState(true)
+
+	useEffect(() => {
+		// Start fade out after animation completes
+		const timer = setTimeout(() => {
+			setIsLoading(false)
+		}, 3000) // Match this with your CSS animation duration
+
+		return () => clearTimeout(timer)
+	}, [])
+
+	if (isLoading) return <LoadingPage />
+
 	return (
 		<div className='App'>
-			<LoadingPage />
 			<Background />
 			<Navbar />
 			<LeftSidePane />

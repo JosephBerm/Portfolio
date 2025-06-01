@@ -46,20 +46,6 @@ const userProfile: IUserProfile = {
 
 const workExperience: IWorkExperience[] = [
 	{
-		companyName: 'Medsource',
-		titleOfPosition: 'Senior Software Engineer',
-		link: 'https://www.medsourcepro.com',
-		timeline: 'July 2024 - Present',
-		highlights: [
-			'Architected and developed a high-performance, fully responsive website using .NET 9, TypeScript, Next.js, and Zustand to support seamless user experiences for healthcare professionals.',
-			'Took the project from concept to deployment on Azure, ensuring a scalable and reliable integration with its cloud services.',
-			'Led the end-to-end implementation of modern web development practices, ensuring optimal website scalability, security, and performance.',
-			'Designed a robust front-end structure with state management powered by Zustand, delivering dynamic and personalized content efficiently.',
-			'Optimized web performance, achieving sub-second load times and exceptional responsiveness across all devices, enhancing user engagement and retention.',
-			"Collaborated with stakeholders to align the website's functionality with business goals, ensuring a user-centered design approach",
-		],
-	},
-	{
 		companyName: 'ACA Inc.',
 		titleOfPosition: 'Mid-Level Software Engineer',
 		link: 'https://www.linkedin.com/company/atlantic-coast-automotive-inc',
@@ -220,12 +206,12 @@ const featuredProjects: IFeaturedProject[] = [
 
 const otherProjects: IOtherProject[] = [
 	{
-		title: 'Project 1',
+		title: 'Medsource Pro',
 		description:
-			"I am currently working to fill this card with a project worth showing. Clicking on this card would redirect you to the live project itself. For now, you'll be redirected to my github repositories' page.",
-		technologiesUsed: ['React', 'Express', 'TypeScript'],
+			"At Medsource, I led the end-to-end development of a high-performance website, taking it from concept to launch. I focused on building a scalable front-end architecture, optimizing for sub-second load times, and ensuring the product aligned with business goals through close collaboration with stakeholders.",
+		technologiesUsed: ['Next.js', '.NET 9', 'TypeScript', 'Zustand'],
 		githubLink: '',
-		projectLink: 'https://github.com/JosephBerm?tab=repositories',
+		projectLink: 'https://www.medsourcepro.com',
 	},
 	{
 		title: 'Project 2',

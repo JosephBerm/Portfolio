@@ -10,31 +10,34 @@ const AboutMe: React.FC = () => {
 			<div className='section-body'>
 				<div className='text-container'>
 					<p>
-						Hi, I&apos;m Joseph, and I&apos;m passionate about the Internet of Things. My path to becoming a
-						software engineer began in the summer of 2013, when I worked alongside my father doing
-						maintenance at an office building. It was there that I met someone who completely changed how I
-						saw the world.
+						Hi, I&apos;m Joseph — a full-stack software engineer with 4+ years of professional
+						experience building web applications in C#/.NET and TypeScript/React. I&apos;m the founder
+						and sole developer of{' '}
+						<a className='inline-link' href='https://vendorxpro.com' target='_blank' rel='noopener noreferrer'>
+							VendorX
+						</a>
+						, a multi-tenant B2B ordering platform serving real customers in production.
 					</p>
 					<p>
-						During our conversations, I saw firsthand how an idea could evolve from a simple concept into
-						something tangible and impactful. Watching him turn lines of code into a working product sparked
-						my curiosity and creativity—it was the moment I realized the power of technology to bring ideas
-						to life.
+						My path into engineering started in the summer of 2013, when I met someone who showed me
+						how lines of code could turn a simple idea into a working product. That moment sparked a
+						curiosity that hasn&apos;t stopped — and it&apos;s the same drive behind everything I
+						build today.
 					</p>
 					<p>
-						Today, I&apos;m driven by that same curiosity. I aim to build solutions from the ground up,
-						combining innovation with functionality to make a meaningful impact. My goal is to stay at the
-						forefront of cutting-edge technology and contribute to creating digital experiences that truly
-						make a difference.
+						I specialize in owning features end-to-end, from database schema design to deployment
+						pipelines. Whether it&apos;s architecting tenant-isolated systems with row-level security,
+						integrating third-party platforms like Stripe and QuickBooks, or building real-time
+						interfaces — I thrive on solving complex problems and shipping reliable software.
 					</p>
 					<p>Here are a few technologies I&apos;ve been working with recently:</p>
 					<ul className='skills_list sfx'>
-						<li>JavaScript (2025)</li>
-						<li>React.js</li>
+						<li>C# / .NET 10</li>
+						<li>React 19</li>
 						<li>TypeScript</li>
-						<li>Next.js</li>
-						<li>.NET Framework</li>
-						<li>Vue.js</li>
+						<li>Next.js 16</li>
+						<li>PostgreSQL</li>
+						<li>Vue 3</li>
 					</ul>
 				</div>
 				<div className='enclosed'>

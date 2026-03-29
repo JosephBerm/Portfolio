@@ -23,7 +23,16 @@ const Introduction: React.FC = () => {
 				<h3 className='big-heading'>I build things for the web.</h3>
 			</div>
 			<div className={"objective" + animatedClassName} style={{ ['--index' as string]: 4 }}>
-				<p>{userProfile.objective}</p>
+				<p>
+					Full-stack software engineer with 4+ years of experience building web applications in C#/.NET
+					and TypeScript/React. Founder of{' '}
+					<a className='inline-link' href='https://vendorxpro.com' target='_blank' rel='noopener noreferrer'>
+						VendorX
+					</a>
+					, a multi-tenant B2B ordering platform with PostgreSQL row-level security, 40 API controllers,
+					103 pages, and Stripe billing. Comfortable owning features end-to-end from database schema to
+					deployment pipeline.
+				</p>
 			</div>
 			<div className={"contactMe" + animatedClassName} style={{ ['--index' as string]: 5 }}>
 				<a

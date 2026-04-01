@@ -1,12 +1,9 @@
-import React from 'react'
 import LoadingLogo from '@/components/LoadingLogo'
 
-function LoadingPage() {
+export default function LoadingPage() {
 	return (
-		<div className='fill-page page-loader'>
+		<div className="flex flex-col items-center justify-center w-full h-full">
 			<LoadingLogo />
 		</div>
 	)
 }
-
-export default LoadingPage

@@ -1,13 +1,9 @@
-import React from 'react'
-
-function LoadingIsBusy() {
+export default function LoadingIsBusy() {
 	return (
-		<div className='LoadingIsBusy'>
-			<div className='inner one'></div>
-			<div className='inner two'></div>
-			<div className='inner three'></div>
+		<div className="absolute top-[calc(50%-32px)] left-[calc(50%-32px)] w-16 h-16 rounded-full [perspective:800px]">
+			<div className="absolute box-border w-full h-full rounded-full border-b-[3px] border-green animate-[rotate-one_1s_linear_infinite]" />
+			<div className="absolute box-border w-full h-full rounded-full border-r-[3px] border-green animate-[rotate-two_1s_linear_infinite]" />
+			<div className="absolute box-border w-full h-full rounded-full border-t-[3px] border-green animate-[rotate-three_1s_linear_infinite]" />
 		</div>
 	)
 }
-
-export default LoadingIsBusy

@@ -1,53 +1,40 @@
-import React from 'react'
-import { FeaturedProjectImageDetailsType } from '@/services/portfolioInformation'
+'use client'
+
+import Image from 'next/image'
+import { motion } from 'motion/react'
+import { cn, variants } from '@/lib'
+import type { FeaturedProjectImageDetailsType } from '@/lib'
 
 interface IProjectImageProps {
 	imageDetails: FeaturedProjectImageDetailsType
+	isOdd: boolean
 }
 
-function ProjectImage({ imageDetails }: IProjectImageProps) {
+export default function ProjectImage({ imageDetails, isOdd }: IProjectImageProps) {
 	const { link, imgUrl, imgAlt } = imageDetails
 
+	// Image slides in from its side — opposite direction to the text.
+	const slideVariants = isOdd ? variants.slideFromLeft : variants.slideFromRight
+
 	return (
-		<div className='project-image'>
-			<a
-				href={link}
-				rel='noopener noreferrer'
-				target='_blank'>
-				<div className='image-wrapper'>
-					<div style={{ maxWidth: '700px', display: 'block' }}>
-						<img
-							src="data:image/svg+xml;charset=utf-8,%3Csvg height='438' width='700' xmlns='http://www.w3.org/2000/svg' version='1.1'%3E%3C/svg%3E"
-							alt=''
-							role='presentation'
-							style={{ maxWidth: '100%', display: 'block', position: 'static' }}
-						/>
-					</div>
-					<img
-						aria-hidden='true'
-						data-placeholder-image
-						decoding='async'
-						alt=''
+		<motion.div
+			variants={slideVariants}
+			className={cn(
+				'project-image-wrapper row-[1/-1]',
+				isOdd ? 'md:col-[1/8]' : 'md:col-[6/-1]'
+			)}
+		>
+			<a href={link} rel="noopener noreferrer" target="_blank">
+				<div className="image-inner">
+					<Image
 						src={imgUrl}
-						style={{
-							opacity: 0,
-							transition: 'opacity 500ms linear 0s',
-							objectFit: 'cover',
-						}}
+						alt={imgAlt}
+						fill
+						className="object-cover"
+						sizes="(min-width: 700px) 700px, 100vw"
 					/>
-					<picture>
-						<img
-							src={imgUrl}
-							alt={imgAlt}
-							sizes='(min-width: 700px) 700px, 100vw'
-							data-main-image
-							style={{ objectFit: 'cover', opacity: 1 }}
-						/>
-					</picture>
 				</div>
 			</a>
-		</div>
+		</motion.div>
 	)
 }
-
-export default ProjectImage

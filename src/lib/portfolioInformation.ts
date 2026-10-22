@@ -42,7 +42,7 @@ const workExperience: IWorkExperience[] = [
 		companyName: 'Relativistic Engine',
 		titleOfPosition: 'Software Engineer',
 		link: 'https://www.linkedin.com/company/atlantic-coast-automotive-inc',
-		timeline: 'April 2022 to Present (formerly Atlantic Coast Automotive Inc.)',
+		timeline: 'April 2022 to Present',
 		highlights: [
 			'Built and own the accounting platform that turns car sales and leases at 100+ dealerships into balanced entries in their official books, from its first prototype in 2023 to today.',
 			"Led the move of the company's dealership software to Vue 3 and TypeScript, wrote custom automated rules that enforce how its code is structured, and upgraded its desktop app to .NET 8.",
@@ -52,7 +52,6 @@ const workExperience: IWorkExperience[] = [
 			"Cut the deals page's start-up time from over 3 seconds to under 10 milliseconds, ended freezes on large deals, and made switching dealerships in the accounting screens take about 70% less time.",
 			'Built the rules engine that decides how each deal is recorded. A rule change updates pending entries in one save instead of row by row, and repairs to live data run as a preview first.',
 			'Moved permission checks to the server, so staff see only their approved dealerships and locked accounts lose access within seconds. Built a View As mode that lets testers act as any employee without messaging real customers.',
-			"Wrote the plan for reports that would show our CEO, CFO and CTO what's holding up each dealership's month-end close and what waiting on lender payments costs in interest. The research found 39 hidden bugs.",
 		],
 	},
 	{

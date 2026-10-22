@@ -3,41 +3,42 @@
 	"version": "1.0.0",
 	"private": true,
 	"scripts": {
-		"dev": "next dev --turbopack",
+		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
 		"lint": "eslint .",
-		"type-check": "tsc --noEmit"
+		"type-check": "next typegen && tsc --noEmit",
+		"lint:fix": "eslint . --fix"
 	},
 	"dependencies": {
+		"@googleapis/calendar": "^20.1.0",
 		"@react-email/components": "^1.0.11",
 		"clsx": "^2.1.1",
-		"googleapis": "^171.4.0",
-		"lodash": "^4.17.21",
 		"motion": "^12.38.0",
-		"next": "^16.2.1",
-		"react": "^19.2.4",
-		"react-dom": "^19.2.4",
-		"resend": "^6.10.0",
+		"next": "16.4.2",
+		"react": "19.3.1",
+		"react-dom": "19.3.1",
+		"resend": "^6.34.1",
 		"server-only": "^0.0.1",
 		"tailwind-merge": "^3.5.0",
-		"zod": "^4.3.6",
-		"zustand": "^5.0.5"
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@eslint/eslintrc": "^3.3.5",
 		"@tailwindcss/postcss": "^4.2.2",
-		"@types/lodash": "^4.17.16",
-		"@types/node": "^25.5.0",
-		"@types/react": "^19.2.14",
-		"@types/react-dom": "^19.2.3",
+		"@types/node": "^24.19.2",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
 		"babel-plugin-react-compiler": "^1.0.0",
-		"eslint": "^10.1.0",
-		"eslint-config-next": "^16.2.1",
+		"eslint": "^10.13.0",
+		"eslint-config-next": "16.4.2",
 		"tailwindcss": "^4.2.2",
-		"typescript": "^6.0.2"
+		"typescript": "~6.0.3"
 	},
 	"engines": {
-		"node": ">=22.0.0"
+		"node": "24.x"
+	},
+	"overrides": {
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0"
 	}
 }

@@ -1,62 +1,53 @@
-'use client'
-
-import { useState, useEffect, useRef } from 'react'
-import { getAvailableSlots } from '@/lib/scheduleConfig'
+import { useEffect, useState } from 'react'
+import type { SlotsResponse } from '@/lib/scheduleApi'
+import { getUpcomingSlots } from '@/lib/scheduleTime'
 
 interface UseAvailableSlotsResult {
 	slots: number[]
 	loading: boolean
-	error: string | null
 }
 
 /**
  * Fetches available time slots for a given date from the API.
- * Falls back to static config slots on network failure.
- * Cancels in-flight requests when the date changes.
+ * Falls back to the static schedule (minus past hours) on network failure.
+ * Aborts the in-flight request when the date changes or on unmount.
  */
 export function useAvailableSlots(dateISO: string | null): UseAvailableSlotsResult {
-	const [slots, setSlots] = useState<number[]>([])
-	const [loading, setLoading] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-	const controllerRef = useRef<AbortController | null>(null)
+	/** null until the current date's slots arrive (or the fallback is used). */
+	const [slots, setSlots] = useState<number[] | null>(null)
+	const [prevDateISO, setPrevDateISO] = useState(dateISO)
+
+	// Reset while rendering when the date changes (React's "adjust state on prop change"
+	// pattern) rather than calling setState synchronously inside the effect
+	if (dateISO !== prevDateISO) {
+		setPrevDateISO(dateISO)
+		setSlots(null)
+	}
 
 	useEffect(() => {
-		if (!dateISO) {
-			setSlots([])
-			setLoading(false)
-			setError(null)
-			return
-		}
+		if (!dateISO) return
 
-		// Cancel any in-flight request
-		controllerRef.current?.abort()
 		const controller = new AbortController()
-		controllerRef.current = controller
 
-		setLoading(true)
-		setError(null)
-
-		fetch(`/api/schedule/slots?date=${dateISO}`, { signal: controller.signal })
+		fetch(`/api/schedule/slots?${new URLSearchParams({ date: dateISO })}`, { signal: controller.signal })
 			.then((res) => {
 				if (!res.ok) throw new Error(`HTTP ${res.status}`)
-				return res.json()
+				return res.json() as Promise<SlotsResponse>
 			})
-			.then((data: { slots: number[] }) => {
-				if (!controller.signal.aborted) {
-					setSlots(data.slots)
-					setLoading(false)
-				}
+			.then((data) => {
+				if (!controller.signal.aborted) setSlots(data.slots)
 			})
 			.catch((err) => {
 				if (controller.signal.aborted) return
 				console.error('[useAvailableSlots] Fetch failed, using static fallback:', err)
-				setSlots(getAvailableSlots())
-				setError('Could not load live availability')
-				setLoading(false)
+				setSlots(getUpcomingSlots(dateISO))
 			})
 
 		return () => controller.abort()
 	}, [dateISO])
 
-	return { slots, loading, error }
+	return {
+		slots: slots ?? [],
+		loading: dateISO !== null && slots === null,
+	}
 }

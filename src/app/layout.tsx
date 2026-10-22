@@ -1,29 +1,28 @@
 import type { Metadata, Viewport } from 'next'
+import { siteConfig } from '@/lib/site'
+import { sharedOpenGraph } from '@/lib/metadata'
+import MotionProvider from '@/components/MotionProvider'
+import { golos, firaCode } from './fonts'
 import './globals.css'
 
 export const viewport: Viewport = {
-	themeColor: '#0a192f',
+	themeColor: siteConfig.themeColor,
 }
 
 export const metadata: Metadata = {
-	title: 'Joseph Bermudez',
-	description: 'Joseph Bermudez: Innovative Software Engineer Shaping the Future of Technology',
-	metadataBase: new URL('https://josephbermudez.com'),
-	openGraph: {
-		title: 'Joseph Bermudez',
-		description: 'Innovative Software Engineer Shaping the Future of Technology',
-		url: 'https://josephbermudez.com',
-		siteName: 'Joseph Bermudez Portfolio',
-		images: [
-			{
-				url: '/thumbnail.png',
-				alt: 'Thumbnail of my portfolio website.',
-			},
-		],
-		type: 'website',
+	metadataBase: new URL(siteConfig.url),
+	title: {
+		// Home uses the default; child pages pass a short title for the template
+		default: `${siteConfig.name} | Software Engineer`,
+		template: `${siteConfig.name} | %s`,
 	},
-	icons: {
-		icon: '/favicon.ico',
+	description:
+		'Joseph Bermudez built and owns the accounting platform 100+ car dealerships rely on, and founded VendorX, online ordering for distributors and wholesalers.',
+	// The home page's share card; child routes replace it via createPageMetadata
+	openGraph: {
+		...sharedOpenGraph,
+		url: '/',
+		description: 'Software engineer who built and owns the accounting platform 100+ car dealerships rely on. Founder of VendorX, online ordering for distributors and wholesalers.',
 	},
 }
 
@@ -33,17 +32,10 @@ export default function RootLayout({
 	children: React.ReactNode
 }) {
 	return (
-		<html lang="en">
-			<head>
-				<script
-					src="https://kit.fontawesome.com/d2df4b1e2b.js"
-					crossOrigin="anonymous"
-					async
-				/>
-			</head>
+		<html lang="en" className={`${golos.variable} ${firaCode.variable}`} data-scroll-behavior="smooth">
 			<body className="min-h-screen">
 				<div id="root" className="min-h-screen grid grid-rows-[1fr_auto] grid-cols-[100%]">
-					{children}
+					<MotionProvider>{children}</MotionProvider>
 				</div>
 			</body>
 		</html>

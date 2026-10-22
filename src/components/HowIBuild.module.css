@@ -1,0 +1,42 @@
+/* Numbered steps for <HowIBuild>: green mono numerals like the section and nav counters,
+   joined by a 1px rail in the color of the section-header rule. */
+
+.steps {
+	counter-reset: step;
+}
+
+/* A grid with baseline alignment keeps each numeral on its step's first line of text at every font size. */
+.steps li {
+	counter-increment: step;
+	position: relative;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	column-gap: 2rem;
+	align-items: baseline;
+	padding-bottom: 2rem;
+}
+.steps li:last-child {
+	padding-bottom: 0;
+}
+
+.steps li::before {
+	content: counter(step, decimal-leading-zero);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	color: var(--color-green);
+}
+
+/* Rail from each numeral down to the next. It uses the numeral's font, so 1ch is one numeral
+   character and the rail sits under the center of the two-digit number. top and bottom leave
+   8-10px gaps at both the 14px and 16px text sizes. */
+.steps li:not(:last-child)::after {
+	content: '';
+	position: absolute;
+	top: 2.6rem;
+	bottom: 0.1rem;
+	left: calc(1ch - 0.5px);
+	width: 1px;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	background-color: var(--color-lightest-navy);
+}

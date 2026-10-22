@@ -2,42 +2,48 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { cn, easing } from '@/lib'
-import { usePortfolioStore } from '@/store'
+import { cn, duration, easing } from '@/lib'
+import myPortfolio from '@/lib/portfolioInformation'
 import { FadeInSection, RevealItem, ScrollRevealList } from '@/components/motion'
+import { BODY_TEXT } from '@/components/styles'
+
+const { workExperience } = myPortfolio
 
 export default function Experience() {
-	const { workExperience } = usePortfolioStore()
 	const [selectedIndex, setSelectedIndex] = useState(0)
 	const selectedWork = workExperience[selectedIndex]!
 
 	return (
-		<FadeInSection id="jobs" className="portfolio-section max-w-[900px] min-[700px]:min-h-[625px]" isNumbered threshold={0.2} stagger={0.08}>
+		<FadeInSection id="jobs" className="min-[700px]:min-h-[625px]" isNumbered>
 			<RevealItem>
 				<h2 className="section-header">Where I&apos;ve Worked</h2>
 			</RevealItem>
 			<RevealItem>
 				<div className="block min-[600px]:flex min-[600px]:justify-center min-[600px]:items-start min-[700px]:min-h-[340px]">
-					{/* Tab list */}
-					<div className="relative z-[3] p-0 m-0 flex overflow-x-auto w-[calc(100%+50px)] pl-[25px] -ml-[25px] mb-[30px] min-[480px]:w-[calc(100%+100px)] min-[480px]:pl-[50px] min-[480px]:-ml-[50px] min-[600px]:block min-[600px]:overflow-x-visible min-[600px]:w-max min-[600px]:pl-0 min-[600px]:ml-0">
+					{/* Tab list. --tab-h is one tab's height, shared by the buttons and the 600px+ indicator */}
+					<div className="relative z-[3] [--tab-h:42px] p-0 m-0 flex overflow-x-auto w-[calc(100%+50px)] pl-[25px] -ml-[25px] mb-[30px] min-[600px]:block min-[600px]:overflow-x-visible min-[600px]:w-max min-[600px]:pl-0 min-[600px]:ml-0">
 						{workExperience.map((wE, index) => (
 							<button
 								key={wE.companyName}
 								onClick={() => setSelectedIndex(index)}
+								aria-pressed={index === selectedIndex}
 								className={cn(
-									'flex items-center justify-center text-center min-w-[120px] px-[2.25rem] h-[42px] text-xs font-mono rounded-none border-0 border-b-2 border-solid border-b-lightest-navy transition-all duration-[250ms] ease-[cubic-bezier(0.645,0.045,0.355,1)] whitespace-nowrap',
+									'flex items-center justify-center text-center min-w-[120px] px-[2.25rem] h-(--tab-h) text-xs font-mono rounded-none border-0 border-b-2 border-solid border-b-lightest-navy transition-all duration-250 ease-smooth whitespace-nowrap',
 									'min-[600px]:border-b-0 min-[600px]:border-l-2 min-[600px]:border-l-lightest-navy min-[600px]:justify-start min-[600px]:w-full',
-									index === selectedIndex ? 'text-green' : 'text-slate',
-									'hover:bg-light-navy hover:text-green'
+									// Below 600px the selected tab's own bottom border is the indicator (tab widths vary).
+									index === selectedIndex ? 'text-green border-b-green' : 'text-slate',
+									'hover:bg-light-navy hover:text-green',
+									// Below 600px the strip scrolls and would clip an outside ring, so draw it inside the button
+									'max-[600px]:focus-visible:-outline-offset-4'
 								)}
 							>
 								<span>{wE.companyName}</span>
 							</button>
 						))}
-						{/* Highlight indicator */}
+						{/* Highlight indicator (600px and up, where every tab is --tab-h tall): moves down one tab height per index */}
 						<div
-							className="job-highlight absolute top-auto bottom-0 left-0 z-10 w-full max-w-[120px] h-[2px] bg-green rounded-[4px] transition-transform duration-[250ms] ease-[cubic-bezier(0.645,0.045,0.355,1)] delay-100 ml-[25px] min-[480px]:ml-[50px] min-[600px]:top-0 min-[600px]:bottom-auto min-[600px]:w-[2px] min-[600px]:max-w-none min-[600px]:h-[42px] min-[600px]:ml-0"
-							style={{ ['--tab-index' as string]: selectedIndex }}
+							className="hidden min-[600px]:block absolute top-0 left-0 z-10 w-[2px] h-(--tab-h) translate-y-[calc(var(--tab-index)*var(--tab-h))] bg-green rounded-[4px] transition-transform motion-reduce:transition-none duration-250 ease-smooth delay-100"
+							style={{ '--tab-index': selectedIndex } as React.CSSProperties}
 						/>
 					</div>
 
@@ -48,7 +54,7 @@ export default function Experience() {
 							initial={{ opacity: 0, y: 8 }}
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: -8 }}
-							transition={{ duration: 0.3, ease: easing.easeOut }}
+							transition={{ duration: duration.normal, ease: easing.easeOut }}
 							className="relative w-full min-[600px]:ml-[20px]"
 						>
 							<h3 className="mb-[2px] text-lg font-semibold leading-[1.3]">
@@ -65,8 +71,8 @@ export default function Experience() {
 							</p>
 							<ScrollRevealList
 								items={selectedWork.highlights}
-								className="sfx p-0 m-0 list-none text-sm leading-[1.5] min-[600px]:text-base"
-								itemClassName="relative pl-[30px] mb-[10px]"
+								className={cn('sfx', BODY_TEXT)}
+								itemClassName="relative pl-[30px] mb-[10px] [&::before]:top-[2px]"
 							/>
 						</motion.div>
 					</AnimatePresence>

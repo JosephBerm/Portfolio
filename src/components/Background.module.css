@@ -1,0 +1,31 @@
+/* Night sky for <Background>: a fixed, decorative layer under #content (z-index 1). src/components/sky creates
+   the canvas and draws it in a Web Worker; these rules only place it, fade it in and hide it where it can't help. */
+
+.sky {
+	position: fixed;
+	inset: 0 0 auto;
+	z-index: 0;
+	/* Large viewport height: the mobile URL bar showing or hiding never resizes (and redraws) the sky */
+	height: 100lvh;
+	pointer-events: none;
+}
+
+.canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	opacity: 0;
+	transition: opacity 0.6s var(--ease-smooth);
+}
+
+/* Set once the worker has drawn its first frame, normally under the intro loader; a late start fades in */
+.canvas[data-ready] {
+	opacity: 1;
+}
+
+/* Forced colors replace the palette and print needs no sky: the plain background is the right answer */
+@media (forced-colors: active), print {
+	.sky {
+		display: none;
+	}
+}

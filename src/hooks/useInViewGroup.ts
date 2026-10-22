@@ -1,5 +1,3 @@
-'use client'
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface UseInViewGroupOptions {
@@ -51,6 +49,34 @@ export function useInViewGroup(count: number, options: UseInViewGroupOptions = {
 	const enteredRef = useRef<Set<number>>(new Set())
 	const refCacheRef = useRef<Map<number, (node: Element | null) => void>>(new Map())
 
+	/** Flips `inView` for every entered element the current mode allows. */
+	const commitEntered = useCallback(() => {
+		setInView((prev) => {
+			const next = [...prev]
+			let changed = false
+
+			if (mode === 'ordered') {
+				// Walk sequentially — only reveal an element if every element before it has entered.
+				for (let i = 0; i < count; i++) {
+					if (next[i]) continue
+					if (!enteredRef.current.has(i)) break
+					next[i] = true
+					changed = true
+				}
+			} else {
+				// Reveal each element independently as it enters.
+				enteredRef.current.forEach((idx) => {
+					if (!next[idx]) {
+						next[idx] = true
+						changed = true
+					}
+				})
+			}
+
+			return changed ? next : prev
+		})
+	}, [count, mode])
+
 	// Create (or recreate) the shared observer when config changes.
 	useEffect(() => {
 		if (typeof IntersectionObserver === 'undefined') return
@@ -71,32 +97,7 @@ export function useInViewGroup(count: number, options: UseInViewGroupOptions = {
 					if (once) observerRef.current?.unobserve(entry.target)
 				}
 
-				if (!needsUpdate) return
-
-				setInView((prev) => {
-					const next = [...prev]
-					let changed = false
-
-					if (mode === 'ordered') {
-						// Walk sequentially — only reveal an element if every element before it has entered.
-						for (let i = 0; i < count; i++) {
-							if (next[i]) continue
-							if (!enteredRef.current.has(i)) break
-							next[i] = true
-							changed = true
-						}
-					} else {
-						// Reveal each element independently as it enters.
-						enteredRef.current.forEach((idx) => {
-							if (!next[idx]) {
-								next[idx] = true
-								changed = true
-							}
-						})
-					}
-
-					return changed ? next : prev
-				})
+				if (needsUpdate) commitEntered()
 			},
 			{ threshold, rootMargin }
 		)
@@ -110,7 +111,7 @@ export function useInViewGroup(count: number, options: UseInViewGroupOptions = {
 			observerRef.current?.disconnect()
 			observerRef.current = null
 		}
-	}, [count, threshold, rootMargin, once, mode])
+	}, [threshold, rootMargin, once, commitEntered])
 
 	/**
 	 * Returns a stable ref callback for the element at `index`.
@@ -145,5 +146,20 @@ export function useInViewGroup(count: number, options: UseInViewGroupOptions = {
 		[]
 	)
 
-	return { inView, getRef }
+	/**
+	 * Marks the element at `index` as entered without waiting for the observer,
+	 * e.g. when keyboard focus lands on it while it sits outside the trigger area.
+	 */
+	const reveal = useCallback(
+		(index: number) => {
+			if (enteredRef.current.has(index)) return
+			enteredRef.current.add(index)
+			const node = nodesRef.current.get(index)
+			if (node && once) observerRef.current?.unobserve(node)
+			commitEntered()
+		},
+		[once, commitEntered]
+	)
+
+	return { inView, getRef, reveal }
 }

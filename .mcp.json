@@ -1,0 +1,17 @@
+{
+	"mcpServers": {
+		"next-devtools": {
+			"type": "stdio",
+			"command": "npx",
+			"args": ["-y", "next-devtools-mcp@0.4.0"]
+		},
+		"motion": {
+			"type": "http",
+			"url": "https://mcp.motion.dev"
+		},
+		"zod": {
+			"type": "http",
+			"url": "https://mcp.inkeep.com/zod/mcp"
+		}
+	}
+}

@@ -1,5 +1,0 @@
-export { default as LinksPage } from './LinksPage'
-export { default as BackgroundEffects } from './BackgroundEffects'
-export { default as ProfileIdentity } from './ProfileIdentity'
-export { default as LinkCard } from './LinkCard'
-export { default as PortfolioFooterLink } from './PortfolioFooterLink'

@@ -29,15 +29,22 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*.local
+# env files (.env.example is the committed template)
+.env*
+!.env.example
 
 # vercel
 .vercel
 
 # claude code local settings
 .claude/settings.local.json
+CLAUDE.local.md
+.claude/worktrees/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent / tooling artifacts
+/.playwright-mcp/
+/.next-profiles/

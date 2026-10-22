@@ -1,21 +1,25 @@
 import myPortfolio from './portfolioInformation'
+import { MEETING_DURATION } from './scheduleConfig'
+import { siteConfig, VENDORX_URL } from './site'
 
 // Re-derive shared values from the single source of truth
-const { name, email } = myPortfolio.userProfile
+const { name } = myPortfolio.userProfile
 const linkedinUrl = myPortfolio.userProfile.links.linkedin?.link ?? '#'
 
 /** Profile info displayed at the top of the links page. */
 export const LINKS_PROFILE = {
 	name,
-	title: 'Software Engineer & Founder',
-	email,
+	title: siteConfig.jobTitle,
 } as const
 
 /** Card variant controls visual hierarchy — hero is larger and more prominent. */
 export type LinkCardVariant = 'hero' | 'secondary'
 
+/** Card ids; LinkCard maps each one to its icon. */
+export type LinkCardId = 'vendorx' | 'linkedin' | 'schedule'
+
 export interface ILinkCard {
-	id: string
+	id: LinkCardId
 	label: string
 	description: string
 	href: string
@@ -27,8 +31,8 @@ export const LINK_CARDS: ILinkCard[] = [
 	{
 		id: 'vendorx',
 		label: 'VendorX',
-		description: 'Launch your own B2B ordering brand',
-		href: 'https://vendorxpro.com',
+		description: 'Online ordering for distributors and wholesalers',
+		href: VENDORX_URL,
 		variant: 'hero',
 	},
 	{
@@ -41,7 +45,7 @@ export const LINK_CARDS: ILinkCard[] = [
 	{
 		id: 'schedule',
 		label: "Let's Chat",
-		description: 'Book a time — 60 min call',
+		description: `Book a ${MEETING_DURATION}-minute call`,
 		href: '/links/schedule',
 		variant: 'secondary',
 	},

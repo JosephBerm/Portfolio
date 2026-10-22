@@ -1,75 +1,134 @@
 import 'server-only'
 
-import { google, type calendar_v3 } from 'googleapis'
-import {
-	MEETING_DURATION,
-	TIME_RANGE,
-	OWNER_TIMEZONE,
-	getAvailableSlots,
-	isBookable,
-} from './scheduleConfig'
+import { auth as googleAuth, calendar as calendarApi, type calendar_v3 } from '@googleapis/calendar'
+import { MAX_ADVANCE_DAYS, MEETING_DURATION, OWNER_TIMEZONE, TIME_RANGE } from './scheduleConfig'
+import { getSlotWindow, getUpcomingSlots, ownerTimeToDate } from './scheduleTime'
 
 // ── Environment variables ───────────────────────────────────────
 const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
 const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID
+/** Optional static Meet link (reusable room). `||` so an empty GOOGLE_MEET_LINK= counts as unset. */
+const MEET_LINK = process.env.GOOGLE_MEET_LINK || null
 
 /** Whether Google Calendar credentials are configured. */
 export const isConfigured =
 	Boolean(SERVICE_ACCOUNT_EMAIL) && Boolean(PRIVATE_KEY) && Boolean(CALENDAR_ID)
 
-// ── Auth singleton ──────────────────────────────────────────────
+// ── Client singleton ────────────────────────────────────────────
 const SCOPES = ['https://www.googleapis.com/auth/calendar'] as const
+/** Upper bound per Google API call (token fetch included), so a stalled call fails fast into the fallback / 502 paths. */
+const REQUEST_TIMEOUT_MS = 10_000
 
-let cachedClient: calendar_v3.Calendar | null = null
+/**
+ * Rejects once `promise` has taken REQUEST_TIMEOUT_MS. The client's own `timeout` only covers the API request,
+ * not the service-account token fetch (with retries) that precedes it on a cold instance.
+ */
+function withTimeout<T>(promise: Promise<T>): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined
+	const timeout = new Promise<never>((_, reject) => {
+		timer = setTimeout(
+			() => reject(new Error(`Google Calendar request timed out after ${REQUEST_TIMEOUT_MS}ms`)),
+			REQUEST_TIMEOUT_MS,
+		)
+	})
+	return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
 
-function getCalendarClient(): calendar_v3.Calendar {
+interface CalendarClient {
+	calendar: calendar_v3.Calendar
+	calendarId: string
+}
+
+let cachedClient: CalendarClient | null = null
+
+function getCalendarClient(): CalendarClient {
 	if (cachedClient) return cachedClient
 
 	if (!SERVICE_ACCOUNT_EMAIL || !PRIVATE_KEY || !CALENDAR_ID) {
 		throw new Error('Google Calendar credentials are not configured')
 	}
 
-	const auth = new google.auth.JWT({
+	const auth = new googleAuth.JWT({
 		email: SERVICE_ACCOUNT_EMAIL,
 		key: PRIVATE_KEY,
 		scopes: [...SCOPES],
+		// Caps each token request attempt; withTimeout bounds the whole call, retries included
+		transporterOptions: { timeout: REQUEST_TIMEOUT_MS },
 	})
 
-	cachedClient = google.calendar({ version: 'v3', auth })
+	cachedClient = {
+		calendar: calendarApi({ version: 'v3', auth, timeout: REQUEST_TIMEOUT_MS }),
+		calendarId: CALENDAR_ID,
+	}
 	return cachedClient
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-/**
- * Builds an RFC 3339 datetime string for a given date + hour.
- * The timestamp is naive (no offset) — callers pass `timeZone` separately
- * to Google Calendar so it's interpreted in the correct zone.
- */
-function buildDateTime(dateISO: string, hour: number, minute = 0): string {
-	return `${dateISO}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`
+/** Busy periods on the owner's calendar between two instants. Throws when Google couldn't compute them. */
+async function queryBusy(timeMin: Date, timeMax: Date): Promise<calendar_v3.Schema$TimePeriod[]> {
+	const { calendar, calendarId } = getCalendarClient()
+
+	const res = await withTimeout(
+		calendar.freebusy.query({
+			requestBody: {
+				timeMin: timeMin.toISOString(),
+				timeMax: timeMax.toISOString(),
+				timeZone: OWNER_TIMEZONE,
+				items: [{ id: calendarId }],
+			},
+		}),
+	)
+
+	// A failed computation (e.g. notFound, internalError) still answers 200, with errors and no busy list: never read it as free
+	const entry = res.data.calendars?.[calendarId]
+	if (!entry || entry.errors?.length) {
+		throw new Error(`FreeBusy unavailable: ${entry?.errors?.map((e) => e.reason).join(', ') || 'calendar missing from response'}`)
+	}
+	return entry.busy ?? []
 }
 
+/** How long a date's FreeBusy answer serves the slots list, so a burst of requests can't each call Google. */
+const BUSY_CACHE_TTL_MS = 30_000
+/** At most one entry per bookable date. */
+const BUSY_CACHE_MAX_DATES = MAX_ADVANCE_DAYS + 1
+
+/** Per-date FreeBusy answers (in-flight ones included), oldest first. */
+const busyCache = new Map<string, { expires: number; busy: Promise<calendar_v3.Schema$TimePeriod[]> }>()
+
 /**
- * Converts a date + hour pair into a UTC ISO string for use with
- * FreeBusy queries, which require RFC 3339 timestamps with timezone info.
+ * Busy periods within the bookable hours of `dateISO`, shared for BUSY_CACHE_TTL_MS. Only the slots list reads this:
+ * isSlotAvailable always asks Google, so a stale entry can at worst offer a slot that booking then turns down (409).
  */
-function toUTCISO(dateISO: string, hour: number): string {
-	return new Date(`${dateISO}T${String(hour).padStart(2, '0')}:00:00`).toISOString()
+function getBusyForDate(dateISO: string): Promise<calendar_v3.Schema$TimePeriod[]> {
+	const now = Date.now()
+	const cached = busyCache.get(dateISO)
+	if (cached && cached.expires > now) return cached.busy
+
+	const busy = queryBusy(ownerTimeToDate(dateISO, TIME_RANGE.start), ownerTimeToDate(dateISO, TIME_RANGE.end))
+	// Failures aren't cached: the next request asks Google again
+	busy.catch(() => {
+		if (busyCache.get(dateISO)?.busy === busy) busyCache.delete(dateISO)
+	})
+
+	busyCache.delete(dateISO)
+	if (busyCache.size >= BUSY_CACHE_MAX_DATES) {
+		const oldest = busyCache.keys().next().value
+		if (oldest !== undefined) busyCache.delete(oldest)
+	}
+	busyCache.set(dateISO, { expires: now + BUSY_CACHE_TTL_MS, busy })
+	return busy
 }
 
-/** Checks if a given hour overlaps any busy period. */
-function isHourBusy(hour: number, dateISO: string, busyPeriods: Array<{ start?: string | null; end?: string | null }>): boolean {
-	const slotStart = new Date(`${dateISO}T${String(hour).padStart(2, '0')}:00:00`)
-	const slotEnd = new Date(slotStart.getTime() + MEETING_DURATION * 60_000)
+/** Checks whether the meeting starting at `hour` overlaps any busy period. */
+function isHourBusy(hour: number, dateISO: string, busyPeriods: calendar_v3.Schema$TimePeriod[]): boolean {
+	const { start, end } = getSlotWindow(dateISO, hour)
 
 	return busyPeriods.some((period) => {
 		if (!period.start || !period.end) return false
-		const busyStart = new Date(period.start)
-		const busyEnd = new Date(period.end)
 		// Overlap: slotStart < busyEnd AND slotEnd > busyStart
-		return slotStart < busyEnd && slotEnd > busyStart
+		return start < new Date(period.end) && end > new Date(period.start)
 	})
 }
 
@@ -78,76 +137,46 @@ function isHourBusy(hour: number, dateISO: string, busyPeriods: Array<{ start?: 
 /**
  * Fetches available time slots for a given date by querying Google Calendar
  * FreeBusy API and subtracting busy periods from the static schedule config.
+ * Hours that have already started (owner time) are always left out.
  *
- * Falls back to static slots if Google Calendar is not configured or unreachable.
+ * Falls back to the upcoming static slots if Google Calendar is not configured or unreachable.
  */
 export async function getAvailableSlotsForDate(dateISO: string): Promise<number[]> {
-	const staticSlots = getAvailableSlots()
+	const slots = getUpcomingSlots(dateISO)
 
-	if (!isConfigured) return staticSlots
+	if (!isConfigured || slots.length === 0) return slots
 
 	try {
-		const calendar = getCalendarClient()
+		const busy = await getBusyForDate(dateISO)
 
-		const timeMin = toUTCISO(dateISO, TIME_RANGE.start)
-		const timeMax = toUTCISO(dateISO, TIME_RANGE.end)
-
-		const res = await calendar.freebusy.query({
-			requestBody: {
-				timeMin,
-				timeMax,
-				timeZone: OWNER_TIMEZONE,
-				items: [{ id: CALENDAR_ID }],
-			},
-		})
-
-		const busyPeriods = res.data.calendars?.[CALENDAR_ID!]?.busy ?? []
-
-		return staticSlots.filter((hour) => !isHourBusy(hour, dateISO, busyPeriods))
+		return slots.filter((hour) => !isHourBusy(hour, dateISO, busy))
 	} catch (error) {
-		console.error('[google-calendar] FreeBusy query failed, using static slots:', error)
-		return staticSlots
+		// Message only: Google client errors embed the request body
+		console.error(
+			'[google-calendar] FreeBusy query failed, using static slots:',
+			error instanceof Error ? error.message : error,
+		)
+		return slots
 	}
 }
 
 /**
  * Checks if a specific slot is still available by doing a final FreeBusy check.
  * Used to prevent double-booking race conditions.
+ *
+ * Throws when availability can't be verified, so callers must fail closed
+ * (events.insert happily creates overlapping events).
  */
 export async function isSlotAvailable(dateISO: string, hour: number): Promise<boolean> {
 	if (!isConfigured) return true
 
-	try {
-		const calendar = getCalendarClient()
-
-		const timeMin = toUTCISO(dateISO, hour)
-		const timeMax = toUTCISO(dateISO, hour + 1)
-
-		const res = await calendar.freebusy.query({
-			requestBody: {
-				timeMin,
-				timeMax,
-				timeZone: OWNER_TIMEZONE,
-				items: [{ id: CALENDAR_ID }],
-			},
-		})
-
-		const busyPeriods = res.data.calendars?.[CALENDAR_ID!]?.busy ?? []
-		return busyPeriods.length === 0
-	} catch {
-		// If we can't verify, allow the booking (Google will handle conflicts)
-		return true
-	}
+	const { start, end } = getSlotWindow(dateISO, hour)
+	return (await queryBusy(start, end)).length === 0
 }
 
 export interface BookingResult {
-	eventId: string
-	htmlLink: string
 	meetLink: string | null
 }
-
-/** Optional static Meet link — set in env if you have a reusable meeting room. */
-const MEET_LINK = process.env.GOOGLE_MEET_LINK ?? null
 
 /**
  * Creates a calendar event for the booking.
@@ -164,17 +193,13 @@ export async function createBooking(params: {
 	visitorEmail: string
 }): Promise<BookingResult> {
 	const { dateISO, hour, visitorName, visitorEmail } = params
-	const calendar = getCalendarClient()
-
-	const startDateTime = buildDateTime(dateISO, hour)
-	const endHour = hour + Math.ceil(MEETING_DURATION / 60)
-	const endMinute = MEETING_DURATION % 60
-	const endDateTime = buildDateTime(dateISO, endHour, endMinute)
+	const { calendar, calendarId } = getCalendarClient()
+	const { start, end } = getSlotWindow(dateISO, hour)
 
 	const meetLine = MEET_LINK ? `\nMeet: ${MEET_LINK}` : ''
 
-	const res = await calendar.events.insert({
-		calendarId: CALENDAR_ID!,
+	await withTimeout(calendar.events.insert({
+		calendarId,
 		requestBody: {
 			summary: `Chat with ${visitorName}`,
 			description:
@@ -183,12 +208,13 @@ export async function createBooking(params: {
 				`Email: ${visitorEmail}\n` +
 				`Duration: ${MEETING_DURATION} min` +
 				meetLine,
+			// Absolute instants; timeZone only sets the zone the event is displayed in
 			start: {
-				dateTime: startDateTime,
+				dateTime: start.toISOString(),
 				timeZone: OWNER_TIMEZONE,
 			},
 			end: {
-				dateTime: endDateTime,
+				dateTime: end.toISOString(),
 				timeZone: OWNER_TIMEZONE,
 			},
 			reminders: {
@@ -199,11 +225,10 @@ export async function createBooking(params: {
 				],
 			},
 		},
-	})
+	}))
 
-	return {
-		eventId: res.data.id ?? '',
-		htmlLink: res.data.htmlLink ?? '',
-		meetLink: MEET_LINK,
-	}
+	// The cached answer for this date no longer shows the new event
+	busyCache.delete(dateISO)
+
+	return { meetLink: MEET_LINK }
 }

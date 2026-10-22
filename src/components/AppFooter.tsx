@@ -1,20 +1,19 @@
-'use client'
-
-import { motion } from 'motion/react'
-import { useInView } from '@/hooks'
-import { usePortfolioStore } from '@/store'
-import { easing, duration } from '@/lib'
+import { footer as MotionFooter } from 'motion/react-client'
+import myPortfolio from '@/lib/portfolioInformation'
+import { easing, duration } from '@/lib/animations'
 import LinksList from '@/components/LinksList'
 
-export default function AppFooter() {
-	const { userProfile } = usePortfolioStore()
-	const { ref, inView } = useInView({ threshold: 0.3 })
+const { name, links } = myPortfolio.userProfile
 
+/** Site footer; fades in once when 30% visible. */
+export default function AppFooter() {
 	return (
-		<motion.footer
-			ref={ref}
+		// data-sky-quiet: the home sky keeps bright stars clear of this copy
+		<MotionFooter
+			data-sky-quiet
 			initial={{ opacity: 0 }}
-			animate={inView ? { opacity: 1 } : { opacity: 0 }}
+			whileInView={{ opacity: 1 }}
+			viewport={{ once: true, amount: 0.3 }}
 			transition={{ duration: duration.slow, ease: easing.easeOut }}
 			className="flex justify-center items-center flex-col h-auto min-h-[70px] p-[15px] text-center text-light-slate"
 		>
@@ -25,17 +24,17 @@ export default function AppFooter() {
 			</div>
 			<div>
 				<a
-					href={userProfile.links.github?.link ?? '#'}
+					href={links.github?.link ?? '#'}
 					rel="noopener noreferrer"
 					target="_blank"
 					className="p-[10px] max-w-[85%] text-nowrap text-center"
 				>
 					<p className="text-[clamp(var(--text-xxs),5vw,var(--text-xs))] w-fit">
 						Built by <br />
-						{userProfile.name}
+						{name}
 					</p>
 				</a>
 			</div>
-		</motion.footer>
+		</MotionFooter>
 	)
 }

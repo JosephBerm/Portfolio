@@ -1,8 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { cn } from '@/lib'
-import { isBookable, toISODate } from '@/lib/scheduleConfig'
+import { Suspense, use, useState } from 'react'
+import { browser } from 'react-dom'
+import { cn } from '@/lib/utils'
+import { toISODate } from '@/lib/scheduleConfig'
+import { getOwnerTodayISO, isBookable } from '@/lib/scheduleTime'
+import ChevronLeftSVG from '@/components/icons/ChevronLeftSVG'
+import ChevronRightSVG from '@/components/icons/ChevronRightSVG'
 
 /** Day-of-week header labels. */
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const
@@ -14,38 +18,42 @@ interface CalendarGridProps {
 
 /** Compact calendar grid for date selection.
  *  Unavailable dates are greyed out; only bookable dates are interactive. */
-export default function CalendarGrid({ selectedDate, onSelectDate }: CalendarGridProps) {
-	const [viewDate, setViewDate] = useState(() => new Date())
+export default function CalendarGrid(props: CalendarGridProps) {
+	return (
+		// The prerendered HTML ships this same-footprint placeholder; the month renders in the browser
+		<Suspense fallback={<div className="w-full aspect-square" aria-hidden="true" />}>
+			<CalendarMonth {...props} />
+		</Suspense>
+	)
+}
+
+/** Browser-only: "today", the bookable days and the visible month depend on the visitor's clock. */
+function CalendarMonth({ selectedDate, onSelectDate }: CalendarGridProps) {
+	use(browser('CalendarGrid depends on the current date'))
+
+	// Owner-timezone "today", so the grid agrees with what the booking API accepts
+	const [todayISO] = useState(getOwnerTodayISO)
+	const [todayYear = 0, todayMonth = 1] = todayISO.split('-').map(Number)
+	const [viewDate, setViewDate] = useState(() => new Date(todayYear, todayMonth - 1, 1))
 
 	const year = viewDate.getFullYear()
 	const month = viewDate.getMonth()
 
 	const monthLabel = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
-	/** All calendar cells for the current month view (including leading/trailing blanks). */
-	const cells = useMemo(() => {
-		const firstDay = new Date(year, month, 1).getDay()
-		const daysInMonth = new Date(year, month + 1, 0).getDate()
-
-		const result: (Date | null)[] = []
-
-		// Leading blanks
-		for (let i = 0; i < firstDay; i++) result.push(null)
-
-		// Actual days
-		for (let d = 1; d <= daysInMonth; d++) {
-			result.push(new Date(year, month, d))
-		}
-
-		return result
-	}, [year, month])
+	// All calendar cells for the current month view (leading blanks + days)
+	const firstDay = new Date(year, month, 1).getDay()
+	const daysInMonth = new Date(year, month + 1, 0).getDate()
+	const cells: (Date | null)[] = [
+		...Array.from({ length: firstDay }, () => null),
+		...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
+	]
 
 	const goToPrevMonth = () => setViewDate(new Date(year, month - 1, 1))
 	const goToNextMonth = () => setViewDate(new Date(year, month + 1, 1))
 
 	/** Don't allow navigating before the current month. */
-	const today = new Date()
-	const canGoPrev = year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth())
+	const canGoPrev = year > todayYear || (year === todayYear && month > todayMonth - 1)
 
 	return (
 		<div className="w-full">
@@ -59,7 +67,8 @@ export default function CalendarGrid({ selectedDate, onSelectDate }: CalendarGri
 				>
 					<ChevronLeftSVG />
 				</button>
-				<span className="text-lightest-slate font-sans font-medium text-base">
+				{/* Announces the new month after Previous/Next, which keep focus */}
+				<span aria-live="polite" className="text-lightest-slate font-sans font-medium text-base">
 					{monthLabel}
 				</span>
 				<button
@@ -88,15 +97,17 @@ export default function CalendarGrid({ selectedDate, onSelectDate }: CalendarGri
 					}
 
 					const iso = toISODate(date)
-					const bookable = isBookable(date)
+					const bookable = isBookable(iso, todayISO)
 					const isSelected = iso === selectedDate
-					const isToday = iso === toISODate(today)
+					const isToday = iso === todayISO
 
 					return (
 						<button
 							key={iso}
+							type="button"
 							onClick={() => bookable && onSelectDate(iso)}
 							disabled={!bookable}
+							aria-pressed={isSelected}
 							className={cn(
 								'relative aspect-square flex items-center justify-center rounded-[10px] text-sm font-sans transition-all duration-200',
 								bookable
@@ -117,22 +128,5 @@ export default function CalendarGrid({ selectedDate, onSelectDate }: CalendarGri
 				})}
 			</div>
 		</div>
-	)
-}
-
-/** Inline chevron icons — too small for the icons barrel. */
-function ChevronLeftSVG() {
-	return (
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-			<polyline points="15 18 9 12 15 6" />
-		</svg>
-	)
-}
-
-function ChevronRightSVG() {
-	return (
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-			<polyline points="9 18 15 12 9 6" />
-		</svg>
 	)
 }

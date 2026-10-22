@@ -1,4 +1,4 @@
 export { default as FadeInSection } from './FadeInSection'
-export { default as RevealItem } from './RevealItem'
+export { default as RevealItem, StaggerItem } from './RevealItem'
 export { default as ScrollRevealList } from './ScrollRevealList'
-export { StaggerContainer, StaggerItem } from './StaggerContainer'
+export { StaggerContainer } from './StaggerContainer'

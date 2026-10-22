@@ -1,95 +1,132 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextResponse, type NextRequest } from 'next/server'
+import type { ApiError, BookingResponse } from '@/lib/scheduleApi'
 import { bookingBodySchema } from '@/lib/validations'
 import { isConfigured, isSlotAvailable, createBooking } from '@/lib/google-calendar'
 import { isConfigured as emailConfigured, sendBookingConfirmation } from '@/lib/email'
-import { rateLimit } from '@/lib/rate-limit'
-import { isBookable, getAvailableSlots } from '@/lib/scheduleConfig'
+import { getClientKey, rateLimit, tooManyRequests } from '@/lib/rate-limit'
+import { getUpcomingSlots, isBookable } from '@/lib/scheduleTime'
+import { siteConfig } from '@/lib/site'
 
-/** Max booking attempts per IP within the rate window. */
+/** Max booking attempts per client within the rate window (1 minute). */
 const MAX_REQUESTS = 5
-const WINDOW_MS = 60_000 // 1 minute
+/** Booking payloads are tiny; anything larger is abuse. */
+const MAX_BODY_BYTES = 2_048
+
+/**
+ * Reads the body as text, or returns null once it passes `limit` bytes. Content-Length alone can't be trusted:
+ * chunked requests don't send it, and Route Handlers have no built-in body size limit.
+ */
+async function readBodyWithLimit(request: NextRequest, limit: number): Promise<string | null> {
+	const reader = request.body?.getReader()
+	if (!reader) return ''
+	const decoder = new TextDecoder()
+	let text = ''
+	let size = 0
+	for (;;) {
+		const { done, value } = await reader.read()
+		if (done) return text + decoder.decode()
+		size += value.byteLength
+		if (size > limit) {
+			await reader.cancel()
+			return null
+		}
+		text += decoder.decode(value, { stream: true })
+	}
+}
 
 export async function POST(request: NextRequest) {
 	// ── Rate limiting ───────────────────────────────────────────
-	const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-	const limit = rateLimit({ key: `book:${ip}`, windowMs: WINDOW_MS, maxRequests: MAX_REQUESTS })
+	const limit = rateLimit({ key: `book:${getClientKey(request.headers)}`, maxRequests: MAX_REQUESTS })
+	if (!limit.success) return tooManyRequests()
 
-	if (!limit.success) {
-		return NextResponse.json(
-			{ error: 'Too many requests. Please try again shortly.' },
-			{ status: 429 },
-		)
+	// ── Request shape ───────────────────────────────────────────
+	// JSON only, compared on the exact MIME type: a cross-site page can send a CORS-safelisted type without a
+	// preflight (even `text/plain; charset=application/json`, so a substring check isn't enough). application/json
+	// forces a preflight, and Next's automatic OPTIONS reply has no Access-Control-Allow-* headers, so the browser
+	// never sends the POST. Route Handlers get no built-in Origin check (only Server Actions do).
+	const mimeType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
+	if (mimeType !== 'application/json') {
+		return NextResponse.json<ApiError>({ error: 'Unsupported content type' }, { status: 415 })
+	}
+
+	// Defense in depth: browsers label cross-site requests with Fetch Metadata. Clients that don't send it still pass.
+	const fetchSite = request.headers.get('sec-fetch-site')
+	if (fetchSite && fetchSite !== 'same-origin') {
+		return NextResponse.json<ApiError>({ error: 'Forbidden' }, { status: 403 })
+	}
+
+	// Fast path; the streaming read below enforces the limit when Content-Length is missing or wrong
+	if (Number(request.headers.get('content-length') ?? 0) > MAX_BODY_BYTES) {
+		return NextResponse.json<ApiError>({ error: 'Request too large' }, { status: 413 })
 	}
 
 	// ── Validate body ───────────────────────────────────────────
 	let body: unknown
 	try {
-		body = await request.json()
+		const raw = await readBodyWithLimit(request, MAX_BODY_BYTES)
+		if (raw === null) {
+			return NextResponse.json<ApiError>({ error: 'Request too large' }, { status: 413 })
+		}
+		body = JSON.parse(raw)
 	} catch {
-		return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+		return NextResponse.json<ApiError>({ error: 'Invalid JSON body' }, { status: 400 })
 	}
 
 	const parsed = bookingBodySchema.safeParse(body)
 	if (!parsed.success) {
-		return NextResponse.json(
-			{ error: parsed.error.issues[0]?.message ?? 'Invalid request' },
+		return NextResponse.json<ApiError>(
+			{ error: parsed.error.issues[0]?.message ?? 'Please check your details and try again.' },
 			{ status: 400 },
 		)
 	}
 
 	const { dateISO, hour, visitorName, visitorEmail } = parsed.data
 
-	// ── Server-side business rule validation ────────────────────
-	const date = new Date(dateISO + 'T12:00:00') // noon to avoid TZ date shift
-	if (!isBookable(date)) {
-		return NextResponse.json({ error: 'Selected date is not available' }, { status: 400 })
+	// ── Server-side business rule validation (owner timezone) ──
+	if (!isBookable(dateISO)) {
+		return NextResponse.json<ApiError>({ error: "That date isn't available. Please pick another one." }, { status: 400 })
 	}
 
-	const validHours = getAvailableSlots()
-	if (!validHours.includes(hour)) {
-		return NextResponse.json({ error: 'Selected time is not available' }, { status: 400 })
+	// Also rejects hours that already started today
+	if (!getUpcomingSlots(dateISO).includes(hour)) {
+		return NextResponse.json<ApiError>({ error: "That time isn't available. Please pick another one." }, { status: 400 })
 	}
 
 	// ── Google Calendar check ───────────────────────────────────
 	if (!isConfigured) {
-		return NextResponse.json(
-			{ error: 'Scheduling is not configured. Please contact me directly.' },
+		return NextResponse.json<ApiError>(
+			{ error: `Online booking isn't available right now. Please email me at ${siteConfig.email}.` },
 			{ status: 503 },
-		)
-	}
-
-	// Final availability check to prevent double-booking
-	const available = await isSlotAvailable(dateISO, hour)
-	if (!available) {
-		return NextResponse.json(
-			{ error: 'This time slot was just booked. Please pick another time.' },
-			{ status: 409 },
 		)
 	}
 
 	// ── Create the booking ──────────────────────────────────────
 	try {
-		const result = await createBooking({ dateISO, hour, visitorName, visitorEmail })
-
-		// Send confirmation email (fire-and-forget — don't delay the response)
-		if (emailConfigured) {
-			sendBookingConfirmation({
-				visitorName,
-				visitorEmail,
-				dateISO,
-				hour,
-				meetLink: result.meetLink,
-			}).catch((err) => console.error('[api/schedule/book] Email send failed:', err))
+		// Final availability check to prevent double-booking (throws if Google can't verify, so it fails closed)
+		if (!(await isSlotAvailable(dateISO, hour))) {
+			return NextResponse.json<ApiError>(
+				{ error: 'This time slot was just booked. Please pick another time.' },
+				{ status: 409 },
+			)
 		}
 
-		return NextResponse.json(
-			{ success: true, eventId: result.eventId, htmlLink: result.htmlLink, meetLink: result.meetLink },
-			{ status: 201 },
-		)
+		const result = await createBooking({ dateISO, hour, visitorName, visitorEmail })
+
+		// Send the confirmation after the response; `after` keeps the invocation alive until it settles
+		if (emailConfigured) {
+			after(() =>
+				sendBookingConfirmation({ visitorName, visitorEmail, dateISO, hour, meetLink: result.meetLink })
+					.catch((err) => console.error('[api/schedule/book] Email send failed:', err instanceof Error ? err.message : err)),
+			)
+		}
+
+		// Minimal DTO: the UI only reads meetLink (htmlLink is the owner's private calendar URL)
+		return NextResponse.json<BookingResponse>({ meetLink: result.meetLink }, { status: 201 })
 	} catch (error) {
-		console.error('[api/schedule/book] Booking failed:', error)
-		return NextResponse.json(
-			{ error: 'Failed to create booking. Please try again.' },
+		// Message only: Google client errors embed the request body (visitor name/email)
+		console.error('[api/schedule/book] Booking failed:', error instanceof Error ? error.message : error)
+		return NextResponse.json<ApiError>(
+			{ error: 'Something went wrong with your booking. Please try again.' },
 			{ status: 502 },
 		)
 	}

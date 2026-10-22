@@ -1,15 +1,39 @@
-'use client'
-
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import type { BookingBody } from '@/lib/validations'
+import type { ApiError, BookingResponse } from '@/lib/scheduleApi'
 
 interface UseBookingResult {
-	book: (params: BookingBody) => Promise<boolean>
+	book: (params: BookingBody) => Promise<void>
 	loading: boolean
 	error: string | null
 	success: boolean
 	meetLink: string | null
-	reset: () => void
+}
+
+/** Outcome of one booking attempt, in the shape the UI needs. */
+type BookingOutcome = { ok: true; meetLink: string | null } | { ok: false; error: string }
+
+/**
+ * POSTs the booking. Kept outside the hook: the React Compiler skips hooks that use
+ * `??` / `?.` inside try/catch, so all error handling lives here.
+ */
+async function postBooking(params: BookingBody): Promise<BookingOutcome> {
+	let res: Response
+	try {
+		res = await fetch('/api/schedule/book', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(params),
+		})
+	} catch {
+		return { ok: false, error: 'Network error. Please check your connection and try again.' }
+	}
+	// Error bodies may not be JSON (e.g. a host's 5xx page)
+	const body: unknown = await res.json().catch(() => null)
+	if (!res.ok) {
+		return { ok: false, error: (body as Partial<ApiError> | null)?.error ?? 'Booking failed. Please try again.' }
+	}
+	return { ok: true, meetLink: (body as Partial<BookingResponse> | null)?.meetLink ?? null }
 }
 
 /**
@@ -22,44 +46,22 @@ export function useBooking(): UseBookingResult {
 	const [success, setSuccess] = useState(false)
 	const [meetLink, setMeetLink] = useState<string | null>(null)
 
-	const reset = useCallback(() => {
-		setLoading(false)
-		setError(null)
-		setSuccess(false)
-		setMeetLink(null)
-	}, [])
-
-	const book = useCallback(async (params: BookingBody): Promise<boolean> => {
+	const book = async (params: BookingBody): Promise<void> => {
 		setLoading(true)
 		setError(null)
 		setSuccess(false)
 		setMeetLink(null)
 
-		try {
-			const res = await fetch('/api/schedule/book', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(params),
-			})
+		const outcome = await postBooking(params)
+		setLoading(false)
 
-			const data = await res.json()
-
-			if (!res.ok) {
-				setError(data.error ?? 'Booking failed. Please try again.')
-				setLoading(false)
-				return false
-			}
-
-			setSuccess(true)
-			setMeetLink(data.meetLink ?? null)
-			setLoading(false)
-			return true
-		} catch {
-			setError('Network error. Please check your connection and try again.')
-			setLoading(false)
-			return false
+		if (!outcome.ok) {
+			setError(outcome.error)
+			return
 		}
-	}, [])
+		setSuccess(true)
+		setMeetLink(outcome.meetLink)
+	}
 
-	return { book, loading, error, success, meetLink, reset }
+	return { book, loading, error, success, meetLink }
 }

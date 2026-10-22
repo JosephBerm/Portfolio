@@ -1,6 +1,4 @@
-'use client'
-
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 /**
  * Returns the live column count of a CSS grid container.
@@ -9,24 +7,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  */
 export function useGridColumns() {
 	const [columns, setColumns] = useState(1)
-	const elRef = useRef<HTMLElement | null>(null)
 
-	const ref = useCallback(<T extends HTMLElement>(node: T | null) => {
-		elRef.current = node
-		if (node) {
-			const cols = getComputedStyle(node).gridTemplateColumns.split(' ').length
-			setColumns(cols)
-		}
-	}, [])
-
-	useEffect(() => {
-		const node = elRef.current
-		if (!node || typeof ResizeObserver === 'undefined') return
-
-		const ro = new ResizeObserver(() => {
-			const cols = getComputedStyle(node).gridTemplateColumns.split(' ').length
-			setColumns(cols)
-		})
+	// React 19 ref cleanup: observe the node while it is attached, disconnect when it detaches
+	const ref = useCallback((node: HTMLElement | null) => {
+		if (!node) return
+		const read = () => setColumns(getComputedStyle(node).gridTemplateColumns.split(' ').length)
+		read()
+		if (typeof ResizeObserver === 'undefined') return
+		const ro = new ResizeObserver(read)
 		ro.observe(node)
 		return () => ro.disconnect()
 	}, [])

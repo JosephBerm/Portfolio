@@ -10,6 +10,7 @@ import {
 	Section,
 	Text,
 } from '@react-email/components'
+import { siteConfig } from '@/lib/site'
 
 interface BookingConfirmationEmailProps {
 	visitorName: string
@@ -40,10 +41,10 @@ export default function BookingConfirmationEmail({
 					{/* Header */}
 					<Section style={header}>
 						<Heading as="h1" style={heading}>
-							You&apos;re booked!
+							Your meeting is booked
 						</Heading>
 						<Text style={subheading}>
-							Hi {visitorName}, your meeting has been confirmed.
+							Hi {visitorName}, thanks for booking a time to talk. I&apos;m looking forward to it.
 						</Text>
 					</Section>
 
@@ -54,7 +55,7 @@ export default function BookingConfirmationEmail({
 						<Text style={dateText}>{formattedDate}</Text>
 						<Text style={timeText}>{formattedTime}</Text>
 						<Text style={metaText}>
-							{timezone} &middot; {duration} min
+							{duration} minutes &middot; {timezone}
 						</Text>
 					</Section>
 
@@ -79,10 +80,11 @@ export default function BookingConfirmationEmail({
 					{/* Footer */}
 					<Section style={footer}>
 						<Text style={footerText}>
-							This email was sent because you booked a meeting on{' '}
-							<Link href="https://josephbermudez.com" style={footerLink}>
+							You&apos;re receiving this because you booked a meeting on{' '}
+							<Link href={siteConfig.url} style={footerLink}>
 								josephbermudez.com
 							</Link>
+							.
 						</Text>
 					</Section>
 				</Container>

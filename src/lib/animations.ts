@@ -1,4 +1,7 @@
-import type { Variants } from 'motion/react'
+import type { TargetAndTransition, Variants } from 'motion/react'
+
+/** Concrete hidden/visible pair, so destructured states stay non-optional under noUncheckedIndexedAccess. */
+type RevealVariants = { hidden: TargetAndTransition; visible: TargetAndTransition }
 
 /**
  * Shared easing curves used across all animations.
@@ -6,7 +9,6 @@ import type { Variants } from 'motion/react'
  * - Reveals/entrances  -> easeOut (fast start, gentle settle)
  * - Bidirectional UI   -> smooth  (ease-in-out, e.g. navbar hide/show)
  * - Hero first-impression -> easeOutExpo (aggressive deceleration)
- * - Image/clip reveals -> imageReveal (Apple-style)
  */
 export const easing = {
 	/** Standard ease-out for all entrance / reveal animations. */
@@ -15,8 +17,6 @@ export const easing = {
 	easeOutExpo: [0.16, 1, 0.3, 1] as [number, number, number, number],
 	/** Smooth ease-in-out for bidirectional transitions (show/hide, tab highlights). */
 	smooth: [0.645, 0.045, 0.355, 1] as [number, number, number, number],
-	/** Apple-style curve for clip-path and image reveals. */
-	imageReveal: [0.77, 0, 0.175, 1] as [number, number, number, number],
 } as const
 
 /**
@@ -24,10 +24,6 @@ export const easing = {
  * Named by intent rather than value.
  */
 export const duration = {
-	/** Micro-interactions: hover, focus (0.15s). */
-	micro: 0.15,
-	/** Quick state changes, toggles (0.2s). */
-	fast: 0.2,
 	/** Standard element transitions (0.3s). */
 	normal: 0.3,
 	/** Section-level reveals (0.5s). */
@@ -36,9 +32,17 @@ export const duration = {
 	media: 0.6,
 	/** Hero / first-impression animations (0.75s). */
 	entrance: 0.75,
+	/** How long the intro loader stays on screen before it starts exiting (3s); the loading logo times its exit from it. */
+	loader: 3,
 	/** Delay before page entrance animations (matches loader exit). */
 	loaderExit: 0.5,
 } as const
+
+/** Fade in on the Y axis from `distance` px. */
+const fadeY = (distance: number | string): RevealVariants => ({
+	hidden: { opacity: 0, y: distance },
+	visible: { opacity: 1, y: 0 },
+})
 
 /**
  * Reusable Motion variant objects. Each uses `hidden` / `visible` state names
@@ -46,16 +50,7 @@ export const duration = {
  */
 export const variants = {
 	/** Fade in while sliding up. Distance defaults to 30px. */
-	fadeUp: (distance: number | string = 30): Variants => ({
-		hidden: { opacity: 0, y: distance },
-		visible: { opacity: 1, y: 0 },
-	}),
-
-	/** Fade in while sliding down. Distance defaults to '-25%'. */
-	fadeDown: (distance: number | string = '-25%'): Variants => ({
-		hidden: { opacity: 0, y: distance },
-		visible: { opacity: 1, y: 0 },
-	}),
+	fadeUp: (distance: number | string = 30): RevealVariants => fadeY(distance),
 
 	/** Slide in from the right edge with a subtle overshoot settle. */
 	slideFromRight: {
@@ -68,7 +63,7 @@ export const variants = {
 				opacity: { duration: duration.normal, ease: easing.easeOut },
 			},
 		},
-	} as Variants,
+	} satisfies Variants,
 
 	/** Slide in from the left edge with a subtle overshoot settle. */
 	slideFromLeft: {
@@ -81,25 +76,7 @@ export const variants = {
 				opacity: { duration: duration.normal, ease: easing.easeOut },
 			},
 		},
-	} as Variants,
-
-	/** Clip-path directional reveal — image wipes in from one edge.
-	 *  No opacity — the clip itself is the reveal mechanism. */
-	clipRevealFromRight: {
-		hidden: { clipPath: 'inset(0 100% 0 0)' },
-		visible: {
-			clipPath: 'inset(0 0% 0 0)',
-			transition: { duration: duration.media, ease: easing.imageReveal },
-		},
-	} as Variants,
-
-	clipRevealFromLeft: {
-		hidden: { clipPath: 'inset(0 0 0 100%)' },
-		visible: {
-			clipPath: 'inset(0 0 0 0%)',
-			transition: { duration: duration.media, ease: easing.imageReveal },
-		},
-	} as Variants,
+	} satisfies Variants,
 
 	/** Scale + fade for profile images and secondary media. */
 	scaleReveal: {
@@ -109,5 +86,14 @@ export const variants = {
 			scale: 1,
 			transition: { duration: duration.media, ease: easing.easeOut },
 		},
-	} as Variants,
+	} satisfies Variants,
 } as const
+
+/** Fade-in on the Y axis whose `visible` delay comes from Motion's `custom` prop. */
+export const delayedReveal = (distance: number, dur: number): Variants => {
+	const { hidden, visible } = fadeY(distance)
+	return {
+		hidden,
+		visible: (delay: number = 0) => ({ ...visible, transition: { duration: dur, delay, ease: easing.easeOut } }),
+	}
+}

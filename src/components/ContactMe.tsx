@@ -1,21 +1,20 @@
-'use client'
-
-import { usePortfolioStore } from '@/store'
+import myPortfolio from '@/lib/portfolioInformation'
 import { FadeInSection, RevealItem } from '@/components/motion'
 
+const { email } = myPortfolio.userProfile
+
 export default function ContactMe() {
-	const { userProfile } = usePortfolioStore()
 	return (
+		// data-sky-quiet: the home sky keeps bright stars clear of this copy
 		<FadeInSection
 			id="contact"
-			className="portfolio-section max-w-[600px] mx-auto mb-[50px] md:mb-[100px] text-center"
+			data-sky-quiet
+			className="max-w-[600px] mx-auto mb-[50px] md:mb-[100px] text-center"
 			isNumbered
-			threshold={0.4}
-			stagger={0.08}
 		>
 			<RevealItem>
 				<h2 className="section-header lineless block mb-[20px] text-green font-mono text-base font-normal [&::before]:bottom-[1px]">
-					What&apos;s Next?
+					Contact
 				</h2>
 			</RevealItem>
 			<RevealItem>
@@ -23,15 +22,14 @@ export default function ContactMe() {
 			</RevealItem>
 			<RevealItem>
 				<p className="text-[clamp(var(--text-xs),5vw,var(--text-base))] leading-[1.5]">
-					I&apos;m always on the lookout for new ways to innovate. If you&apos;d like to explore an idea together or just
-					want to say hi, feel free to shoot me an email. I&apos;ll do my best to respond promptly and look forward to
-					hearing from you!
+					I&apos;m always glad to hear from people. If you have a project in mind or a question about
+					VendorX, send me a note and I&apos;ll get back to you.
 				</p>
 			</RevealItem>
 			<RevealItem>
 				<a
 					className="btn py-[2rem] px-[2.75rem] text-xs mt-[50px] inline-block"
-					href={`mailto:${userProfile.email}?subject=Inquiry%20from%20Your%20Portfolio%20Website`}
+					href={`mailto:${email}?subject=Hello%20from%20josephbermudez.com`}
 					rel="noopener noreferrer"
 					target="_blank"
 				>

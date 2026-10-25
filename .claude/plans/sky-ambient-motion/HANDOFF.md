@@ -16,7 +16,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 ## Status
 
 - [x] Read the current sky system (`src/lib/sky/*`, `src/components/sky/*`).
-- [x] Messaged the other cloud session, "Stars and comment animation redesign" (`session_01ETNMD4Evfbvs1kq6PPU3AK`, branch `master-r26syw`, not pushed). It is fixing the meteor "veil" (`meteors.ts` `veiledFrom`/`planFlight`, `METEOR_VEIL`, quiet easing). Its reply is still pending.
+- [x] Coordinated with the other cloud session, "Stars and comment animation redesign" (`session_01ETNMD4Evfbvs1kq6PPU3AK`, branch `master-r26syw`, not pushed). It owns the meteor veil, its fixes land first, and it set hard constraints. All of this is in `COORDINATION.md`: one lit transient near copy at a time, every transient kind goes through the veil checks and the scroll cancel, and its functions are off-limits until its commit lands. It will send its final plan and commit. When that arrives, update `COORDINATION.md` and re-check `PLAN.md` against it.
 - [ ] Research, with four Opus max subagents. Reports go to `research/`:
   - R1: physics of depth and parallax.
   - R2: meteors and other space bodies, rates, WCAG.

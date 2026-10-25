@@ -22,7 +22,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - R2: meteors and other space bodies, rates, WCAG.
   - R3: rendering and scheduling engineering.
   - R4: motion design and the old implementation.
-- [ ] Planner subagent drafts `PLAN.md` from the research and the other session's scope.
+- [ ] Planning workflow `sky-motion-plan` (run `wf_dd8855ca-555`) is running: 2 Opus max planners (experience-first, domain-model-first), then a judge that writes `PLAN.md`, an adversarial checker, and a reviser. Its brief is `research/01-planning-brief.md`. The planner drafts go to this session's scratchpad, which another session can't reach. If `PLAN.md` is missing or has no "Check log" section, rerun this step from `01-planning-brief.md`.
 - [ ] Four auditors (Next.js docs, conventions, DRY, separation of concerns) write to `audit/`.
 - [ ] Fold the audit findings into `PLAN.md`, then commit and push to `claude/quirky-carson-btv2u4`.
 

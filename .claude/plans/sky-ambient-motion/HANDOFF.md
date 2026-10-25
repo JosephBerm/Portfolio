@@ -1,6 +1,6 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-25, research phase running.
+Last updated: 2026-10-25, research done; planning workflow next.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 
@@ -17,7 +17,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 
 - [x] Read the current sky system (`src/lib/sky/*`, `src/components/sky/*`).
 - [x] Coordinated with the other cloud session, "Stars and comment animation redesign" (`session_01ETNMD4Evfbvs1kq6PPU3AK`, branch `master-r26syw`, not pushed). It owns the meteor veil, its fixes land first, and it set hard constraints. All of this is in `COORDINATION.md`: one lit transient near copy at a time, every transient kind goes through the veil checks and the scroll cancel, and its functions are off-limits until its commit lands. It will send its final plan and commit. When that arrives, update `COORDINATION.md` and re-check `PLAN.md` against it.
-- [ ] Research, with four Opus max subagents. Reports go to `research/`:
+- [x] Research, with four Opus max subagents. Reports are in `research/` (R1–R4):
   - R1: physics of depth and parallax.
   - R2: meteors and other space bodies, rates, WCAG.
   - R3: rendering and scheduling engineering.

@@ -67,6 +67,74 @@ Flights from today's top-right radiant almost always reach the large tagline or 
 
 **Next messages.** It will message when its plan is confirmed (with the final interface) and when its implementation lands in the working tree. When each arrives, update this file and re-check `PLAN.md` against it.
 
+## Confirmed veil interface (2026-10-27)
+
+The veil session's fix plan is confirmed (Opus max, 3 check rounds), and implementation started in the main checkout's working tree, uncommitted. These are the final names and signatures it sent. **They supersede the "Interface it will add" list above** wherever the two differ. The implementing session for `PLAN.md` builds on exactly these. It stays off the veil session's files until Joseph approves and commits that change, then rebases onto it.
+
+### Exports
+
+**`src/lib/sky/protocol.ts`**
+- `SkyRect.headroom: number`: the amount of white that can be added over navy before that copy falls below WCAG 1.4.3. The main thread measures it per element from the computed color, size and weight. This number is the text class: there is no enum. (It replaces the "body vs large" class this plan expected.)
+
+**`src/lib/sky/config.ts`**, next to `METEOR_VEIL`:
+- `INK_BUDGET = { ceiling: 0.2, safety: 0.9, hazeReserve: 0.025 }`.
+- `STAR_INK_PEAK = 0.6 * LAYERS.far.inkKeep`, and `LAYERS.far.inkKeep` goes from 0.1 to 0, so far stars add no light on copy.
+- `METEOR_VEIL = { quietKeep: 0.3, clearUntil: 0.47, rise: 0.01, samples: 64, edgeBright: 0.3, edgeKept: 0.5 }`. `inkKeep` and `inkFrom` are removed.
+- `METEOR_PASS = { share: 0.4, visible: 0.12, dwell: 0.1, glimmer: 0.041 }`.
+- `SCROLL_CANCEL = { from: 12, to: 24 }` (CSS px of scroll).
+- `QUIET_REACH = QUIET.padding + QUIET.feather`: 72 px from a measured rect. From a padded zone, which is what this plan's quiet index takes, the reach is `QUIET.feather` (40 px).
+
+**`src/lib/sky/scene.ts`**
+- `inkBudget(headroom)` and `budgetKeeps(white, quietKeep, ink = 1): QuietKeeps`.
+- `scrollKept(launchScrollY, scrollY, fade = 1)`: returns `fade` times a ramp from 1 to 0 over 12 to 24 px of scroll. Retire the transient when it reaches 0. A pause or cancel fade goes in as `fade` and can only dim. **Don't add a second threshold-plus-fade rule:** every transient kind uses this helper.
+- New `transientQuietFactor(blend, x, y, keeps)`: the more protective of the eased factor and the current zones' factor. **Every transient that can come near copy must use it.** Stars keep `easedQuietFactor`.
+- `QuietKeeps.inkKeep` can be a number or a function of the rect.
+- `quietFactor` makes one pass over the zones, and the most protective zone wins. It is bit-identical to today's for numeric keeps.
+
+**`src/lib/sky/meteors.ts`**
+- `planMeteor(random, field, radiant, now, options: PlanOptions = {})`, with `PlanOptions { nearCopy?: boolean; flights?: 'long' | 'short' | 'both'; ink?: number }`.
+- `Meteor.nearCopy: boolean`, true when `dimFrom < 1`.
+- `headGain(boost = 1)` and `WAKE_GAIN`.
+- Private `planFlight(random, field, radiant, now, options: PassOptions)`, where `PassOptions extends PlanOptions` adds `timing` and `fireballs`. This plan's P9 `fallback` flag replaces `options.timing`.
+- Neither function takes a positional boolean.
+
+**`src/components/sky/renderSky.ts`**
+- `drawMeteor(ctx, assets, meteor, frame, fade = 1)`: `fade` multiplies the train, wake, glow and core alphas. This is this plan's I7. There is no `SkyFrame.meteorScroll` field.
+
+**`src/components/sky/sky.worker.ts`**
+- `launchScrollY`.
+- `planLaunch`: the radiant is sticky, and long flights are tried on fresh radiants before any shorter fallback. Resize clears the radiant. Layout does NOT re-pick it, because layout also fires for harmless re-measures.
+- `contrastLevels`.
+- `applyLayout` and `settleQuiet`: a layout that arrives mid-ease waits for the ease to finish, and the newest one wins.
+
+**`src/components/sky/mountSky.ts`**
+- `copyReader` measures rects net of transform translations.
+
+### `veiledFrom` rules (add options only; never change the rules)
+
+- The head stays in clear sky through p = 0.47 (the light peaks at 0.45).
+- Once dimmed, it never brightens again.
+- New edge-fade rule: a path is rejected if the veil dims a head that is at least 0.3 white unveiled down to 0.5 or less, unless the head then shows on a text rect at 0.041 white or more for at least `METEOR_PASS.dwell`.
+- It returns `{ dimFrom, behind } | null`.
+
+### Changed shape
+
+- `veiledFrom`, `planFlight`, `planMeteor` (plus options), `Meteor` (plus `nearCopy`).
+- `screenQuietZones` (keeps `headroom`), `quietFactor`, `QuietKeeps`.
+- `drawMeteor` (plus `fade`).
+- Worker: `updateMeteor`, `applyLayout`, `settleQuiet`, the `layout` case, `sameRects` (plus `headroom`), `frameAt`.
+- mountSky: `quietRect` and `quietRects`.
+- Now private: `fitKeep`, `luminance`, `contrastRatio`. Not exported: `segmentTouches`.
+
+### What it means for PLAN.md
+
+- I2/H10: the ink budget no longer assumes a peak of 0.9 or less. The renderer fits any brightness to each rect's budget.
+- AC-30's far-star exceedance is closed by construction (far stars add no ink on copy).
+- One lit transient near copy at a time still holds: the budget counts one transient plus the haze.
+- New AGENTS.md precondition, one line, landing in the veil change: quiet copy and its ancestors carry no static transform translation and no opacity below 1 at rest. This constrains the D1 placement options inside a quiet root.
+- The veil change also edits comments in `Introduction.tsx` and `SidePane.tsx`. This plan's P5 AGENTS.md line rebases on top of the veil's.
+- Numbers before the edge-fade rule, from its planner at 1440x900, 1280x800 and 1920x1080: the head passes behind copy at 0.12 white or more for 0.1 s in 29%, 19% and 25% of flights (0% today). Rendered streaks: 21%, 14% and 20%. The edge-fade rule cuts flights that dim at a copy edge without passing behind it from about 24 to 36% to under 2% on desktop. Final numbers come with its "landed" message.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -78,3 +146,4 @@ Flights from today's top-right radiant almost always reach the large tagline or 
   3. The per-rect text class lives on the rect type in `protocol.ts`, and the per-class ink budgets live in `config.ts` next to `METEOR_VEIL`.
 
   Final names and signatures, and the list of functions that changed shape, come with its confirmed plan.
+- 2026-10-27: its plan was confirmed and implementation started in the main checkout (uncommitted). The final interface is recorded in "Confirmed veil interface" above. Next from it: a message when the implementation is in the working tree. After Joseph approves and commits it, this plan's implementer rebases onto it.

@@ -1,6 +1,6 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-27, resumed in a local desktop session; planning workflow rerunning.
+Last updated: 2026-10-27, `PLAN.md` written and checked; veil reconciliation and audits next.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 
@@ -22,9 +22,16 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - R2: meteors and other space bodies, rates, WCAG.
   - R3: rendering and scheduling engineering.
   - R4: motion design and the old implementation.
-- [ ] Planning workflow. The first run (`wf_dd8855ca-555`, cloud) stopped when the cloud session ran out of credits; its drafts stayed in the cloud scratchpad and are lost. Rerun on 2026-10-27 from a local desktop session (worktree `.claude/worktrees/sky-ambient-motion`): 3 Opus max planners (experience-first, domain-model-first, delivery-and-risk-first), a judge that writes `PLAN.md`, then rounds of four adversarial checkers (physics and math, code grounding, coordination and accessibility, completeness) and a reviser until no blocking or major findings remain. Drafts and check reports now go to `drafts/` in the repo so another session can reach them. If `PLAN.md` is missing or has no "Check log" section, rerun this step from `01-planning-brief.md`.
-- [ ] Four auditors (Next.js docs, conventions, DRY, separation of concerns) write to `audit/`.
-- [ ] Fold the audit findings into `PLAN.md`, then commit and push to `claude/quirky-carson-btv2u4`.
+- [x] Planning workflow. The first run (`wf_dd8855ca-555`, cloud) stopped when the cloud session ran out of credits, and its drafts were lost with the cloud scratchpad. It was rerun on 2026-10-27 from a local desktop session (`wf_406761f9-c9d`, worktree `.claude/worktrees/sky-ambient-motion`):
+  - Three Opus max planners wrote drafts: experience-first, domain-model-first, delivery-and-risk-first.
+  - A judge took the domain-model-first draft as the base (scores 59, 55 and 52 of 70, in `drafts/judge-scores.md`) and wrote `PLAN.md`.
+  - Three rounds of four adversarial checkers (physics and math, code grounding, coordination and accessibility, completeness) followed. They raised 70, 36 and 25 findings, of which 30, 9 and 6 were blocking or major. The reviser fixed all of them; see the "Check log" in `PLAN.md`.
+  - Round 3's fixes were not re-checked. The next review round does that.
+
+  Drafts and check reports are in `drafts/`. If `PLAN.md` is missing or has no "Check log" section, rerun this step from `01-planning-brief.md`.
+- [ ] Reconcile `PLAN.md` with the confirmed veil interface ("Confirmed veil interface" in `COORDINATION.md`), and re-check round 3's fixes.
+- [ ] Four auditors (Next.js docs, conventions, DRY, separation of concerns) write to `audit/`, and a skeptic verifies each auditor's findings.
+- [ ] Fold the check and audit findings into `PLAN.md`, run gate rounds until no blocking or major findings remain, then commit and push to `claude/quirky-carson-btv2u4`.
 
 ## Key facts
 
@@ -40,6 +47,6 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 Continue the planning task in JosephBerm/Portfolio on branch claude/quirky-carson-btv2u4.
 Read .claude/plans/sky-ambient-motion/HANDOFF.md first, then everything in .claude/plans/sky-ambient-motion/.
 Pick up at the first unchecked Status item. Use separate Opus max subagents for research, planning, and the four audits (Next.js 16.4 official docs in node_modules/next/dist/docs, codebase conventions per AGENTS.md/CLAUDE.md, DRY, separation of concerns: one subagent per scope).
-Coordinate with the cloud session "Stars and comment animation redesign" (session_01ETNMD4Evfbvs1kq6PPU3AK) via send_message: it owns the meteor veil.
+Coordinate with the veil owner via send_message: since 2026-10-27 that is the local desktop session "Star and comment animation redesign" (local_e2e17660-e99d-43e6-84ab-7337ee88227d), not the cloud session. See COORDINATION.md.
 Planning only, no source changes. Keep HANDOFF.md current and commit and push it to claude/quirky-carson-btv2u4 after each milestone.
 ```

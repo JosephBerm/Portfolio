@@ -72,3 +72,9 @@ Flights from today's top-right radiant almost always reach the large tagline or 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
 - 2026-10-25 07:09 UTC: its reply arrived (the first part of this file).
 - 2026-10-27: the local veil session's message arrived (the update above). We replied: the four interface items are welcome, and we asked for an options object on `planFlight`, the per-class text type and budgets exported from shared modules, and the final names in its confirmation message.
+- 2026-10-27: it agreed to all three requests, and to the names `nearCopy`, `launchScrollY` and `QUIET_REACH`. These are now hard constraints on its plan:
+  1. `planFlight` and `planMeteor` take an options object (for example `{ nearCopy }`), never a positional boolean.
+  2. The scroll cancel is one kind-agnostic helper that takes the launch scrollY, the current scrollY and the fade state, so any transient kind reuses it.
+  3. The per-rect text class lives on the rect type in `protocol.ts`, and the per-class ink budgets live in `config.ts` next to `METEOR_VEIL`.
+
+  Final names and signatures, and the list of functions that changed shape, come with its confirmed plan.

@@ -1,6 +1,6 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-25, research done; planning workflow next.
+Last updated: 2026-10-27, resumed in a local desktop session; planning workflow rerunning.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 
@@ -22,7 +22,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - R2: meteors and other space bodies, rates, WCAG.
   - R3: rendering and scheduling engineering.
   - R4: motion design and the old implementation.
-- [ ] Planning workflow `sky-motion-plan` (run `wf_dd8855ca-555`) is running: 2 Opus max planners (experience-first, domain-model-first), then a judge that writes `PLAN.md`, an adversarial checker, and a reviser. Its brief is `research/01-planning-brief.md`. The planner drafts go to this session's scratchpad, which another session can't reach. If `PLAN.md` is missing or has no "Check log" section, rerun this step from `01-planning-brief.md`.
+- [ ] Planning workflow. The first run (`wf_dd8855ca-555`, cloud) stopped when the cloud session ran out of credits; its drafts stayed in the cloud scratchpad and are lost. Rerun on 2026-10-27 from a local desktop session (worktree `.claude/worktrees/sky-ambient-motion`): 3 Opus max planners (experience-first, domain-model-first, delivery-and-risk-first), a judge that writes `PLAN.md`, then rounds of four adversarial checkers (physics and math, code grounding, coordination and accessibility, completeness) and a reviser until no blocking or major findings remain. Drafts and check reports now go to `drafts/` in the repo so another session can reach them. If `PLAN.md` is missing or has no "Check log" section, rerun this step from `01-planning-brief.md`.
 - [ ] Four auditors (Next.js docs, conventions, DRY, separation of concerns) write to `audit/`.
 - [ ] Fold the audit findings into `PLAN.md`, then commit and push to `claude/quirky-carson-btv2u4`.
 
@@ -32,6 +32,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 - The shared brief for all subagents is `research/00-shared-brief.md`. It holds the user's request verbatim, the code map, the current behavior and the rules.
 - The old upward-moving stars live in git history before d116918; see `src/css/Background.css` at 7c176fb^.
 - `node_modules` must be installed (`npm ci`) for `node_modules/next/dist/docs`.
+- Veil session status on 2026-10-27: no veil fix or final plan has landed. `origin/master-r26syw` holds only the `.env.example` commit (f03ccb3), and the local desktop session of the same name stopped before its investigation workflow produced results. `PLAN.md` treats every veil-owned function as off-limits and gives a fallback if the veil work never lands.
 
 ## Copy-and-paste prompt for a new session
 

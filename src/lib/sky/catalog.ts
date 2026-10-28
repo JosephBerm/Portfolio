@@ -1,6 +1,7 @@
 import {
 	CELL_SIZE,
 	COLOR_GROUPS,
+	DEPTH,
 	EMERGENCE,
 	LAYERS,
 	MAGNITUDE,
@@ -36,6 +37,8 @@ export interface Star {
 	y: number
 	/** Alpha from the star's magnitude, before scene, dusk, quiet and twinkle factors. */
 	alpha: number
+	/** Nearness from the magnitude (DEPTH): the share of the camera's motion this star shows. Costs no random draw. */
+	q: number
 	/** Index into STAR_SHAPES. */
 	shape: number
 	/** Palette index: 0 is --color-white, 1-7 are STAR_TINTS. */
@@ -81,6 +84,19 @@ export function magnitudeAlpha(m: number): number {
 	const t = Math.min(1, Math.max(0, (m - brightest) / (faintest - brightest)))
 	return STAR_ALPHA.peak * (1 - STAR_ALPHA.drop * t ** STAR_ALPHA.power)
 }
+
+/** Nearness q of a star of magnitude m: its share of the camera's motion (DEPTH). Brighter is nearer, at most DEPTH.maxNearness. */
+export function nearness(m: number): number {
+	return Math.min(DEPTH.maxNearness, 10 ** (-DEPTH.compression * (m - DEPTH.reference)))
+}
+
+/** Each layer's nearness range [faintest, brightest], from its magnitude band, for culling its cells against the camera. */
+export const LAYER_NEARNESS = Object.fromEntries(
+	SKY_LAYERS.map((layer) => {
+		const [from, to] = LAYERS[layer].magnitude
+		return [layer, [nearness(to), nearness(from)] as const]
+	})
+) as Record<SkyLayer, readonly [number, number]>
 
 /**
  * Share of the catalog drawn for a viewport: all of it on narrow screens, 1 / NARROW_DENSITY_BOOST on wider ones,
@@ -153,6 +169,7 @@ export function cellStars(layer: SkyLayer, cx: number, cy: number): Star[] {
 			x,
 			y,
 			alpha: magnitudeAlpha(m),
+			q: nearness(m),
 			shape: shapeFor(m),
 			tint: tintFor(tintPick, m),
 			keep,

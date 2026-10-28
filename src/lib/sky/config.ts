@@ -52,6 +52,17 @@ export const STAR_ALPHA = { peak: 0.78, drop: 0.8, power: 1.75 } as const
 /** Below this alpha a star isn't drawn this frame. */
 export const MIN_STAR_ALPHA = 0.004
 
+/**
+ * Depth: every star hangs at its own distance, read from its magnitude as if stars were identical lamps, so brighter
+ * means nearer. Nearness q = Z_ref / Z is the share of the camera's motion a star shows on screen (CAMERA): 1 at
+ * magnitude `reference`, the near band's mean. Identical lamps would give q = 10^(-0.2 (m - reference)), the
+ * inverse-square law; `compression` keeps about 70% of that depth range, as STAR_ALPHA keeps a 400:1 flux range as 5:1,
+ * so the faintest stars still move (q 0.24) and the brightest never race (at most `maxNearness`, from magnitude 0.11
+ * up). The bands' mean shares of the scroll come out at 0.0205, 0.0350 and 0.0717 (far, mid, near), within 12.5% of the
+ * reviewed 0.02, 0.04 and 0.07. No random draw depends on it, so retuning it never moves a star while the camera rests.
+ */
+export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as const
+
 interface LayerConfig {
 	/** Magnitude band [brightest, faintest). */
 	magnitude: readonly [number, number]

@@ -129,6 +129,7 @@ const gate: LaunchGate = {
 		return { width, height, quiet: [...screenQuietZones(quiet, scrollY), ...rails], pinned: rails }
 	},
 	ink: 1,
+	bodyShowing: false,
 }
 
 /** Whether the visitor seems to be here. Scroll, visibility and motion messages can reach it before init, so it exists from the start; init begins it afresh. */

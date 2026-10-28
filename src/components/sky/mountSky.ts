@@ -1,8 +1,8 @@
 import { scroll } from 'motion/react'
 import type { IntroPhase } from '@/hooks/useIntroPhase'
-import { REDUCED_MOTION_QUERY } from '@/lib/utils'
 import { lightHeadroom, minimumContrast, parseHexColor, parseRgbColor } from '@/lib/sky/color'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
+import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
 
 /** Handle returned by mountSky. */
 export interface SkyController {
@@ -208,10 +208,20 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 
 	const listeners = new AbortController()
 	const { signal } = listeners
-	const reducedMotion = matchMedia(REDUCED_MOTION_QUERY)
 	const forcedColors = matchMedia(FORCED_COLORS_QUERY)
 	const moreContrast = matchMedia(MORE_CONTRAST_QUERY)
-	const motion = (): SkyMotion => (forcedColors.matches ? 'off' : reducedMotion.matches ? 'reduced' : 'full')
+	// The pause store owns the reduced-motion query and the visitor's pause: either one holds the sky still
+	const motion = (): SkyMotion => (forcedColors.matches ? 'off' : skyPaused() ? 'reduced' : 'full')
+	let sentMotion = motion()
+	// Post only real changes: the store notifies whenever the playback may have changed (the sky starting or stopping, the
+	// OS setting, another tab), and many of those leave the motion as it was
+	const syncMotion = () => {
+		const next = motion()
+		if (next === sentMotion) return
+		sentMotion = next
+		post({ type: 'motion', motion: next })
+	}
+	const stopPlayback = subscribeSkyPlayback(syncMotion)
 
 	let phase: IntroPhase = 'loading'
 	let size = { width: 0, height: 0, dpr: 0 }
@@ -261,7 +271,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 				tokens,
 				emerging: phase !== 'loading',
 				revealed: phase === 'revealed',
-				motion: motion(),
+				motion: sentMotion,
 				visible: document.visibilityState === 'visible',
 				contrastMore: moreContrast.matches,
 				scrollY: window.scrollY,
@@ -307,9 +317,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		settleLater()
 	})
 
-	const syncMotion = () => post({ type: 'motion', motion: motion() })
 	document.addEventListener('visibilitychange', () => post({ type: 'visible', visible: document.visibilityState === 'visible' }), { signal })
-	reducedMotion.addEventListener('change', syncMotion, { signal })
 	forcedColors.addEventListener('change', syncMotion, { signal })
 	moreContrast.addEventListener('change', () => post({ type: 'contrast', more: moreContrast.matches }), { signal })
 
@@ -319,6 +327,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		clearTimeout(settleTimer)
 		listeners.abort()
 		stopScroll()
+		stopPlayback()
+		// A failed or destroyed sky takes the pause control with it
+		setSkyRunning(false)
 		canvasObserver.disconnect()
 		layoutObserver.disconnect()
 		worker.terminate()
@@ -328,8 +339,22 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	worker.addEventListener(
 		'message',
 		(event: MessageEvent<SkyWorkerMessage>) => {
-			if (event.data.type === 'ready') canvas.dataset.ready = ''
-			else destroy()
+			const message = event.data
+			switch (message.type) {
+				case 'ready':
+					canvas.dataset.ready = ''
+					// The first frame is on the canvas: the pause control may show
+					setSkyRunning(true)
+					break
+				case 'error':
+					destroy()
+					break
+				default: {
+					// Every message type is handled above: a new one fails to compile here, rather than being taken for an error
+					const unhandled: never = message
+					return unhandled
+				}
+			}
 		},
 		{ signal }
 	)

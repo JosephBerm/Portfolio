@@ -58,11 +58,11 @@ export interface FrameState {
 	full: boolean
 	/** Every frame while a shooting star flies, fade frames while its train lingers. */
 	transientDemand: FrameDemand
-	/** The camera moves, or the drift heads up: the stars follow the page, glide to rest after it stops or float. Decided by where the drift heads, not by its eased rate, which starts from 0. */
+	/** The camera moves, or the drift or the lean heads up: the stars follow the page, glide to rest after it stops, float or lean away from the pointer. Decided by where they head, not by the drift's eased rate, which starts from 0. */
 	cameraActive: boolean
 	/** Device px/s of the nearest star at the camera's speed, with the drift at the speed it heads to. */
 	cameraSpeed: number
-	/** Most frames per second the camera's motion may draw: the drift's cap (driftCap) while the drift is wanted, else Infinity, so a scroll glide alone is never cut to a crawl. */
+	/** Most frames per second the camera's motion may draw: the drift's cap (driftCap) while the drift is wanted or the lean moves, else Infinity, so a scroll glide alone is never cut to a crawl. */
 	cameraCap: number
 	/** A slow change runs: the dusk, the quiet ease, the motion ease or the thin fade. */
 	fading: boolean
@@ -82,7 +82,7 @@ export function frameDemand(state: FrameState): FrameDemand {
 	)
 }
 
-/** Most drift frames per second: PACING.narrowMaxFps on narrow screens, PACING.slowMaxFps after the first adaptive step, within the software-raster budget. */
+/** Most frames per second for the drift and the pointer lean: PACING.narrowMaxFps on narrow screens, PACING.slowMaxFps after the first adaptive step, within the software-raster budget. */
 export function driftCap(narrow: boolean, slowed: boolean, softwareFps: number): number {
 	return Math.min(narrow ? PACING.narrowMaxFps : slowed ? PACING.slowMaxFps : Infinity, softwareFps)
 }

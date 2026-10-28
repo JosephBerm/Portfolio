@@ -32,6 +32,9 @@ const ACTIVITY_INTERVAL_MS = 1000
 /** Input that shows someone is still here without scrolling. */
 const ACTIVITY_EVENTS = ['pointermove', 'pointerdown', 'keydown', 'focusin'] as const
 
+/** Pointers that lean the sky (LEAN): a mouse or pen on a screen that can hover. */
+const LEAN_POINTER_QUERY = '(hover: hover) and (pointer: fine)'
+
 /**
  * Copy the sky stays quiet behind: no bright stars beside it, and a shooting star behind it dims to what the copy can
  * take. The hero, Contact, the footer and the side rails opt in with data-sky-quiet. Copy in fixed elements (the rails)
@@ -194,9 +197,10 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader): SkyRect
 }
 
 /**
- * Starts the night sky inside `host`: creates the canvas, hands it to the sky worker and forwards size, scroll,
- * activity (pointer, keys and focus), visibility, preference and layout changes. Returns a no-op controller where
- * OffscreenCanvas or workers are missing or the theme tokens can't be read, which leaves the plain navy background.
+ * Starts the night sky inside `host`: creates the canvas, hands it to the sky worker and forwards size, scroll, the
+ * pointer's place for the lean, activity (pointer, keys and focus), visibility, preference and layout changes. Returns a
+ * no-op controller where OffscreenCanvas or workers are missing or the theme tokens can't be read, which leaves the
+ * plain navy background.
  */
 export function mountSky(host: HTMLElement, canvasClassName: string): SkyController {
 	if (!supported()) return NOOP
@@ -334,6 +338,43 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	}
 	for (const type of ACTIVITY_EVENTS) window.addEventListener(type, noteActivity, { passive: true, signal })
 
+	// A mouse or pen leans the stars: tell the worker where it is, from the canvas size the observer already measured (so
+	// there is no layout read) and at most once per animation frame, whatever the rate of the events
+	const finePointer = matchMedia(LEAN_POINTER_QUERY)
+	let pointerFrame = 0
+	let pointerAt: { x: number; y: number } | null = null
+	const sendPointer = () => {
+		pointerFrame = 0
+		post({ type: 'pointer', at: pointerAt })
+	}
+	const queuePointer = (at: { x: number; y: number } | null) => {
+		// Before the first size there is no worker to tell, and a size of 0 would make the position not finite. A paused sky
+		// or one under reduced motion holds still, so it isn't told either.
+		if (!size.width || !finePointer.matches || motion() !== 'full') return
+		pointerAt = at
+		if (!pointerFrame) pointerFrame = requestAnimationFrame(sendPointer)
+	}
+	window.addEventListener(
+		'pointermove',
+		(event) => {
+			// Touch already moves the page by scrolling
+			if (event.pointerType === 'touch') return
+			const x = Math.min(1, Math.max(-1, (event.clientX / size.width) * 2 - 1))
+			const y = Math.min(1, Math.max(-1, (event.clientY / size.height) * 2 - 1))
+			queuePointer({ x, y })
+		},
+		{ passive: true, signal }
+	)
+	// The pointer leaving the window (no related target) or the window losing focus: the lean eases back to the middle
+	document.addEventListener(
+		'pointerout',
+		(event) => {
+			if (event.pointerType !== 'touch' && event.relatedTarget === null) queuePointer(null)
+		},
+		{ passive: true, signal }
+	)
+	window.addEventListener('blur', () => queuePointer(null), { signal })
+
 	document.addEventListener('visibilitychange', () => post({ type: 'visible', visible: document.visibilityState === 'visible' }), { signal })
 	forcedColors.addEventListener('change', syncMotion, { signal })
 	moreContrast.addEventListener('change', () => post({ type: 'contrast', more: moreContrast.matches }), { signal })
@@ -342,6 +383,8 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		if (destroyed) return
 		destroyed = true
 		clearTimeout(settleTimer)
+		// The pending pointer message would go to a worker that is gone
+		cancelAnimationFrame(pointerFrame)
 		listeners.abort()
 		stopScroll()
 		stopPlayback()

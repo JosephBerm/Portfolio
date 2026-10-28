@@ -15,6 +15,8 @@ export interface SceneLevels {
 	twinkle: number
 	/** Share of the drift clock's rate. */
 	drift: number
+	/** Share of the pointer lean: hero only. */
+	lean: number
 	/** Shooting stars only fly over the hero, ignite and peak in clear sky and may glide on behind its copy, dimmed to what that copy can take (METEOR_VEIL). */
 	meteors: boolean
 }
@@ -29,13 +31,14 @@ export function sceneAt(scrollY: number, viewportHeight: number, documentHeight:
 	const hero = 1 - smoothstep(SCENE.heroFadeFrom, SCENE.heroFadeTo, scrolled)
 	const end = (1 - hero) * smoothstep(SCENE.endFadeFrom, SCENE.endFadeTo, remaining)
 	const reading = 1 - hero - end
-	const mix = (key: 'haze' | 'twinkle' | 'drift') => hero * SCENE.hero[key] + reading * SCENE.reading[key] + end * SCENE.end[key]
+	const mix = (key: 'haze' | 'twinkle' | 'drift' | 'lean') => hero * SCENE.hero[key] + reading * SCENE.reading[key] + end * SCENE.end[key]
 	const stars = (layer: SkyLayer) => hero * SCENE.hero.stars[layer] + reading * SCENE.reading.stars[layer] + end * SCENE.end.stars[layer]
 	return {
 		stars: { far: stars('far'), mid: stars('mid'), near: stars('near') },
 		haze: mix('haze'),
 		twinkle: mix('twinkle'),
 		drift: mix('drift'),
+		lean: mix('lean'),
 		meteors: scrolled <= SCENE.heroMeteorMaxScroll,
 	}
 }

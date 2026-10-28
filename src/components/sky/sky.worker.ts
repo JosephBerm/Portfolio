@@ -665,8 +665,9 @@ scope.addEventListener('message', (event) => {
 			motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, t), to: message.motion === 'full' ? 1 : 0, since: t }
 			if (message.motion === 'full') {
 				skyMoved = true
-				// Pressing Play shows the visitor is here, even after a long idle stretch
-				noteInput(now)
+				// A switch to full motion in a shown tab means the visitor is here, whether they pressed Play on this page or in
+				// another tab or turned a setting off, even after a long idle stretch. A hidden tab notes it when it is shown.
+				if (visible) noteInput(now)
 				// Back to full motion: no shooting star straight away
 				holdMeteors(now)
 				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to
@@ -689,6 +690,9 @@ scope.addEventListener('message', (event) => {
 			}
 			// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
 			if (exitAt !== null && hiddenAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
+			// So does the motion ease: one that began while hidden starts now, instead of running out unseen and jumping every
+			// star's twinkle in the first frame back. An ease that never ran (since -Infinity) stays that way.
+			if (hiddenAt !== null) motionLevel.since = now / 1000 - Math.max(0, hiddenAt / 1000 - motionLevel.since)
 			hiddenAt = null
 			// Misses from before the tab was hidden say nothing about the display now
 			recheckFrames()

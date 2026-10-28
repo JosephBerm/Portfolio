@@ -396,7 +396,7 @@ export const TRANSIENTS = {
 	maxLife: 5,
 	minOnsetGap: 3,
 	narrowLimit: 6,
-	crossingCooldown: 55,
+	crossingCooldown: 40,
 	cancelFade: 0.2,
 	retry: [5, 9],
 	maxFailedPlans: 3,

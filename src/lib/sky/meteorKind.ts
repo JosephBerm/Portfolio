@@ -10,7 +10,7 @@ import { meteorLifetime, meteorMoving, planMeteor, startArea, type Meteor, type 
 import type { SkyRect } from './protocol'
 import { ZONE_REACH } from './quietIndex'
 import { pickVisitSky, pointNearRadiant, visitSteer, type VisitSky } from './radiants'
-import { between } from './random'
+import { between, type Random } from './random'
 import { quietAt } from './scene'
 import type { PlanContext, SkyField, TransientSpec } from './transients'
 
@@ -106,24 +106,59 @@ export function planFlash(context: PlanContext): Meteor | null {
 	return null
 }
 
+/** A kind of shooting star apart from the ordinary: a key of METEOR_KINDS. */
+type KindName = keyof typeof METEOR_KINDS
+
+/** The kinds in the order the decision step walks them: METEOR_KINDS lists them so, fireballs first. */
+const KIND_ORDER = Object.keys(METEOR_KINDS) as KindName[]
+
+/** What a launch needs for a kind to be open to it, beyond METEOR_KINDS: a flash needs the shower radiant on screen. */
+const NEEDS: Record<KindName, (context: PlanContext) => boolean> = {
+	fireball: () => true,
+	flash: (context) => (context.visit.meteor.sky?.showerOnScreen ?? null) !== null,
+}
+
 /**
- * A plan for one launch of the shooting stars: a fireball when one is decided and fits, else an ordinary shooting star.
- * On a wide screen, once METEOR_KINDS.fireball.after seconds have passed since the reveal and the spacing drawn after the
- * last fireball has run out, each launch decides on one at `chance` odds; no other launch draws them. A decided fireball
- * is tried in clear sky and on long flights only, because a shorter pass would fly an ordinary flight in its place, and a
- * try that finds no path keeps the visit's sky and starts no spacing. When none was decided or none fits, the launch plans
- * an ordinary shooting star, long flights on every steer before any short one. A fireball that flies draws the spacing
- * until the next one may be decided from METEOR_KINDS.fireball.spacing.
+ * How each kind plans its launch. A fireball is tried in clear sky and on long flights only: a shorter pass would fly an
+ * ordinary flight in its place.
+ */
+const TRY: Record<KindName, (context: PlanContext) => Meteor | null> = {
+	fireball: (context) => planMeteorTransient({ ...context, nearCopy: false }, { fireball: true, flights: 'long' }),
+	flash: planFlash,
+}
+
+/** The seconds a kind keeps off the launches after one of its own: its spacing, drawn from the range if it is one. */
+function drawSpacing(random: Random, spacing: number | readonly [number, number]): number {
+	return typeof spacing === 'number' ? spacing : between(random, spacing[0], spacing[1])
+}
+
+/**
+ * A plan for one launch of the shooting stars: a kind of METEOR_KINDS when one is decided and fits, else an ordinary
+ * shooting star. A kind is open to the launch on a wide screen, once its `after` seconds have passed since the reveal and
+ * the spacing drawn after the last of its kind has run out, and when it has what it needs (a flash, the radiant on
+ * screen). The launch draws one number and gives it to the first open kind, in METEOR_KINDS' order, whose slice of the
+ * odds it falls in, each slice as wide as the kind's `chance`; a launch with no open kind draws none. A try that finds no
+ * path keeps the visit's sky and starts no spacing. When none was decided or none fits, the launch plans an ordinary
+ * shooting star, long flights on every steer before any short one. A kind that flies draws the spacing until the next of
+ * its kind may be decided.
  */
 function planMeteorLaunch(context: PlanContext): Meteor | null {
 	const { random, now, narrow, sinceReveal, visit } = context
-	const { chance, spacing, after } = METEOR_KINDS.fireball
 	const memory = visit.meteor
-	if (!narrow && sinceReveal >= after && now >= memory.from.fireball && random() < chance) {
-		const fireball = planMeteorTransient({ ...context, nearCopy: false }, { fireball: true, flights: 'long' })
-		if (fireball) {
-			memory.from.fireball = now + between(random, spacing[0], spacing[1])
-			return fireball
+	const open = narrow ? [] : KIND_ORDER.filter((name) => sinceReveal >= METEOR_KINDS[name].after && now >= memory.from[name] && NEEDS[name](context))
+	if (open.length > 0) {
+		let roll = random()
+		for (const name of open) {
+			const { chance, spacing } = METEOR_KINDS[name]
+			if (roll < chance) {
+				const meteor = TRY[name](context)
+				if (meteor) {
+					memory.from[name] = now + drawSpacing(random, spacing)
+					return meteor
+				}
+				break
+			}
+			roll -= chance
 		}
 	}
 	return planMeteorTransient(context)

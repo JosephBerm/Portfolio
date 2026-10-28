@@ -58,11 +58,12 @@ export function planMeteorTransient(context: PlanContext, options: Omit<PlanOpti
 }
 
 /**
- * A plan for one launch of the shooting stars: a fireball when one is due, else an ordinary shooting star. On a wide
- * screen a fireball is due once METEOR_KINDS.fireball.after seconds have passed since the reveal and `spacing` since the
- * last one, at `chance` odds per launch. It is tried in clear sky and on long flights only, because a shorter pass would
- * fly an ordinary flight in its place, and a try that finds no path keeps the visit's sky. Then the launch plans an
- * ordinary shooting star, long flights on every steer before any short one.
+ * A plan for one launch of the shooting stars: a fireball when one is decided and fits, else an ordinary shooting star.
+ * On a wide screen, once METEOR_KINDS.fireball.after seconds have passed since the reveal and `spacing` since the last
+ * fireball, each launch decides on one at `chance` odds; no other launch draws them. A decided fireball is tried in
+ * clear sky and on long flights only, because a shorter pass would fly an ordinary flight in its place, and a try that
+ * finds no path keeps the visit's sky. When none was decided or none fits, the launch plans an ordinary shooting star,
+ * long flights on every steer before any short one.
  */
 function planMeteorLaunch(context: PlanContext): Meteor | null {
 	const { random, now, narrow, sinceReveal, visit } = context

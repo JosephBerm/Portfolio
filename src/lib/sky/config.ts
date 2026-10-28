@@ -501,9 +501,9 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
 
 /**
  * Rare kinds of shooting star: odds per launch, least seconds between two of a kind, and the earliest second after the
- * reveal. Fireballs (brighter than Venus; about one per 100 to 200 meteors in the real sky) stay in clear sky, last
- * `duration` s at METEOR.fireballSpeedScale of the normal speed, and with a 2.4 s train stay under 5 s; if no fireball path
- * fits, an ordinary shooting star flies instead.
+ * reveal. Fireballs (brighter than Venus; about one per 100 to 200 meteors in the real sky) fly on wide screens only,
+ * stay in clear sky, last `duration` s at METEOR.fireballSpeedScale of the normal speed, and with a 2.4 s train stay
+ * under 5 s; if no fireball path fits, an ordinary shooting star flies instead.
  */
 export const METEOR_KINDS = {
 	fireball: { chance: 0.04, spacing: 120, after: 20, duration: [1.8, 2.5] },

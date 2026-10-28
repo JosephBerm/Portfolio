@@ -68,10 +68,7 @@ export function screenQuietZones(zones: readonly SkyRect[], scrollY: number, pin
 	return [...zones.map((zone) => pad(zone, scrollY)), ...pinned.map((zone) => pad(zone, 0))]
 }
 
-/**
- * True when two lists hold the same rects, each with the same headroom, so a change in what the copy can take behind it
- * still counts as a change (a layout message may change only the document height).
- */
+/** True when two lists hold the same rects (a layout message may change only the document height). */
 export function sameRects(a: readonly SkyRect[], b: readonly SkyRect[]): boolean {
 	return (
 		a.length === b.length &&

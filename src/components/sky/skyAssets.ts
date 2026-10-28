@@ -38,7 +38,10 @@ export function starPalette(tokens: SkyTokens): readonly Rgb[] {
 	return [tokens.white, ...STAR_TINTS]
 }
 
-/** Where in StarAtlas.stars the sprite of a palette tint and shape sits, centered phaseX and phaseY (0 to STAR_PHASES - 1) steps right and down. */
+/**
+ * Where in StarAtlas.stars the sprite of a palette tint and shape sits, centered phaseX and phaseY (0 to STAR_PHASES - 1)
+ * steps of 1/STAR_PHASES device px right and down.
+ */
 export function starSpriteIndex(tint: number, shape: number, phaseX: number, phaseY: number): number {
 	return ((tint * STAR_SHAPES.length + shape) * STAR_PHASES + phaseY) * STAR_PHASES + phaseX
 }
@@ -96,7 +99,7 @@ function pointSpread(core: number, halo: number, haloPeak: number): PointSpread 
 /**
  * Writes one sprite of `spread` centered `phaseX` px right of and `phaseY` px below its middle pixel. Every phase is
  * scaled by the unshifted sprite's peak, so the unshifted one peaks at 1 in its middle pixel and a shifted one carries
- * the same light, spread over its pixels.
+ * nearly the same light, spread over its pixels (the tail is cut at the sprite's edge, so it loses a little).
  */
 function paintSprite(pixels: ImageData, sprite: Sprite, color: Rgb, spread: PointSpread, phaseX = 0, phaseY = 0): void {
 	const { size, haloPeak, peak } = spread

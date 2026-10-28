@@ -31,16 +31,20 @@ export function zoneReaches(zone: SkyRect, x0: number, y0: number, x1: number, y
 	return zone.x - ZONE_REACH <= x1 && zone.x + zone.width + ZONE_REACH >= x0 && zone.y - ZONE_REACH <= y1 && zone.y + zone.height + ZONE_REACH >= y0
 }
 
-/** The zones whose box grown by ZONE_REACH touches the tile [x0, x1] × [y0, y1], in their original order. */
-function zonesNear(zones: readonly SkyRect[], x0: number, y0: number, x1: number, y1: number): SkyRect[] {
-	return zones.filter((zone) => zoneReaches(zone, x0, y0, x1, y1))
+/**
+ * Replaces the contents of `out` with the zones whose box grown by ZONE_REACH touches the tile [x0, x1] × [y0, y1], in
+ * their original order. Fills a list in place, so a rebuild makes no garbage.
+ */
+function fillZonesNear(out: SkyRect[], zones: readonly SkyRect[], x0: number, y0: number, x1: number, y1: number): void {
+	out.length = 0
+	for (const zone of zones) if (zoneReaches(zone, x0, y0, x1, y1)) out.push(zone)
 }
 
 /** An empty index; update() fills it. */
 export function createQuietIndex(): QuietIndex {
 	let from: readonly SkyRect[] = []
 	let to: readonly SkyRect[] = []
-	let tiles: QuietBlend[] = []
+	let tiles: { from: SkyRect[]; to: SkyRect[]; level: number }[] = []
 	let columns = 0
 	let rows = 0
 	let origin = 0
@@ -56,17 +60,26 @@ export function createQuietIndex(): QuietIndex {
 			if (regrid || !sameRects(blend.from, from) || !sameRects(blend.to, to)) {
 				from = blend.from
 				to = blend.to
-				gridWidth = width
-				gridHeight = height
-				origin = -margin
-				columns = Math.max(1, Math.ceil((width + 2 * margin) / TILE))
-				rows = Math.max(1, Math.ceil((height + 2 * margin) / TILE))
-				tiles = []
+				if (regrid) {
+					gridWidth = width
+					gridHeight = height
+					origin = -margin
+					columns = Math.max(1, Math.ceil((width + 2 * margin) / TILE))
+					rows = Math.max(1, Math.ceil((height + 2 * margin) / TILE))
+					// Only a new grid allocates tiles: while the grid stays, a scroll or an ease refills their zone lists in place
+					tiles = []
+				}
 				for (let row = 0; row < rows; row++) {
 					for (let column = 0; column < columns; column++) {
 						const x0 = origin + column * TILE
 						const y0 = origin + row * TILE
-						tiles.push({ from: zonesNear(from, x0, y0, x0 + TILE, y0 + TILE), to: zonesNear(to, x0, y0, x0 + TILE, y0 + TILE), level: blend.level })
+						let tile = tiles[row * columns + column]
+						if (!tile) {
+							tile = { from: [], to: [], level: blend.level }
+							tiles.push(tile)
+						}
+						fillZonesNear(tile.from, from, x0, y0, x0 + TILE, y0 + TILE)
+						fillZonesNear(tile.to, to, x0, y0, x0 + TILE, y0 + TILE)
 					}
 				}
 			}

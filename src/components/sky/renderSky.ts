@@ -37,7 +37,11 @@ const CELL_CACHE_SLACK = 2
 /** Layer slot in a cell's cache key. */
 const LAYER_INDEX: Record<SkyLayer, number> = { far: 0, mid: 1, near: 2 }
 
-/** Each axis's cell coordinates from -CELL_KEY_RANGE to CELL_KEY_RANGE - 1 get their own key (about ±8.4 million px). */
+/**
+ * Each axis's cell coordinates from -CELL_KEY_RANGE to CELL_KEY_RANGE - 1 get their own key (about ±8.4 million px),
+ * well past how far the scroll moves any star on the longest page a browser lays out (Chromium stops at about 33.5
+ * million px).
+ */
 const CELL_KEY_RANGE = 0x8000
 
 /** A cell beyond the key range. */
@@ -50,8 +54,9 @@ interface CachedCell {
 }
 
 /**
- * An empty star-cell cache; cells are generated on first use. A cell in use is never generated again, so the cells on
- * screen never regenerate in one burst; only cells no frame has used since are dropped.
+ * An empty star-cell cache; cells are generated on first use. A cell the current frame uses is never dropped or
+ * regenerated, so the cells on screen never regenerate in one burst; once the cache holds more than CELL_CACHE_SLACK
+ * times the cells in use, the cells this frame didn't use are dropped.
  */
 export function createStarField(): StarField {
 	const cells = new Map<number, CachedCell>()
@@ -118,7 +123,7 @@ export interface SkyFrame {
 	quiet: QuietBlend
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (contrast). */
 	meteorInk: number
-	/** Every star at a whole device pixel, as a sky at rest draws them; false places each at its nearest quarter-pixel phase (placePoint). */
+	/** Every star at a whole device pixel, as a sky at rest draws them; false places each at its nearest sub-pixel phase (placePoint). */
 	snap: boolean
 }
 
@@ -137,7 +142,7 @@ const corner = { x: 0, y: 0 }
 
 /**
  * The sprite for a point of light centered at (px, py) device px, with its top-left whole pixel in `corner`. A moving
- * point uses the sprite pre-rendered at its nearest quarter-pixel phase, so it glides without blurring or pulsing; `snap`
+ * point uses the sprite pre-rendered at its nearest sub-pixel phase, so it glides without blurring or pulsing; `snap`
  * rounds to whole pixels (sprites have odd sides), so resting stars stay crisp points.
  */
 function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, py: number, snap: boolean): Sprite | undefined {
@@ -174,6 +179,8 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 	const y1 = Math.floor((offsetY + frame.height + EDGE) / CELL_SIZE)
 	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
+	// Whether any quiet zone is on screen: fixed for the whole frame, so read once per layer
+	const quiet = !quietIndex.empty
 	for (let cy = y0; cy <= y1; cy++) {
 		for (let cx = x0; cx <= x1; cx++) {
 			for (const star of field.cell(layer, cx, cy)) {
@@ -184,7 +191,7 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 				let alpha = star.alpha * scale
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)
 				// A bright star beside the copy reads as punctuation or an accent
-				if (!quietIndex.empty) alpha *= quietIndex.factor(x, y, config)
+				if (quiet) alpha *= quietIndex.factor(x, y, config)
 				if (star.twinkle && frame.twinkle > 0) {
 					const depth = y / frame.height
 					const sigma = star.twinkle.sigma * frame.twinkle * (1 + TWINKLE_HORIZON_GAIN * depth * depth)

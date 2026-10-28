@@ -1,9 +1,9 @@
 /**
- * Whether the home sky moves, as a small external store rather than React context: the pause control and the sky's
- * controller are unrelated client components, and mountSky is not React at all. A page view is one mount of the home
- * page: the last unsubscribe forgets what was read and any Play pressed under reduced motion, so the next mount reads
- * storage and the OS setting afresh. Nothing here touches window, matchMedia or localStorage at module scope, so
- * server-rendered client code can import it.
+ * Whether the home sky moves, as a small external store rather than React context: its readers are the pause control
+ * in the navbar and mountSky, which isn't React. A page view is one mount of the home page: the last unsubscribe
+ * forgets what was read and any Play pressed under reduced motion, so the next mount reads storage and the OS setting
+ * afresh. Nothing here touches window, matchMedia or localStorage at module scope, so server-rendered client code can
+ * import it.
  */
 
 import { REDUCED_MOTION_QUERY } from '@/lib/utils'

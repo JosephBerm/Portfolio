@@ -260,7 +260,7 @@ export const FRAME = {
 	twinkleFps: 15,
 	/** Twinkle rate after the adaptive step-down. */
 	slowTwinkleFps: 10,
-	/** Fades (dusk, scrolling under reduced motion). */
+	/** Fades (dusk, scrolling under reduced motion, the motion level easing). */
 	fadeFps: 30,
 	/** Scrolling counts as active this long after the last scroll message. */
 	scrollSettleMs: 180,

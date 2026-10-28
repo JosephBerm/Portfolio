@@ -103,8 +103,8 @@ let cameraMoving = false
 let skyMoved = false
 /**
  * How much of its motion the sky has: 1 under full motion, 0 otherwise. When the motion changes (the pause control, a
- * reduced-motion switch) the level eases over FRAME.motionEase from where it was, so nothing stops or starts in one
- * frame. `since` is on the worker clock (s); a load starts at rest on its motion's level.
+ * reduced-motion switch) the level eases over FRAME.motionEase from where it was, so the twinkle never stops or starts
+ * in one frame. `since` is on the worker clock (s); a load starts at rest on its motion's level.
  */
 let motionLevel: Ease = { from: 1, to: 1, since: -Infinity }
 
@@ -665,6 +665,8 @@ scope.addEventListener('message', (event) => {
 			motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, t), to: message.motion === 'full' ? 1 : 0, since: t }
 			if (message.motion === 'full') {
 				skyMoved = true
+				// Pressing Play shows the visitor is here, even after a long idle stretch
+				noteInput(now)
 				// Back to full motion: no shooting star straight away
 				holdMeteors(now)
 				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to

@@ -3,12 +3,14 @@ import { cellStars, LAYER_NEARNESS, twinkleNoise, type Star } from '@/lib/sky/ca
 import { mixRgb, rgba } from '@/lib/sky/color'
 import {
 	CELL_SIZE,
+	CLEAR_SKY_KEEPS,
 	LAYERS,
 	METEOR,
 	METEOR_LIGHT,
 	METEOR_LOOK,
 	METEOR_VEIL,
 	MIN_STAR_ALPHA,
+	SATELLITE,
 	SKY_LAYERS,
 	STAR_ALPHA,
 	STAR_PHASES,
@@ -19,6 +21,7 @@ import {
 import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
+import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import { starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
@@ -356,8 +359,32 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 }
 
 /**
+ * A satellite at the frame's time: one steady point, with no tail and no twinkle. It is drawn from two sprites at the same
+ * place, the pale tint and the orange one of Earth's shadow, in the shares its warmth gives them; added together they are
+ * an exact mix of the two colors. `fade` (0-1) multiplies its light, as for a shooting star. `keeps` are the quiet keeps
+ * it is drawn with (CLEAR_SKY_KEEPS), read at its center through transientQuietFactor every frame, so none of its light
+ * lands inside a quiet rect, even mid-ease or when a layout changes under it.
+ */
+function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, pass: SatellitePass, frame: SkyFrame, fade: number, keeps: QuietKeeps): void {
+	const { x, y, alpha, warmth } = satelliteAt(pass, frame.time)
+	const light = alpha * fade * transientQuietFactor(frame.quiet, x, y, keeps)
+	if (light < MIN_STAR_ALPHA) return
+	const { atlas } = assets
+	ctx.globalCompositeOperation = 'lighter'
+	for (const [tint, share] of [[SATELLITE.tint, 1 - warmth], [SATELLITE.shadowTint, warmth]] as const) {
+		// Unsnapped, so the point glides
+		const sprite = share > 0 ? placePoint(atlas, tint, SATELLITE.shape, x * frame.dpr, y * frame.dpr, false) : undefined
+		if (!sprite) continue
+		ctx.globalAlpha = light * share
+		ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, corner.x, corner.y, sprite.size, sprite.size)
+	}
+	ctx.globalAlpha = 1
+}
+
+/**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
- * which holds scrollY). A kind without a case fails to compile.
+ * which holds scrollY). Clear-sky kinds draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case
+ * fails to compile.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
@@ -365,6 +392,9 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 	switch (kind) {
 		case 'meteor':
 			drawMeteor(ctx, assets, body, frame, fade)
+			return
+		case 'satellite':
+			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)
 			return
 		default: {
 			const unhandled: never = kind

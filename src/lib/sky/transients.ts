@@ -1,7 +1,7 @@
 /**
- * The sky's short-lived events (transients; so far, shooting stars) and the scheduler that launches, retires and cancels
- * them. This module knows no kind: each kind's module exports a spec and imports only types from here, so every spec
- * exists by the time the registry below reads it.
+ * The sky's short-lived events (transients: shooting stars and satellites) and the scheduler that launches, retires and
+ * cancels them. This module knows no kind: each kind's module exports a spec and imports only types from here, so every
+ * spec exists by the time the registry below reads it.
  */
 
 import { TRANSIENTS } from './config'
@@ -10,18 +10,20 @@ import type { Meteor, MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
 import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
+import { SATELLITE_SPEC, type SatellitePass } from './satellites'
 import { scrollKept } from './scene'
 
 /** The model behind each kind: what its planner returns and its drawing reads. */
 export interface TransientBodies {
 	meteor: Meteor
+	satellite: SatellitePass
 }
 
 /** One kind of transient. */
 export type TransientKind = keyof TransientBodies
 
-/** Every kind, in the order the scheduler checks them for a launch. */
-export const TRANSIENT_KINDS = ['meteor'] as const satisfies readonly TransientKind[]
+/** Every kind, in the order the scheduler checks them for a launch (shooting stars first: they are the most frequent). */
+export const TRANSIENT_KINDS = ['meteor', 'satellite'] as const satisfies readonly TransientKind[]
 
 /** Where transients may fly: the viewport and the padded quiet rects on screen (CSS px), the field every kind plans in. */
 export interface SkyField extends MeteorField {
@@ -41,7 +43,7 @@ export interface TransientEnvelope<K extends TransientKind> {
 	lifetime: number
 	/** Its body reported that its light may reach quiet copy, so it holds the ink lease until it retires. */
 	nearCopy: boolean
-	/** It never takes the ink lease, so it was planned in clear sky only. */
+	/** It never takes the ink lease: planned in clear sky only, and drawn with CLEAR_SKY_KEEPS. */
 	clearSky: boolean
 	/** scrollY at launch: the scroll cancel measures from here. */
 	launchScrollY: number
@@ -64,7 +66,7 @@ export interface PlanContext {
 	now: number
 	field: SkyField
 	visit: VisitMemory
-	/** The ink lease is free and the crossing cooldown is over, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
+	/** The ink lease is free, the crossing cooldown is over and nothing else is in the sky, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
 	nearCopy: boolean
 	/** Share of each rect's ink budget a transient may keep on the copy (the contrast preference's meteorInk): planMeteor's ink option. */
 	ink: number
@@ -88,7 +90,7 @@ export interface TransientSpec<K extends TransientKind> {
 	moving(body: TransientBodies[K], now: number): boolean
 	/** Its light may reach quiet copy, so it holds the ink lease: the body's own report (Meteor.nearCopy), never a copy of the context. */
 	nearCopy(body: TransientBodies[K]): boolean
-	/** This kind may take the ink lease; false plans in clear sky only. */
+	/** This kind may take the ink lease; false (satellites) plans in clear sky only and draws with CLEAR_SKY_KEEPS. */
 	lease: boolean
 	/** It may launch on narrow screens (phones). */
 	phones: boolean
@@ -97,7 +99,7 @@ export interface TransientSpec<K extends TransientKind> {
 }
 
 /** Every kind's spec: a kind without one fails to compile. */
-const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC }
+const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC, satellite: SATELLITE_SPEC }
 
 /** Whether and where transients may launch now; the worker refills one reused gate every tick. */
 export interface LaunchGate {
@@ -137,8 +139,8 @@ export interface TransientSchedule {
 export function createTransientSchedule(): TransientSchedule {
 	return {
 		active: [],
-		nextAt: { meteor: Infinity },
-		failedPlans: { meteor: 0 },
+		nextAt: { meteor: Infinity, satellite: Infinity },
+		failedPlans: { meteor: 0, satellite: 0 },
 		launched: 0,
 		lastOnsetAt: -Infinity,
 		crossingAfter: Infinity,
@@ -160,7 +162,7 @@ export function holdTransients(schedule: TransientSchedule, now: number): void {
 /**
  * Share of its light a transient keeps: the scroll cancel (scrollKept) from its launch scroll, with the pause fade (over
  * TRANSIENTS.cancelFade once cancelled) as scrollKept's own `fade`. The scheduler retires it at 0, and the worker draws it
- * with this as drawMeteor's `fade`.
+ * with this as drawTransient's `fade`.
  */
 export function transientFade(transient: Transient, now: number, scrollY: number): number {
 	return scrollKept(transient.launchScrollY, scrollY, fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now))
@@ -193,14 +195,19 @@ function retire(schedule: TransientSchedule, now: number, scrollY: number): bool
 	return retired
 }
 
-/** Whether this tick's launch of `kind` is held back: the moment doesn't allow it, or a rule of the kind or the visit keeps it. */
+/**
+ * Whether this tick's launch of `kind` is held back: the moment doesn't allow it, or a rule of the kind or the visit keeps
+ * it. One rule keeps the sky's bright moment single: a kind that never takes the ink lease (a satellite) waits while a
+ * transient that holds it flies, and launchKind plans a transient that may take it in clear sky while any other flies.
+ */
 function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number, gate: LaunchGate): boolean {
 	return (
 		!gate.allowed ||
 		!gate.settled ||
 		(gate.narrow && (!SPECS[kind].phones || schedule.launched >= TRANSIENTS.narrowLimit)) ||
 		now - schedule.lastOnsetAt < TRANSIENTS.minOnsetGap ||
-		schedule.active.some((transient) => transient.kind === kind)
+		schedule.active.some((transient) => transient.kind === kind) ||
+		(!SPECS[kind].lease && leaseHeld(schedule))
 	)
 }
 
@@ -210,8 +217,8 @@ function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number,
  */
 function launchKind<K extends TransientKind>(schedule: TransientSchedule, random: Random, now: number, kind: K, gate: LaunchGate): boolean {
 	const spec: TransientSpec<K> = SPECS[kind]
-	// Near copy only for a kind that may take the lease, while nobody holds it and the cooldown is over
-	const nearCopy = spec.lease && inkLeaseFree(schedule, now)
+	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over and nothing else is in the sky, so a satellite and a shooting star near the copy are never up together
+	const nearCopy = spec.lease && inkLeaseFree(schedule, now) && schedule.active.length === 0
 	const body = spec.plan({ random, now, field: gate.field(), visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
 	if (body === null && !nearCopy) {
 		// Clear sky alone failing shows no lack of room, and on a phone counting it could stop shooting stars for the visit

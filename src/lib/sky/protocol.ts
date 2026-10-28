@@ -48,7 +48,7 @@ export type SkyMainMessage =
 			tokens: SkyTokens
 			/** The loader has started to lift (or there is none): the stars come out. */
 			emerging: boolean
-			/** The page content is showing: shooting stars may start. */
+			/** The page content is showing: shooting stars and satellites may start. */
 			revealed: boolean
 			motion: SkyMotion
 			/** False when the page loads in a background tab. */

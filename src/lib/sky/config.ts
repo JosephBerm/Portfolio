@@ -378,13 +378,14 @@ export const PACING = {
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
- * Every short-lived sky event (so far, shooting stars): at most `maxLife` seconds from first light to last, wake, train
+ * Every short-lived sky event (shooting stars, satellites): at most `maxLife` seconds from first light to last, wake, train
  * and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least `minOnsetGap` seconds apart, since a motion onset
  * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
  * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
  * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
  * crossings stay rare: the cooldown is set to the shortest multiple of 5 s that keeps the crossings a minute over a
- * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout. A pause
+ * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout,
+ * measured without satellites, which only make crossings fewer, so it holds whether or not they fly. A pause
  * fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls
  * from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the
  * kind waits for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds
@@ -557,6 +558,45 @@ export const METEOR = {
 	/** A faint persistent train behind some fireballs and fast flights (SPEED_CLASSES' `train`). */
 	trainChance: 0.15,
 } as const
+
+/**
+ * Satellites: steady points lit by a Sun below the horizon (no twinkle, no wake, never blinking), gliding in a straight
+ * line at constant speed, as NASA describes the space station. Real low orbits cross about 1°/s overhead, about 0.5°/s
+ * at the window's 40° center and 0.1 to 0.3°/s low in the sky; these run `angular` °/s of the sky window (SKY_WINDOW),
+ * 2 to 5 times faster at the center, so a whole pass stays within `life` seconds (WCAG 2.2.2's 5 s). A pass crosses the
+ * edge of Earth's shadow at most once, as a real one does: at dusk (`shadowShare` of passes) it slides in lit from
+ * beyond a side and fades into the shadow over `fadeOut` s while warming from palette index `tint` toward `shadowTint`,
+ * as real ones redden; at dawn it fades in over `fadeIn` s as it leaves the shadow and glides out through a side. Alpha
+ * `alpha`, about magnitude 3.5 to 5.5: never brighter than the brightest mid-layer star; drawn with star shape `shape`.
+ * Clear sky only (every point clear of every padded quiet rect's reach, ZONE_REACH), never within `minTilt` degrees of
+ * vertical (a vertical glide reads as scrolling), one at a time, wide screens only, on their own clock: the first
+ * attempt `first` after the reveal and then `gap` after each pass (GapLaw, stretched on long visits), so 39% of visits
+ * get a first attempt within their first minute and passes come about 89 s apart. Up to `attempts` candidate passes per
+ * launch.
+ */
+export const SATELLITE = {
+	first: { floor: 30, mean: 60, cap: 150 },
+	gap: { floor: 40, mean: 50, cap: 150 },
+	angular: [1.2, 2.5],
+	alpha: [0.25, 0.5],
+	life: 4.8,
+	fadeIn: 0.8,
+	fadeOut: [1.2, 1.5],
+	shadowShare: 0.6,
+	tint: 4,
+	shadowTint: 6,
+	shape: 2,
+	minTilt: 20,
+	attempts: 40,
+} as const
+
+/**
+ * Quiet keeps for transients that never take the ink lease: a point of light drawn with them, sampled at its center and
+ * at most QUIET.padding in radius, keeps none inside a padded quiet rect, even mid-ease or when a layout changes under
+ * it, so it never shares a contrast budget with the one that holds the lease. Not a look setting: both stay 0 whatever
+ * the star layers' keeps become.
+ */
+export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
 
 /**
  * White light (0-1 of --color-white, added over navy) the sky may put on the copy itself, per quiet rect. WCAG 2.2 AA

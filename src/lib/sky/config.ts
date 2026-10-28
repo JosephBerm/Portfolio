@@ -383,7 +383,7 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
  * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
  * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
- * crossings stay rare (0 for now: shooting stars are already at least 30 s apart). A pause fades every transient out over
+ * crossings stay rare (0, since shooting stars already come at least 30 s apart). A pause fades every transient out over
  * `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls from its launch (SCROLL_CANCEL).
  * A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the kind waits for a new layout. A held
  * launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds after scrolling stops, and after a

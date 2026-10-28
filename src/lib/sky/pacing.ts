@@ -14,7 +14,7 @@ export interface FrameDemand {
 /** Nothing to draw. */
 export const NO_FRAMES: FrameDemand = { fps: 0, vsync: false, cap: Infinity }
 
-/** Every display refresh: a flying shooting star, scrolling under full motion. */
+/** Every display refresh: a moving transient, scrolling under full motion. */
 export const EVERY_FRAME: FrameDemand = { fps: Infinity, vsync: true, cap: Infinity }
 
 /** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing, the stars a quality step thins out). */
@@ -22,7 +22,7 @@ export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap:
 
 /**
  * The strictest of several demands: the most frames, on animation frames if any of them moves, within the tightest cap
- * unless one asks for every refresh (a flying shooting star, scrolling). A demand with no cap never lifts another's: a
+ * unless one asks for every refresh (a flying transient, scrolling). A demand with no cap never lifts another's: a
  * fade never lifts the drift's cap, which matters on WebKit's unaligned clock, where tick asks for every tick and only
  * the cap divides it.
  */
@@ -56,7 +56,7 @@ export interface FrameState {
 	scrolling: boolean
 	/** Full motion: scrolling then moves the stars (every refresh); otherwise it only fades them. */
 	full: boolean
-	/** The shooting stars' demand (transientDemand): every frame while one flies or fades out after a pause, fade frames while its train lingers. */
+	/** The transients' demand (transientDemand): every frame while one moves or fades out after a pause, fade frames while one lingers (a train). */
 	transientDemand: FrameDemand
 	/** The camera moves, or the drift or the lean heads up: the stars follow the page, glide to rest after it stops, float or lean away from the pointer. Decided by where they head, not by the drift's eased rate, which starts from 0. */
 	cameraActive: boolean

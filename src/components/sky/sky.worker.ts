@@ -3,10 +3,11 @@
  * changes. A sky that only changes brightness draws from timers: 15 fps for twinkle, 30 fps for fades (the dusk, a
  * lingering train). Anything that moves draws on animation frames: every one while a shooting star or a satellite flies
  * or the page scrolls, and every k-th one (PACING; every one while a glide or a lean is fast) while the stars drift,
- * lean away from the pointer or glide to rest after the page stops. A missing or stalled animation-frame clock is
- * answered by a watchdog and then a 60 Hz timer. Hidden tabs, paused or reduced motion, and visits with no input for a
- * while sleep, the last once the drift and twinkle have eased out. While reading the stars still drift, slowly, so the
- * worker keeps drawing there.
+ * lean away from the pointer or glide to rest after the page stops. Where the worker's own animation frames come from a
+ * fixed timer, not the display (WebKit's), the main thread relays the page's own animation frames for as long as
+ * something moves. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
+ * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
+ * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there.
  */
 
 import {
@@ -174,15 +175,24 @@ let ready = false
 
 /** Whether animation frames can be relied on. False where the worker has none and after repeated stalls: a 60 Hz timer then stands in for the display. */
 let rafWorks = typeof scope.requestAnimationFrame === 'function'
-/** Requested animation frames in a row that didn't come in time. */
+/** Requested animation frames in a row that didn't come in time, the worker's own or the page's relayed ones. */
 let strikes = 0
-/** Serves a requested animation frame that doesn't come. */
+/** Serves a requested animation frame, or a relayed one, that doesn't come. */
 let watchdogId: ReturnType<typeof setTimeout> | undefined
 /** The animation frame asked for to find out whether the display's clock is back, and when (ms) one was last asked for. */
 let probeId: number | null = null
 let probedAt = -Infinity
-/** The display's refresh interval, measured from the animation frames' timestamps. */
+/** The display's refresh interval, measured from the worker's own animation frames' timestamps. */
 const refresh = createRefreshEstimate()
+/**
+ * Whether the main thread has been asked to relay the page's animation frames, which reach the worker as ticks in place
+ * of its own animation frames. Asked for while the worker's own clock is a fixed timer, not the display
+ * (`refresh.unaligned`), and something moves. A relay that stalls stays on: the watchdog and then a 60 Hz timer serve
+ * the frames until a tick comes.
+ */
+let relayOn = false
+/** The display's refresh interval while relayed, measured from when the ticks arrive. */
+const relayRefresh = createRefreshEstimate()
 /** How many display refreshes pass per drawn frame while something moves. */
 const divisor: Divisor = { k: 1, slowerSince: null }
 
@@ -285,7 +295,7 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	return frameDemand(frameState)
 }
 
-/** Drops any pending animation frame, watchdog or timer, and forgets the last refresh, so the gap before the next one isn't taken for a refresh interval. */
+/** Drops any pending animation frame, watchdog or timer, ends the relay, and forgets the last refresh, so the gap before the next one isn't taken for a refresh interval. */
 function cancelFrames(): void {
 	if (rafId !== null) scope.cancelAnimationFrame?.(rafId)
 	clearTimeout(timerId)
@@ -294,6 +304,25 @@ function cancelFrames(): void {
 	timerId = undefined
 	watchdogId = undefined
 	refresh.pause()
+	setRelay(false)
+}
+
+/** Asks the main thread to start or stop relaying its animation frames, once per change. A stop also drops the watchdog waiting for the next tick. */
+function setRelay(on: boolean): void {
+	if (on === relayOn) return
+	relayOn = on
+	strikes = 0
+	relayRefresh.pause()
+	if (!on) {
+		clearTimeout(watchdogId)
+		watchdogId = undefined
+	}
+	scope.postMessage({ type: 'relay', on })
+}
+
+/** Whether the frames' clock can be relied on: the page's animation frames while they are relayed, the worker's own otherwise. */
+function clockWorks(): boolean {
+	return relayOn ? strikes < PACING.watchdogStrikes : rafWorks
 }
 
 /** True when transients may launch at all right now, in a launch scene (each kind's own timing and scene aside). */
@@ -317,9 +346,11 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 /**
  * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star or a
  * satellite, scrolling, the drift, the lean, the stars gliding to rest) wake on animation frames, in step with the
- * display, and tick draws on every k-th of them. Slow changes (twinkle, fades) draw from a timer: no vsync
- * subscription, so the worker sleeps between frames. With nothing to draw, one timer is left for a change a message has
- * just made or the next launch. A frame already pending is left alone.
+ * display, and tick draws on every k-th of them. Where the worker's own animation frames come from a fixed timer instead
+ * (WebKit's), the page's are relayed for as long as something moves, and each one that arrives wakes tick in place of
+ * one of its own. Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between
+ * frames. With nothing to draw, one timer is left for a change a message has just made or the next launch. A frame
+ * already pending is left alone.
  */
 function schedule(now: number): void {
 	if (rafId !== null || !ctx || !visible) return
@@ -327,6 +358,8 @@ function schedule(now: number): void {
 	timerId = undefined
 	const scene = sceneAt(scrollY, height, documentHeight)
 	const demand = demandNow(now, scene)
+	// A worker clock that isn't the display's is replaced by the page's for as long as something moves
+	setRelay(demand.vsync && rafWorks && refresh.unaligned)
 	if (demand.vsync) {
 		requestFrame(now, demand)
 		return
@@ -347,14 +380,20 @@ function schedule(now: number): void {
 
 /**
  * Asks for the next wake-up of a moving sky: an animation frame, and a watchdog that serves it from a timer if it never
- * comes. Where animation frames can't be relied on, a 60 Hz timer stands in for the display instead. That timer is armed
- * against the last drawn frame, not from now: schedule runs after every message, and a timer re-armed from each would be
- * pushed back for as long as messages keep coming. It waits the divisor in use, or fewer refreshes if `demand` now needs
- * fewer (a scroll message since the last tick, say). In that mode one animation frame is also asked for every
- * PACING.reprobeMs, to find out whether the display's clock is back.
+ * comes. While the page's animation frames are relayed, the next wake-up is a tick, so only the watchdog is armed, and
+ * only if it isn't already: schedule runs after every message, and a watchdog restarted by each would be pushed back for
+ * as long as messages keep coming. Where animation frames can't be relied on, a 60 Hz timer stands in for the display
+ * instead. That timer is armed against the last drawn frame, not from now, for the same reason. It waits the divisor in
+ * use, or fewer refreshes if `demand` now needs fewer (a scroll message since the last tick, say). In that mode one
+ * animation frame is also asked for every PACING.reprobeMs, to find out whether the display's clock is back, unless the
+ * relayed frames are what failed: the next tick ends the timer's turn.
  */
 function requestFrame(now: number, demand: FrameDemand): void {
-	if (rafWorks) {
+	if (clockWorks()) {
+		if (relayOn) {
+			watchdogId ??= setTimeout(onStalled, PACING.watchdogMs)
+			return
+		}
 		clearTimeout(watchdogId)
 		rafId = scope.requestAnimationFrame?.(onFrame) ?? null
 		watchdogId = setTimeout(onStalled, PACING.watchdogMs)
@@ -362,7 +401,7 @@ function requestFrame(now: number, demand: FrameDemand): void {
 	}
 	const k = Math.min(divisor.k, refreshDivisor(PACING.fallbackFps, demand.fps, demand.cap))
 	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + (k * 1000) / PACING.fallbackFps - now))
-	if (now - probedAt < PACING.reprobeMs) return
+	if (relayOn || now - probedAt < PACING.reprobeMs) return
 	probedAt = now
 	if (probeId !== null) scope.cancelAnimationFrame?.(probeId)
 	probeId = scope.requestAnimationFrame?.(onProbe) ?? null
@@ -385,15 +424,29 @@ function onFrame(time: number): void {
 }
 
 /**
+ * A relayed frame, one of the page's animation frames sent as a tick: the display's own clock, so it also times the
+ * refresh, from when it arrives. A tick the worker hasn't asked for, or has just stopped asking for, is ignored.
+ */
+function onRelayTick(now: number): void {
+	if (!relayOn) return
+	clearTimeout(watchdogId)
+	watchdogId = undefined
+	strikes = 0
+	relayRefresh.sample(now)
+	tick(now)
+}
+
+/**
  * A requested animation frame didn't come in time: a timer serves this frame instead. After PACING.watchdogStrikes misses
- * in a row animation frames are no longer relied on, until a probe finds the display's clock back.
+ * in a row animation frames are no longer relied on, until a probe finds the display's clock back. A relay that misses
+ * as often is no longer relied on either, until a tick comes; the worker's own clock is not at fault then.
  */
 function onStalled(): void {
 	watchdogId = undefined
 	if (rafId !== null) scope.cancelAnimationFrame?.(rafId)
 	rafId = null
 	strikes++
-	if (strikes >= PACING.watchdogStrikes) rafWorks = false
+	if (strikes >= PACING.watchdogStrikes && !relayOn) rafWorks = false
 	tick(performance.now())
 }
 
@@ -431,9 +484,11 @@ function tick(now: number): void {
 	updateCamera(now, scene)
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
-	// display: each of its ticks is a frame, divided only by a demand's cap
-	const interval = rafWorks ? refresh.interval : 1000 / PACING.fallbackFps
-	const fps = rafWorks && refresh.unaligned ? Infinity : demand.fps
+	// display: each of its ticks is a frame, divided only by a demand's cap. The page's relayed frames are the display's,
+	// and divide like any other
+	const works = clockWorks()
+	const interval = !works ? 1000 / PACING.fallbackFps : relayOn ? relayRefresh.interval : refresh.interval
+	const fps = works && !relayOn && refresh.unaligned ? Infinity : demand.fps
 	const k = demand.vsync ? stepDivisor(divisor, refreshDivisor(1000 / interval, fps, demand.cap), now) : 1
 	if (needsDraw || frameDue(demand, now, lastDrawAt, k, interval)) draw(now)
 	schedule(now)
@@ -785,8 +840,8 @@ scope.addEventListener('message', (event) => {
 			scrollY = message.y
 			lastScrollAt = now
 			noteInput(now)
-			// A running loop paces scroll redraws itself; a sleeping worker draws one now
-			if (!rafId && timerId === undefined) needsDraw = true
+			// A running loop (the relay's included) paces scroll redraws itself; a sleeping worker draws one now
+			if (!rafId && timerId === undefined && !relayOn) needsDraw = true
 			break
 		case 'layout': {
 			documentHeight = message.documentHeight
@@ -818,6 +873,10 @@ scope.addEventListener('message', (event) => {
 			// speed needs, where a draw per message would follow the mouse's rate and bypass the divisor
 			noteInput(now)
 			break
+		case 'tick':
+			// The frame draws and schedules the next wake-up itself
+			onRelayTick(now)
+			return
 	}
 	schedule(now)
 })

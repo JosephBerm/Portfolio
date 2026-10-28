@@ -347,11 +347,13 @@ export const FRAME = {
  * narrow screens (phone GPUs pay most for a full-screen frame) and `slowMaxFps` after the first adaptive step; a
  * software-rasterized canvas may spend `softwareShare` of a core on them and keeps a still sky below `minFps`. The
  * refresh interval is the median of the last `refreshSamples` frame intervals; a median within `unalignedToleranceMs`
- * of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock, not the display, so uncapped motion draws every frame
- * there and capped drift every few. A requested animation frame that hasn't come `watchdogMs` after the request (while
- * visible) is served by a timer; after `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which
- * asks for one animation frame every `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored
- * context); the strikes also reset when the context is restored or the tab is shown.
+ * of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock, not the display, so while something moves the main
+ * thread relays the page's own animation frames to the worker, which divides them like a display's. A requested
+ * animation frame that hasn't come `watchdogMs` after the request (while visible) is served by a timer; after
+ * `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which asks for one animation frame every
+ * `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored context); the strikes also reset when
+ * the context is restored or the tab is shown. Relayed frames fall back the same way and go back to the next one that
+ * comes.
  */
 export const PACING = {
 	stepDevicePx: 0.5,

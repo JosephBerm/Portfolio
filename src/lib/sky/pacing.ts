@@ -23,8 +23,8 @@ export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap:
 /**
  * The strictest of several demands: the most frames, on animation frames if any of them moves, within the tightest cap
  * unless one asks for every refresh (a flying transient, scrolling). A demand with no cap never lifts another's: a
- * fade never lifts the drift's cap, which matters on WebKit's unaligned clock, where tick asks for every tick and only
- * the cap divides it.
+ * fade never lifts the drift's cap, which matters where the divisor alone would draw more frames than the cap allows (a
+ * 30 fps fade alone divides a 144 Hz display to every 4th refresh, 36 fps, over a cap of 30).
  */
 export function combineDemands(...demands: FrameDemand[]): FrameDemand {
 	let fps = 0

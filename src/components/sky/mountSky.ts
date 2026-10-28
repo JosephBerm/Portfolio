@@ -130,7 +130,8 @@ interface CopyReader {
  * beside the copy for good) and no opacity below 1 at rest (headroom reads `color` alone, so a translucent element would
  * be dimmer than its headroom says). The color is the one at measurement time: a link that changes color on hover or
  * focus (the rails' links, light slate at rest and green then) keeps the headroom of the state it was measured in until
- * the next measurement, which is harmless only while no flight reaches the rails (METEOR.maxEndY).
+ * the next measurement, which is harmless only while no flight reaches the rails (the planner's `clearOf`, which a launch
+ * fills with the padded rails).
  */
 function copyReader(tokens: SkyTokens, headrooms: Map<string, number>): CopyReader {
 	const shifts = new Map<Element, Shift>()

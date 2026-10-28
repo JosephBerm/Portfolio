@@ -4,46 +4,47 @@
  */
 
 import { METEOR } from './config'
-import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type Point } from './meteors'
+import { meteorLifetime, meteorMoving, nextMeteorGap, planMeteor, type Meteor } from './meteors'
+import { pickVisitSky, visitSteer, type VisitSky } from './radiants'
 import { between } from './random'
 import type { PlanContext, TransientSpec } from './transients'
 
 /**
- * What the shooting stars remember between launches: the radiant they share while it yields long flights. A launch
- * allowed near copy that finds no room clears it, and so does a resize, which changes the layout the flights fit.
+ * What the shooting stars remember between launches: the visit's sky, the shower and the sporadic sources they come
+ * from, so a visit's flights share them. A launch allowed near copy that finds no room clears it, and so does a resize,
+ * which changes the layout the flights fit.
  */
 export interface MeteorMemory {
-	radiant: Point | null
+	sky: VisitSky | null
 }
 
 /** The shooting stars' memory at the start of a visit: nothing remembered yet. */
 export function createMeteorMemory(): MeteorMemory {
-	return { radiant: null }
+	return { sky: null }
 }
 
 /**
- * A plan for one launch. The radiant in hand is kept while it yields long flights, so shooting stars share a direction;
- * when it doesn't, fresh ones are tried. The fresh radiants are drawn first (METEOR.radiantTries of them, one on narrow
- * screens), then long flights come first on every radiant, and a shorter fallback only when none has room for a long one.
- * The planner is told how much light the contrast preference leaves a shooting star on copy, and whether the plan may
- * pass near copy at all. Returns null when nothing fits, and then drops the radiant, unless the plan was kept in clear
- * sky (the context's `nearCopy` is false): clear sky alone failing says nothing about the radiant.
+ * A plan for one launch. The visit's sky is picked when there is none, and a steer from it gives the launch its source
+ * and scatter. The steers are drawn first, the first and then METEOR.radiantTries fresh ones (one on narrow screens), each
+ * a new source and scatter; long flights come first on every steer, and a shorter fallback on the same steers only when
+ * none has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on
+ * copy, whether the plan may pass near copy at all, and to keep clear of the side rails (the field's `pinned` zones).
+ * Returns null when nothing fits, and then drops the visit's sky, unless the plan was kept in clear sky (the context's
+ * `nearCopy` is false): clear sky alone failing says nothing about the sky.
  */
 export function planMeteorTransient(context: PlanContext): Meteor | null {
 	const { random, now, field, visit, nearCopy, ink, narrow } = context
 	const memory = visit.meteor
-	const radiants = memory.radiant ? [memory.radiant] : []
-	while (radiants.length < (memory.radiant ? 1 : 0) + (narrow ? 1 : METEOR.radiantTries)) radiants.push(pickRadiant(random, field.width, field.height))
+	const sky = memory.sky ?? pickVisitSky(random, field)
+	memory.sky = sky
+	const steers = Array.from({ length: 1 + (narrow ? 1 : METEOR.radiantTries) }, () => visitSteer(random, sky))
 	for (const flights of ['long', 'short'] as const) {
-		for (const candidate of radiants) {
-			const plan = planMeteor(random, field, candidate, now, { flights, ink, nearCopy })
-			if (plan) {
-				memory.radiant = candidate
-				return plan
-			}
+		for (const steer of steers) {
+			const plan = planMeteor(random, field, now, { steer, flights, ink, nearCopy, clearOf: field.pinned })
+			if (plan) return plan
 		}
 	}
-	if (nearCopy) memory.radiant = null
+	if (nearCopy) memory.sky = null
 	return null
 }
 
@@ -58,6 +59,6 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	lease: true,
 	phones: true,
 	forget: (visit) => {
-		visit.meteor.radiant = null
+		visit.meteor.sky = null
 	},
 }

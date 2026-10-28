@@ -473,8 +473,11 @@ export const SPEED_CLASSES = {
 export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [0.6, 0.85], rangeFloor: 0.6 } as const
 
 /**
- * Shooting stars: rare and small, falling from one radiant beyond the top-right corner. Each lights up and peaks in
- * clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET).
+ * Shooting stars: where they start, the layout guards, their length, drag, wake, flares and trains. Directions, speeds
+ * and brightness come from the visit's sky (RADIANTS, SPEED_CLASSES, METEOR_BRIGHTNESS). Each lights up and peaks in
+ * clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET). Its layout
+ * guards keep every transient below the navbar (`top`), inside the edges (`edgeMargin`) and clear of the bottom corners
+ * (`maxEndY`), and a shooting star also clear of the side rails (planMeteor's `clearOf`).
  */
 export const METEOR = {
 	/** Seconds after the page reveal before the first one, once the hero entrance and side rails have settled. */
@@ -486,53 +489,36 @@ export const METEOR = {
 	/** After `slowAfter` seconds on the page gaps stretch by `slowFactor`, so the sky never turns into a screensaver. */
 	slowAfter: 180,
 	slowFactor: 1.5,
-	/** Candidate paths tried per radiant for long flights, and again for the fallback; an aimed launch (METEOR_PASS) tries up to as many again. */
+	/** Candidate start points tried per steer for long flights, and again for the fallback; a launch traded for a pass behind copy (METEOR_PASS) tries up to as many again. */
 	attempts: 160,
-	/** Fresh radiants tried per launch when the current one yields no long flight, before any shorter one; narrow screens try one, so theirs stay rare. */
+	/** Fresh steers (a new source and scatter from the visit's sky) tried per launch when the first yields no long flight, before any shorter one; narrow screens try one. */
 	radiantTries: 3,
-	/** Path angle below horizontal (degrees), traveling right to left. */
-	angle: [18, 42],
-	/** Radiant as multiples of the viewport (x beyond the right edge, y above the top) and per-meteor jitter (degrees). */
-	radiantX: [1.5, 2.2],
-	radiantY: [0.15, 0.45],
-	radiantJitter: 4,
 	/** Start area as viewport fractions; y also stays below `top`. */
 	spawnX: [0.45, 0.985],
 	spawnY: [0, 0.5],
-	/** Paths end above this share of the height, clear of the fixed side rails in the bottom corners. */
+	/** Paths end above this share of the height, clear of the bottom corners; planMeteor's `clearOf` keeps them off the side rails' copy. */
 	maxEndY: 0.72,
 	/** Clearance below the top edge (under the 100px navbar) and inside the screen edges. */
 	top: 110,
 	edgeMargin: 12,
 	/**
-	 * Normal flights: duration (s), long enough to follow by eye, and shorter ones where no long flight fits (a short
-	 * laptop window, a phone held sideways); nominal speed as a share of the longer viewport side per second, clamped
-	 * (px/s), and its per-flight spread.
+	 * Speeds and durations come from SPEED_CLASSES, and each flight's speed spreads by `speedJitter`; where no long
+	 * flight fits (a short laptop window, a phone), the fallback pass flies its class's durations times `fallbackScale`.
 	 */
-	duration: [0.9, 1.4],
-	fallbackDuration: [0.65, 0.9],
-	speedShare: 0.2,
-	speed: [240, 460],
 	speedJitter: [0.88, 1.12],
-	/** Where no long flight fits, the fallback pass flies its speed class's durations times this, and accepts a path this share as long as the shortest. */
 	fallbackScale: 0.64,
-	/** Path length range (px); the longest is also at most `pathShare` of the longer viewport side. */
+	/** Path length range (px; the fallback pass accepts `fallbackScale` times the shortest); the longest is also at most `pathShare` of the longer viewport side. */
 	path: [160, 640],
 	pathShare: 0.36,
-	/** Narrow screens: slower flights and their fallback, at least `narrowMinPath` px and at most `narrowMaxPathShare` of the width. */
-	narrowDuration: [0.75, 1.05],
-	narrowFallbackDuration: [0.6, 0.8],
-	narrowSpeed: [200, 300],
+	/** Narrow screens: paths at least `narrowMinPath` px (`fallbackScale` times that on the fallback pass) and at most `narrowMaxPathShare` of the width. */
 	narrowMinPath: 110,
 	narrowMaxPathShare: 0.55,
-	/** Peak brightness of normal flights; fireballs peak at 1. */
-	peak: [0.75, 0.9],
 	/** Atmospheric drag: by the end of the flight the speed falls to 1 - 3 × drag of the entry speed (0.06: 82%). */
 	drag: 0.06,
 	/** Wake afterglow (s): each point of the path dims to 1/e this long after the head passes; drawn for `wakeSpan` of these. */
 	wake: 0.13,
 	wakeSpan: 3,
-	/** Fireballs (rare, long flights only): longer, slower and brighter, with more drag, a longer wake and a warm tint. */
+	/** Fireballs (rare, long flights only): longer, slower and brighter, with more drag and a longer wake, warm unless fast (mint). */
 	fireballChance: 0.08,
 	fireballDuration: [1.8, 2.5],
 	fireballSpeedScale: 0.6,
@@ -540,9 +526,8 @@ export const METEOR = {
 	fireballWake: 0.18,
 	/** A late flare on some flights. */
 	flareChance: 0.12,
-	/** A faint persistent train behind some fireballs and flights at least `trainSpeedShare` of the nominal speed (the faster half). */
+	/** A faint persistent train behind some fireballs and fast flights (SPEED_CLASSES' `train`). */
 	trainChance: 0.15,
-	trainSpeedShare: 1,
 } as const
 
 /**
@@ -599,9 +584,9 @@ export const METEOR_LIGHT = { skew: 0.868, sharpness: 1.2, flare: 0.55, flareAt:
 /**
  * How a shooting star is drawn: head core and glow sigma, glow alpha (bigger for fireballs); the wake tapers from
  * the head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. From the head the wake
- * cools from white to its tint over `coolBy` of its length, and its far half thins to `tailKeep` at the end. Normal
- * wakes cool to --color-green mixed `mintToWhite` toward --color-white; fireballs warm to palette index `fireballTint`
- * (pale yellow).
+ * cools from white to its tint over `coolBy` of its length, and its far half thins to `tailKeep` at the end. Each wake
+ * takes its speed class's color: fast ones cool to --color-green mixed `mintToWhite` toward --color-white, medium ones
+ * stay white, and slow ones warm to palette index `fireballTint` (pale yellow), as fireballs do unless they are fast.
  */
 export const METEOR_LOOK = {
 	core: 0.8,

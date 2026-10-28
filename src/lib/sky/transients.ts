@@ -8,6 +8,7 @@ import { TRANSIENTS } from './config'
 import { METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
 import type { Meteor, MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
+import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
 import { scrollKept } from './scene'
 
@@ -23,7 +24,13 @@ export type TransientKind = keyof TransientBodies
 export const TRANSIENT_KINDS = ['meteor'] as const satisfies readonly TransientKind[]
 
 /** Where transients may fly: the viewport and the padded quiet rects on screen (CSS px), the field every kind plans in. */
-export type SkyField = MeteorField
+export interface SkyField extends MeteorField {
+	/**
+	 * The padded zones of copy pinned to the screen (the side rails), which shooting stars keep clear of (planMeteor's
+	 * clearOf): the very objects `quiet` holds for the rails, so `quiet` without them is the copy in the page's flow.
+	 */
+	pinned: readonly SkyRect[]
+}
 
 /** What the scheduler tracks for a transient of kind K. Times are seconds on the worker clock. */
 export interface TransientEnvelope<K extends TransientKind> {
@@ -279,7 +286,7 @@ export function retryTransients(schedule: TransientSchedule, random: Random, now
 	}
 }
 
-/** The viewport changed: every spec forgets its part of the visit's memory (the shooting stars' radiant). A layout doesn't call it: layouts also arrive for harmless re-measures. */
+/** The viewport changed: every spec forgets its part of the visit's memory (the shooting stars' sky). A layout doesn't call it: layouts also arrive for harmless re-measures. */
 export function forgetVisitSky(schedule: TransientSchedule): void {
 	for (const kind of TRANSIENT_KINDS) SPECS[kind].forget?.(schedule.visit)
 }

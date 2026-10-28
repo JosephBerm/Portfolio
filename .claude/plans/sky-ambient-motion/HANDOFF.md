@@ -1,6 +1,6 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-27, `PLAN.md` written and checked; veil reconciliation and audits next.
+Last updated: 2026-10-27, `PLAN.md` reconciled with the veil interface and audited; gate rounds continue until one comes back clean.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 
@@ -29,9 +29,17 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - Round 3's fixes were not re-checked. The next review round does that.
 
   Drafts and check reports are in `drafts/`. If `PLAN.md` is missing or has no "Check log" section, rerun this step from `01-planning-brief.md`.
-- [ ] Reconcile `PLAN.md` with the confirmed veil interface ("Confirmed veil interface" in `COORDINATION.md`), and re-check round 3's fixes.
-- [ ] Four auditors (Next.js docs, conventions, DRY, separation of concerns) write to `audit/`, and a skeptic verifies each auditor's findings.
+- [x] Reconcile `PLAN.md` with the confirmed veil interface ("Confirmed veil interface" in `COORDINATION.md`), and re-check round 3's fixes. Done in `wf_09c7465f-276`; every change is in the Check log under "Veil reconciliation (2026-10-27)".
+- [x] Four auditors (Next.js docs, conventions, DRY, separation of concerns) write to `audit/`, and a skeptic verifies each auditor's findings. Round 4 ran the four checkers and the four auditors together:
+  - 68 findings, 11 of them blocking or major.
+  - The skeptics refuted none (see each report's "## Verification" section).
+  - The reviser fixed all 68.
 - [ ] Fold the check and audit findings into `PLAN.md`, run gate rounds until no blocking or major findings remain, then commit and push to `claude/quirky-carson-btv2u4`.
+  - Gate rounds 5 and 6 each ran all eight reviewers (four checkers, four auditors):
+    - Round 5: 32 findings, 8 blocking or major.
+    - Round 6: 22 findings, 1 major.
+  - The reviser fixed every finding. Reports: `drafts/check-r<N>-*.md`, `audit/*-gate-r<N>.md`; logs: the "Check log" and "Audit log" in `PLAN.md`.
+  - Round 6's fixes are not re-checked yet. The next gate round does that, and the plan counts as converged only when a round raises no blocking or major finding.
 
 ## Key facts
 

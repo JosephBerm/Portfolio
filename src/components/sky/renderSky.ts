@@ -21,32 +21,65 @@ import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import { starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
-/** Lazily generated cells of each layer's infinite plane, kept while they stay near the viewport. */
+/** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
 export interface StarField {
+	/** The stars of one cell; a cell beyond the key range (-32768 to 32767 on each axis) holds none, so keys never collide. */
 	cell(layer: SkyLayer, cx: number, cy: number): readonly Star[]
-	/** Drops the cache once it holds far more cells than one screenful. */
-	trim(visibleCells: number): void
+	/** Starts a frame: cells looked up from now on count as in use. */
+	beginFrame(): void
+	/** Drops the cells this frame didn't use once the cache holds more than CELL_CACHE_SLACK times the cells in use. */
+	trim(): void
 }
+
+/** How many times the cells in use the cache may hold before it drops the unused ones. */
+const CELL_CACHE_SLACK = 2
 
 /** Layer slot in a cell's cache key. */
 const LAYER_INDEX: Record<SkyLayer, number> = { far: 0, mid: 1, near: 2 }
 
-/** An empty star-cell cache; cells are generated on first use. */
+/** Each axis's cell coordinates from -CELL_KEY_RANGE to CELL_KEY_RANGE - 1 get their own key (about ±8.4 million px). */
+const CELL_KEY_RANGE = 0x8000
+
+/** A cell beyond the key range. */
+const NO_STARS: readonly Star[] = []
+
+/** A cached cell's stars and the frame that last used them. */
+interface CachedCell {
+	stars: readonly Star[]
+	frame: number
+}
+
+/**
+ * An empty star-cell cache; cells are generated on first use. A cell in use is never generated again, so the cells on
+ * screen never regenerate in one burst; only cells no frame has used since are dropped.
+ */
 export function createStarField(): StarField {
-	const cells = new Map<number, readonly Star[]>()
+	const cells = new Map<number, CachedCell>()
+	let frame = 0
+	let inUse = 0
 	return {
 		cell(layer, cx, cy) {
-			// Numeric key (no string garbage per frame): cell coordinates stay well inside ±32768
-			const key = ((cx + 0x8000) * 0x10000 + (cy + 0x8000)) * 4 + LAYER_INDEX[layer]
-			let stars = cells.get(key)
-			if (!stars) {
-				stars = cellStars(layer, cx, cy)
-				cells.set(key, stars)
+			if (cx < -CELL_KEY_RANGE || cx >= CELL_KEY_RANGE || cy < -CELL_KEY_RANGE || cy >= CELL_KEY_RANGE) return NO_STARS
+			// Numeric key (no string garbage per frame), one per cell inside the key range
+			const key = ((cx + CELL_KEY_RANGE) * 2 * CELL_KEY_RANGE + (cy + CELL_KEY_RANGE)) * 4 + LAYER_INDEX[layer]
+			let cached = cells.get(key)
+			if (!cached) {
+				cached = { stars: cellStars(layer, cx, cy), frame: -1 }
+				cells.set(key, cached)
 			}
-			return stars
+			if (cached.frame !== frame) {
+				cached.frame = frame
+				inUse++
+			}
+			return cached.stars
 		},
-		trim(visibleCells) {
-			if (cells.size > visibleCells * 4) cells.clear()
+		beginFrame() {
+			frame++
+			inUse = 0
+		},
+		trim() {
+			if (cells.size <= inUse * CELL_CACHE_SLACK) return
+			for (const [key, cached] of cells) if (cached.frame !== frame) cells.delete(key)
 		},
 	}
 }
@@ -89,7 +122,11 @@ export interface SkyFrame {
 	snap: boolean
 }
 
-/** Stars this far beyond an edge are still drawn, so a halo never pops in at the border. */
+/**
+ * Stars this far beyond an edge (CSS px) are still drawn, so a halo never pops in at the border: the widest sprite's
+ * half-side, three halo sigmas rounded up to whole device pixels, is at most 12 CSS px, even at the 25% zoom the canvas
+ * ratio can fall to.
+ */
 const EDGE = 24
 
 /** The quiet zones bucketed by screen tile over the viewport and EDGE, so each star reads only the zones that can reach it. */
@@ -125,10 +162,10 @@ function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, p
 	return sprite
 }
 
-/** Draws one depth layer; returns the cells visited. */
-function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): number {
+/** Draws one depth layer. */
+function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): void {
 	const scale = frame.layers[layer]
-	if (scale <= MIN_STAR_ALPHA) return 0
+	if (scale <= MIN_STAR_ALPHA) return
 	const config = LAYERS[layer]
 	const offsetY = frame.parallaxScroll * config.parallax
 	const x0 = Math.floor(-EDGE / CELL_SIZE)
@@ -137,10 +174,8 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 	const y1 = Math.floor((offsetY + frame.height + EDGE) / CELL_SIZE)
 	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
-	let cells = 0
 	for (let cy = y0; cy <= y1; cy++) {
 		for (let cx = x0; cx <= x1; cx++) {
-			cells++
 			for (const star of field.cell(layer, cx, cy)) {
 				if (star.keep >= frame.keep) continue
 				const x = star.x
@@ -163,7 +198,6 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 			}
 		}
 	}
-	return cells
 }
 
 /** Navy, haze, then every layer with additive blending (starlight adds; overlapping glows never muddy). */
@@ -181,9 +215,9 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 		ctx.imageSmoothingEnabled = true
 	}
 	quietIndex.update(frame.quiet, frame.width, frame.height, EDGE)
-	let cells = 0
-	for (const layer of SKY_LAYERS) cells += drawLayer(ctx, assets, field, frame, layer)
-	field.trim(cells)
+	field.beginFrame()
+	for (const layer of SKY_LAYERS) drawLayer(ctx, assets, field, frame, layer)
+	field.trim()
 	ctx.globalAlpha = 1
 }
 

@@ -400,6 +400,46 @@ P7 (the pointer lean) is merged into master as #22 (merge eda7acc), with green c
 
 **Veil code:** untouched.
 
+### CP-2, 2026-10-28: P8
+
+P8 (the transient core) is merged into master as #23 (merge c9e7841), and both Vercel checks pass.
+- Sonnet 5.5 (max) implemented it to `PLAN.md`.
+- Opus 5.5 (max) audited it, and a separate Sonnet 5.5 (max) fixer applied the fixes.
+- This entry is the implementing session's report. The planning session checked:
+  - #23 is merged;
+  - `meteors.ts` is unchanged since cf4d7b8;
+  - the veil's functions are byte-identical at c9e7841: `veiledFrom`, `planFlight`, `planMeteor`, `inkBudget`, `budgetKeeps`, `scrollKept`, `transientQuietFactor`, `easedQuietFactor`, `quietFactor`, `drawMeteor`, `drawTrain`, `quietBlend`, `quietEasing`, `applyLayout`, `settleQuiet`, `copyReader` and `quietRects`.
+
+**Files and functions changed:**
+- `transients.ts` (new):
+  - types: `TransientKind`, `TransientEnvelope`/`Transient`, `VisitMemory`, `PlanContext` and `TransientSpec`;
+  - the registry and `TRANSIENT_KINDS` (meteor only);
+  - `TransientSchedule`, `createTransientSchedule`, `updateTransients`, `revealTransients` and `transientFade` (through the veil's `scrollKept`);
+  - `leaseHeld`, `inkLeaseFree`, cancel and drop;
+  - `forgetVisitSky`, `holdTransients`, `retryTransients`, `transientDemand` and `nextLaunchAt`.
+- `meteorKind.ts` (new): `MeteorMemory`, `createMeteorMemory`, `planMeteorTransient` (which ports the veil's `planLaunch` in its order) and `METEOR_SPEC`.
+- `random.ts`: `Random`.
+- `config.ts`:
+  - `TRANSIENTS` (`crossingCooldown` 0) takes `METEOR`'s scheduler keys and `FRAME.meteorScrollQuietMs` as `scrollQuiet`;
+  - `SCENE.heroMeteorMaxScroll` becomes `heroLaunchMaxScroll`.
+- `scene.ts`: `SceneLevels.meteors` becomes `launches`, keeping the veil's doc wording.
+- `protocol.ts`: a doc.
+- `pacing.ts`: the frame-demand docs.
+- `renderSky.ts`: `drawTransient`, which hands the veil's `drawMeteor` its `fade`.
+- `sky.worker.ts`:
+  - `transients` replaces `meteor`, `launchScrollY`, `radiant`, `launched`, `failedPlans` and `nextMeteorAt`;
+  - the worker's `updateMeteor` and `planLaunch` are gone, ported into the scheduler and `meteorKind.ts` as `PLAN.md` planned;
+  - `launchGate(now, scene)` takes `ink` from `contrastLevels()` and `narrow` from `narrowScreen`;
+  - `launchesAllowed`, plus `retryTransients` in the layout branch;
+  - `forgetVisitSky` runs on resize only;
+  - `draw` uses `transientFade`;
+  - `parallaxScroll` is retired (the camera reads `scrollY`).
+- README: the sky lines.
+
+**Unchanged (the veil's):** `veiledFrom`, `planMeteor` and `planFlight`, `drawMeteor`, `scrollKept`, `transientQuietFactor`, and the quiet ease code.
+
+**Behavior:** launches match the old `updateMeteor`/`planLaunch` exactly. The evidence is an independent oracle harness over 100,000 sequences, plus 523,637 identical worker frames. The one visible change: a pause fades a flying meteor out over 0.2 s.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -417,3 +457,4 @@ P7 (the pointer lean) is merged into master as #22 (merge eda7acc), with green c
 - 2026-10-27: committed as cf4d7b8 on master and pushed (`origin/master` at 20:56), identical to the confirmed diff (patch-id checked), every recommended setting kept, no launch hold. `PLAN.md` is restructured to build on cf4d7b8 directly.
 - 2026-10-28: CP-2 for P1 to P6 (PRs #16 to #21, master at 725a239), recorded from the implementing session's report under "Phase merges (CP-2)". The veil session is idle, and its work is committed.
 - 2026-10-28: CP-2 for P7 (#22, master at eda7acc), recorded from the implementing session's report under "Phase merges (CP-2)".
+- 2026-10-28: CP-2 for P8 (#23, master at c9e7841), recorded the same way.

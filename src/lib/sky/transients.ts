@@ -70,6 +70,8 @@ export interface PlanContext {
 	ink: number
 	/** A narrow screen (phones). */
 	narrow: boolean
+	/** Seconds since the reveal: a kind may wait for the visit to settle (fireballs wait METEOR_KINDS.fireball.after). */
+	sinceReveal: number
 }
 
 /** How one kind is timed and planned; each kind's module exports one. Drawing lives with the canvas code (drawTransient). */
@@ -210,7 +212,7 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 	const spec: TransientSpec<K> = SPECS[kind]
 	// Near copy only for a kind that may take the lease, while nobody holds it and the cooldown is over
 	const nearCopy = spec.lease && inkLeaseFree(schedule, now)
-	const body = spec.plan({ random, now, field: gate.field(), visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow })
+	const body = spec.plan({ random, now, field: gate.field(), visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
 	if (body === null && !nearCopy) {
 		// Clear sky alone failing shows no lack of room, and on a phone counting it could stop shooting stars for the visit
 		schedule.nextAt[kind] = now + between(random, ...TRANSIENTS.retry)

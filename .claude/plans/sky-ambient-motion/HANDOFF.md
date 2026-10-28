@@ -2,7 +2,11 @@
 
 Last updated: 2026-10-28. Planning is done: `PLAN.md` is built on the veil commit `cf4d7b8`, and it converged in gate round 12.
 - Joseph chose the recommended defaults for every decision in section 3 ("Use the defaults").
-- Implementation runs in the local session "Implement the sky ambient-motion plan (P0 onward)" (`local_173b1826-7839-4b4e-a7c8-ad3fe4af9577`). It confirms each phase with Joseph before starting it.
+- Implementation ran in the local session "Implement the sky ambient-motion plan (P0 onward)" (`local_173b1826-7839-4b4e-a7c8-ad3fe4af9577`).
+  - P1 to P11 are merged into master (#16 to #26, master at `ecfbf1a`).
+  - P12 and P13 are skipped per D4 and D7.
+  - Each merge is logged under "Phase merges (CP-2)" in `COORDINATION.md`, with the crossing rerun after P9.
+- What's left is Joseph's real-device checks. They are listed at the end of the P11 entry in `COORDINATION.md`, and the iPhone tests decide D7.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 

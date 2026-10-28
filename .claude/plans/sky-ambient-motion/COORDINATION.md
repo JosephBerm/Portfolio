@@ -522,6 +522,61 @@ Crossings a minute over a visit's first 2 minutes, at the 40 s cooldown:
 - **With P10:** the rule still gives 40 s (0.396 at 2560x1440).
 - **The veil's edge-fade rule** stays on every viewport.
 
+### CP-2, 2026-10-28: P11, and the plan's end
+
+P11 (satellites) is merged into master as #26 (merge ecfbf1a, head 8ba5694; commits bfc4cb3, 84deb09, 69f1b78 and 8ba5694). That completes P1 to P11. P12 and P13 are skipped, as the defaults say:
+- **P12:** D4 ships none of the "could" kinds in v1.
+- **P13:** D7 ships without the WebKit relay until device tests ask for it.
+
+This entry is the implementing session's report. The planning session checked:
+- #26 is merged;
+- `meteors.ts`, `scene.ts` and `meteorKind.ts` are unchanged since P10's merge (942ebcb);
+- `drawMeteor`, `drawTrain`, the worker's quiet ease (`quietBlend`, `quietEasing`, `applyLayout`, `settleQuiet`), `copyReader` and `quietRects` are byte-identical since P10;
+- every changed line in `sky.worker.ts`, `mountSky.ts` and `protocol.ts` is a comment.
+
+**Files and functions changed:**
+- `satellites.ts` (new): `SatellitePass`, `SatelliteFrame`, `planSatellite`, `satelliteMoving`, `satelliteAt` and `SATELLITE_SPEC`. It imports only types from `transients.ts`.
+- `config.ts`:
+  - new: `SATELLITE`, and `CLEAR_SKY_KEEPS` (`{ 0, 0 }`);
+  - the `TRANSIENTS` doc names satellites and says the cooldown was measured without them. `crossingCooldown` stays 40.
+- `quietIndex.ts`: `segmentClear` is new (`quietAt` sampled every 8 px), and the `ZONE_REACH` doc gains a sentence.
+- `transients.ts`:
+  - `satellite` joins `TransientBodies`, `TRANSIENT_KINDS` and `SPECS`;
+  - `heldBack` holds a kind that never takes the lease while `leaseHeld`;
+  - `launchKind`'s `nearCopy` also needs `schedule.active.length === 0` (D12's two-way hold);
+  - the docs of `PlanContext.nearCopy`, `TransientEnvelope.clearSky`, `TransientSpec.lease` and `transientFade` are updated.
+- `renderSky.ts`: `drawSatellite` is new. It draws through `transientQuietFactor` with `CLEAR_SKY_KEEPS`, sampled at its center, and places with unsnapped `placePoint`. `drawTransient` gains a `satellite` case.
+- `sky.worker.ts`, `mountSky.ts` and `protocol.ts`: comments only, naming satellites beside shooting stars.
+- README: the sky line names `satellites.ts`.
+
+**Answer 3's three conditions** (for a kind that never takes the lease) are met:
+- No light inside a padded rect of `to` or `next`: it draws through `transientQuietFactor` with keeps 0, checked by H11-draw.
+- The scroll cancel from its own launch: `transientFade`, so `scrollKept`.
+- Never the lease: its `nearCopy` is always false.
+
+**Crossings a minute at 40 s with satellites** (first 2 minutes):
+
+| Size | Crossings a minute |
+|---|---|
+| 1440x900 | 0.429 |
+| 1280x800 | 0.587 |
+| 1920x1080 | 0.392 |
+| 1366x768 | 0.516 |
+| 1536x864 | 0.413 |
+| 1280x720 | 0.641 |
+| 1024x768 | 0.372 |
+| 2560x1440 | 0.377 (bar 0.421) |
+| 390x844 | 0.674 |
+
+- The hold takes 2.7 to 4.8% of desktop crossings.
+- With satellites, the rule would allow 35 s. It gives 40 s without them, and 40 s meets every bar, so it stays.
+
+**Still pending, for Joseph on real devices:**
+- AC-13 on a real display;
+- P6's by-eye pass and the `DRIFT.speed` choice;
+- iPhone Safari (WebKit judder, Low Power Mode), which also decides D7, the relay;
+- budgets B-1 to B-7 and B-10's heap check.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -541,3 +596,4 @@ Crossings a minute over a visit's first 2 minutes, at the 40 s cooldown:
 - 2026-10-28: CP-2 for P7 (#22, master at eda7acc), recorded from the implementing session's report under "Phase merges (CP-2)".
 - 2026-10-28: CP-2 for P8 (#23, master at c9e7841), recorded the same way.
 - 2026-10-28: CP-2 for P9 and P10 (#24 and #25, master at 942ebcb), with the crossing rerun the veil asked for, reported to Joseph next to the veil's numbers.
+- 2026-10-28: CP-2 for P11 (#26, master at ecfbf1a). P1 to P11 are done; P12 and P13 are skipped per D4 and D7.

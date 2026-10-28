@@ -26,6 +26,12 @@ const LOW_MEMORY_GB = 4
 /** Largest canvas backing store (device px, about 33 MB): very large high-DPR screens draw slightly softer instead. */
 const MAX_BACKING_PIXELS = 3840 * 2160
 
+/** Presence pings for the sky's idle clock, at most this often (ms): someone moving the pointer or typing is still here. */
+const ACTIVITY_INTERVAL_MS = 1000
+
+/** Input that shows someone is still here without scrolling. */
+const ACTIVITY_EVENTS = ['pointermove', 'pointerdown', 'keydown', 'focusin'] as const
+
 /**
  * Copy the sky stays quiet behind: no bright stars beside it, and a shooting star behind it dims to what the copy can
  * take. The hero, Contact, the footer and the side rails opt in with data-sky-quiet. Copy in fixed elements (the rails)
@@ -189,8 +195,8 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader): SkyRect
 
 /**
  * Starts the night sky inside `host`: creates the canvas, hands it to the sky worker and forwards size, scroll,
- * visibility, preference and layout changes. Returns a no-op controller where OffscreenCanvas or workers are
- * missing or the theme tokens can't be read, which leaves the plain navy background.
+ * activity (pointer, keys and focus), visibility, preference and layout changes. Returns a no-op controller where
+ * OffscreenCanvas or workers are missing or the theme tokens can't be read, which leaves the plain navy background.
  */
 export function mountSky(host: HTMLElement, canvasClassName: string): SkyController {
 	if (!supported()) return NOOP
@@ -316,6 +322,17 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		// Contact's entrance plays as it scrolls into view
 		settleLater()
 	})
+
+	// Pointer, keys and focus show someone is here without scrolling: tell the worker's idle clock, at most once a second
+	let lastActivity = -Infinity
+	const noteActivity = () => {
+		const now = performance.now()
+		// Before init there is no worker clock to wake
+		if (offscreen || now - lastActivity < ACTIVITY_INTERVAL_MS) return
+		lastActivity = now
+		post({ type: 'activity' })
+	}
+	for (const type of ACTIVITY_EVENTS) window.addEventListener(type, noteActivity, { passive: true, signal })
 
 	document.addEventListener('visibilitychange', () => post({ type: 'visible', visible: document.visibilityState === 'visible' }), { signal })
 	forcedColors.addEventListener('change', syncMotion, { signal })

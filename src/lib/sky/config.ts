@@ -266,9 +266,12 @@ export const FRAME = {
 	scrollSettleMs: 180,
 	/** Shooting stars wait this long after scrolling stops. */
 	meteorScrollQuietMs: 1200,
-	/** With no scroll for this long the twinkle eases out, shooting stars pause and the worker sleeps until the next scroll. */
+	/**
+	 * With no input (scroll, pointer, keys, focus) for this long ambient motion eases out, nothing new launches and the
+	 * worker sleeps until the visitor is back.
+	 */
 	idleSleepMs: 90_000,
-	/** Twinkle fade out and back in around the idle sleep. */
+	/** Ambient motion fades out and back in around the idle sleep. */
 	idleFadeMs: 4000,
 	/**
 	 * Seconds over which the twinkle eases out or back in when motion stops or starts again (the pause control, a

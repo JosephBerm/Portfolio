@@ -322,6 +322,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
 		quiet: quietBlend(t),
 		meteorInk: contrast.meteorInk,
+		snap: true,
 	}
 }
 

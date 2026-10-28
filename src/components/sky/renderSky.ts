@@ -10,6 +10,7 @@ import {
 	MIN_STAR_ALPHA,
 	SKY_LAYERS,
 	STAR_ALPHA,
+	STAR_PHASES,
 	TRAIN,
 	TWINKLE_HORIZON_GAIN,
 	type SkyLayer,
@@ -17,7 +18,7 @@ import {
 import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { budgetKeeps, easedQuietFactor, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
-import { starSpriteIndex, type StarAtlas } from './skyAssets'
+import { starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, kept while they stay near the viewport. */
 export interface StarField {
@@ -83,10 +84,42 @@ export interface SkyFrame {
 	quiet: QuietBlend
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (contrast). */
 	meteorInk: number
+	/** Every star at a whole device pixel, as a sky at rest draws them; false places each at its nearest quarter-pixel phase (placePoint). */
+	snap: boolean
 }
 
 /** Stars this far beyond an edge are still drawn, so a halo never pops in at the border. */
 const EDGE = 24
+
+/** Top-left device pixel of the sprite placePoint last picked (reused, so no garbage per star). */
+const corner = { x: 0, y: 0 }
+
+/**
+ * The sprite for a point of light centered at (px, py) device px, with its top-left whole pixel in `corner`. A moving
+ * point uses the sprite pre-rendered at its nearest quarter-pixel phase, so it glides without blurring or pulsing; `snap`
+ * rounds to whole pixels (sprites have odd sides), so resting stars stay crisp points.
+ */
+function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, py: number, snap: boolean): Sprite | undefined {
+	let ix = snap ? Math.round(px) : Math.floor(px)
+	let iy = snap ? Math.round(py) : Math.floor(py)
+	let phaseX = snap ? 0 : Math.round((px - ix) * STAR_PHASES)
+	let phaseY = snap ? 0 : Math.round((py - iy) * STAR_PHASES)
+	// The nearest phase may be the next pixel's first
+	if (phaseX === STAR_PHASES) {
+		ix++
+		phaseX = 0
+	}
+	if (phaseY === STAR_PHASES) {
+		iy++
+		phaseY = 0
+	}
+	const sprite = atlas.stars[starSpriteIndex(tint, shape, phaseX, phaseY)]
+	if (!sprite) return undefined
+	const half = (sprite.size - 1) / 2
+	corner.x = ix - half
+	corner.y = iy - half
+	return sprite
+}
 
 /** Draws one depth layer; returns the cells visited. */
 function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): number {
@@ -98,7 +131,7 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 	const x1 = Math.floor((frame.width + EDGE) / CELL_SIZE)
 	const y0 = Math.floor((offsetY - EDGE) / CELL_SIZE)
 	const y1 = Math.floor((offsetY + frame.height + EDGE) / CELL_SIZE)
-	const { image, stars: sprites } = assets.atlas
+	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
 	const quiet = frame.quiet.to.length > 0 || frame.quiet.from.length > 0
 	let cells = 0
@@ -120,12 +153,10 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 					alpha *= Math.exp(sigma * twinkleNoise(star.twinkle, frame.time) - (sigma * sigma) / 2)
 				}
 				if (alpha < MIN_STAR_ALPHA) continue
-				const sprite = sprites[starSpriteIndex(star.tint, star.shape, 0, 0)]
+				const sprite = placePoint(atlas, star.tint, star.shape, x * frame.dpr, y * frame.dpr, frame.snap)
 				if (!sprite) continue
-				// Snapped to device pixels (sprites have odd sides), so resting stars stay crisp points
-				const half = (sprite.size - 1) / 2
 				ctx.globalAlpha = Math.min(STAR_ALPHA.peak, alpha)
-				ctx.drawImage(image, sprite.x, sprite.y, sprite.size, sprite.size, Math.round(x * frame.dpr) - half, Math.round(y * frame.dpr) - half, sprite.size, sprite.size)
+				ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, corner.x, corner.y, sprite.size, sprite.size)
 			}
 		}
 	}

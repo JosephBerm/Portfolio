@@ -660,9 +660,12 @@ scope.addEventListener('message', (event) => {
 		case 'motion': {
 			// Only a real change starts an ease, so a repeated message can't restart one
 			if (message.motion === motion) break
-			// Eases from wherever the level is now, so a change mid-ease never jumps
+			// Eases from the level on screen, so a change mid-ease never jumps. A hidden tab shows the level it had when it was
+			// hidden, not one an earlier ease has run out to unseen: a pause and a play that cancel out while it is hidden then
+			// leave nothing to ease when it is shown
 			const t = now / 1000
-			motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, t), to: message.motion === 'full' ? 1 : 0, since: t }
+			const shown = hiddenAt === null ? t : hiddenAt / 1000
+			motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, shown), to: message.motion === 'full' ? 1 : 0, since: t }
 			if (message.motion === 'full') {
 				skyMoved = true
 				// A switch to full motion in a shown tab means the visitor is here, whether they pressed Play on this page or in

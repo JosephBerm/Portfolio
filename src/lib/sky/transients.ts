@@ -66,7 +66,7 @@ export interface PlanContext {
 	now: number
 	field: SkyField
 	visit: VisitMemory
-	/** The ink lease is free and the crossing cooldown is over, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
+	/** The ink lease is free, the crossing cooldown is over and nothing else is in the sky, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
 	nearCopy: boolean
 	/** Share of each rect's ink budget a transient may keep on the copy (the contrast preference's meteorInk): planMeteor's ink option. */
 	ink: number
@@ -162,7 +162,7 @@ export function holdTransients(schedule: TransientSchedule, now: number): void {
 /**
  * Share of its light a transient keeps: the scroll cancel (scrollKept) from its launch scroll, with the pause fade (over
  * TRANSIENTS.cancelFade once cancelled) as scrollKept's own `fade`. The scheduler retires it at 0, and the worker draws it
- * with this as drawMeteor's `fade`.
+ * with this as drawTransient's `fade`.
  */
 export function transientFade(transient: Transient, now: number, scrollY: number): number {
 	return scrollKept(transient.launchScrollY, scrollY, fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now))

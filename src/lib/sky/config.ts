@@ -384,7 +384,8 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
  * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
  * crossings stay rare: the cooldown is set to the shortest multiple of 5 s that keeps the crossings a minute over a
- * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout. A pause
+ * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout,
+ * measured without satellites, which only make crossings fewer, so it holds whether or not they fly. A pause
  * fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls
  * from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the
  * kind waits for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds

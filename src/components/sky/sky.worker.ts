@@ -292,13 +292,13 @@ function cancelFrames(): void {
 }
 
 /** True when transients may launch at all right now (each kind's own timing aside). */
-function launchesAllowed(now: number): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && sceneAt(scrollY, height, documentHeight).launches
+function launchesAllowed(now: number, scene: SceneLevels): boolean {
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launches
 }
 
-/** Refills the launch gate for `now` (ms): whether and where transients may launch this tick. */
-function launchGate(now: number): LaunchGate {
-	gate.allowed = launchesAllowed(now)
+/** Refills the launch gate for `now` (ms) in the tick's scene: whether and where transients may launch this tick. */
+function launchGate(now: number, scene: SceneLevels): LaunchGate {
+	gate.allowed = launchesAllowed(now, scene)
 	// Worker milliseconds against the key's seconds
 	gate.settled = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
 	gate.narrow = narrowScreen
@@ -319,7 +319,8 @@ function schedule(now: number): void {
 	if (rafId !== null || !ctx || !visible) return
 	clearTimeout(timerId)
 	timerId = undefined
-	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
+	const scene = sceneAt(scrollY, height, documentHeight)
+	const demand = demandNow(now, scene)
 	if (demand.vsync) {
 		requestFrame(now, demand)
 		return
@@ -332,7 +333,7 @@ function schedule(now: number): void {
 		const launchAt = nextLaunchAt(transients)
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
 		// Asleep in the hero (an idle twinkle, say): wake only for the next shooting star
-		else if (Number.isFinite(launchAt) && launchesAllowed(now)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
+		else if (Number.isFinite(launchAt) && launchesAllowed(now, scene)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
 		return
 	}
 	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + 1000 / demand.fps - now))
@@ -411,9 +412,10 @@ function recheckFrames(): void {
  * wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
  */
 function tick(now: number): void {
-	if (updateTransients(transients, random, now / 1000, launchGate(now))) needsDraw = true
-	settleQuiet(now)
+	// The launch gate, the gates and the camera read one scene: nothing in a tick moves the scroll or the viewport
 	const scene = sceneAt(scrollY, height, documentHeight)
+	if (updateTransients(transients, random, now / 1000, launchGate(now, scene))) needsDraw = true
+	settleQuiet(now)
 	gather(now, scene)
 	// Fade frames come 1/FRAME.fadeFps s apart, so the motion ease and the thin fade end between two of them: the last
 	// frame shown still carries a trace of twinkle or of the thinned stars. One more frame shows the resting sky, which is

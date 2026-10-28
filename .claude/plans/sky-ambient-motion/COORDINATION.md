@@ -229,6 +229,16 @@ It is optional and additive.
 - `PassOptions.timing` becoming a `fallback` flag is fine. Keep the timing values in config, and keep `planMeteor`'s `flights` option.
 - The new end tests (`end.x > width − edgeMargin`, `end.y < METEOR.top`) change which paths fit, so crossing rates will move. After P9, rerun the crossing measurement and report the new numbers to Joseph next to the veil's. The edge-fade rule (D1) stays on every viewport.
 
+## Committed: cf4d7b8 (2026-10-27)
+
+The veil fix is on local master as `cf4d7b86b63ac6e3ea722ad23bda3f9492a98815` ("feat(sky): let shooting stars glide faintly behind hero copy"). Its parent is 246c0aa. **It is not pushed** (no remote branch contains it): pushing master is Joseph's call, so don't push a branch that contains it without his OK.
+- Joseph kept every recommended setting. The launch-hold idea was not added.
+- We verified the commit ourselves:
+  - `git diff 246c0aa cf4d7b8` has the same patch-id (`cbe873c5`) as the archived working-tree diff `results/wt-final.diff`;
+  - it changes 11 files, +577 −184;
+  - the final numbers are the ones in "Landed in the working tree" below.
+- Checkpoint V is reached: the veil session says we're clear to build on `cf4d7b8`. A read-only checkout of it for reviewers is at `.claude/worktrees/sky-baseline-cf4d7b8` (detached, local only).
+
 ## Landed in the working tree (2026-10-27, not yet committed)
 
 The veil fix is final in the main working tree (master, on HEAD 246c0aa), uncommitted. Joseph approves the commit, and the SHA comes when he commits.
@@ -291,3 +301,4 @@ Checkpoint V still means the commit. Phases blocked on V stay blocked, but these
 - 2026-10-27: its plan was confirmed and implementation started in the main checkout (uncommitted). The final interface is recorded in "Confirmed veil interface" above. Next from it: a message when the implementation is in the working tree. After Joseph approves and commits it, this plan's implementer rebases onto it.
 - 2026-10-27: we asked five questions and told it about P9. It answered the same day; the answers are in "Answers to the planning session's questions" above. Gate round 7 folds them into PLAN.md. Next from it: the "landed" message with the SHA, the touched-symbol list from `git diff`, the crossing numbers and the harness path.
 - 2026-10-27: its "landed" message arrived: final in the working tree, uncommitted, with the final crossing numbers and the harness path (see "Landed in the working tree" above). We archived the harness and the captured layouts in `harness/`. Still to come: the SHA once Joseph commits; then checkpoint V runs.
+- 2026-10-27: committed as cf4d7b8 on local master (unpushed), identical to the confirmed diff (patch-id checked), every recommended setting kept, no launch hold. `PLAN.md` is restructured to build on cf4d7b8 directly.

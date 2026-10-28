@@ -47,7 +47,17 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 - The shared brief for all subagents is `research/00-shared-brief.md`. It holds the user's request verbatim, the code map, the current behavior and the rules.
 - The old upward-moving stars live in git history before d116918; see `src/css/Background.css` at 7c176fb^.
 - `node_modules` must be installed (`npm ci`) for `node_modules/next/dist/docs`.
-- Veil session status on 2026-10-27: no veil fix or final plan has landed. `origin/master-r26syw` holds only the `.env.example` commit (f03ccb3). A new local desktop session, "Star and comment animation redesign" (`local_e2e17660-e99d-43e6-84ab-7337ee88227d`), resumed the veil work the same day and edits `src/` in the main checkout (uncommitted). See the 2026-10-27 update in `COORDINATION.md`. `PLAN.md` treats every veil-owned function as off-limits and gives a fallback if the veil work never lands.
+- Veil session status on 2026-10-27: the local desktop session "Star and comment animation redesign" (`local_e2e17660-e99d-43e6-84ab-7337ee88227d`) finished the veil fix.
+  - Joseph committed the fix as `cf4d7b8` on local master, on 246c0aa: 11 files, +577 −184, with lint, type-check and its final Opus check clean.
+    - **It is not pushed.** Pushing master is Joseph's call, so don't push a branch that contains `cf4d7b8` without his OK.
+    - We checked the commit's patch-id against the confirmed diff.
+    - A read-only checkout of it is at `.claude/worktrees/sky-baseline-cf4d7b8`. This planning branch stays on 246c0aa and holds only documents.
+  - `COORDINATION.md` records:
+    - its confirmed interface;
+    - its answers to our five questions: the file rule is symbol-level, both shared-function edits are agreed, satellites may overlap a meteor under three conditions, and a comet keeps `scrollKept`;
+    - its final crossing numbers.
+  - Its harness and captured layouts are archived in `harness/` (see `harness/README.md`).
+  - With the commit in, gate round 7 is followed by a restructure that rebuilds `PLAN.md` to start from `cf4d7b8`. That removes the before/after-commit split, the fallback PF and the file-rule branches, and re-grounds every file:line on `cf4d7b8`.
 
 ## Copy-and-paste prompt for a new session
 

@@ -186,6 +186,7 @@ export interface DriftGate {
 	level: number
 	/** The scene's drift level (SceneLevels.drift). */
 	scene: number
+	/** A narrow screen (NARROW_MAX_WIDTH): the drift runs at DRIFT.narrowRate. */
 	narrow: boolean
 }
 

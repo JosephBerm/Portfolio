@@ -5,7 +5,7 @@
  * scrolls, and every k-th one (PACING; every one while a glide is fast) while the stars drift or glide to rest after
  * the page stops. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
  * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
- * eased out. Reading no longer sleeps: the stars still drift there, slowly.
+ * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there.
  */
 
 import {
@@ -584,7 +584,11 @@ function probeRaster(now: number): void {
 	const limit = Math.max(ADAPT.rasterMinMs, (ADAPT.rasterMsPerMp * probe.width * probe.height) / 1e6)
 	if (rasterMs <= limit) return
 	const probedDpr = dpr
+	const thinsNow = quality === 0
 	while (quality < 2) stepDown(now)
+	// The probe thins the stars out before the sky has been shown, so the thinned ones are gone from the start, instead of
+	// coming out with the dusk and then fading away
+	if (thinsNow) thinnedAt = now / 1000 - ADAPT.thinFade
 	// The probe drew at the device ratio, and the sky now draws at CSS resolution: each frame costs that share of it
 	softwareFps = Math.floor((PACING.softwareShare * 1000) / (rasterMs * (dpr / probedDpr) ** 2))
 }
@@ -754,13 +758,17 @@ scope.addEventListener('message', (event) => {
 				return
 			}
 			if (hiddenAt !== null) {
-				// The stretch just ended is measured once, for the twinkle's clock, the dusk's, the motion ease's and the idle clock's
+				// The stretch just ended is measured once, for the twinkle's clock, the dusk's, the motion ease's, the thin fade's
+				// and the idle clock's
 				hiddenTotal += (now - hiddenAt) / 1000
 				// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
 				if (exitAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
 				// So does the motion ease: one that began while hidden starts now, instead of running out unseen and jumping every
 				// star's twinkle in the first frame back. An ease that never ran (since -Infinity) stays that way.
 				motionLevel.since = now / 1000 - Math.max(0, hiddenAt / 1000 - motionLevel.since)
+				// And the thin fade, so the stars a quality step is thinning out don't vanish unseen while the tab is hidden and
+				// then all at once when it is shown
+				if (thinnedAt !== null) thinnedAt = now / 1000 - Math.max(0, hiddenAt / 1000 - thinnedAt)
 				// And the idle clock: time spent hidden is not time without input, so a tab hidden for longer than the idle sleep
 				// shows the twinkle it had, instead of one that has idled out and drops to rest in the first frame back. A visitor
 				// who was already asleep still eases in from 0, and one who has never been away (wokeAt -Infinity) stays that way.

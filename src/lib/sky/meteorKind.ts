@@ -3,8 +3,9 @@
  * are timed. This module imports only types from transients.ts, which reads its spec when it loads.
  */
 
-import { METEOR } from './config'
-import { meteorLifetime, meteorMoving, nextMeteorGap, planMeteor, type Meteor } from './meteors'
+import { METEOR, METEOR_RATE } from './config'
+import { nextGap } from './gaps'
+import { meteorLifetime, meteorMoving, planMeteor, type Meteor } from './meteors'
 import { pickVisitSky, visitSteer, type VisitSky } from './radiants'
 import { between } from './random'
 import type { PlanContext, TransientSpec } from './transients'
@@ -51,7 +52,7 @@ export function planMeteorTransient(context: PlanContext): Meteor | null {
 /** The shooting stars' timing and planning. */
 export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	firstDelay: (random) => between(random, METEOR.firstDelay[0], METEOR.firstDelay[1]),
-	nextAfter: (meteor, random, sinceReveal) => meteor.duration + nextMeteorGap(random, sinceReveal),
+	nextAfter: (meteor, random, sinceReveal, narrow) => meteor.duration + nextGap(random, narrow ? METEOR_RATE.narrow : METEOR_RATE.hero, sinceReveal),
 	plan: planMeteorTransient,
 	lifetime: meteorLifetime,
 	moving: meteorMoving,

@@ -347,9 +347,3 @@ export function meteorAt(meteor: Meteor, now: number): MeteorFrame {
 		flown: meteor.length * travel(progress, meteor.drag),
 	}
 }
-
-/** Seconds until the next shooting star: a floor plus an exponential extra (no rhythm to notice), longer on long visits. */
-export function nextMeteorGap(random: () => number, secondsSinceReveal: number): number {
-	const gap = Math.min(METEOR.gapMax, METEOR.gapMin - METEOR.gapMeanExtra * Math.log(1 - random()))
-	return secondsSinceReveal > METEOR.slowAfter ? gap * METEOR.slowFactor : gap
-}

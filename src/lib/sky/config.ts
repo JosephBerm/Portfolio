@@ -383,23 +383,27 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
  * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
  * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
- * crossings stay rare (0, since shooting stars already come at least 30 s apart). A pause fades every transient out over
- * `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls from its launch (SCROLL_CANCEL).
- * A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the kind waits for a new layout. A held
- * launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds after scrolling stops, and after a
- * return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
+ * crossings stay rare: the cooldown is set to the shortest multiple of 5 s that keeps the crossings a minute over a
+ * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout. A pause
+ * fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls
+ * from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the
+ * kind waits for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds
+ * after scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds. From
+ * `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
+ * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
  */
 export const TRANSIENTS = {
 	maxLife: 5,
 	minOnsetGap: 3,
-	narrowLimit: 2,
-	crossingCooldown: 0,
+	narrowLimit: 6,
+	crossingCooldown: 55,
 	cancelFade: 0.2,
 	retry: [5, 9],
 	maxFailedPlans: 3,
 	recheck: 1,
 	scrollQuiet: 1.2,
 	afterReturn: 3,
+	longVisit: { from: 120, scale: 240, max: 3 },
 } as const
 
 /**
@@ -462,6 +466,29 @@ export const SPEED_CLASSES = {
 	fast: { angular: 22, duration: [0.55, 0.8], wakeColor: 'mint', train: true },
 } as const satisfies Record<string, SpeedClass>
 
+/** Poisson arrivals with a refractory floor and a cap: floor + Exp(mean), at most cap. */
+export interface GapLaw {
+	/** Shortest gap (s). */
+	floor: number
+	/** Mean of the exponential part added to the floor (s). */
+	mean: number
+	/** Longest gap (s). */
+	cap: number
+}
+
+/**
+ * How often shooting stars launch. A dark rural site sees 1 to 3 sporadic meteors an hour in the evening and 4 to 10
+ * before dawn (AMS), and a screen-sized window holds about 29% of an observer's field (IMO): a real window shows one
+ * every 25 to 100 minutes, or one every 2 to 4 at a Perseid or Geminid peak. The hero runs about 120 times a dawn sky's
+ * rate (500 times an evening's, 10 to 20 times a shower peak's), a time-lapse of a strong shower night: gaps after each
+ * flight follow `hero` (floor 4 s plus an exponential 8 s, at most 30 s: 11.7 s on average, about 4.7 a minute) or
+ * `narrow` on phones (21 s on average), stretched on long visits (TRANSIENTS.longVisit).
+ */
+export const METEOR_RATE = {
+	hero: { floor: 4, mean: 8, cap: 30 },
+	narrow: { floor: 8, mean: 14, cap: 45 },
+} as const satisfies Record<string, GapLaw>
+
 /**
  * Brightness: real counts are dominated by faint meteors (each brighter magnitude has 1/r as many, r about 2.2 to 2.6);
  * the hero keeps only `faintShare` of ordinary flights faint, peaking within `faint`, so most stay easy to see, and the
@@ -474,21 +501,14 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
 
 /**
  * Shooting stars: where they start, the layout guards, their length, drag, wake, flares and trains. Directions, speeds
- * and brightness come from the visit's sky (RADIANTS, SPEED_CLASSES, METEOR_BRIGHTNESS). Each lights up and peaks in
- * clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET). Its layout
- * guards keep every transient below the navbar (`top`), inside the edges (`edgeMargin`) and clear of the bottom corners
- * (`maxEndY`), and a shooting star also clear of the side rails (planMeteor's `clearOf`).
+ * and brightness come from the visit's sky (RADIANTS, SPEED_CLASSES, METEOR_BRIGHTNESS) and rates from METEOR_RATE. Each
+ * lights up and peaks in clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL,
+ * INK_BUDGET). Its layout guards keep every transient below the navbar (`top`), inside the edges (`edgeMargin`) and clear
+ * of the bottom corners (`maxEndY`), and a shooting star also clear of the side rails (planMeteor's `clearOf`).
  */
 export const METEOR = {
 	/** Seconds after the page reveal before the first one, once the hero entrance and side rails have settled. */
 	firstDelay: [4.5, 7],
-	/** Later gaps (s): at least `gapMin` plus an exponential extra with mean `gapMeanExtra`, at most `gapMax` (never more than two a minute). */
-	gapMin: 30,
-	gapMeanExtra: 12,
-	gapMax: 75,
-	/** After `slowAfter` seconds on the page gaps stretch by `slowFactor`, so the sky never turns into a screensaver. */
-	slowAfter: 180,
-	slowFactor: 1.5,
 	/** Candidate start points tried per steer for long flights, and again for the fallback; a launch traded for a pass behind copy (METEOR_PASS) tries up to as many again. */
 	attempts: 160,
 	/** Fresh steers (a new source and scatter from the visit's sky) tried per launch when the first yields no long flight, before any shorter one; narrow screens try one. */

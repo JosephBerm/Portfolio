@@ -103,7 +103,7 @@ export interface LaunchGate {
 	allowed: boolean
 	/** No scroll for TRANSIENTS.scrollQuiet seconds. */
 	settled: boolean
-	/** A narrow screen (the worker's narrowScreen): phones keep their own limit, TRANSIENTS.narrowLimit. */
+	/** A narrow screen (the worker's narrowScreen): phones keep their own limit, TRANSIENTS.narrowLimit, and their own gaps. */
 	narrow: boolean
 	/** Seconds since the reveal. */
 	sinceReveal: number

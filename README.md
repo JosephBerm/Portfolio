@@ -77,7 +77,7 @@ src/
 │       └── schedule/     /links/schedule components
 ├── hooks/        Client hooks
 ├── lib/          Site config, metadata helpers, schedule config and time helpers, content data
-│   └── sky/              Home sky model (DOM-free): tuning, star catalog, scene and shooting-star math, camera and drift (camera.ts), frame pacing (pacing.ts), presence (presence.ts), the quiet-copy index (quietIndex.ts) and the scheduler for short-lived events (transients.ts) with the shooting-star kind (meteorKind.ts)
+│   └── sky/              Home sky model (DOM-free): tuning, star catalog, scene and shooting-star math, camera and drift (camera.ts), frame pacing (pacing.ts), presence (presence.ts), the quiet-copy index (quietIndex.ts), the scheduler for short-lived events (transients.ts) with the shooting-star kind (meteorKind.ts), the radiants, speeds and brightness a visit's shooting stars take (radiants.ts) and the law for the gaps between launches (gaps.ts)
 ├── assets/       Fonts and images imported statically
 └── emails/       React Email templates
 public/           Static files served from the site root

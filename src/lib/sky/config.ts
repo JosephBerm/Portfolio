@@ -252,7 +252,10 @@ export const CONTRAST_NORMAL = { stars: 1, haze: 1, meteorInk: 1 } as const
 /** prefers-contrast: more drops the haze, dims the stars and leaves no shooting-star light on the copy itself. */
 export const CONTRAST_MORE = { stars: 0.7, haze: 0, meteorInk: 0 } as const
 
-/** Frame pacing. Twinkle is slow, so 15 fps reads smooth; shooting stars and scrolling draw on every animation frame. */
+/**
+ * Frame pacing. Twinkle is slow, so 15 fps reads smooth. Anything that moves draws on animation frames paced by PACING;
+ * these timers serve a sky that only changes brightness.
+ */
 export const FRAME = {
 	twinkleFps: 15,
 	/** Twinkle rate after the adaptive step-down. */

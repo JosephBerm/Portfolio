@@ -1,7 +1,10 @@
 /**
- * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while
- * something changes: 15 fps for twinkle, 30 fps for fades (the dusk, a lingering train), every animation frame
- * while a shooting star flies or the page scrolls. Hidden tabs, reduced motion, reading and idle visits sleep.
+ * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while something
+ * changes. A sky that only changes brightness draws from timers: 15 fps for twinkle, 30 fps for fades (the dusk, a
+ * lingering train). Anything that moves draws on animation frames: every one while a shooting star flies or the page
+ * scrolls, and while the stars glide to rest after it stops, every k-th one (PACING; every one while the glide is fast).
+ * A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden tabs, reduced
+ * motion, reading and idle visits sleep.
  */
 
 import { cameraOffset, cameraSpeed, createCamera, forgetStep, resumeCamera, stepCamera, type CameraInput, type Vec } from '@/lib/sky/camera'
@@ -215,8 +218,11 @@ function meteorsAllowed(now: number): boolean {
 }
 
 /**
- * Moving things (a shooting star, scroll parallax) draw on animation frames, in step with the display.
- * Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames.
+ * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star, scrolling, the
+ * stars gliding to rest) wake on animation frames, in step with the display, and tick draws on every k-th of them.
+ * Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames. With
+ * nothing to draw, one timer is left for a change a message has just made or the next shooting star. A frame already
+ * pending is left alone.
  */
 function schedule(now: number): void {
 	if (rafId !== null || !ctx || !visible) return

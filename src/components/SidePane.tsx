@@ -18,7 +18,7 @@ const RAIL_LINE = "after:content-[''] after:block after:w-px after:h-[90px] afte
 /** Fixed desktop-only rail on the left or right edge; fades in after the hero entrance. */
 export default function SidePane({ side, children }: SidePaneProps) {
 	return (
-		// data-sky-quiet: the home sky keeps bright stars clear of the rail's links, and shooting stars only fade out behind them
+		// data-sky-quiet: the home sky keeps bright stars clear of the rail's links, and a shooting star behind them dims to what they can take
 		<MotionDiv
 			data-sky-quiet
 			initial={{ opacity: 0 }}

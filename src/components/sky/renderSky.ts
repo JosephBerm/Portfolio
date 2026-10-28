@@ -15,9 +15,9 @@ import {
 	TWINKLE_HORIZON_GAIN,
 	type SkyLayer,
 } from '@/lib/sky/config'
-import { meteorAt, meteorLight, meteorPoint, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
+import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
-import { easedQuietFactor, starEmergence, type QuietBlend } from '@/lib/sky/scene'
+import { budgetKeeps, easedQuietFactor, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, kept while they stay near the viewport. */
@@ -82,7 +82,7 @@ export interface SkyFrame {
 	haze: number
 	/** Padded quiet rects in screen coordinates, easing from the previous measurement to the current one. */
 	quiet: QuietBlend
-	/** Share of METEOR_VEIL.inkKeep a shooting star keeps on the copy itself (contrast). */
+	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (contrast). */
 	meteorInk: number
 }
 
@@ -195,17 +195,19 @@ function drawTrain(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, me
  * A shooting star at the frame's time: its train, then the wake, glow and core. The wake is drawn from the flight's
  * emission history: each point glows from the moment the head passes it and fades with the wake time constant,
  * so the wake grows behind the head, cools from white to the meteor's tint and lingers briefly after burn-out.
- * Each point also dims where it lies behind quiet copy (METEOR_VEIL), so a shooting star burning out behind the copy
- * fades there while the part still in clear sky stays bright.
+ * Behind quiet copy it dims as a whole to what each copy's budget allows (METEOR_VEIL, INK_BUDGET), measured at every
+ * point it draws, so a shooting star burning out behind the copy fades there while the part still in clear sky stays
+ * bright, and on the copy it keeps its shape at a faint level. While a layout eases in it follows transientQuietFactor.
+ * `fade` (0-1) multiplies the light of all of it, train, wake, glow and core: the caller's own fade, such as the scroll
+ * cancel (scrollKept).
  */
-export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame): void {
+export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1): void {
 	const { dpr } = frame
 	const state = meteorAt(meteor, frame.time)
 	const { white, green } = assets.tokens
-	const veil = { quietKeep: METEOR_VEIL.quietKeep, inkKeep: METEOR_VEIL.inkKeep * frame.meteorInk }
-	const kept = (point: Point) => easedQuietFactor(frame.quiet, point.x, point.y, veil)
+	const keptBy = (keeps: QuietKeeps) => (point: Point) => transientQuietFactor(frame.quiet, point.x, point.y, keeps) * fade
 	ctx.globalCompositeOperation = 'lighter'
-	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, kept)
+	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, keptBy(budgetKeeps(state.train, METEOR_VEIL.quietKeep, frame.meteorInk)))
 
 	// Emission progress still glowing: from `tail` (oldest) to `head` (now)
 	const head = Math.min(1, state.progress)
@@ -213,6 +215,19 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	const headPoint = meteorPoint(meteor, head)
 	const hx = headPoint.x * dpr
 	const hy = headPoint.y * dpr
+	const flaring = meteor.flare && state.progress > METEOR_LIGHT.flareGlowFrom
+	const boost = (meteor.fireball ? METEOR_LOOK.fireballGlow : 1) * (flaring ? METEOR_LIGHT.flareGlow : 1)
+	// The light each wake stop carries (from the head back to `tail`) and where it was emitted; the far half thins out a little faster than the afterglow alone
+	const wake = Array.from({ length: METEOR_LOOK.wakeStops }, (_, k) => {
+		const f = k / (METEOR_LOOK.wakeStops - 1)
+		const emitted = head - f * (head - tail)
+		const age = (state.progress - emitted) * meteor.duration
+		const thinning = f < 0.5 ? 1 : 1 - (1 - METEOR_LOOK.tailKeep) * (2 * f - 1)
+		return { f, point: meteorPoint(meteor, emitted), light: meteor.peak * meteorLight(emitted, meteor.flare) * Math.exp(-age / meteor.wake) * thinning }
+	})
+	// The most white the brightest pixel would add with no veil: the veil keeps each copy's share of it, so everything dims together
+	const brightest = Math.max(state.intensity * headGain(boost), WAKE_GAIN * Math.max(...wake.map((stop) => stop.light)))
+	const kept = keptBy(budgetKeeps(brightest, METEOR_VEIL.quietKeep, frame.meteorInk))
 	if (tail < 1) {
 		const tailPoint = meteorPoint(meteor, tail)
 		const tx = tailPoint.x * dpr
@@ -220,39 +235,23 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 		const length = Math.hypot(hx - tx, hy - ty)
 		if (length > 0.5) {
 			const tint = meteor.fireball ? (assets.palette[METEOR_LOOK.fireballTint] ?? white) : mixRgb(green, white, METEOR_LOOK.mintToWhite)
-			// The core takes the veil once and the soft pass, a halo, twice
-			const core = ctx.createLinearGradient(hx, hy, tx, ty)
-			const soft = ctx.createLinearGradient(hx, hy, tx, ty)
-			for (let k = 0; k < METEOR_LOOK.wakeStops; k++) {
-				const f = k / (METEOR_LOOK.wakeStops - 1)
-				const emitted = head - f * (head - tail)
-				const age = (state.progress - emitted) * meteor.duration
-				const veiled = kept(meteorPoint(meteor, emitted))
-				// The far half thins out a little faster than the afterglow alone
-				const thinning = f < 0.5 ? 1 : 1 - (1 - METEOR_LOOK.tailKeep) * (2 * f - 1)
-				const light = meteor.peak * meteorLight(emitted, meteor.flare) * Math.exp(-age / meteor.wake) * thinning * veiled
-				const color = mixRgb(white, tint, Math.min(1, f / METEOR_LOOK.coolBy))
-				core.addColorStop(f, rgba(color, light))
-				soft.addColorStop(f, rgba(color, light * veiled))
-			}
+			// One gradient serves the core and the wider, fainter soft pass
+			const gradient = ctx.createLinearGradient(hx, hy, tx, ty)
+			for (const stop of wake) gradient.addColorStop(stop.f, rgba(mixRgb(white, tint, Math.min(1, stop.f / METEOR_LOOK.coolBy)), stop.light * kept(stop.point)))
 			const nx = -(hy - ty) / length
 			const ny = (hx - tx) / length
 			const [headWidth, tailWidth] = METEOR_LOOK.wakeWidth
-			ctx.fillStyle = soft
+			ctx.fillStyle = gradient
 			ctx.globalAlpha = METEOR_LOOK.softAlpha
 			taperedQuad(ctx, hx, hy, tx, ty, nx, ny, headWidth * METEOR_LOOK.softWidth * dpr, tailWidth * METEOR_LOOK.softWidth * dpr)
-			ctx.fillStyle = core
 			ctx.globalAlpha = 1
 			taperedQuad(ctx, hx, hy, tx, ty, nx, ny, headWidth * dpr, tailWidth * dpr)
 		}
 	}
 	if (state.intensity > 0.003) {
 		const veiled = kept(headPoint)
-		const flaring = meteor.flare && state.progress > METEOR_LIGHT.flareGlowFrom
-		const boost = (meteor.fireball ? METEOR_LOOK.fireballGlow : 1) * (flaring ? METEOR_LIGHT.flareGlow : 1)
 		const { image, meteorGlow: glow, meteorCore: core } = assets.atlas
-		// The glow is a halo too: it takes the veil twice
-		ctx.globalAlpha = Math.min(1, METEOR_LOOK.glowAlpha * state.intensity * boost * veiled * veiled)
+		ctx.globalAlpha = Math.min(1, METEOR_LOOK.glowAlpha * state.intensity * boost * veiled)
 		ctx.drawImage(image, glow.x, glow.y, glow.size, glow.size, hx - glow.size / 2, hy - glow.size / 2, glow.size, glow.size)
 		ctx.globalAlpha = Math.min(1, state.intensity * veiled)
 		ctx.drawImage(image, core.x, core.y, core.size, core.size, hx - core.size / 2, hy - core.size / 2, core.size, core.size)

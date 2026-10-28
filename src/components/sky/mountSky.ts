@@ -410,6 +410,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 				case 'error':
 					destroy()
 					break
+				case 'relay':
+					// Nothing relays the page's animation frames yet
+					break
 				default: {
 					// Every message type is handled above: a new one fails to compile here, rather than being taken for an error
 					const unhandled: never = message

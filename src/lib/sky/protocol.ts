@@ -75,6 +75,12 @@ export type SkyMainMessage =
 	| { type: 'activity' }
 	/** A fine pointer's position for the lean, -1 to 1 from the viewport center (x right, y down); null once it leaves. At most one per animation frame. */
 	| { type: 'pointer'; at: { x: number; y: number } | null }
+	/** One animation frame of the page, sent on every frame while the worker has asked for a relay and not otherwise. */
+	| { type: 'tick' }
 
-/** Sky worker to main thread: the first frame is on the canvas, or the sky can't run. */
-export type SkyWorkerMessage = { type: 'ready' } | { type: 'error'; message: string }
+/** Sky worker to main thread: the first frame is on the canvas, the sky can't run, or the page's animation frames are wanted or not. */
+export type SkyWorkerMessage =
+	| { type: 'ready' }
+	| { type: 'error'; message: string }
+	/** Whether the main thread should send a `tick` on every animation frame of the page. Sent only when that changes. */
+	| { type: 'relay'; on: boolean }

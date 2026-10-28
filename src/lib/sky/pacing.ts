@@ -56,7 +56,7 @@ export interface FrameState {
 	scrolling: boolean
 	/** Full motion: scrolling then moves the stars (every refresh); otherwise it only fades them. */
 	full: boolean
-	/** Every frame while a shooting star flies, fade frames while its train lingers. */
+	/** The shooting stars' demand (transientDemand): every frame while one flies or fades out after a pause, fade frames while its train lingers. */
 	transientDemand: FrameDemand
 	/** The camera moves, or the drift or the lean heads up: the stars follow the page, glide to rest after it stops, float or lean away from the pointer. Decided by where they head, not by the drift's eased rate, which starts from 0. */
 	cameraActive: boolean

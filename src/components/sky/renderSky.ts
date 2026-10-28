@@ -20,6 +20,7 @@ import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, t
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import type { Transient } from '@/lib/sky/transients'
 import { starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
@@ -344,4 +345,22 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 		ctx.drawImage(image, core.x, core.y, core.size, core.size, hx - core.size / 2, hy - core.size / 2, core.size, core.size)
 	}
 	ctx.globalAlpha = 1
+}
+
+/**
+ * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
+ * which holds scrollY). A kind without a case fails to compile.
+ */
+export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
+	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
+	const { kind, body } = transient
+	switch (kind) {
+		case 'meteor':
+			drawMeteor(ctx, assets, body, frame, fade)
+			return
+		default: {
+			const unhandled: never = kind
+			return unhandled
+		}
+	}
 }

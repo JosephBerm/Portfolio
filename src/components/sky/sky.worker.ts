@@ -25,16 +25,13 @@ import {
 	type Vec,
 } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, PACING, QUIET } from '@/lib/sky/config'
-import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, NARROW_MAX_WIDTH, PACING, QUIET, TRANSIENTS } from '@/lib/sky/config'
 import {
 	createRefreshEstimate,
 	driftCap,
 	easeAt,
 	easeEnded,
 	easing,
-	EVERY_FRAME,
-	FADE_FRAMES,
 	fadeOutAt,
 	frameDemand,
 	frameDue,
@@ -48,9 +45,22 @@ import {
 } from '@/lib/sky/pacing'
 import { createPresence, isIdle, notePresence, presenceLevel } from '@/lib/sky/presence'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
-import { between } from '@/lib/sky/random'
-import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
-import { createStarField, drawMeteor, drawSky, type SkyAssets, type SkyFrame } from './renderSky'
+import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
+import {
+	cancelTransients,
+	createTransientSchedule,
+	dropTransients,
+	forgetVisitSky,
+	holdTransients,
+	nextLaunchAt,
+	retryTransients,
+	revealTransients,
+	transientDemand,
+	transientFade,
+	updateTransients,
+	type LaunchGate,
+} from '@/lib/sky/transients'
+import { createStarField, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
 /** The parts of DedicatedWorkerGlobalScope the sky uses (the project's TypeScript lib is DOM only). */
@@ -99,16 +109,22 @@ let hiddenAt: number | null = null
 let exitAt: number | null = null
 let revealAt: number | null = null
 let layoutAt: number | null = null
-let nextMeteorAt = Infinity
 /** Seconds the tab has spent hidden, each stretch added when it is shown again: the twinkle's clock leaves them out. */
 let hiddenTotal = 0
 
-let meteor: Meteor | null = null
-// The scroll offset the shooting star launched at (SCROLL_CANCEL)
-let launchScrollY = 0
-let radiant: Point | null = null
-let launched = 0
-let failedPlans = 0
+/** The short-lived events in the sky (shooting stars) and when each kind launches next. */
+const transients = createTransientSchedule()
+/** Whether and where transients may launch, refilled by launchGate every tick (reused, so a tick makes no garbage). */
+const gate: LaunchGate = {
+	allowed: false,
+	settled: false,
+	narrow: false,
+	sinceReveal: 0,
+	scrollY: 0,
+	// Built afresh on each call: the scheduler asks only for a due kind that may plan
+	field: () => ({ width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }),
+	ink: 1,
+}
 
 /** Whether the visitor seems to be here. Scroll, visibility and motion messages can reach it before init, so it exists from the start; init begins it afresh. */
 let presence = createPresence(0)
@@ -209,14 +225,9 @@ function leanTarget(scene: SceneLevels): Vec {
 	return leanGoal
 }
 
-/** The next shooting star waits at least METEOR.afterReturn once the visitor is back (a tab, an idle stretch, full motion). */
-function holdMeteors(now: number): void {
-	if (revealAt !== null) nextMeteorAt = Math.max(nextMeteorAt, now / 1000 + METEOR.afterReturn)
-}
-
-/** Records input of any kind; back from an idle stretch, no shooting star straight away. */
+/** Records input of any kind; back from an idle stretch, no launch straight away. */
 function noteInput(now: number): void {
-	if (notePresence(presence, now)) holdMeteors(now)
+	if (notePresence(presence, now)) holdTransients(transients, now / 1000)
 }
 
 /** True at time t (s) while the quiet zones still ease toward the layout applied at `layoutAt` (QUIET.ease long). */
@@ -252,7 +263,7 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	frameState.live = ctx !== null && visible && motion !== 'off' && exitAt !== null
 	frameState.scrolling = now - lastScrollAt < FRAME.scrollSettleMs
 	frameState.full = motion === 'full'
-	frameState.transientDemand = meteor ? (meteorMoving(meteor, t) ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES
+	frameState.transientDemand = transientDemand(transients, t)
 	// The stars keep gliding to rest after the page stops scrolling, the drift asks for frames from the moment it heads
 	// up, when its eased rate is still 0, and a pointer that has moved asks for them before the lean has moved a pixel: a
 	// sleeping worker would never wake for any of them
@@ -281,9 +292,21 @@ function cancelFrames(): void {
 	refresh.pause()
 }
 
-/** True when a shooting star may launch at all right now (its own timing aside). */
-function meteorsAllowed(now: number): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && sceneAt(scrollY, height, documentHeight).meteors
+/** True when transients may launch at all right now (each kind's own timing aside). */
+function launchesAllowed(now: number): boolean {
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && sceneAt(scrollY, height, documentHeight).launches
+}
+
+/** Refills the launch gate for `now` (ms): whether and where transients may launch this tick. */
+function launchGate(now: number): LaunchGate {
+	gate.allowed = launchesAllowed(now)
+	// Worker milliseconds against the key's seconds
+	gate.settled = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.narrow = narrowScreen
+	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
+	gate.scrollY = scrollY
+	gate.ink = contrastLevels().meteorInk
+	return gate
 }
 
 /**
@@ -307,9 +330,10 @@ function schedule(now: number): void {
 	if (demand.fps <= 0) {
 		// Asleep: the gap before the next animation frame is not a refresh interval
 		refresh.pause()
+		const launchAt = nextLaunchAt(transients)
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
 		// Asleep in the hero (an idle twinkle, say): wake only for the next shooting star
-		else if (Number.isFinite(nextMeteorAt) && meteorsAllowed(now)) timerId = setTimeout(onTimer, Math.max(0, nextMeteorAt * 1000 - now))
+		else if (Number.isFinite(launchAt) && launchesAllowed(now)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
 		return
 	}
 	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + 1000 / demand.fps - now))
@@ -384,11 +408,11 @@ function recheckFrames(): void {
 }
 
 /**
- * One wake-up: update the shooting star, gather the gates and step the camera, draw if due, then schedule the next
+ * One wake-up: update the transients, gather the gates and step the camera, draw if due, then schedule the next
  * wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
  */
 function tick(now: number): void {
-	updateMeteor(now)
+	if (updateTransients(transients, random, now / 1000, launchGate(now))) needsDraw = true
 	settleQuiet(now)
 	const scene = sceneAt(scrollY, height, documentHeight)
 	gather(now, scene)
@@ -406,58 +430,6 @@ function tick(now: number): void {
 	const k = demand.vsync ? stepDivisor(divisor, refreshDivisor(1000 / interval, fps, demand.cap), now) : 1
 	if (needsDraw || frameDue(demand, now, lastDrawAt, k, interval)) draw(now)
 	schedule(now)
-}
-
-/** Retires a finished or canceled shooting star and launches the next one when it is due and the moment allows. */
-function updateMeteor(now: number): void {
-	const t = now / 1000
-	if (meteor) {
-		// Scrolling away from where it launched takes it away: it would pass over copy the veil doesn't know (SCROLL_CANCEL)
-		if (t - meteor.startedAt <= meteorLifetime(meteor) && scrollKept(launchScrollY, scrollY) > 0) return
-		meteor = null
-		needsDraw = true
-	}
-	if (revealAt === null || t < nextMeteorAt) return
-	const narrow = width <= NARROW_MAX_WIDTH
-	if (!meteorsAllowed(now) || now - lastScrollAt < FRAME.meteorScrollQuietMs || (narrow && launched >= METEOR.narrowLimit)) {
-		nextMeteorAt = t + METEOR.recheck
-		return
-	}
-	const plan = planLaunch({ width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }, narrow, t)
-	if (!plan) {
-		failedPlans++
-		// No room around the copy (a phone held sideways, say): stop trying until the layout changes
-		nextMeteorAt = failedPlans >= METEOR.maxFailedPlans ? Infinity : t + between(random, METEOR.retry[0], METEOR.retry[1])
-		return
-	}
-	failedPlans = 0
-	meteor = plan
-	launchScrollY = scrollY
-	launched++
-	nextMeteorAt = t + plan.duration + nextMeteorGap(random, t - revealAt)
-}
-
-/**
- * A plan for one launch. The radiant in hand is kept while it yields long flights, so shooting stars share a direction;
- * when it doesn't, fresh ones are tried. Long flights come first on every radiant, and a shorter fallback only when none
- * has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on copy.
- * Returns null (and drops the radiant) when nothing fits.
- */
-function planLaunch(meteorField: MeteorField, narrow: boolean, t: number): Meteor | null {
-	const radiants = radiant ? [radiant] : []
-	while (radiants.length < (radiant ? 1 : 0) + (narrow ? 1 : METEOR.radiantTries)) radiants.push(pickRadiant(random, meteorField.width, meteorField.height))
-	const { meteorInk: ink } = contrastLevels()
-	for (const flights of ['long', 'short'] as const) {
-		for (const candidate of radiants) {
-			const plan = planMeteor(random, meteorField, candidate, t, { flights, ink })
-			if (plan) {
-				radiant = candidate
-				return plan
-			}
-		}
-	}
-	radiant = null
-	return null
 }
 
 /** The quiet zones on screen at time t (s): the previous layout's easing into the current one's over QUIET.ease, and the waiting layout's, if one is. */
@@ -516,7 +488,7 @@ function updateCamera(now: number, scene: SceneLevels): void {
 }
 
 /**
- * Everything drawSky and drawMeteor need to draw the sky at time `now` (ms) onto `target`. It gathers the gates first:
+ * Everything drawSky and drawTransient need to draw the sky at time `now` (ms) onto `target`. It gathers the gates first:
  * the twinkle reads the ambient level, and frames are also drawn outside a frame decision (a resize, a quality step),
  * where a sky that slept would otherwise show a stale twinkle.
  */
@@ -557,7 +529,7 @@ function draw(now: number): void {
 	const started = performance.now()
 	const frame = frameAt(now, canvas)
 	drawSky(ctx, assets, field, frame)
-	if (meteor) drawMeteor(ctx, assets, meteor, frame, scrollKept(launchScrollY, scrollY))
+	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
 	lastDrawAt = now
 	needsDraw = false
 	if (!ready) {
@@ -642,13 +614,6 @@ function rebuildHaze(): void {
 	schedule(performance.now())
 }
 
-/** A new layout may have room for shooting stars again. */
-function retryMeteors(now: number): void {
-	if (failedPlans < METEOR.maxFailedPlans || revealAt === null) return
-	failedPlans = 0
-	nextMeteorAt = now / 1000 + between(random, METEOR.retry[0], METEOR.retry[1])
-}
-
 /** Sizes the backing store for the CSS size at `ratio`, rebuilding the atlas if the ratio changed. Clears the canvas. */
 function sizeCanvas(ratio: number): void {
 	const ratioChanged = ratio !== dpr
@@ -671,9 +636,9 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	height = nextHeight
 	narrowScreen = nextWidth <= NARROW_MAX_WIDTH
 	// The old path was planned for the old layout
-	radiant = null
-	meteor = null
-	retryMeteors(now)
+	forgetVisitSky(transients)
+	dropTransients(transients)
+	retryTransients(transients, random, now / 1000)
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
 	// The haze follows the CSS size only, and it is smooth: keep stretching the old one until the size settles
@@ -691,12 +656,12 @@ function emerge(now: number): void {
 	needsDraw = true
 }
 
-/** The page is showing: start the shooting-star clock (the first one waits for the hero entrance to settle). */
+/** The page is showing: start the transients' clocks (the first launch waits for the hero entrance to settle). */
 function reveal(now: number): void {
 	emerge(now)
 	if (revealAt !== null) return
 	revealAt = now / 1000
-	nextMeteorAt = revealAt + between(random, METEOR.firstDelay[0], METEOR.firstDelay[1])
+	revealTransients(transients, random, revealAt)
 }
 
 scope.addEventListener('message', (event) => {
@@ -760,14 +725,15 @@ scope.addEventListener('message', (event) => {
 				// A switch to full motion in a shown tab means the visitor is here, whether they pressed Play on this page or in
 				// another tab or turned a setting off, even after a long idle stretch. A hidden tab notes it when it is shown.
 				if (visible) noteInput(now)
-				// Back to full motion: no shooting star straight away
-				holdMeteors(now)
+				// Back to full motion: no launch straight away
+				holdTransients(transients, t)
 				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to
 				parallaxScroll = scrollY
 				resumeCamera(camera, scrollY)
 			}
 			motion = message.motion
-			if (motion !== 'full') meteor = null
+			// A flying shooting star fades out over TRANSIENTS.cancelFade instead of vanishing
+			if (motion !== 'full') cancelTransients(transients, t)
 			needsDraw = true
 			break
 		}
@@ -776,7 +742,7 @@ scope.addEventListener('message', (event) => {
 			if (!visible) {
 				cancelFrames()
 				forgetStep(camera)
-				meteor = null
+				dropTransients(transients)
 				hiddenAt = now
 				return
 			}
@@ -802,7 +768,7 @@ scope.addEventListener('message', (event) => {
 			// Misses from before the tab was hidden say nothing about the display now
 			recheckFrames()
 			noteInput(now)
-			holdMeteors(now)
+			holdTransients(transients, now / 1000)
 			needsDraw = true
 			break
 		case 'contrast':
@@ -826,7 +792,7 @@ scope.addEventListener('message', (event) => {
 				if (quietEasing(now / 1000)) pendingLayout = message
 				else applyLayout(message, now)
 			}
-			retryMeteors(now)
+			retryTransients(transients, random, now / 1000)
 			needsDraw = true
 			break
 		}

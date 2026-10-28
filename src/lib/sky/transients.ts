@@ -169,8 +169,9 @@ export function inkLeaseFree(schedule: TransientSchedule, now: number): boolean 
 
 /**
  * Removes what has run its course or kept no light, at the earlier of its lifetime and the tick its kept light
- * (transientFade) reaches 0, so a cancel never extends a life. The scroll cancel follows the page's scroll position, so
- * even a one-step jump retires a transient at once. Returns whether any went.
+ * (transientFade) reaches 0, so a cancel never extends a life. Scrolling away from where a transient launched takes it
+ * away, because it would pass over copy it was not planned around; that follows the page's scroll position, so even a
+ * one-step jump retires it at once. Returns whether any went.
  */
 function retire(schedule: TransientSchedule, now: number, scrollY: number): boolean {
 	const { active } = schedule

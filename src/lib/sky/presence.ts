@@ -12,7 +12,7 @@ export function createPresence(now: number): Presence {
 	return { lastInputAt: now, wokeAt: -Infinity }
 }
 
-/** No input (scroll, pointer, keys, focus, a return to the tab) for FRAME.idleSleepMs. */
+/** No input (scroll, pointer, keys, focus, Play, a return to the tab) for FRAME.idleSleepMs. */
 export function isIdle(presence: Presence, now: number): boolean {
 	return now - presence.lastInputAt > FRAME.idleSleepMs
 }

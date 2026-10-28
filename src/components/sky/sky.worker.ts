@@ -92,7 +92,7 @@ let radiant: Point | null = null
 let launched = 0
 let failedPlans = 0
 
-/** Whether the visitor seems to be here. Scroll and visibility messages can reach it before init, so it exists from the start; init begins it afresh. */
+/** Whether the visitor seems to be here. Scroll, visibility and motion messages can reach it before init, so it exists from the start; init begins it afresh. */
 let presence = createPresence(0)
 
 /** The camera every star is drawn through; init puts it on the restored scroll. */

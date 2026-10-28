@@ -267,8 +267,8 @@ export const FRAME = {
 	/** Shooting stars wait this long after scrolling stops. */
 	meteorScrollQuietMs: 1200,
 	/**
-	 * With no input (scroll, pointer, keys, focus) for this long ambient motion eases out, nothing new launches and the
-	 * worker sleeps until the visitor is back.
+	 * With no input (scroll, pointer, keys, focus, Play, a return to the tab) for this long ambient motion eases out,
+	 * nothing new launches and the worker sleeps until the visitor is back.
 	 */
 	idleSleepMs: 90_000,
 	/** Ambient motion fades out and back in around the idle sleep. */

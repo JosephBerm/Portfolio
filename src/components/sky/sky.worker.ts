@@ -4,8 +4,9 @@
  * while a shooting star flies or the page scrolls. Hidden tabs, reduced motion, reading and idle visits sleep.
  */
 
+import { cameraOffset, createCamera, forgetStep, resumeCamera, stepCamera, type Vec } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CAMERA, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { between } from '@/lib/sky/random'
@@ -71,6 +72,15 @@ let radiant: Point | null = null
 let launched = 0
 let failedPlans = 0
 
+/** The camera every star is drawn through; init puts it on the restored scroll. */
+let camera = createCamera(0)
+/** The camera's offset for the frame being drawn (reused). */
+const offset: Vec = { x: 0, y: 0 }
+/** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
+let cameraMoving = false
+/** Motion has been full at some point in this page view: until then stars snap to whole device pixels, as a sky at rest draws them. */
+let skyMoved = false
+
 let quality = 0
 let slowFrames = 0
 let rafId = 0
@@ -129,7 +139,8 @@ function frameMode(now: number): FrameMode {
 	if (!ctx || !visible || motion === 'off' || exitAt === null) return 'sleep'
 	const t = now / 1000
 	const scrolling = now - lastScrollAt < FRAME.scrollSettleMs
-	if ((meteor && meteorMoving(meteor, t)) || (scrolling && motion === 'full')) return 'active'
+	// The stars keep gliding to rest after the page stops scrolling
+	if ((meteor && meteorMoving(meteor, t)) || (scrolling && motion === 'full') || cameraMoving) return 'active'
 	// A lingering train, scrolling under reduced motion, the dusk and copy that has just appeared or moved change slowly
 	if (meteor || scrolling || !emergenceDone(t - exitAt) || quietEasing(t)) return 'fade'
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
@@ -194,6 +205,7 @@ function onFrame(now: number): void {
 function tick(now: number): void {
 	updateMeteor(now)
 	settleQuiet(now)
+	updateCamera(now)
 	const mode = frameMode(now)
 	// Timers fire a little early or late; 4ms of slack keeps the cadence even
 	if (needsDraw || mode === 'active' || (mode !== 'sleep' && now - lastDrawAt >= frameInterval(mode) - 4)) draw(now)
@@ -293,6 +305,19 @@ function settleQuiet(now: number): void {
 	} else if (lastDrawAt / 1000 - layoutAt < QUIET.ease) needsDraw = true
 }
 
+/** Steps the camera while the tab is visible; when it comes to rest, one more frame draws the resting sky. */
+function updateCamera(now: number): void {
+	if (!visible) return
+	const moving = stepCamera(camera, {
+		time: now / 1000,
+		scroll: parallaxScroll,
+		viewportHeight: height,
+		follow: motion === 'full',
+	})
+	if (cameraMoving && !moving) needsDraw = true
+	cameraMoving = moving
+}
+
 /** Everything drawSky and drawMeteor need to draw the sky at time `now` (ms) onto `target`. */
 function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const t = now / 1000
@@ -306,7 +331,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		dpr,
 		deviceWidth: target.width,
 		deviceHeight: target.height,
-		offset: { x: 0, y: CAMERA.scrollParallax * parallaxScroll },
+		offset: cameraOffset(camera, offset),
 		keep: densityKeep(width, height) * (quality > 0 ? ADAPT.thinning : 1),
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
@@ -314,7 +339,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
 		quiet: quietBlend(t),
 		meteorInk: contrast.meteorInk,
-		snap: true,
+		snap: !skyMoved,
 	}
 }
 
@@ -477,6 +502,8 @@ scope.addEventListener('message', (event) => {
 			if (!visible) hiddenAt = now
 			contrastMore = message.contrastMore
 			scrollY = parallaxScroll = message.scrollY
+			camera = createCamera(message.scrollY)
+			skyMoved = message.motion === 'full'
 			lastInputAt = now
 			if (message.emerging) emerge(now)
 			if (message.revealed) reveal(now)
@@ -494,8 +521,14 @@ scope.addEventListener('message', (event) => {
 			reveal(now)
 			break
 		case 'motion':
-			// Back to full motion: no shooting star straight away
-			if (message.motion === 'full' && motion !== 'full') holdMeteors(now)
+			if (message.motion === 'full' && motion !== 'full') {
+				skyMoved = true
+				// Back to full motion: no shooting star straight away
+				holdMeteors(now)
+				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to
+				parallaxScroll = scrollY
+				resumeCamera(camera, scrollY)
+			}
 			motion = message.motion
 			if (motion !== 'full') meteor = null
 			needsDraw = true
@@ -504,6 +537,7 @@ scope.addEventListener('message', (event) => {
 			visible = message.visible
 			if (!visible) {
 				cancelFrames()
+				forgetStep(camera)
 				meteor = null
 				hiddenAt = now
 				return

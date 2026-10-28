@@ -63,6 +63,22 @@ export const MIN_STAR_ALPHA = 0.004
  */
 export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as const
 
+/**
+ * The one camera the sky is seen through, in CSS px for a star of nearness 1: every star appears at its place on the
+ * sky minus its nearness (DEPTH) times the camera, so nearer stars always move more and the depth cues never disagree.
+ * Scrolling moves the camera `scrollParallax` of the scroll, the near band's reviewed parallax, through a critically
+ * damped spring of `scrollOmega` rad/s: when the page stops, the stars glide on and settle (95% in 0.47 s, 99% in
+ * 0.66 s, never overshooting after a scroll that moves one way; Motion's spring with bounce 0 and visualDuration
+ * 0.52 s). Scrolling at 1000 px/s, the near stars trail by about 14 px. The spring never trails the scroll by more
+ * than `maxLag` viewport heights, held there as a spring trailing steadily at that distance, so a fling or a
+ * smooth-scrolled jump (the navbar's section links, and Home and End in most desktop browsers) leaves the brightest
+ * stars at most about 25 px to glide on a 900 px screen. A jump of more than `snapViewports` viewport heights in one
+ * step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always snaps, which follows the scroll exactly.
+ * A spring with less than `restPx` CSS px of motion left (at nearness 1) settles on its target and stops asking for
+ * frames.
+ */
+export const CAMERA = { scrollParallax: 0.07, scrollOmega: 10, maxLag: 0.25, snapViewports: 1, restPx: 0.01 } as const
+
 interface LayerConfig {
 	/** Magnitude band [brightest, faintest). */
 	magnitude: readonly [number, number]

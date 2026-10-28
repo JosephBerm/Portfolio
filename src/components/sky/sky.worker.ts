@@ -2,17 +2,32 @@
  * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while something
  * changes. A sky that only changes brightness draws from timers: 15 fps for twinkle, 30 fps for fades (the dusk, a
  * lingering train). Anything that moves draws on animation frames: every one while a shooting star flies or the page
- * scrolls, and while the stars glide to rest after it stops, every k-th one (PACING; every one while the glide is fast).
- * A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden tabs, reduced
- * motion, reading and idle visits sleep.
+ * scrolls, and every k-th one (PACING; every one while a glide is fast) while the stars drift or glide to rest after
+ * the page stops. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
+ * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
+ * eased out. Reading no longer sleeps: the stars still drift there, slowly.
  */
 
-import { cameraOffset, cameraSpeed, createCamera, forgetStep, resumeCamera, stepCamera, type CameraInput, type Vec } from '@/lib/sky/camera'
+import {
+	cameraOffset,
+	cameraSpeed,
+	createCamera,
+	driftRate,
+	driftTarget,
+	driftWanted,
+	forgetStep,
+	resumeCamera,
+	stepCamera,
+	type CameraInput,
+	type DriftGate,
+	type Vec,
+} from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
 import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, PACING, QUIET } from '@/lib/sky/config'
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
 import {
 	createRefreshEstimate,
+	driftCap,
 	easeAt,
 	easeEnded,
 	easing,
@@ -107,10 +122,16 @@ let cameraMoving = false
 let skyMoved = false
 /**
  * How much of its motion the sky has: 1 under full motion, 0 otherwise. When the motion changes (the pause control, a
- * reduced-motion switch) the level eases over FRAME.motionEase from where it was, so the twinkle never stops or starts
- * in one frame. `since` is on the worker clock (s); a load starts at rest on its motion's level.
+ * reduced-motion switch) the level eases over FRAME.motionEase from where it was, so neither the twinkle nor the drift
+ * stops or starts in one frame. `since` is on the worker clock (s); a load starts at rest on its motion's level.
  */
 let motionLevel: Ease = { from: 1, to: 1, since: -Infinity }
+/** A narrow screen (NARROW_MAX_WIDTH), set in resize: the drift runs slower and draws fewer frames there. */
+let narrowScreen = false
+/** Frames a second a software-rasterized canvas can afford at PACING.softwareShare of a core, measured by probeRaster; Infinity for a GPU canvas. */
+let softwareFps = Infinity
+/** What the drift and the twinkle depend on right now, filled by gather (reused, so a frame decision makes no garbage). */
+const driftGate: DriftGate = { allowed: false, dusk: 0, on: false, level: 0, scene: 0, narrow: false }
 
 let quality = 0
 let slowFrames = 0
@@ -146,9 +167,25 @@ function contrastLevels(): typeof CONTRAST_NORMAL | typeof CONTRAST_MORE {
 	return contrastMore ? CONTRAST_MORE : CONTRAST_NORMAL
 }
 
-/** Twinkle strength right now: scene, idle fade and the motion level together. */
-function twinkleLevel(now: number): number {
-	return sceneAt(scrollY, height, documentHeight).twinkle * presenceLevel(presence, now) * easeAt(motionLevel, FRAME.motionEase, now / 1000)
+/**
+ * Gathers the gates for `now`: the drift's, and the ambient flag and level the twinkle shares with it (one presence
+ * gate for all ambient motion). Everything that reads them calls it first (tick before it steps the camera, demandNow
+ * at every frame decision, frameAt for the twinkle), so a message that wakes a sleeping worker is judged on fresh
+ * gates; for one `now` it gives the same values.
+ */
+function gather(now: number, scene: SceneLevels): void {
+	const t = now / 1000
+	driftGate.allowed = exitAt !== null && softwareFps >= PACING.minFps
+	driftGate.dusk = exitAt === null ? 0 : t - exitAt
+	driftGate.on = motion === 'full' && !isIdle(presence, now)
+	driftGate.level = presenceLevel(presence, now) * easeAt(motionLevel, FRAME.motionEase, t)
+	driftGate.scene = scene.drift
+	driftGate.narrow = narrowScreen
+}
+
+/** Twinkle strength right now: the scene's, times the ambient level gather found (presence and the motion level together). */
+function twinkleLevel(scene: SceneLevels): number {
+	return scene.twinkle * driftGate.level
 }
 
 /** The next shooting star waits at least METEOR.afterReturn once the visitor is back (a tab, an idle stretch, full motion). */
@@ -180,23 +217,27 @@ const frameState: FrameState = {
 }
 
 /**
- * The strictest demand of every part of the sky right now. It reads the worker's state afresh at every frame decision,
- * so a message that wakes a sleeping worker is judged on this moment, not on what the last frame saw.
+ * The strictest demand of every part of the sky right now. It gathers the gates and reads the worker's state afresh at
+ * every frame decision, so a message that wakes a sleeping worker is judged on this moment, not on what the last frame
+ * saw.
  */
 function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	const t = now / 1000
+	gather(now, scene)
+	const wanted = driftWanted(driftGate)
 	frameState.live = ctx !== null && visible && motion !== 'off' && exitAt !== null
 	frameState.scrolling = now - lastScrollAt < FRAME.scrollSettleMs
 	frameState.full = motion === 'full'
 	frameState.transientDemand = meteor ? (meteorMoving(meteor, t) ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES
-	// The stars keep gliding to rest after the page stops scrolling
-	frameState.cameraActive = cameraMoving
-	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera, 0) * dpr
-	frameState.cameraCap = Infinity
+	// The stars keep gliding to rest after the page stops scrolling, and the drift asks for frames from the moment it
+	// heads up, when its eased rate is still 0: a sleeping worker would never wake for it
+	frameState.cameraActive = cameraMoving || wanted
+	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera, wanted ? driftTarget(driftGate) : 0) * dpr
+	frameState.cameraCap = wanted ? driftCap(narrowScreen, quality > 0, softwareFps) : Infinity
 	// The dusk, copy that has just appeared or moved and the motion level easing change slowly
 	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t) || easing(motionLevel.since, FRAME.motionEase, t)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
-	frameState.twinkleFps = motion === 'full' && !isIdle(presence, now) && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
+	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	return frameDemand(frameState)
 }
 
@@ -218,10 +259,10 @@ function meteorsAllowed(now: number): boolean {
 
 /**
  * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star, scrolling, the
- * stars gliding to rest) wake on animation frames, in step with the display, and tick draws on every k-th of them.
- * Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames. With
- * nothing to draw, one timer is left for a change a message has just made or the next shooting star. A frame already
- * pending is left alone.
+ * drift, the stars gliding to rest) wake on animation frames, in step with the display, and tick draws on every k-th of
+ * them. Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames.
+ * With nothing to draw, one timer is left for a change a message has just made or the next shooting star. A frame
+ * already pending is left alone.
  */
 function schedule(now: number): void {
 	if (rafId !== null || !ctx || !visible) return
@@ -274,7 +315,7 @@ function onTimer(): void {
 	tick(performance.now())
 }
 
-/** Animation-frame-driven frame (a flying shooting star, scrolling, the stars gliding to rest): the display's own clock, so it also times the refresh. */
+/** Animation-frame-driven frame (a flying shooting star, scrolling, the drift, the stars gliding to rest): the display's own clock, so it also times the refresh. */
 function onFrame(time: number): void {
 	clearTimeout(watchdogId)
 	watchdogId = undefined
@@ -314,17 +355,19 @@ function recheckFrames(): void {
 }
 
 /**
- * One wake-up: update the shooting star and the camera, draw if due, then schedule the next wake-up. Moving things draw
- * on every k-th display refresh, so each drawn frame stays up for the same time.
+ * One wake-up: update the shooting star, gather the gates and step the camera, draw if due, then schedule the next
+ * wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
  */
 function tick(now: number): void {
 	updateMeteor(now)
 	settleQuiet(now)
+	const scene = sceneAt(scrollY, height, documentHeight)
+	gather(now, scene)
 	// Fade frames come 1/FRAME.fadeFps s apart, so the motion ease ends between two of them: the last frame shown still
 	// carries a trace of twinkle. One more frame shows the resting sky, which is what stays on screen.
 	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, lastDrawAt / 1000)) needsDraw = true
 	updateCamera(now)
-	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
+	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
 	// display: each of its ticks is a frame, divided only by a demand's cap
 	const interval = rafWorks ? refresh.interval : 1000 / PACING.fallbackFps
@@ -427,22 +470,28 @@ function settleQuiet(now: number): void {
 	} else if (lastDrawAt / 1000 - layoutAt < QUIET.ease) needsDraw = true
 }
 
-/** Steps the camera while the tab is visible; when it comes to rest, one more frame draws the resting sky. */
+/** Steps the camera while the tab is visible, the drift at the rate gather found; when it comes to rest, one more frame draws the resting sky. */
 function updateCamera(now: number): void {
 	if (!visible) return
 	cameraInput.time = now / 1000
 	cameraInput.scroll = parallaxScroll
 	cameraInput.viewportHeight = height
 	cameraInput.follow = motion === 'full'
+	cameraInput.drift = driftRate(driftGate)
 	const moving = stepCamera(camera, cameraInput)
 	if (cameraMoving && !moving) needsDraw = true
 	cameraMoving = moving
 }
 
-/** Everything drawSky and drawMeteor need to draw the sky at time `now` (ms) onto `target`. */
+/**
+ * Everything drawSky and drawMeteor need to draw the sky at time `now` (ms) onto `target`. It gathers the gates first:
+ * the twinkle reads the ambient level, and frames are also drawn outside a frame decision (a resize, a quality step),
+ * where a sky that slept would otherwise show a stale twinkle.
+ */
 function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const t = now / 1000
 	const scene = sceneAt(scrollY, height, documentHeight)
+	gather(now, scene)
 	const dusk = exitAt === null ? -1 : t - exitAt
 	const contrast = contrastLevels()
 	return {
@@ -457,7 +506,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		keep: densityKeep(width, height) * (quality > 0 ? ADAPT.thinning : 1),
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
-		twinkle: twinkleLevel(now),
+		twinkle: twinkleLevel(scene),
 		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
 		quiet: quietBlend(t),
 		meteorInk: contrast.meteorInk,
@@ -503,7 +552,8 @@ function stepDown(now: number): void {
 
 /**
  * Software canvases (Chromium without a GPU, for one) rasterize after the draw calls return, where adapt() can't see
- * the cost. Rasterize one full sky off screen and time it: a slow one starts the sky at the lowest quality.
+ * the cost. Rasterize one full sky off screen and time it: a slow one starts the sky at the lowest quality, and its
+ * cost decides how many frames a second the drift can afford (PACING.softwareShare of a core).
  */
 function probeRaster(now: number): void {
 	if (!canvas || !assets) return
@@ -514,8 +564,13 @@ function probeRaster(now: number): void {
 	const started = performance.now()
 	// A GPU canvas only queues the work here; a software one rasterizes the whole frame
 	probe.transferToImageBitmap().close()
+	const rasterMs = performance.now() - started
 	const limit = Math.max(ADAPT.rasterMinMs, (ADAPT.rasterMsPerMp * probe.width * probe.height) / 1e6)
-	if (performance.now() - started > limit) while (quality < 2) stepDown(now)
+	if (rasterMs <= limit) return
+	const probedDpr = dpr
+	while (quality < 2) stepDown(now)
+	// The probe drew at the device ratio, and the sky now draws at CSS resolution: each frame costs that share of it
+	softwareFps = Math.floor((PACING.softwareShare * 1000) / (rasterMs * (dpr / probedDpr) ** 2))
 }
 
 /** Builds the sprite atlas and the haze for the current size and ratio, closing the old bitmaps. */
@@ -571,6 +626,7 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	const hadAssets = assets !== null
 	width = nextWidth
 	height = nextHeight
+	narrowScreen = nextWidth <= NARROW_MAX_WIDTH
 	// The old path was planned for the old layout
 	radiant = null
 	meteor = null

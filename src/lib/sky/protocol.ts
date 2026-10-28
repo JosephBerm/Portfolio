@@ -31,7 +31,7 @@ export interface SkyRect {
 
 /**
  * How much the sky may change on its own:
- * - `full`: twinkle, scroll parallax and its glide, and shooting stars
+ * - `full`: twinkle, drift, scroll parallax and its glide, and shooting stars
  * - `reduced`: prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only
  * - `off`: forced colors hide the sky, so nothing is drawn
  */

@@ -320,8 +320,9 @@ export const FRAME = {
 	/** Ambient motion fades out and back in around the idle sleep. */
 	idleFadeMs: 4000,
 	/**
-	 * Seconds over which the twinkle eases out or back in when motion stops or starts again (the pause control, a
-	 * reduced-motion switch), so no star changes brightness in one frame.
+	 * Seconds over which motion stops or starts again (the pause control, a reduced-motion switch): ambient motion eases
+	 * out or in, so nothing stops or starts in one frame, and even the brightest star at its peak speed moves only about
+	 * 1 px after a pause.
 	 */
 	motionEase: 0.3,
 } as const
@@ -359,9 +360,10 @@ export const PACING = {
 
 /**
  * Adaptive quality: after `slowFrames` more slow frames (JS over `slowFrameMs`) than fast ones, draw `thinning` of the
- * stars and twinkle slower; a second step drops to CSS resolution. A software-rasterized canvas, whose cost lands after
- * the draw calls return where frame timing can't see it, is found at start-up instead: one full frame rasterized off
- * screen in more than `rasterMsPerMp` per device megapixel (and more than `rasterMinMs`) starts at the second step.
+ * stars, twinkle slower and cap the drift at PACING.slowMaxFps; a second step drops to CSS resolution. A
+ * software-rasterized canvas, whose cost lands after the draw calls return where frame timing can't see it, is found at
+ * start-up instead: one full frame rasterized off screen in more than `rasterMsPerMp` per device megapixel (and more
+ * than `rasterMinMs`) starts at the second step.
  */
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 

@@ -58,11 +58,11 @@ export interface FrameState {
 	full: boolean
 	/** Every frame while a shooting star flies, fade frames while its train lingers. */
 	transientDemand: FrameDemand
-	/** The camera moves: the stars follow the page or glide to rest after it stops. */
+	/** The camera moves, or the drift heads up: the stars follow the page, glide to rest after it stops or float. Decided by where the drift heads, not by its eased rate, which starts from 0. */
 	cameraActive: boolean
-	/** Device px/s of the nearest star at the camera's speed. */
+	/** Device px/s of the nearest star at the camera's speed, with the drift at the speed it heads to. */
 	cameraSpeed: number
-	/** Most frames per second the camera's motion may draw; Infinity for none. */
+	/** Most frames per second the camera's motion may draw: the drift's cap (driftCap) while the drift is wanted, else Infinity, so a scroll glide alone is never cut to a crawl. */
 	cameraCap: number
 	/** A slow change runs: the dusk, the quiet ease or the motion ease. */
 	fading: boolean

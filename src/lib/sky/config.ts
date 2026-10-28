@@ -403,6 +403,76 @@ export const TRANSIENTS = {
 } as const
 
 /**
+ * The screen as a window on the sky, for the geometry of the transients crossing it: its longer side spans `fov`
+ * degrees and its center looks `elevation` degrees above a horizon just below the screen, so a 16:10 window spans about
+ * 18° at its bottom corners to 60° at the top of its center (twinkle already grows toward the bottom,
+ * TWINKLE_HORIZON_GAIN). A speed of 0.2 long sides a second is 12°/s here, a medium meteor (IMO: 3 to 25°/s). Shooting
+ * stars glow about `meteorHeightKm` km up over a planet of radius `earthRadiusKm` km, so lower in the window they are
+ * farther away: slower, shorter and dimmer.
+ */
+export const SKY_WINDOW = { fov: 60, elevation: 40, meteorHeightKm: 100, earthRadiusKm: 6371 } as const
+
+/**
+ * Where a visit's shooting stars come from. One shower radiant sends `showerShare` of them, scattered about it with a
+ * standard deviation of `showerScatter` degrees; the rest come from `sporadicSources` broad sporadic sources (helion,
+ * antihelion, apex and toroidal), one per speed class, each scattering `sporadicScatter` degrees (one standard
+ * deviation). Elevations follow real rates (hourly rate ∝ sin h, so the density is sin h cos h) and azimuths are
+ * uniform: about 3 in 4 fall, 1 in 7 cross sideways and 1 in 8 climb before the climb guard. A path climbing more than
+ * `climbDegrees` comes only from a sporadic source and spans at most `climbShare` of the longest path, and no path ends
+ * under the navbar. On `onScreen` of wide-screen visits the shower radiant sits on screen, in clear sky in the top
+ * `onScreenTop` of the height (on no other visit, and never on narrow screens, where only stubs would fit around it);
+ * within `nearRadiant` degrees of it a shower path may be as short as `nearRadiantPath` px, since meteors there are short
+ * and slow.
+ */
+export const RADIANTS = {
+	showerShare: 0.4,
+	showerScatter: 1.5,
+	sporadicSources: 3,
+	sporadicScatter: 15,
+	climbDegrees: 15,
+	climbShare: 0.6,
+	onScreen: 0.15,
+	onScreenTop: 0.45,
+	nearRadiant: 10,
+	nearRadiantPath: 40,
+} as const
+
+/** The color a shooting star's wake cools to: warm (sodium, iron), white, or mint (magnesium, oxygen 557.7 nm). */
+export type WakeColor = 'warm' | 'white' | 'mint'
+
+interface SpeedClass {
+	/** Angular speed 90° from the radiant at the window's center (°/s). */
+	angular: number
+	/** Flight duration range (s). */
+	duration: readonly [number, number]
+	/** Wake color the head cools to (named apart from Meteor.wake, the afterglow time constant). */
+	wakeColor: WakeColor
+	/** Whether a persistent train is possible. */
+	train: boolean
+}
+
+/**
+ * Speed classes by entry speed (IMO: 11 km/s very slow, 40 medium, 72 very fast). The sporadic sources map onto them:
+ * helion and antihelion about 30 km/s, toroidal 35 to 40, apex about 60. Fast meteors cool to mint (magnesium 517 nm,
+ * oxygen 557.7 nm) and alone may leave a train; slow ones glow warm (sodium 589 nm, iron); medium ones stay white.
+ */
+export const SPEED_CLASSES = {
+	slow: { angular: 9, duration: [1.1, 1.4], wakeColor: 'warm', train: false },
+	medium: { angular: 14, duration: [0.8, 1.1], wakeColor: 'white', train: false },
+	fast: { angular: 22, duration: [0.55, 0.8], wakeColor: 'mint', train: true },
+} as const satisfies Record<string, SpeedClass>
+
+/**
+ * Brightness: real counts are dominated by faint meteors (each brighter magnitude has 1/r as many, r about 2.2 to 2.6);
+ * the hero keeps only `faintShare` of ordinary flights faint, peaking within `faint`, so most stay easy to see, and the
+ * rest peak within `normal`. Lower in the window a meteor is farther away and dims by the square of its distance over the
+ * distance at the top of the spawn area (so none ever brightens past `normal`), never below `rangeFloor` of its peak. On
+ * average they peak at about 0.5, about 1 in 8 under 0.3; raise `normal` and `rangeFloor` if they read too faint: the
+ * renderer fits any peak to each copy's INK_BUDGET (METEOR_VEIL). Fireballs peak at 1 and stay in clear sky.
+ */
+export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [0.6, 0.85], rangeFloor: 0.6 } as const
+
+/**
  * Shooting stars: rare and small, falling from one radiant beyond the top-right corner. Each lights up and peaks in
  * clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET).
  */
@@ -444,6 +514,8 @@ export const METEOR = {
 	speedShare: 0.2,
 	speed: [240, 460],
 	speedJitter: [0.88, 1.12],
+	/** Where no long flight fits, the fallback pass flies its speed class's durations times this, and accepts a path this share as long as the shortest. */
+	fallbackScale: 0.64,
 	/** Path length range (px); the longest is also at most `pathShare` of the longer viewport side. */
 	path: [160, 640],
 	pathShare: 0.36,

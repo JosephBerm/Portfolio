@@ -1,6 +1,6 @@
-import { METEOR, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN } from './config'
+import { METEOR, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type WakeColor } from './config'
 import type { SkyRect } from './protocol'
-import { between } from './random'
+import { between, type Random } from './random'
 import { budgetKeeps, inkAt, quietAt, quietFactor, smoothstep } from './scene'
 
 /** A point in screen CSS px. */
@@ -46,6 +46,30 @@ export interface Meteor extends MeteorPath {
 	startedAt: number
 }
 
+/** How a shooting star launched at a start point flies; the planner keeps start sampling, the layout guards and the checks against quiet copy (METEOR_VEIL). */
+export interface Course {
+	/** Unit direction of travel on screen. */
+	dirX: number
+	dirY: number
+	/** Nominal screen speed at the start (CSS px/s). */
+	speed: number
+	/** Flight time range (s). */
+	duration: readonly [number, number]
+	/** Longest path as a share of the planner's maximum (RADIANTS.climbShare for climbs, else 1). */
+	pathShare: number
+	/** Shortest path allowed from this start (px), or null for the planner's own minimum. */
+	minPath: number | null
+	/** Peak brightness (fireballs peak at 1 regardless): veiledFrom and drawMeteor fit it to each copy's INK_BUDGET. */
+	peak: number
+	/** The color the wake cools to (SPEED_CLASSES). */
+	wakeColor: WakeColor
+	/** A persistent train is possible here. */
+	train: boolean
+}
+
+/** Direction, speed and timing for a start point the planner picked; null when no shooting star starts there. */
+export type Steer = (random: Random, start: Point, fallback: boolean) => Course | null
+
 /** What a plan may do. */
 export interface PlanOptions {
 	/** False: only paths in clear sky, clear of the veil of every quiet rect, as fireballs fly. Default true. */
@@ -87,6 +111,15 @@ export function headGain(boost = 1): number {
 
 /** White a unit of light adds on the wake's centerline: its core and its soft pass. */
 export const WAKE_GAIN = 1 + METEOR_LOOK.softAlpha
+
+/**
+ * The box shooting stars start in (CSS px): width × METEOR.spawnX by height × spawnY. The box itself is not clamped:
+ * a start drawn above METEOR.top is raised to it, under the navbar.
+ */
+export function startArea(field: MeteorField): { x0: number; x1: number; y0: number; y1: number } {
+	const { width, height } = field
+	return { x0: width * METEOR.spawnX[0], x1: width * METEOR.spawnX[1], y0: height * METEOR.spawnY[0], y1: height * METEOR.spawnY[1] }
+}
 
 /**
  * A radiant far beyond the right edge and a little above the top: every shooting star falls away from it, so paths

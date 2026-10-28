@@ -682,13 +682,18 @@ scope.addEventListener('message', (event) => {
 				return
 			}
 			if (hiddenAt !== null) {
-				// The stretch just ended is measured once, for the twinkle's clock, the dusk's and the motion ease's
+				// The stretch just ended is measured once, for the twinkle's clock, the dusk's, the motion ease's and the idle clock's
 				hiddenTotal += (now - hiddenAt) / 1000
 				// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
 				if (exitAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
 				// So does the motion ease: one that began while hidden starts now, instead of running out unseen and jumping every
 				// star's twinkle in the first frame back. An ease that never ran (since -Infinity) stays that way.
 				motionLevel.since = now / 1000 - Math.max(0, hiddenAt / 1000 - motionLevel.since)
+				// And the idle clock: time spent hidden is not time without input, so a tab hidden for longer than the idle sleep
+				// shows the twinkle it had, instead of one that has idled out and drops to rest in the first frame back. A visitor
+				// who was already asleep still eases in from 0, and one who has never been away (wokeAt -Infinity) stays that way.
+				presence.lastInputAt = now - Math.max(0, hiddenAt - presence.lastInputAt)
+				presence.wokeAt = now - Math.max(0, hiddenAt - presence.wokeAt)
 				hiddenAt = null
 			}
 			// Misses from before the tab was hidden say nothing about the display now

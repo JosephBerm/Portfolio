@@ -1,6 +1,6 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-27, `PLAN.md` reconciled with the veil interface and audited; gate rounds continue until one comes back clean.
+Last updated: 2026-10-28, `PLAN.md` rebuilt on the veil commit `cf4d7b8` and through gate round 10; gate rounds continue until one comes back clean.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 
@@ -39,11 +39,17 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
     - Round 5: 32 findings, 8 blocking or major.
     - Round 6: 22 findings, 1 major.
   - The reviser fixed every finding. Reports: `drafts/check-r<N>-*.md`, `audit/*-gate-r<N>.md`; logs: the "Check log" and "Audit log" in `REVIEW-LOG.md` (moved out of `PLAN.md` after round 6, so the plan holds only what an implementer builds from).
-  - Round 6's fixes are not re-checked yet. The next gate round does that, and the plan counts as converged only when a round raises no blocking or major finding.
+  - Gate rounds 7 to 10 (`wf_da80a929-257`) added a skeptic who tests every blocking or major finding and its severity:
+    - Round 7: 31 findings, 8 blocking or major after the skeptics. It also folded in the veil's answers and landed numbers.
+    - Then a restructure rebuilt the plan on the veil commit `cf4d7b8`: one tree, no fallback or file-rule branches, 63.8k down to 58.0k words.
+    - Rounds 8, 9 and 10: 25, 20 and 19 findings, of which 3, 3 and 2 were major.
+  - Every finding is fixed. The plan is about 59,700 words.
+  - Round 10's fixes are not re-checked yet. The next gate round (11 onward) does that.
+  - The plan counts as converged when a round raises no blocking or major finding that survives its skeptic, and a fold checker finds the final minor edits clean.
 
 ## Key facts
 
-- Branch: `claude/quirky-carson-btv2u4` on JosephBerm/Portfolio, based on master 246c0aa.
+- Branch: `claude/quirky-carson-btv2u4` on JosephBerm/Portfolio, cut from master 246c0aa and merged with `origin/master` at `cf4d7b8`.
 - The shared brief for all subagents is `research/00-shared-brief.md`. It holds the user's request verbatim, the code map, the current behavior and the rules.
 - The old upward-moving stars live in git history before d116918; see `src/css/Background.css` at 7c176fb^.
 - `node_modules` must be installed (`npm ci`) for `node_modules/next/dist/docs`.
@@ -51,13 +57,13 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - Joseph committed the fix as `cf4d7b8` on master, on 246c0aa: 11 files, +577 −184, with lint, type-check and its final Opus check clean.
     - Master was pushed, so `origin/master` is `cf4d7b8`.
     - We checked the commit's patch-id against the confirmed diff.
-    - A read-only checkout of it is at `.claude/worktrees/sky-baseline-cf4d7b8`. This planning branch stays on 246c0aa and holds only documents.
+    - This planning branch merged `origin/master` at `cf4d7b8` on 2026-10-28, so its `src/` is the plan's baseline. Its own commits change only documents.
   - `COORDINATION.md` records:
     - its confirmed interface;
     - its answers to our five questions: the file rule is symbol-level, both shared-function edits are agreed, satellites may overlap a meteor under three conditions, and a comet keeps `scrollKept`;
     - its final crossing numbers.
   - Its harness and captured layouts are archived in `harness/` (see `harness/README.md`).
-  - With the commit in, gate round 7 is followed by a restructure that rebuilds `PLAN.md` to start from `cf4d7b8`. That removes the before/after-commit split, the fallback PF and the file-rule branches, and re-grounds every file:line on `cf4d7b8`.
+  - `PLAN.md` now starts from `cf4d7b8`: the implementing branch is cut from `origin/master` at `cf4d7b8` or later.
 
 ## Copy-and-paste prompt for a new session
 

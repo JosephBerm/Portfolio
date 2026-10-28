@@ -237,7 +237,7 @@ The veil fix is on local master as `cf4d7b86b63ac6e3ea722ad23bda3f9492a98815` ("
   - `git diff 246c0aa cf4d7b8` has the same patch-id (`cbe873c5`) as the archived working-tree diff `results/wt-final.diff`;
   - it changes 11 files, +577 −184;
   - the final numbers are the ones in "Landed in the working tree" below.
-- Checkpoint V is reached: the veil session says we're clear to build on `cf4d7b8`. A read-only checkout of it for reviewers is at `.claude/worktrees/sky-baseline-cf4d7b8` (detached, local only).
+- Checkpoint V is reached: the veil session says we're clear to build on `cf4d7b8`. The planning branch merged `origin/master` at cf4d7b8 on 2026-10-28, so its `src/` is the baseline.
 
 ## Landed in the working tree (2026-10-27, not yet committed)
 

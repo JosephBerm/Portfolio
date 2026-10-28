@@ -4,7 +4,7 @@
 
 - **Status.** Planning only. No file in `src/`, configuration or tooling changes until an implementing session runs a phase from section 7.
 - **Date.** 2026-10-27, written in a local desktop session that resumed the cloud planning workflow stopped on 2026-10-25 (`HANDOFF.md`).
-- **Baseline.** The meteor-veil fix is committed as cf4d7b8 on master and pushed (`origin/master` is cf4d7b8; 8.1). The implementing branch starts from `origin/master` at cf4d7b8 or later, and the phases run on that one tree in the order of 7.2. The planning branch `claude/quirky-carson-btv2u4` holds only documents and may be rebased onto master later.
+- **Baseline.** The meteor-veil fix is committed as cf4d7b8 on master and pushed (`origin/master` is cf4d7b8; 8.1). The implementing branch starts from `origin/master` at cf4d7b8 or later, and the phases run on that one tree in the order of 7.2. The planning branch `claude/quirky-carson-btv2u4` has merged `origin/master` at cf4d7b8, so its `src/` is the baseline; its own commits change only documents.
 - **Inputs.**
   - `research/00-shared-brief.md` (the user's request, verbatim) and `research/01-planning-brief.md` (the settled defaults and this structure).
   - `COORDINATION.md`: the veil session's constraints, confirmed interface, answers to our questions and landed numbers (all 2026-10-27). Every veil name, signature and rule below is checked against cf4d7b8.
@@ -14,7 +14,7 @@
 - **Evidence labels.**
   - **[computed]** marks numbers recomputed for this plan with Node 24 scripts in the session scratchpads. Those scripts are not in the repository, and the formulas are in the text.
   - **[R1]** to **[R4]** point to the research reports for derivations and primary sources.
-  - `file:line` cites cf4d7b8 (a read-only checkout is at `.claude/worktrees/sky-baseline-cf4d7b8`); if CP-1 finds later sky commits, re-read the cited lines.
+  - `file:line` cites cf4d7b8 (`git show cf4d7b8:<path>`, or the planning branch's `src/`); if CP-1 finds later sky commits, re-read the cited lines.
 
 **The plan at a glance.**
 

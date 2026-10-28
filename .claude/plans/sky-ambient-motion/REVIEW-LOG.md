@@ -135,6 +135,92 @@ Four checkers (`drafts/check-r7-*.md`) raised 18 findings on round 6's revision:
 
 Refuted by the skeptics this round: none.
 
+### Post-commit restructure (cf4d7b8)
+
+The veil fix landed as cf4d7b8 (pushed, patch-id identical to the confirmed diff), so `PLAN.md` was rebuilt for a branch cut from `origin/master` at cf4d7b8: one tree, no wait, no fallback. Every `file:line` was re-grounded on `.claude/worktrees/sky-baseline-cf4d7b8` with a citation script, and `PLAN.md` went from 63,813 to 58,038 words. The pre-restructure copy is `PLAN.before-restructure.md` in the session scratchpad; the scripts are in its `restructure/` folder.
+
+| Area (sections) | Change |
+|---|---|
+| Status and baseline (1, 4.4, 7.0) | The branch starts from `origin/master` at cf4d7b8 or later, each phase is a PR into `origin/master`, and the planning branch holds documents only. The file rule, the integration-branch route and the wait are gone; 4.4 is one paragraph pointing to 8.4. |
+| The wait and the fallback (3, 7.3, 8, 12) | Removed: D10, D11 (satellites before the veil boundary), PF and 8.7, CP-0, CP-3 to CP-5 with CP-4's waiting rule, R-1, R-2, and open question 1 (the SHA); the remaining questions renumbered (11 now cites question 8). |
+| Phase order (7.2, P0 to P13) | One dependency-ordered map with no "blocked on V" column; P8 depends on P3, P5 and P6 (`fadeOutAt`); P0 measures cf4d7b8 and sends nothing; the Blocked-on lines lose the overlap clauses; checkpoint V's subsection is gone. |
+| Checkpoint V into the phases (8.1, P1, P2, P6, P7, P9, H2, H3) | The kill-switch identity is P1's check against cf4d7b8's render, rerun by P2, P6 and P7; P9 sets the crossing cooldown against the landed bars with the archived harness and reports to Joseph; H2 and H3 lose their V rows. |
+| Coordination (8) | 8.1 "Baseline: the veil commit"; 8.2 keeps CP-1 (new sky commits on master) and CP-2; 8.3 a final-status table (I6 declined; I9 with its three conditions and the comet's `scrollKept` exception); 8.4 the veil symbols this plan uses or extends, under "use, extend through options, never rewrite; `veiledFrom` never changes", with the veil's three P9 asks. The stable-seams table, the CP-0 message, the V steps and the hotspot table are gone; their surviving facts sit in 6.x, 7.0, 8.4 and the phases. |
+| Design text (5.1 to 5.3, 6.1, 6.2, 6.4, 6.7 to 6.10, 6.12, 6.13) | 5.1 drops its Owner column; P2 removes `LAYERS.*.parallax` itself; P1 defines `ZONE_REACH = QUIET_REACH - QUIET.padding`, moves `sameRects` with its `headroom` comparison and drops the unread `easedQuietFactor` import; 6.2's `quietEasing` row goes (`demandNow` uses it from P3); P8's `launches` doc keeps the veil's wording; every "after V", "from V", PF and "8.5"/"8.6"/"8.7" clause is gone. |
+| Acceptance and risks (9.2, 11, 12.1) | AC-16 (b) moves to P3 and P6, AC-19 to P8 and P9; AC-25, AC-30 and AC-38 lose V; AC-30 and 11's 1.4.3 drop PF's flat-veil arithmetic; R-3, R-10 and R-20 rewritten for one tree. |
+| Re-grounding (all) | Lines that moved: `sky.worker.ts` (for example `:469` to `:535`, `:116-133` to `:135-152`, `:401-427` to `:467-493`), `config.ts` (`:156` to `:171`, `:231-234` to `:247-250`), `meteors.ts` (I2's lines, now in `fit`, `:195-236`), `mountSky.ts` (`:149` to `:214`, `:261-268` to `:328-335`), `protocol.ts` (`:32-38`) and `drawMeteor`'s tint (`renderSky.ts:237`). F6's stale `sky.worker.ts:124` now reads `:143-144`; ambiguous bare refs made explicit (`skyAssets.ts:81-120` and `:26-27`, `sky.worker.ts:519`, `config.ts:170`, `components/styles.ts:7`). No "observed" marker was left; the comment rules drop the word. |
+| Numbers (6.4, 6.9, AC-38) | Re-checked, none changed: the bars 0.97, 0.90 and 0.56 a minute and 6.9's settings reproduce from the landed shares (`cooldown-landed.mjs`, `cooldown-phone.mjs`); star quiet math on cf4d7b8's one-pass `quietFactor` costs within 10% of 246c0aa's, so R3's figures stand (`bench-quiet.mjs`); 7.1's hook loads cf4d7b8's modules (`ZONE_REACH` 40, `STAR_INK_PEAK` 0). |
+| Outside `PLAN.md` | `harness/README.md` still cites "8.5 step 5" (now 8.1 and P9), and `HANDOFF.md` predates the restructure; both are left to their owners. |
+
+### Round 8
+
+Four checkers (`drafts/check-r8-*.md`) raised 16 findings on the restructured plan, grounded on cf4d7b8: 3 major, each confirmed by its skeptic (CA8-1, C62, C63), and 13 minor, which the reviser verified. All held and were fixed; none was rejected. The reviser re-ran the first-minute heading (`reviser-r8/heading.mjs`), the nine bars and 2560 × 1440's settings (`bars9.mjs`, `untabled.mjs`), the phone's cadence under the cooldown (`phone.mjs`) and the two type errors (`tc/`, tsc 6.0.3 `--strict`). `PLAN.md` went from 58,038 to 58,308 words: the three majors add the rail guard, the harness adaptation and the nine bars, offset by cutting duplicated text (8.1's restatement, 6.8's store list and hydration note, C4 and SP1's numbers, which 6.1 keeps, 5.2, 5.4, 10.1, section 1).
+
+| ID | Lens | Severity | Disposition |
+|---|---|---|---|
+| PHY8-1 | physics-math | minor | Fixed with C63. |
+| PHY8-2 | physics-math | minor | Fixed: AC-16 (a) and (b) bound the alpha before the twinkle, measured with the hero's twinkle at 0 (cf4d7b8 `renderSky.ts:117-131`: the twinkle multiplies after the quiet factor). |
+| PHY8-3 | physics-math | minor | Fixed: 2.2's phone row gives both cases (about every 22 s, mostly clear sky, while clear-sky paths fit; about once a minute, most dimming near copy, where none fits), and 6.9 adds the no-fit phone rate (re-run: 22.0 and 47.0 s, 19.0 and 67.2% near copy, 0.47 to 0.66 a minute at share 0.67, 0.68 at 0.7). |
+| PHY8-4 | physics-math | minor | Fixed: 53.2 s (re-run: it leaves 30° of level at 53.20 s; the other headings and speeds reproduce). |
+| CG8-1 | code-grounding | minor | Fixed: `scope.requestAnimationFrame?.(onFrame) ?? null`, `cancelFrames` cancels with `if (rafId !== null) scope.cancelAnimationFrame?.(rafId)`, and 6.2 says every call uses `?.` (TS2722 twice before, clean after). |
+| CG8-2 | code-grounding | minor | Fixed with DRY-R8-1. |
+| CG8-3 | code-grounding | minor | Fixed: the heading cites `:154-160` and `:167-209`. |
+| CA8-1 | coordination-a11y | major (confirmed) | Fixed the first way: `PlanOptions.clearOf` (ours), which `fit` rejects within `QUIET.feather` (the `nearCopy: false` test); `SkyField.pinned` carries the padded rails from the launch gate (`screenQuietZones([], scrollY, pinned)`), and the meteor kind and farewell meteors pass it; the `METEOR` and `maxEndY` docs say what each guard keeps clear; H8 checks no accepted path within `ZONE_REACH` of a pinned zone on the nine layouts; 5.1, 6.9, 6.10, 6.12, P9, 8.3, 8.4 and section 11 follow. `copyReader`'s caveat then still holds, so the veil session needs only CP-2's note. |
+| CA8-2 | coordination-a11y | minor | Fixed: AC-26 compares with P0's screenshots with the navbar masked from P5 on, and P5's verification says so. |
+| CA8-3 | coordination-a11y | minor | Fixed: the comet's own fade is checked at the shortest viewport where its placement finds room, sweeping up from 393 px (the box's room recomputed: about 20, 43 and 165 px at 852 × 393, 932 × 430 and 1280 × 600); 6.12, D4 and I9. |
+| CA8-4 | coordination-a11y | minor | Fixed with CONV8-4: 8.4's row adds P12's `launchScene`. |
+| C62 | completeness | major (confirmed) | Fixed with the skeptic's amendments: P9's verification says how to adapt the archive (`transpile.mjs` at the implementing worktree; `lib.mjs`'s loaders and layouts with P9's modules and `pinned`; `METEOR_SPEC.plan` on a fresh `PlanContext` per launch for each `pickRadiant` and `planMeteor` pair; `sim2.mjs:28` dropped; the render scripts' frame fields; `launch` from `live/alib.mjs`; `run-batch.sh`, `harness/build.mjs` and the live runs unused) and names the rows reported to Joseph; H9 runs the real `updateTransients` on the nine layouts' fields. Outside `PLAN.md`, left to the planning session: archive `meteor3/code-logic/lib.mjs` and `meteor3/live-capture/lib.mjs` from the veil scratchpad while they last, and fix `harness/README.md`'s "8.5 step 5" and checkpoint V. |
+| C63 | completeness | major (confirmed) | Fixed: 6.9 gives the bar for all nine layouts and the phone, adds a 2560 × 1440 row (45, 60, 75, 85, 95, 100 s) and says the layout needing the most sets the cooldown: 55 s meets every other bar for shares up to 0.6, 2560 × 1440's only up to 0.28; H9, AC-38 and R-10 follow (re-run: bar 0.412; 0.411 at 0.28, 0.419 at 0.29; the four untabled layouts need at most 50 s at 0.7). |
+| C64 | completeness | minor | Fixed: CP-1 merges a sky commit on `origin/master`; one only on the local `master` waits until the user pushes it or says to include it. |
+| C65 | completeness | minor | Fixed: section 6's intro states the rule and its three cases. |
+| C66 | completeness | minor | Fixed with CONV8-4: 8.1's paragraph and bullets became one line. |
+| Answers fold | coordination | none | Re-checked: `COORDINATION.md`'s answers, "Landed in the working tree" and "Committed: cf4d7b8" were already folded by round 7 and the restructure (sections 1 and 4.4, 8.1, 8.3, 8.4, T3, D12, 6.12, the Blocked-on lines); 8.6, D10 and CP-0 no longer exist. Only answer 4's check viewport changed (CA8-3). |
+
+Refuted by the skeptics this round: none.
+
+### Round 9
+
+Four checkers (`drafts/check-r9-*.md`) raised 12 findings on round 8's revision: 3 major, each confirmed by its skeptic (PHY9-1, CG9-1, CA9-1), and 9 minor, which the reviser verified. All held and were fixed (C70 on `PLAN.md`'s side only); none was rejected. The reviser re-ran the phone's bar and P9's phone rates on an independent generator (`reviser-r9/phone-r9.mjs`: the veil commit's two phone launches give 0.94 to 0.98 crossings a minute; P9 at 55 s gives 0.51 to 0.52 where every clear-sky plan fits and 0.76 to 0.90 where none does, 0.50 at 60 s, and 0.95 to 1.0 at 50 s where none fits) and resolved every bare reference on a changed line (`reviser-r9/bare.mjs`). `PLAN.md` went from 58,308 to 58,867 words: the three majors add the phone's bar model, the pointer guard and the farewell band with its hold and check, offset by cutting duplicated text (6.9's lease paragraph and scroll-cancel sub-bullets, 6.10's `Steer` naming note and `nearCopy: false` sentence, 6.11's restatement of T3, the `drawMeteor` I7 restatement, 8.1's phase pointers, P9's fireball pointer, D4's comet condition, 4.2's frame-handle reasons).
+
+| ID | Lens | Severity | Disposition |
+|---|---|---|---|
+| PHY9-1 | physics-math | major (confirmed) | Fixed with the skeptic's amendment: 6.9's bar is what the veil commit flies (its `nearCopy` launches a minute, a null plan retried as its worker does), which H9 now measures with H7's oracle on the baseline tree. The desktop bars stand (share × about 1.6); the phone's is about 0.96, not 0.67, since the landed 67.3% counts planner attempts (a third plan nothing) and nearly every planned phone flight is `nearCopy`. 6.9 gives P9's phone rate by clear-sky fit, all under that bar, and drops the 0.66 and 0.68 that paired no fit with a share under 1; 2.2's phone row says nearly all dim near copy; AC-38 and H9 follow. |
+| CG9-1 | code-grounding | major (confirmed) | Fixed: 6.13 sends nothing before the canvas's first size (`!size.width`, R3 §8) and clamps each axis to −1..1, and the worker's `pointer` case ignores a non-finite `at`; P7's files and verification follow. |
+| CG9-2 | code-grounding | minor | Fixed: 6.10 says `meteorRange` reads `SKY_WINDOW.earthRadiusKm` and `meteorHeightKm` (`R2-meteors-bodies.md:619-620` read the old names). |
+| CG9-3 | code-grounding | minor | Fixed: 6.6 declares `let presence = createPresence(0)`, today's values (cf4d7b8 `sky.worker.ts:57-58`), since `scroll` and `visible` reach `noteInput` before `init` (`:521`, `:533`). |
+| CG9-4 | code-grounding | minor | Fixed: `config.ts:73` in 6.1 and `meteors.ts:226-228` in 6.10's rail paragraph; the third reference's sentence, which restated `clearOf`'s doc and cf4d7b8's `PlanOptions` doc, was cut. |
+| CG9-5 | code-grounding | minor | Fixed with C69: P1's `renderSky.ts` bullet, 5.1 and 8.4 drop `SHAPE_COUNT` and the `STAR_SHAPES` import with the old sprite lookup (cf4d7b8 `renderSky.ts:13`, `:90`, `:127`). |
+| CA9-1 | coordination-a11y | major (confirmed) | Fixed the first way, with the skeptic's amendment (the start area and the hold are required): farewell meteors fly only around Contact and the footer. Their `clearOf` adds the full width above the highest quiet zone in the page's flow less `ZONE_REACH`, their starts come from the band below it (a `starts` option, P12), and a field with no start area there holds the kind (`TransientSpec.room`, step 2.2). H7 and AC-20 gain a check on end-scene layouts P12 captures at 2560 × 1440 and 3840 × 2160 (no accepted path within `ZONE_REACH` of an unmarked text box), and the veil session hears of that copy. D4, 2.2's end row, T6, section 11's 1.4.3 row, 5.1, 8.4 and P12 follow; 2.2's reading row needed no change (skeptic). |
+| CA9-2 | coordination-a11y | minor | Fixed with CONV9-2 (2) and DRY-R9-2: P9 points `copyReader`'s caveat at the planner's `clearOf` (6.10, P9's files, 5.1, 8.4's `mountSky.ts` row), and CP-2's P9 entry tells the veil session. |
+| C67 | completeness | minor | Fixed: P9's adaptation runs the proto tree only (`TREES=proto`; `sim2.mjs`'s base rows dropped, since `walkBase` throws on cf4d7b8's `METEOR_VEIL`), takes the GPU rows from `check11/render3-canvas.mjs` at `FLIGHTS=200` and `SEED` 0 to 2 (`render3.mjs`'s software canvas leaves the list), and sets the fresh `PlanContext`'s `narrow` as `sim2.mjs:27` does; the report says each share is per launch attempt. |
+| C68 | completeness | minor | Fixed: H8's acceptance bar (with `nearCopy` true, under 5% of launches failing every steer on each desktop layout, and on 390 × 844 no more than cf4d7b8's one-radiant 32.5%); H9 runs 20,000 visits per layout; P9 step 3 commits the value 6.9's rule gives from H9, searched from 55 s. |
+| C69 | completeness | minor | Fixed: section 6's intro adds that names leave with their last reader (P1's `SHAPE_COUNT` and `STAR_SHAPES`, P3's `FrameMode`, P8's meteor imports, cf4d7b8 `sky.worker.ts:8-13`, `:24`). |
+| C70 | completeness | minor | Fixed on `PLAN.md`'s side: P9's adaptation bullet says to follow its list rather than the README's run steps, and to set `live/alib.mjs`'s `PW` and `CHROME`. `harness/README.md` itself (its checkpoint V purpose line and step 3) is outside this role's files and stays with the planning session. |
+| Answers fold | coordination | none | Re-checked: `COORDINATION.md` is unchanged since round 8 (last commit 6821c36), and no sky commit followed cf4d7b8 on `master` or `origin/master`; nothing new to fold. |
+
+Refuted by the skeptics this round: none.
+
+### Round 10
+
+Four checkers (`drafts/check-r10-*.md`) raised 11 findings on round 9's revision: 2 major, each confirmed by its skeptic (PHY10-1, CA10-1), and 9 minor, which the reviser verified. All held and were fixed; none was rejected. The reviser re-ran the P9 prototype on the empty fields with the fallback's scaled minimum (`reviser-r10/empty-fields.txt`: 1440 × 900 unchanged; the phone's two steers fail 0.9% against 1.4%), recomputed five-minute parity on its own generator (`reviser-r10/fivemin-check.mjs`: at the two-minute settings P9 runs 18 to 40% over the veil commit at 1920 × 1080 and 28 to 42% at 2560 × 1440; parity needs 45 to 85 s and 75 to 120 s), and checked the archive's path constants (`lib.mjs:7-9`, `transpile.mjs:14-15`, `check11/render3-canvas.mjs:196`) against the veil scratchpad, which still exists. `PLAN.md` went from 58,867 to 59,704 words for 19 findings (with the gate round's): the two majors add the scaled fallback minimum and the on-screen farewell band, offset by cuts (deviation 8's restatement of T4, 6.10's color table and phone-radiant aside, 8.3's I9 restatement of T2 to T4, AC-25's and AC-38's restatements of 6.12 and 6.9, the `drawTransient` #30581 rationale).
+
+| ID | Lens | Severity | Disposition |
+|---|---|---|---|
+| PHY10-1 | physics-math | major (confirmed) | Fixed the skeptic's way, in I2's existing `minPath` line: `planFlight`'s own minimum scales by `METEOR.fallbackScale` on the fallback pass (`course.minPath ?? minPath × (fallback ? METEOR.fallbackScale : 1)`: 102 and 70 px), so the steer never restates the planner's narrow choice; step 7, the `fallbackScale`, flight-block and `PassOptions` docs, 5.1 and P9's files and step 2 follow. H8 keeps its 5% bar, with the computed figures (at most about 1.5%, at 1024 × 768; 13 to 15% on the phone), and its empty phone failures read about 1%. |
+| PHY10-2 | physics-math | minor | Fixed: 6.9 restores the window sentence (over five minutes, up to about 40% more crossings at 1920 × 1080 and 2560 × 1440; parity at 45 to 85 s and 75 to 120 s); E5 and R-10 name the window, R-10 now says "H9's rates"; P9's report gives H9's two- and five-minute rates beside the oracle's. |
+| PHY10-3 | physics-math | minor | Fixed: P9 says 8% per candidate path (`meteors.ts:203`, clear sky only, `:228`), about one every 3 minutes at 1440 × 900, 8 times today's one every half hour (2.6% per launch in the archived batch); 7.0 says about 8 times. |
+| PHY10-4 | physics-math | minor | Fixed: `METEOR_RATE`'s doc says about 120 times a dawn sky's rate, 500 times an evening's and 10 to 20 times a shower peak's (R2 §8.1, `R2-meteors-bodies.md:340`). |
+| CG10-1 | code-grounding | minor | Fixed the first way: `frameDue` draws every animation frame at k = 1 (`k <= 1 ||`), as cf4d7b8's `tick` does in `'active'` mode (`sky.worker.ts:207`), and its doc says so; H13's case 0 and P3's trace check stand. |
+| CG10-2 | code-grounding | minor | Fixed: "Removed in P9" lists `DEG` (`meteors.ts:77-78`; its only readers are `:209` and `:212`). |
+| CG10-3 | code-grounding | minor | Fixed: `startArea` returns the unclamped box, `planFlight` keeps cf4d7b8's draw (`y = max(METEOR.top, between(random, y0, y1))`), and the probes raise y the same way; the usability test, "Everything else" and P9 step 2 follow. |
+| CA10-1 | coordination-a11y | major (confirmed) | Fixed with the skeptic's refinements: the band's edge is the top of the highest in-flow zone on screen (`field.quiet` without `field.pinned`, `zone.y < height` and `zone.y + zone.height > 0`), and `room(field)` is false while none is; P12's capture holds every rect the worker receives, the hero's included; `clearOf`'s doc gains the farewell clause (P12), and 5.1 and P12's files follow. |
+| CA10-2 | coordination-a11y | minor | Fixed, and closed further: `room(field)` is also false while the edge lies at or below `maxEndY` × height; starts run from the edge to the screen bottom across `spawnX`; D4 says they fly only in the last few hundred px on tall screens (169 at 2560 × 1440) and never at 3840 × 2160; `field()`'s doc changes with DRY-R10-2. Step 2.3 also lets a kind with a `room` test only retry a null plan, since partial room (47% of attempts null at 137 px left on 2560 × 1440) would still stop it after three, and scrolling posts no layout. |
+| C71 | completeness | minor | Fixed: H5 gains the three kill-switch rows (P2, P6, P7); H2, P1, P2, P6 and P7 call those phases' reruns the renderer's zero-offset identity and keep "kill-switch identity" for `STAR_PHASES = 1`. |
+| C72 | completeness | minor | Fixed: P9's bullet starts by extracting the archive into the implementing scratchpad, pointing `lib.mjs`'s `ROOT` and `transpile.mjs`'s `HERE` and `PLAN` at that copy, never at the veil scratchpad, and creating `live/out`; its list replaces README step 3 only. |
+| Answers fold | coordination | none | Re-checked: `COORDINATION.md` is unchanged since 6821c36, and the local `master` and `origin/master` refs hold no sky commit after cf4d7b8; nothing new to fold. |
+
+Refuted by the skeptics this round: none.
+
 ## Audit log
 
 Four auditors (`audit/*.md`) checked the plan against the Next.js 16.4.2 docs, the codebase conventions, DRY and separation of concerns; a skeptic verified each finding. 40 findings, 5 major, 35 minor. For a "partly" verdict only the part that held was applied.
@@ -259,3 +345,55 @@ The four auditors re-checked round 6's revision (`audit/*-gate-r7.md`): 13 findi
 | SOC7-2 | separation of concerns | minor | gate, verified | Fixed with CONV7-4. |
 | SOC7-3 | separation of concerns | minor | gate, verified | Fixed in part: I9 answered; T3 states the never-lease contract (`to` and `next`, the radius bound); `LaunchGate.cometShowing` becomes the kind-agnostic `bodyShowing`. Dropping the hold is superseded by D12 (C56, CA7-3), which keeps it as the default look choice. |
 | SOC7-4 | separation of concerns | minor | gate, verified | Fixed with CONV7-3 and CG7-5: `SATELLITE_SPEC.scene`, `SCENE.endLaunchLevel` beside `heroLaunchMaxScroll`, and the sleeping timer's guard named in 6.9. |
+
+### Gate round 8
+
+The four auditors re-checked the restructured plan (`audit/*-gate-r8.md`): 9 findings, all minor; the Next.js docs audit found none and passed. Each came to the reviser as a gate finding to verify; all held, SOC8-1 in part. None was rejected.
+
+| ID | Audit | Severity | Skeptic | Disposition |
+|---|---|---|---|---|
+| CONV8-1 | conventions | minor | gate, verified | Fixed: the sketch keeps cf4d7b8's `PlanOptions` doc and elides its three fields ("exactly as cf4d7b8 has them, docs included"), sketching only `steer`, `clearOf` and `fireball`. |
+| CONV8-2 | conventions | minor | gate, verified | Fixed: P3's `FRAME` sentence says "Anything that moves"; the `ADAPT` drift-cap sentence moves to P6; P4's idle docs say "ambient motion" and "nothing new launches", true from P4 on (as do `presence.ts`'s two docs, which named the drift and transients); `SkyMotion`'s `full` line grows from P5 to P8 (6.8; `protocol.ts` in P6's, P7's and P8's files; 5.1). |
+| CONV8-3 | conventions | minor | gate, verified | Fixed: (1) P9 rewrites the fireballs' doc ("warm unless fast (mint)") and P10 moves it onto `fireballSpeedScale`; (2) the `MeteorMemory` and `planMeteorTransient` docs no longer name `planLaunch`; (3) "scroll parallax" leaves the `LAYERS` doc's list, which gains a sentence (6.1, 5.1, P2, 8.4). |
+| CONV8-4 | conventions | minor | gate, verified | Fixed with CA8-4 and C66. |
+| DRY-R8-1 | DRY | minor | gate, verified | Fixed the first way: `easing` and `easeEnded` take `number \| null` and are false while null, one "not begun" convention with `fadeOutAt`, so P6 passes `thinnedAt` to all three; H4 adds the null case (TS2345 twice before, clean after; `fadeOutAt(-Infinity, …)` is NaN, so no −Infinity start). |
+| DRY-R8-2 | DRY | minor | gate, verified | Fixed: `LaunchGate.narrow` is documented and filled from `narrowScreen`, whose doc names its two readers; P8 depends on P6 for it (7.2, P8). |
+| DRY-R8-3 | DRY | minor | gate, verified | Fixed with SOC8-2: 6.6 drops "`settleQuiet` may adopt it"; 8.4's row lists R-20's cache inside `quietBlend` as its one exception, and R-20 cites it. |
+| SOC8-1 | separation of concerns | minor | gate, partly | Fixed the rollback notes from 7.2's graph: P3 "every later phase", P4 "P6 and every later phase", P5 "P4 and every later phase", P6 "every later phase, P8 through `narrowScreen` and `fadeOutAt`"; 7.2 and P8 add P4. Not applied: moving `fadeOutAt` to P5, which has no reader for it (section 6's first-reader rule), while P8 would still need P6's `narrowScreen` (DRY-R8-2). |
+| SOC8-2 | separation of concerns | minor | gate, verified | Fixed with DRY-R8-3. |
+
+Refuted by the skeptics this round: none.
+
+### Gate round 9
+
+The four auditors re-checked round 8's revision (`audit/*-gate-r9.md`): 8 findings, all minor; the Next.js docs audit found none and passed. Each came to the reviser as a gate finding to verify; all held, and none was rejected.
+
+| ID | Audit | Severity | Skeptic | Disposition |
+|---|---|---|---|---|
+| CONV9-1 | conventions | minor | gate, verified | Fixed: the seven docs say the reason in words, without the name their phase removes: `QuietIndex.empty`, `frameDemand` (the identity with the old `frameMode` stays in H4), `holdTransients`, `retryTransients`, `SKY_WINDOW` ("a nominal speed of 0.2 long sides a second"), `METEOR_BRIGHTNESS` ("about 0.5": 0.6 × cf4d7b8's mean peak 0.825) and `PlanOptions.steer`. |
+| CONV9-2 | conventions | minor | gate, verified | Fixed: (1) 6.10 gives P9's `PassOptions` and `planFlight` docs and P10's changes to them, named in P9's and P10's `meteors.ts` lines and 8.4's row; (2) with CA9-2; (3) `LaunchGate.narrow` reads "limit (P8) and gaps (P9)". |
+| CONV9-3 | conventions | minor | gate, verified | Fixed with CG9-4. |
+| DRY-R9-1 | DRY | minor | gate, verified | Fixed: `launchGate(now)` refills one reused gate, and `LaunchGate.field()` builds the field only when step 2.3 plans, as cf4d7b8 builds it only past its due check and holds (`sky.worker.ts:220-226`); from P9 the rails are padded once for `quiet` and `pinned`; the sleeping timer reads `meteorsAllowed(now)`, the gate's `allowed` test. R-20 needs no new row. |
+| DRY-R9-2 | DRY | minor | gate, verified | Fixed with CA9-2; `planMeteor`'s doc says "clear of the copy in `clearOf`" in place of "above the side rails", and `clearOf`'s doc stays the one full statement of the rule. |
+| DRY-R9-3 | DRY | minor | gate, verified | Fixed with CG9-4. |
+| SOC9-1 | separation of concerns | minor | gate, verified | Fixed: `transients.ts` exports `leaseHeld(schedule)`, which `inkLeaseFree` and step 2.2's D12 test read; `bodies.ts` owns the comet's start rule as a pure function over facts the worker gathers (6.12, 5.1, P12's files); P12's step 1 checks that the comet never starts while `leaseHeld` and that no lease begins while it shows; 5.2 adds `./catalog` for `nearness`. |
+| SOC9-2 | separation of concerns | minor | gate, verified | Fixed: 8.4's rule names P3's `tick`; its rows list `SkyFrame` whole with P1, P2, P4, P6, P8, P9, P11 and P12 (as 5.1 does), `tick` with P2, P3, P5, P6 and P8, and `frameAt` and `draw` with P1 to P8 and P12 (the comet's hand-off). |
+
+Refuted by the skeptics this round: none.
+
+### Gate round 10
+
+The four auditors re-checked round 9's revision (`audit/*-gate-r10.md`): 8 findings, all minor; every audit passed. Each came to the reviser as a gate finding to verify; all held, and none was rejected.
+
+| ID | Audit | Severity | Skeptic | Disposition |
+|---|---|---|---|---|
+| NJ10-1 | Next.js docs | minor | gate, verified | Fixed: P13's loop cancels its pending frame in `destroy`, as P7's does (cf4d7b8 `mountSky.ts:316-326` terminates the worker, which can then never turn the relay off); 6.13, 5.1 and P13's files follow, and P13's verification adds the `/links`, View Full Portfolio, Back trace. |
+| CONV10-1 | conventions | minor | gate, verified | Fixed: P8 renames `meteorsAllowed` `launchesAllowed`, documented for transients, and words `reveal`'s doc, the `motion` case's comment and `noteInput`'s doc for transients (6.9, P8's files and step 3, 5.1); P4's mentions keep the old name. |
+| CONV10-2 | conventions | minor | gate, verified | Fixed the second way: 7.0's sentence says which phase adds what to the earlier docs (P5 the motion ease, P6 the drift, its caps, the thin fade and `gather`, P7 the lean and the pointer ping, P8 every kind, P11 satellites), replacing its P11-only list; `FrameState.transientDemand` gets a doc of its own and P3's text, and `STAR_PHASES` drops "as before the drift". |
+| DRY-R10-1 | DRY | minor | gate, verified | Fixed: AC-20 cites H9's bar (about 90% by design) and gives the browser pass rate at 90% and at H9's 85% floor (93% and 82%, binomial). |
+| DRY-R10-2 | DRY | minor | gate, verified | Fixed: (a) step 2.2 builds the field once for a due kind past its other holds and hands it to `room` and the plan; `field()`'s doc and the worker bullet follow; (b) the farewell spec calls `planMeteorTransient(context, { clearOf, starts })`, an optional second argument, and is never a fireball, since P10's decision is the meteor spec's (6.12, 5.1, P12's files); (c) with CA10-1. |
+| SOC10-1 | separation of concerns | minor | gate, verified | Fixed: the comet's start rule reads the launch gate (`allowed`, `settled`, `!narrow`, `sinceReveal` past a first delay of its own) plus the visit's draw and `leaseHeld`; a resize retires it, a hidden tab keeps it on `twinkleTime`'s clock, and `demandNow`'s `fading` covers its fade-in (6.12, 4.2, 5.1, P12's files and step 1, AC-25, trimmed to cite 6.12). |
+| SOC10-2 | separation of concerns | minor | gate, verified | Fixed: `TransientSpec.limit` (2 for farewell meteors) and `TransientSchedule.kindLaunches`, held in step 2.2 beside `launched`; T6, 5.1, 6.12 and P12's files name them. |
+| SOC10-3 | separation of concerns | minor | gate, verified | Fixed: 4.1 puts `sameRects` in the veil column ("moved in P1"); 8.4's `sameRects` row adds the worker's imports (P1 to P8, P12). |
+
+Refuted by the skeptics this round: none.

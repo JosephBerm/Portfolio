@@ -1,6 +1,6 @@
 # Veil measurement harness (archived)
 
-`veil-confirm-final-1.tar.gz` is a copy of the meteor-veil session's final confirmation harness, archived on 2026-10-27. The original lives in that session's temporary scratchpad and won't last. The plan uses it to measure crossings again after P9, and checkpoint V uses it to set the crossing cooldown (`PLAN.md` 8.5 step 5, H8 and H9). The veil session asked us to report the new numbers to Joseph next to its own (`COORDINATION.md`, "Answers to the planning session's questions").
+`veil-confirm-final-1.tar.gz` is a copy of the meteor-veil session's final confirmation harness, archived on 2026-10-27. The original lives in that session's temporary scratchpad and won't last. P9 uses it to measure crossings again and to set the crossing cooldown, with H8 and H9 (`PLAN.md` section 7, P9; section 8.1). The veil session asked us to report the new numbers to Joseph next to its own (`COORDINATION.md`, "Answers to the planning session's questions").
 
 It is an archive, not loose files, because `tsconfig.json` type-checks every `**/*.ts` file and ESLint lints everything outside `.claude/worktrees/`. Loose copies of the harness's `.ts` and `.mjs` files would break `npm run lint` and `npm run type-check` if this folder ever reached master.
 
@@ -19,10 +19,11 @@ It is an archive, not loose files, because `tsconfig.json` type-checks every `**
   - `before-src/`: the sky sources before the veil's round-1 fixes.
   - `results/`: the text summaries, including `batch/planner-9-viewports.txt` and the exact working-tree diff `wt-final.diff`.
 - `meteor3/code-logic/zones/*.json`: the nine captured layouts (1024x768, 1280x720, 1280x800, 1366x768, 1440x900, 1536x864@1.25, 1920x1080, 2560x1440, 390x844@3m), with each quiet rect and its headroom.
+- `meteor3/code-logic/lib.mjs` and `meteor3/live-capture/lib.mjs`: the shared Playwright helpers that eight of the harness scripts import from outside their folder.
 
 ## Left out
 
-These are left out to keep the archive at 174 KB:
+These are left out to keep the archive at 178 KB:
 - `pure/`, which `transpile.mjs` regenerates;
 - the large per-flight result JSON files (`render3-results-*.json`, about 8.5 MB);
 - the PNG strips;
@@ -35,6 +36,7 @@ These are left out to keep the archive at 174 KB:
    - `lib.mjs`: `ROOT`, `HERE` and `ZONES`;
    - `transpile.mjs`: `HERE`, `PLAN` and `REPO`;
    - `check11/live-lib.mjs` and `live/alib.mjs`: `TARGET` defaults to `http://localhost:3000/`.
+   - `code-logic/lib.mjs` and `live-capture/lib.mjs`: `HERE`, plus `PW` (a `playwright-core` install) and `CHROME` (a Playwright Chromium binary), which point at the veil session's machine paths.
 3. Run `node transpile.mjs` and `node harness/build.mjs`, then the `run-*.sh` scripts. Their header comments give the order. They need Node 24, Git Bash, the repository's `typescript`, and Playwright's Chromium for the live and render runs.
 
 The live runs only load the home page. They never call `/api/schedule/book`.

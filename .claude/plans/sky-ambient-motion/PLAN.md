@@ -3,23 +3,18 @@
 ## 1. Title and status
 
 - **Status.** Planning only. No file in `src/`, configuration or tooling changes until an implementing session runs a phase from section 7.
-- **Date.** 2026-10-27, written in a local desktop session. It resumes the cloud planning workflow that stopped on 2026-10-25 (`HANDOFF.md`).
-- **Branch.** `claude/quirky-carson-btv2u4` (worktree `.claude/worktrees/sky-ambient-motion`). Its `src/` is identical to master 246c0aa, so every `file:line` below also holds on master.
+- **Date.** 2026-10-27, written in a local desktop session that resumed the cloud planning workflow stopped on 2026-10-25 (`HANDOFF.md`).
+- **Baseline.** The meteor-veil fix is committed as cf4d7b8 on master and pushed (`origin/master` is cf4d7b8; 8.1). The implementing branch starts from `origin/master` at cf4d7b8 or later, and the phases run on that one tree in the order of 7.2. The planning branch `claude/quirky-carson-btv2u4` holds only documents and may be rebased onto master later.
 - **Inputs.**
   - `research/00-shared-brief.md` (the user's request, verbatim) and `research/01-planning-brief.md` (the settled defaults and this structure).
-  - `COORDINATION.md`: the veil session's hard constraints, and its "Confirmed veil interface (2026-10-27)", which this plan builds on exactly.
+  - `COORDINATION.md`: the veil session's constraints, confirmed interface, answers to our questions and landed numbers (all 2026-10-27). Every veil name, signature and rule below is checked against cf4d7b8.
   - The research reports: R1 (physics of depth), R2 (meteors and other bodies), R3 (rendering and scheduling), R4 (motion design and the old sky).
-  - The code at 246c0aa, and the Next.js 16.4.2 docs in `node_modules/next/dist/docs`.
-- **How this plan was made.** Three planners wrote complete drafts (`drafts/plan-*.md`); a judge scored them (`drafts/judge-scores.md`), took the domain-model-first draft as the base, grafted the best of the other two and resolved every conflict, giving the reason in place where it matters. Adversarial checkers (physics and math, code grounding, coordination and accessibility, completeness) and four auditors (Next.js 16.4 docs, codebase conventions, DRY, separation of concerns) reviewed it in rounds, every finding fixed or answered. `REVIEW-LOG.md` records each round; where it and this plan disagree, this plan holds.
-- **Veil-session dependency.** The meteor-veil session ("Star and comment animation redesign", `local_e2e17660-e99d-43e6-84ab-7337ee88227d`) owns `veiledFrom`, `METEOR_VEIL` and the rest of the veil (its hands-off list, 4.4). Its fix lands first.
-  - It is active and local. Its fix is final but uncommitted in the main checkout; its interface, answers and final crossing numbers are in `COORDINATION.md` ("Confirmed veil interface", "Answers to the planning session's questions", "Landed in the working tree", all 2026-10-27). Its commit lands only after the user approves it.
-  - Every veil name, signature, rule and number below comes from those sections, or, for private details (`veiledFrom`'s parameters, `planLaunch`'s draw order), from the landed working tree; V rechecks them against the commit (8.5 step 2).
-  - The file rule is symbol-level, as this plan read it and the veil session confirmed (answer 1, 4.4): before V we never touch their working copies, nor the symbols on their hands-off list except the overlaps 8.6 lists, each agreed in CP-0; other lines of the same files change on an integration branch that reaches master after the rebase onto their commit (V), after PF, or earlier by agreement (7.0). P1 to P7 and P13 proceed once CP-0's overlap request is agreed; where it is declined, the phases 4.4 names wait for V or PF.
-  - Phases P8 to P12 are blocked on the veil commit (the planet in P12 excepted). If that work is abandoned, they run after the fallback PF, which only the user can start (section 8.7).
+  - The code at cf4d7b8, and the Next.js 16.4.2 docs in `node_modules/next/dist/docs`.
+- **How this plan was made.** A judge built it from three planner drafts (`drafts/`), and adversarial checkers and four auditors (Next.js 16.4 docs, codebase conventions, DRY, separation of concerns) reviewed it in rounds. `REVIEW-LOG.md` records each round; where it and this plan disagree, this plan holds.
 - **Evidence labels.**
   - **[computed]** marks numbers recomputed for this plan with Node 24 scripts in the session scratchpads. Those scripts are not in the repository, and the formulas are in the text.
   - **[R1]** to **[R4]** point to the research reports for derivations and primary sources.
-  - `file:line` cites the worktree at 246c0aa.
+  - `file:line` cites cf4d7b8 (a read-only checkout is at `.claude/worktrees/sky-baseline-cf4d7b8`); if CP-1 finds later sky commits, re-read the cited lines.
 
 **The plan at a glance.**
 
@@ -28,7 +23,7 @@
 - **The drift is a closed-form path of a clock.** Three circles ride on each other. That keeps it smooth at any frame rate and bounded, so nothing needs wrapping. It eases in as the stars come out at dusk.
 - **Moving stars are drawn from quarter-pixel sprites.** The sprites are pre-rendered, and frames land on the display's refreshes only as often as the stars' speed needs.
 - **A navbar control pauses all sky motion** (WCAG 2.2.2).
-- **Then, once the veil work lands, one scheduler runs every short-lived event.** Shooting stars come from realistic directions about 3.4 times as often, followed by fireballs and satellites. One ink lease means only one of them can ever light up near the copy.
+- **Then one scheduler runs every short-lived event.** Shooting stars come from realistic directions about 3.4 times as often, followed by fireballs and satellites. One ink lease means only one of them can ever light up near the copy.
 
 **How to read this.**
 
@@ -39,7 +34,7 @@
 | 4 | The model everything else follows from |
 | 5 and 6 | The design |
 | 7 | The phases an implementer follows |
-| 8 | The coordination with the veil session |
+| 8 | The veil commit this plan builds on |
 | 9 to 11 | How "done" is checked |
 
 ### 1.1 Deviations from the planning brief
@@ -51,14 +46,14 @@ Each deviation was argued in at least one draft and accepted by the judge, or ca
 | 1 | The drift eases in over 3 s from the **dusk** (the loader starting to lift), not from the reveal. | The stars come out already moving, and the ease ends at 6.0 s after load, as the side rails finish fading in, so no motion begins after the visitor starts reading. R3 §6 multiplies the drift by the dusk ramp, and R4 §2.4 says "ease in with the dusk emergence ... Never start it later". A motion onset captures attention (Abrams and Christ 2003). |
 | 2 | The epicycle **phases** become (0.70, 0.00, 2.09) instead of R1's (0.9, 2.4, 4.7). Ratios, shares, period and speed are unchanged. | R1 left the phases "to review" (R1 §9). Its phases start the stars moving 61° upward, the old sky's direction, and keep them within 30° of level for only 16 of the first 60 s. The new phases keep them within 30° of level for 53 of those 60 s, drifting right. The exact wander bound grows from 190.9 to 205.2 px at q = 1 [computed]. |
 | 3 | When motion stops or comes back (the pause control, a reduced-motion switch), one **motion level** eases the drift and twinkle out or in over 0.3 s (a smoothstep), instead of R3's immediate stop. | Today, turning reduced motion on drops every twinkling star to its resting brightness in one frame. A near star one standard deviation into its twinkle is 11 to 22% off its rest (`LAYERS.near.twinkleSigma`). The pause control makes that switch common. 0.3 s keeps R4's AC-27 within rounding: the brightest star at peak speed moves 1.02 px after the switch [computed]. |
-| 4 | **No `FrameClock` module** (R3 §2.1). The pure pacing policy goes to `src/lib/sky/pacing.ts`. The `requestAnimationFrame` and timer handles stay worker variables. | The veil-owned `scroll` handler reads `rafId` and `timerId` directly (`sky.worker.ts:469`). Moving them into a module would force an edit inside that handler. After V they still stay: a few handles bound to the orchestrator's state (5.2). |
+| 4 | **No `FrameClock` module** (R3 §2.1). The pure pacing policy goes to `src/lib/sky/pacing.ts`. The `requestAnimationFrame` and timer handles stay worker variables. | The `scroll` handler reads `rafId` and `timerId` directly (`sky.worker.ts:535`), and they are a few handles bound to the orchestrator's state (5.2): a module would only wrap them. |
 | 5 | On WebKit's unaligned 15 ms worker clock, the drift's caps still apply: an iPhone draws every third tick (22.2 fps). Uncapped motion (meteors, scrolling) still draws every tick there. | R3 §2.3 says to use k = 1 because dividing the clock "would beat against the screen". At phone drift speeds that beat moves a star about a third of a 0.37 device px step, which is invisible. Drawing at 66.7 Hz would bypass the battery cap that narrow screens exist for. |
 | 6 | The pause control follows the **W3C APG carousel's rotation control**: its name changes with the action ("Pause sky animation" or "Play sky animation") and it has no `aria-pressed`. R2 proposed an `aria-pressed` toggle; R4 proposed both together. | The W3C's own pattern for a button that starts and stops automatic motion; the APG Button pattern rules out R4's combination (6.8 quotes both). |
 | 7 | **Only a pause is stored.** Pressing Play under prefers-reduced-motion lasts for the page view: one mount of the home page, so a client-side navigation away and back starts again from storage and the OS setting. | A stored "playing" could override a reduced-motion setting the visitor turns on later. The brief's "paused by default under reduced motion, remembered per viewer" still holds. |
-| 8 | The **scroll cancel** is the veil commit's `scrollKept(launchScrollY, scrollY, fade)`, not R2's threshold followed by a 0.2 to 0.3 s fade: a transient keeps all its light within 12 px of scroll from its launch and none from 24 px, the scheduler retires it at 0, and its drawing takes the same value, with the pause fade passed in as `fade`. It is the only scroll-cancel rule, for every kind. | The confirmed interface asks for exactly this: one helper for every kind and no second threshold-plus-fade rule. Tied to the scroll position, it takes a transient away even after a one-step jump. Their commit evaluates it in `updateMeteor` and `draw`, not in the `scroll` handler, so P8 moves it into the scheduler, never into that handler (6.9), and PF adds and wires the same helper if their work is abandoned. |
+| 8 | The **scroll cancel** is the veil commit's `scrollKept(launchScrollY, scrollY, fade)`, not R2's threshold followed by a 0.2 to 0.3 s fade: the only scroll-cancel rule, for every kind, with the pause fade as its `fade` (T4). | The confirmed interface asks for exactly this: one helper for every kind and no second threshold-plus-fade rule. Tied to the scroll position, it takes a transient away even after a one-step jump. The veil commit evaluates it in `updateMeteor` and `draw`, not in the `scroll` handler, so P8 moves it into the scheduler, never into that handler (6.9). |
 | 9 | Fireball flights stay **1.8 to 2.5 s** (R2 proposed 1.8 to 3 s). | A 3 s fireball with its 2.4 s train lasts 5.4 s from first light to last, which breaks the 5 s rule. Today's 2.5 + 2.4 = 4.9 s passes [computed]. |
 | 10 | `wrapCell`, `FIELD_PERIOD` and R3's wrapped per-layer accumulators are **dropped**. A one-comparison key-range guard stays. | The drift is bounded, and the scroll term grows by at most one page's scroll range per pause cycle (section 6.5), so no offset nears the key range short of thousands of pause cycles. The guard turns that pathological case into "no stars" rather than wrong ones. |
-| 11 | The **crossing cooldown** starts at the reveal: 0 in P8 (which launches exactly as the veil commit does), then the value checkpoint V sets (55 s until then), accepted on "copy crossings per minute at or below the veil commit's" over a visit's first two minutes (6.9). | Against the veil commit's landed `nearCopy` bar, a cooldown started at the reveal meets it at half to two thirds the length one started at the first crossing needs, and keeps the copy calm while the visitor starts reading (6.9). |
+| 11 | The **crossing cooldown** starts at the reveal: 0 in P8, then the value P9 measures (55 s to start) against the veil commit's crossings a minute (6.9). | It meets that bar with half to two thirds of the cooldown a first-crossing start needs, and keeps the copy calm while the visitor starts reading (6.9). |
 | 12 | R4's acceptance items AC-4, AC-7, AC-10, AC-11, AC-15, AC-20, AC-21, AC-24, AC-27 and AC-30 are **amended**, and AC-35 to AC-41 are added. | R4 wrote them for an unbounded straight drift, a 0.25 px step, a 12 to 18 s gap, no climbing and 40 s satellites. The brief settled R1's epicycles, R3's 0.5 px step, R2's rates and the 5 s rule. AC-30 covers quiet copy only, because reading copy has no quiet rects (D2). Section 9 gives each new threshold and its reason. |
 | 13 | **Additions** beyond the brief. | Each closes a gap the drafts or the check rounds found: a `presence.ts` model module (one tested presence gate, PR1); the camera's scroll shift, so a resume never jumps (C8); the rest rule (F6, C5), which fixes two wake-up bugs found by simulation; the header that shows itself while it holds keyboard focus (WCAG 2.4.7, 2.4.11; 6.8); the control only while a sky runs (PB4); satellites' first appearance at 30 s + Exp(60 s), capped at 150 s (6.11); the scroll spring's lag cap (`CAMERA.maxLag`, 6.1); stars snapping to whole pixels only until the sky first moves in a page view (M1). |
 | 14 | The shower radiant sits on screen on 15% of **desktop** visits, never on phones. | Nearly all of a phone's spawn area lies within 25° of any on-screen radiant, where paths are too short for anything but stubs: phone visits with an on-screen radiant failed 31% of launch attempts (one steer each), and every shower meteor they did launch was a stub [computed, check report]. |
@@ -74,12 +69,12 @@ About 300 stars are on screen: about 15 bright ones, 70 of middle brightness and
 | Time after load | What the visitor sees | What makes it so |
 |---|---|---|
 | 0 to 3.0 s | The loader. | `IntroGate.tsx`, `duration.loader` (`animations.ts:36`), unchanged |
-| 3.0 s | The loader starts to lift and the dusk begins: the brightest stars come out first and the faint dust follows over about 1.3 s, with the haze glowing in by 5.3 s. The stars are **already drifting, from zero speed**, so the motion never "starts": it grows as they appear. | `EMERGENCE` (`config.ts:164`); the drift eases in from the dusk (6.1) |
+| 3.0 s | The loader starts to lift and the dusk begins: the brightest stars come out first and the faint dust follows over about 1.3 s, with the haze glowing in by 5.3 s. The stars are **already drifting, from zero speed**, so the motion never "starts": it grows as they appear. | `EMERGENCE` (`config.ts:179`); the drift eases in from the dusk (6.1) |
 | 3.75 s | The page is revealed. The hero copy rises in and settles by about 5 s, and the navbar drops in, the pause control last. | `IntroGate.tsx:54`, `:94-100`; `Navbar.tsx` stagger |
 | 5.25 to 6.0 s | The side rails fade in. | `SidePane.tsx:26` (delay 1.5 s, `duration.entrance` 0.75 s) |
 | 6.0 s | The drift reaches full speed. The bright stars glide right at about 3 CSS px/s; the faint majority creeps at under 1 px/s, still unless you stare. The bright stars slide **over** the nearly still faint ones, so the sky separates into depth: a window, not wallpaper. | one camera; depth from brightness (6.1) |
 | 6 to 63 s | The glide heads right and arcs slowly. Measured from the dusk, the heading is 19° up-right at 5 s, level by about 15 s, 7° down-right at 30 s, 16° at 45 s and 52° at 60 s; the speed swells to 1.18 times its nominal speed and eases to 0.68 times it. It never stops, never reverses and never bobs [computed]. | the phases chosen for the first minute (6.1) |
-| 8.25 to 10.75 s | The first shooting star, at today's moment: it lights up in open sky, streaks for about a second, cools to its wake color and burns out, all in open sky, since the copy rests through the crossing cooldown. | `METEOR.firstDelay` (`config.ts:237`); the cooldown (6.9) |
+| 8.25 to 10.75 s | The first shooting star, at today's moment: it lights up in open sky, streaks for about a second, cools to its wake color and burns out, all in open sky, since the copy rests through the crossing cooldown. | `METEOR.firstDelay` (`config.ts:253`); the cooldown (6.9) |
 | by 60 s (after P9) | About **five** shooting stars (median 5, and 3 to 6 in about 90% of simulated visits), against 2 today. About 3 in 4 fall, some slant sideways and the odd short one climbs. About 4 in 10 come from the visit's shower, so several fan out from one patch of sky. They differ in speed and color: quick ones with mint wakes, slow warm ones, white ones in between. They differ in brightness too, as real ones do: on average about 0.6 of today's peak, about 1 in 8 faint, and those high in the window nearly as bright as today's (6.10). None crosses the copy until the cooldown that starts at the reveal ends (55 s to start); after that, now and then one glides on behind the tagline or the name as a faint glimmer (the veil), never two near the copy at once. | the population model (6.10); the ink lease and its cooldown (6.9) |
 | some visits | A **satellite** (after P11; a first attempt in 39% of first minutes): a steady pale point sliding across the upper sky for under 5 s, with no tail and no blinking, often fading as it enters Earth's shadow and warming toward orange. A **fireball** (after P10; about 12% of first minutes): slower, brighter and warm, sometimes with a flare and a faint mint train for about 2 s. | 6.11; 6.10 |
 | always | The stars still breathe (twinkle), slowly, as today. With pointer lean (P7, optional), moving the mouse leans the stars gently away from the cursor, up to 19 px for the brightest and about 3.5 px for the faint majority. | `catalog.ts:169-177`; 6.1 |
@@ -100,8 +95,8 @@ About 300 stars are on screen: about 15 bright ones, 70 of middle brightness and
 |---|---|
 | Scrolling | The stars move with the page at their own depths: the brightest follow 11.2% of the scroll, the faint median 2%. When the page stops they **glide to rest within half a second** with no bounce, like a door on a closer. The glide is short even after a fast fling or a navbar jump, which smooth-scrolls: at most about 25 px for the brightest star on a 900 px screen. A jump that arrives in one step snaps instead of sweeping. |
 | Reading (past 1.3 viewport heights) | Dimmer stars, no twinkle and no transients, as today. The drift continues at 0.35 of the hero rate: near stars at about 1 px/s (at most 2.4), faint ones at about 0.3. Alive if you look, still if you read. Reading copy has no quiet rects (only the hero, Contact, the footer and the rails carry `data-sky-quiet`), so, as today, a star may sit behind a paragraph at the reading levels (alpha at most about 0.25); the drift now carries such stars slowly across it. (Decision D2 can choose 0, today's still reading sky, or other ways to reduce that.) |
-| End bookend (Contact and footer) | The sky brightens back (stars 0.9, haze 0.7), twinkles again (0.8) and drifts at 0.8. No transients unless the "farewell meteors" could-kind ships (D4). |
-| A phone (393 × 852, DPR 2) | About 108 stars, mostly dimmed near the copy. The drift clock runs at 0.6, so the near stars move about 1.7 CSS px/s, which looks like 3 arcmin/s on a phone (R1 §4.2). At most 30 frames a second, typically 20. After P9, shooting stars come every 21 s on average, at most 6 a visit; most dim near the copy, which fills much of a phone's sky (two in three of the veil commit's do; about 3% end in open sky). There are no fireballs, satellites or lean. The pause control sits beside the menu button. |
+| End bookend (Contact and footer) | The sky brightens back (stars 0.9, haze 0.7), twinkles again (0.8) and drifts at 0.8. No transients unless the "farewell meteors" could-kind ships (D4), and those fly only around Contact and the footer. |
+| A phone (393 × 852, DPR 2) | About 108 stars, mostly dimmed near the copy. The drift clock runs at 0.6, so the near stars move about 1.7 CSS px/s, which looks like 3 arcmin/s on a phone (R1 §4.2). At most 30 frames a second, typically 20. After P9, at most 6 shooting stars a visit: about every 22 s while a path in clear sky fits beside the copy, the crossing cooldown keeping all but one or two in clear sky; where none fits (H9 measures how often), a launch waits for the lease, so they come about once a minute and each dims near the copy, as nearly all of the veil commit's phone flights do. There are no fireballs, satellites or lean. The pause control sits beside the menu button. |
 | prefers-reduced-motion | Exactly today's still sky: fades only. There is no drift, twinkle, scroll parallax, glide, lean or transient, and stars sit at whole pixels as today. The pause control shows "Play sky animation". Pressing it opts in to motion for this page view only. |
 | Pressing pause | Within 0.3 s the drift slows to a stop and the twinkle settles to its resting glow. Even the brightest star at its peak speed moves only about 1 px after the press. A flying shooting star fades out within 0.2 s (from P8; until then it vanishes as today). Nothing new launches. The control turns into a play triangle named "Play sky animation". |
 | Pressing play | The drift picks up from exactly where it stopped (WCAG G4), and scrolling moves the stars again from where they are, with no jump, even after scrolling while paused. No shooting star for 3 s. |
@@ -147,7 +142,7 @@ Each of these was considered and left out:
 | E2 | One coherent motion | Every star at world − q·C; one heading at any instant | 6.1 | AC-3 |
 | E3 | Calm: no onsets, stops, reversals or rhythms | Speed 0.58 to 1.42 × v₀; turn at most 4.4°/s; no energy in 0.05 to 0.5 Hz; every rate change eased, except that a resize across 640 px steps the speed (never a position) | 6.1, 6.6 | AC-4 to AC-7, AC-9 |
 | E4 | Smooth at the pixel | Quarter-pixel phases; a true step of at most 0.5 device px per drawn frame whenever the refresh rate allows it and no frame cap holds the motion (otherwise every refresh, or the cap's rate, is drawn); motion on display refreshes | 6.2, 6.3 | AC-10 to AC-13 |
-| E5 | The copy stays calm and readable | Exact quiet factor per star per frame; one lit transient near copy; crossings at the veil commit's level | 6.4, 6.9 | AC-16, AC-30, AC-38 |
+| E5 | The copy stays calm and readable | Exact quiet factor per star per frame; one lit transient near copy; crossings at the veil commit's level over a visit's first two minutes | 6.4, 6.9 | AC-16, AC-30, AC-38 |
 | E6 | Shooting stars feel real and frequent | Median 5 in the first minute; varied radiants with a visible shower; light up and peak in open sky, never fading out at the copy's edge (the veil) | 6.10 | AC-18 to AC-23 |
 | E7 | Rare treats | Satellite attempt in 39% of first minutes; fireballs about 1 per 5 to 10 minutes | 6.10, 6.11 | AC-24, AC-37 |
 | E8 | Reading is calm | Drift 0.35 ×, twinkle 0, no transients | 6.7 | AC-15 |
@@ -159,21 +154,19 @@ Each of these was considered and left out:
 
 ## 3. Decisions for the user
 
-Each decision has a recommended default, and the plan is written for the defaults. Every phase starts on the defaults; the "Affects" column names the phases a decision changes. Only D4 (before each could kind in P12) and D10 (before PF) must be answered first.
+Each decision has a recommended default, and the plan is written for the defaults. Every phase starts on the defaults; the "Affects" column names the phases a decision changes. Only D4 must be answered first, before each could kind in P12. D10 and D11 went with the wait for the veil commit; the other numbers are kept.
 
 | # | Decision | Recommended default | Alternatives and their cost | Affects |
 |---|---|---|---|---|
-| D1 | **The pause control: placement, pattern, persistence** (required before the drift ships, WCAG 2.2.2) | **Placement and look.** In the navbar, at the top of the page: visible on load, on any upward scroll and whenever focus enters the header (it slides away with the header while the visitor scrolls down). Last in the row after Resume on desktop, beside the menu button on phones (out of the tab order while the open phone menu covers it). It is a 40 × 40 px icon button, green like the menu button.<br>**Pattern.** The APG rotation control: the name says the action and changes with it ("Pause sky animation" / "Play sky animation"), the glyph shows the action (two bars or a triangle), and there is no `aria-pressed`.<br>**Persistence.** A pause is remembered in this browser. It starts paused under reduced motion, and Play there lasts for the page view.<br>**Visibility.** It shows only while a sky is running. | (a) **Hero corner** (bottom right): "adjacent to the moving content" (G186), but it scrolls away with the hero. `SkyPauseButton.tsx` then gains `'use client'` as an island entry inside `Introduction.tsx`, which stays a Server Component (5.2).<br>(b) **Footer**: the weakest for G186, which asks for the top of the page or next to the motion.<br>Both (a) and (b) put the control inside a `data-sky-quiet` root: keep the attribute and the quiet-copy precondition the veil commit adds to AGENTS.md (the control and its ancestors keep no static transform translation and no opacity below 1 at rest, because the sky measures net of every translation and reads contrast from `color` alone), so its entrance may slide and fade but must settle to neither; give it the host's entrance (the hero's `StaggerItem`, the footer's named `motion/react-client` imports, AGENTS.md) or one inside the control, settled within the 1.5 s re-measure (`ENTRANCE_SETTLE_MS`, `mountSky.ts:47`); and count it as one more quiet rect of the 64 (`mountSky.ts:37-40`). That holds because its name is an `aria-label`: hidden text would add a second, invisible rect, since the measurement takes each text line's box and clipping doesn't shrink it.<br>(c) **Inside the phone menu**, with a visible text label: less discoverable.<br>(d) **An `aria-pressed` toggle** with the constant name "Pause sky animation": a valid APG pattern, but the pressed state then needs its own visual of at least 3:1 (a 10% mint fill is only 1.28:1 [computed]).<br>(e) **A stored Play that overrides reduced motion on later visits**: it could override a setting the visitor turns on later. | P5 |
+| D1 | **The pause control: placement, pattern, persistence** (required before the drift ships, WCAG 2.2.2) | **Placement and look.** In the navbar, at the top of the page: visible on load, on any upward scroll and whenever focus enters the header (it slides away with the header while the visitor scrolls down). Last in the row after Resume on desktop, beside the menu button on phones (out of the tab order while the open phone menu covers it). It is a 40 × 40 px icon button, green like the menu button.<br>**Pattern.** The APG rotation control: the name says the action and changes with it ("Pause sky animation" / "Play sky animation"), the glyph shows the action (two bars or a triangle), and there is no `aria-pressed`.<br>**Persistence.** A pause is remembered in this browser. It starts paused under reduced motion, and Play there lasts for the page view.<br>**Visibility.** It shows only while a sky is running. | (a) **Hero corner** (bottom right): "adjacent to the moving content" (G186), but it scrolls away with the hero. `SkyPauseButton.tsx` then gains `'use client'` as an island entry inside `Introduction.tsx`, which stays a Server Component (5.2).<br>(b) **Footer**: the weakest for G186, which asks for the top of the page or next to the motion.<br>Both (a) and (b) put the control inside a `data-sky-quiet` root: keep the attribute and AGENTS.md's quiet-copy precondition (the control and its ancestors keep no static transform translation and no opacity below 1 at rest, because the sky measures net of every translation and reads contrast from `color` alone), so its entrance may slide and fade but must settle to neither; give it the host's entrance (the hero's `StaggerItem`, the footer's named `motion/react-client` imports, AGENTS.md) or one inside the control, settled within the 1.5 s re-measure (`ENTRANCE_SETTLE_MS`, `mountSky.ts:52`); and count it as one more quiet rect of the 64 (`mountSky.ts:40-41`). That holds because its name is an `aria-label`: hidden text would add a second, invisible rect, since the measurement takes each text line's box and clipping doesn't shrink it.<br>(c) **Inside the phone menu**, with a visible text label: less discoverable.<br>(d) **An `aria-pressed` toggle** with the constant name "Pause sky animation": a valid APG pattern, but the pressed state then needs its own visual of at least 3:1 (a 10% mint fill is only 1.28:1 [computed]).<br>(e) **A stored Play that overrides reduced motion on later visits**: it could override a setting the visitor turns on later. | P5 |
 | D2 | Drift while reading | 0.35 of the hero rate (R1 and R4 agree) | 0: today's still reading sky, and the worker sleeps while reading (it saves about 20 frames a second there). 0.2: in between. 0.5: livelier; the brightest star reaches 3.4 px/s at its peak.<br>At any rate above 0, stars at the reading levels (alpha up to about 0.25, like today's still ones) slide behind body text, because reading copy has no quiet rects. To reduce that: lower the reading star levels while drifting, or quiet the reading copy (the veil session's rect measurement and its 64-rect cap, so an interface request). AC-30 checks the chosen option. | P6 |
 | D3 | Pointer lean (desktop, fine pointer, hero only, full motion) | Ship P7 with a reach of 12 CSS px at nearness 1 (R1): ±19 px for the brightest star, ±3.5 px for the faint majority. While the pointer moves, frames follow the lean's speed (every refresh in a brisk sweep, 10.2). | Reach 7, which is R4's 2, 4 and 7 px per layer under the same law, so subtler. Reach 10 (the iOS motion-effect size for the near band). Pace the lean at the drift's rate: no extra frames, but steps of 1 to 3 device px in brisk sweeps at DPR 2 [computed]. Or skip it: the drift alone carries the depth. Never device orientation. | P7 |
-| D4 | Which "could" transients ship | None in v1. First candidates afterwards: the near-radiant point flash (cheap, and it completes the on-screen radiant), then bursts, then two end-bookend "farewell" meteors (which widen the launch gate, 6.12) | Earthgrazers (wide screens only). A static comet or a planet (6.12): both change the reviewed composition and need a review, and a comet can read as a rendering bug; under the one scroll rule (`scrollKept`) a comet is gone for the page view after its first 24 px of scroll (a scroll fade of its own must end before unmarked copy can come under it at 852 × 393, 6.12). Each is a small, separate phase (6.12). | P12 |
+| D4 | Which "could" transients ship | None in v1. First candidates afterwards: the near-radiant point flash (cheap, and it completes the on-screen radiant), then bursts, then two "farewell" meteors around Contact and the footer (which widen the launch gate, 6.12; on tall screens they fly only in the page's last few hundred px of scroll, 169 at 2560 × 1440, and never at 3840 × 2160) | Earthgrazers (wide screens only). A static comet or a planet (6.12): both change the reviewed composition and need a review, and a comet can read as a rendering bug; under the one scroll rule (`scrollKept`) a comet is gone for the page view after its first 24 px of scroll (or a scroll fade of its own, under 6.12's condition). Each is a small, separate phase (6.12). | P12 |
 | D5 | A test runner | None in the repository. Verification uses scratch harnesses that load the real modules (7.1) and an uncommitted debug patch, kept as evidence in each PR description. | Vitest: the `vitest` dev dependency, a `test` script and a `vitest.config.mts` that maps `@/` (a one-line `resolve.alias`, or `vite-tsconfig-paths` as the Next.js guide uses, `01-app/02-guides/testing/vitest.md:43-44`, `:68-71`, `:92-103`). The harnesses test DOM-free modules in Vitest's default `node` environment, so no `@vitejs/plugin-react`, jsdom or Testing Library; it can run the harness checks in CI. `node --test` with type stripping: no dependency and no source change; the resolve hook from 7.1 is committed beside the tests (`node --import ./register-hooks.mjs --test`). | none |
 | D6 | The drift speed v₀ (and its opening heading) | 3 CSS px/s at nearness 1; phases (0.70, 0.00, 2.09) | 2.5: subtler, the same frame cost. 3.3: the most that keeps a DPR-2 laptop on a 60 Hz screen at 30 fps. 4: more obvious; the brightest stars reach about 12 arcmin/s at their peak, the edge of busy, and a DPR-2 laptop needs every frame (60 fps). Rotating all three phases by one angle turns the opening heading (the first-minute headings change, never the speed, turn-rate or bound figures). | P6 |
 | D7 | The WebKit main-thread frame relay | Ship without it, then decide after iPhone and macOS Safari tests (P13). | Build the relay (about 40 lines across `mountSky.ts`, the protocol and the worker) if the tests show judder (about 4.5 jolts a second) or a Low Power Mode drain. It couples the sky's frames to main-thread jank. | P13 |
 | D8 | Climbing meteors | Allowed as the physics gives them, but only from sporadic sources and at most 0.6 of the longest path, so about 7% of launches climb (R2's soft guard) [computed]. The user asked for "different directions" and "more realistic". | Forbid any path more than 10° above horizontal (R4: a rising streak "reads as a firework"; the old sky's rising path was a fault). That rejects about 13% of candidates, and the planner resamples. | P9 |
 | D9 | Satellite pass length | At most 4.8 s, at 1.2 to 2.5°/s: 2 to 5 times a real pass at the window's 40° centre (about 0.5°/s, R2 §6.1), inside the 5 s rule every transient keeps | Realistic 0.5 to 1°/s and up to 20 s, which the pause control would allow. But it breaks the "5 s or less" rule that the veil session's WCAG reasoning relies on, so it needs that session's agreement. | P11 |
-| D10 | When to stop waiting for the veil commit | When the veil commit still hasn't landed and P7 is merged (or skipped), or, after a declined overlap (4.4), once the files outside their list are prepared or a week after CP-0's answer, whichever comes first: ask the user (CP-4, then weekly until V or PF) to keep waiting, run the fallback PF (8.7), or merge P1 to P7 early (alternatives; void where a declined overlap held them). Recommended answer: keep waiting while the veil change awaits the user's approval (it is final in the main checkout) or is still in progress (CP-4's status query, CP-1's last-write times); run PF only if the user abandons that work, or it shows no sign of life for a week. | Merge P1 to P7 to master early, with the veil session's agreement (7.0): the drift ships now, but the veil session must first commit or stash its uncommitted work, update its local master and resolve conflicts in the sky files both plans change, mid-work; P8 onward still waits. Set a date instead. Or wait indefinitely, which keeps all transient work blocked. | P8 |
-| D11 | Ship satellites before the veil boundary | No: every transient phase follows the veil commit, as the brief orders and the veil session asked | The delivery draft's plan: satellites before the veil, clear sky only, near-layer keeps, with an interim copy of the scroll cancel. That delivers part of the second request earlier, but it duplicates `scrollKept` before it lands (the veil session asked for exactly one such rule), needs glue to space satellites from the veil-owned meteor clock, and needs the veil session's agreement. | P11 |
 | D12 | A satellite (or the comet) beside a shooting star near the copy | No, a look choice the veil session suggests: the shooting star's peak stays the only bright moment. A satellite waits while a lease holder flies, and a meteor takes the lease only while none flies (6.9 steps 2.2, 2.3); about 3% of leases wait [computed, check report]. Contrast doesn't need it (T3). | Let satellites share the sky: they meet the veil session's conditions by construction (T3). The comet keeps the hold either way (6.12), and T7 keeps the could variants, all meteors, apart from a lease holder. | P11, P12 |
 
 ## 4. Domain model
@@ -205,11 +198,11 @@ Everything in sections 5 to 7 follows from this section. Each entity has one own
  │           │            │           │            │             │               │               │ gaps.ts (kinds)  │
  │           │            │           │            │             │               │               │ bodies.ts (P12)  │
  ├───────────┴────────────┴───────────┴────────────┴─────────────┴───────────────┴───────────────┴──────────────────┤
- │ scene.ts    SceneLevels, sceneAt, sameRects (ours) │ screenQuietZones, quietAt, inkAt, quietFactor,             │
+ │ scene.ts    SceneLevels, sceneAt (ours)            │ screenQuietZones, quietAt, inkAt, quietFactor,             │
  │                                                    │ easedQuietFactor, transientQuietFactor, inkBudget,         │
- │                                                    │ budgetKeeps, scrollKept (veil)                             │
+ │                                                    │ budgetKeeps, scrollKept, sameRects (veil; moved in P1)     │
  │ meteors.ts  Meteor, light curve, drag (shared) │ veiledFrom, planFlight, planMeteor (veil; Course and Steer     │
- │                                                │ types and startArea added by us after the rebase)              │
+ │                                                │ types and startArea added by us in P9)                         │
  │ protocol.ts message types   random.ts seeded randomness, Random   color.ts sRGB helpers                         │
  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -241,7 +234,7 @@ Per frame, the data flows one way:
 | **Playback** | The visitor's pause choice: paused by default under reduced motion, a pause remembered, Play under reduced motion for the page view | `skyPause.ts` (main thread) | PB1 to PB4 | `SkyPauseButton.tsx`, `mountSky.ts` |
 | **MotionMode** | `SkyMotion`: `'full' \| 'reduced' \| 'off'`; `'reduced'` now also means paused | `protocol.ts` (type), `mountSky.ts` (derives it), the worker (obeys it) | PB3 | the worker |
 | **FrameDemand** | What one part of the sky needs from the clock: frames per second, whether they must land on display refreshes, and a cap. `frameDemand` maps the `FrameState` the worker gathers at each frame decision to the strictest one. | `pacing.ts` | F1, F3 | the worker |
-| **FrameClock** | When the worker wakes and whether it draws. The policy (divisor and hysteresis, `frameDue`, the refresh estimate) is pure. The mechanism (the `rafId`, `timerId` and watchdog handles) stays in the worker: the veil-owned `scroll` handler reads them, and they are bound to the orchestrator's state (5.2). | `pacing.ts` (policy), `sky.worker.ts` (mechanism) | F2, F4 to F7 | the worker |
+| **FrameClock** | When the worker wakes and whether it draws. The policy (divisor and hysteresis, `frameDue`, the refresh estimate) is pure. The mechanism (the `rafId`, `timerId` and watchdog handles) stays in the worker (deviation 4). | `pacing.ts` (policy), `sky.worker.ts` (mechanism) | F2, F4 to F7 | the worker |
 | **QuietZones** | Padded quiet rects on screen, easing from the previous layout (`QuietBlend`), with a layout that waits for the ease (`next`), which transients answer to and stars don't. Each keeps its measured `headroom`, the white its copy can take: that number is the text class, and `inkBudget(headroom)` its ink budget. | veil: `scene.ts` math (`quietFactor`, `transientQuietFactor`, `inkBudget`, `budgetKeeps`), the worker's `quietBlend` | (veil-owned) | QuietIndex (stars), every transient's drawing |
 | **QuietIndex** | Per-tile buckets of the quiet zones, giving every star its exact quiet factor cheaply; the module also owns a zone's reach and the clear-of-copy tests for what we plan ourselves (`ZONE_REACH`, `zoneReaches`, `segmentClear`); meteors keep the veil planner's | `quietIndex.ts` | Q1, Q2, T3 | `renderSky.ts` (one index); satellites, the comet |
 | **StarField** | The cache of generated cells, evicted by frame stamp | `renderSky.ts` (`createStarField`) | SF1, SF2 | `drawLayer` |
@@ -249,8 +242,8 @@ Per frame, the data flows one way:
 | **Transient** | A short-lived sky event: an envelope (kind, lifetime, ink lease, clear sky, launch scroll, cancel) around its kind's body (`Meteor`, `SatellitePass`) | `transients.ts` | T1 to T7 | the worker, `renderSky.ts` |
 | **TransientSpec** | How one kind is timed and planned (first delay, next attempt, plan, lifetime, moving, the body's `nearCopy`, whether the kind may take the lease, narrow screens, its part of the visit's memory) | `transients.ts` (the type and the registry, kind-agnostic); each kind's module exports its spec (`meteorKind.ts`, `satellites.ts`) | T1, T3 | the scheduler |
 | **Scheduler** (`TransientSchedule`) | The active transients and each kind's next attempt: it launches, retires and cancels | `transients.ts` | T1 to T7 | the worker |
-| **InkLease** | The right to plan light onto quiet copy. Not an object: it is held by whichever active transient has `nearCopy`, so it can't leak or go stale. | `transients.ts` (`inkLeaseFree`) | T2 | the scheduler |
-| **LaunchGate** | Whether and where transients may launch this tick (motion, visibility, presence, scene, scroll quiet, field, the contrast preference's ink share) | `transients.ts` (type), the worker (fills it) | T6 | the scheduler |
+| **InkLease** | The right to plan light onto quiet copy. Not an object: it is held by whichever active transient has `nearCopy`, so it can't leak or go stale. | `transients.ts` (`leaseHeld`, `inkLeaseFree`) | T2 | the scheduler, the comet's start rule |
+| **LaunchGate** | Whether and where transients may launch this tick (motion, visibility, presence, scene, scroll quiet, field, the contrast preference's ink share) | `transients.ts` (type), the worker (fills it) | T6 | the scheduler; the comet's start rule (P12) |
 | **GapLaw** | floor + Exp(mean), capped: one law for every kind's clock | `config.ts` (type), `gaps.ts` (`nextGap`) | T5 | the specs |
 | **SkyWindow** | The screen as a pinhole window on the sky: 60° across the longer side, the centre 40° above the horizon | `radiants.ts`, `config.ts` (`SKY_WINDOW`) | RD3 | meteor and satellite planning |
 | **Radiant, Source** | A unit direction in the window's frame, its scatter and speed class; each visit has one shower source and three sporadic ones (`VisitSky`) | `radiants.ts` | RD1, RD2 | meteor planning |
@@ -274,12 +267,12 @@ Per frame, the data flows one way:
 | C1 | The camera only translates: no rotation, zoom or dolly. | type: `Camera` has no such state |
 | C2 | One law for every cause: screen = world − q·C. | code: `drawLayer` is the only place stars are offset |
 | C3 | Bounded. The drift stays within ΣR + \|ΣR e^(iφ)\| = 68.4 s × v₀ of its start (205.2 px at v₀ = 3 and q = 1; at most 2ΣR = 70.8 s × v₀ for any phases). The lean stays within reach × √2. The scroll part is at most 0.07 × the page's scroll range per pause cycle: each pause, scroll and Play can leave up to one scroll range in `shift` (C8), so only SF2 bounds it absolutely. | code: closed-form drift; harness H5; SF2 |
-| C4 | Frame-rate independent toward a held target: one spring step of dt equals two of dt/2. A moving scroll is sampled once per frame and held over the step, so below the lag cap the spring trails it by about 2V/ω − V/(2f) at f frames a second, and the glide after a stop differs between 30 and 144 Hz by up to about 0.002 × H px for the brightest star (1.7 px at H = 900, 2.7 at 1,440), against a glide of up to 25 px. A scroll that ends while the cap holds glides the same at any rate, because the cap sets the spring to its steady trail (6.1) [computed]. The one-step snap (C5) is rate-dependent by design: it compares steps, so at 30 Hz it fires above 27,000 px/s on a 900 px screen, where nobody can follow the stars. | code: `stepSpring` in closed form, the cap's velocity; harness H5 (difference 0 for the spring) |
+| C4 | Frame-rate independent toward a held target: one spring step of dt equals two of dt/2. Below the lag cap, a scroll sampled once a frame leaves glides that differ between 30 and 144 Hz by up to about 0.002 × H px for the brightest star; one that ends while the cap holds glides the same at any rate (6.1). The one-step snap (C5) compares steps, so it is rate-dependent by design (above 27,000 px/s at 30 Hz on a 900 px screen). | code: `stepSpring` in closed form, the cap's velocity; harness H5 (difference 0 for the spring) |
 | C5 | No jumps. Scene, presence, the motion level and the dusk ease change only the drift clock's **rate**, never its position. The clock advances at most `DRIFT.maxStep` per step. After a rest, a sleep or a hidden tab, the next step has dt 0; otherwise a 100 px scroll after a minute at rest would land in one frame (11.2 px for the brightest star, simulated). The scroll part snaps only when one step changes its goal by more than one viewport (a jump, never a fling or a smooth-scrolled jump), and trails its goal by at most `CAMERA.maxLag` viewports (6.1). | code: `stepCamera` (`lastGoal`, the lag cap), `forgetStep` |
 | C6 | The springs follow their targets only under full motion; otherwise they hold, with no velocity. The drift eases out with the motion level. | code: `CameraInput.follow`; the drift rate |
 | C7 | The camera starts at rest on the restored scroll, so the first frame neither glides nor jumps. | code: `createCamera(scrollY)` |
 | C8 | Resuming full motion continues from where the camera is: the scroll it skipped while stopped joins `shift`, so neither a glide nor a snap follows the next scroll. The decided trade-off: the offset is kept for the page view, so after scrolling while paused the hero shows a shifted patch of sky until a reload (R-14). | code: `resumeCamera` |
-| SP1 | Critically damped: from rest, a spring following a scroll that moves one way never passes its target (its impulse response is never negative); a scroll that reverses just before it stops can carry it past, then back: at most `maxLag` × H × 0.112 / (e(2 − ω/2f)) for the brightest star at f frames a second (5.1 px at H = 900 at 30 Hz, 4.8 at 60 Hz, 4.7 at 144 Hz; 4.6 in the continuous limit). It settles exactly on the target once less than `CAMERA.restPx` of motion is left. When the lag cap binds, it sets the spring to its steady trail at that lag, from which the glide never passes the target at any frame rate (6.1) [computed]. | code: `stepSpring`, `settle`; harness H5 (overshoot 0 from rest with 250 ms steps) |
+| SP1 | Critically damped: from rest, a spring following a scroll that moves one way never passes its target; one reversed just before it stops can carry the brightest star past, then back, by at most about 5 px at H = 900 (6.1). It settles exactly on the target once less than `CAMERA.restPx` of motion is left, and the lag cap's steady trail never passes the target at any frame rate (6.1). | code: `stepSpring`, `settle`; harness H5 (overshoot 0 from rest with 250 ms steps) |
 | DR1 | The drift clock never runs backward; its rate is in [0, 1]. | code |
 | DR2 | The rate is 0 unless motion is (or is easing out of) full, the dusk has begun, the software-raster budget allows drift, and the scene drifts. | code: `driftRate` over the `DriftGate` the worker gathers at each frame decision (H5) |
 | DR3 | The rate eases in over `DRIFT.ease` from the dusk and is the product of smooth factors, so the drift speed never changes in one frame. | code: `driftRate` |
@@ -295,9 +288,9 @@ Per frame, the data flows one way:
 | F3 | While stars move: at least `PACING.minFps`, and at most `PACING.stepDevicePx` per drawn frame whenever the refresh rate allows it (a fast scroll, the start of a glide or a brisk pointer sweep gets every refresh instead), within the demand's cap. | code: `motionFps`, `refreshDivisor` |
 | F4 | Nothing moving or changing means no frames, except one timer for the next due transient. | code: the worker's `schedule` |
 | F5 | A missing or stalled worker animation-frame clock is answered by a timer within `PACING.watchdogMs`. After `watchdogStrikes` misses in a row the clock moves to a timer armed against the last drawn frame (so messages never push it back), which asks for one animation frame every `PACING.reprobeMs` and returns to them when one arrives. | code: the worker's `requestFrame` and watchdog |
-| F6 | A level that eases in from 0 (twinkle, drift) demands frames from the moment it heads up, not once its value passes 0, so a sleeping worker never misses its own wake-up. Today's `frameMode` does this for twinkle (`sky.worker.ts:124`). | code: `frameDemand`'s camera and twinkle lines, filled from `driftWanted` and the ambient flag that each frame decision gathers afresh, not the eased levels; harness H4, H13 |
+| F6 | A level that eases in from 0 (twinkle, drift) demands frames from the moment it heads up, not once its value passes 0, so a sleeping worker never misses its own wake-up. Today's `frameMode` does this for twinkle (`sky.worker.ts:143-144`). | code: `frameDemand`'s camera and twinkle lines, filled from `driftWanted` and the ambient flag that each frame decision gathers afresh, not the eased levels; harness H4, H13 |
 | F7 | When the camera comes to rest, or the motion ease ends, one more frame is drawn, so the resting sky (with no trace of twinkle once stopped) is what stays on screen. | code: `updateCamera` and `easeEnded` set `needsDraw` |
-| Q1 | `QuietIndex.factor(x, y, keeps)` equals `easedQuietFactor(blend, x, y, keeps)` bit for bit, as long as no padded zone's quiet math reaches farther than `ZONE_REACH` (`QUIET.feather`, which is the veil's `QUIET_REACH` less `QUIET.padding`). | code; harness H3 (difference 0) |
+| Q1 | `QuietIndex.factor(x, y, keeps)` equals `easedQuietFactor(blend, x, y, keeps)` bit for bit, as long as no padded zone's quiet math reaches farther than `ZONE_REACH` (`QUIET_REACH` less `QUIET.padding`, which is `QUIET.feather`). | code; harness H3 (difference 0) |
 | Q2 | The index's buckets serve stars only (`easedQuietFactor`); transient planning and drawing keep the veil's full checks (`transientQuietFactor`). | code: only `drawLayer` reads the buckets |
 | SF1 | Cells in use are never regenerated; unused cells are evicted only when the cache holds more than twice the cells in use. | code: `StarField` stamps |
 | SF2 | Cell keys are injective for cells −32,768 to 32,767 on each axis, and outside that range a cell holds no stars (never a key collision). | code: `StarField.cell` guard |
@@ -307,77 +300,61 @@ Per frame, the data flows one way:
 | T3 | Every transient is drawn through the veil's `transientQuietFactor`, never above the factor of the current zones (`to`) or of a waiting layout (`next`), even mid-ease. A kind that may reach quiet copy is planned through the veil checks. A kind that never takes the lease (`lease` false), or a body P12's `clearSky(body)` marks, is planned clear of every zone's reach (`ZONE_REACH`: our planners through `segmentClear`, the meteor planner with `nearCopy` false through its own test) and drawn with `CLEAR_SKY_KEEPS`, so it adds no light inside any padded rect of `to` or `next` from the frame a layout arrives, by construction for a point of light sampled at its center whose drawn radius is at most `QUIET.padding` (satellites, the point flash; answer 3's condition a). The comet's box test can only fade it when copy moves under it, so it keeps D12's hold (6.12). | code: each planner; `drawTransient`, the one place that picks `CLEAR_SKY_KEEPS` |
 | T4 | Every transient obeys the scroll cancel and the pause through one value, `scrollKept(launchScrollY, scrollY, pause fade)`, and retires when it reaches 0. | code: `transientFade`, read by `updateTransients` and the worker's `draw` |
 | T5 | Onsets are at least `TRANSIENTS.minOnsetGap` apart. At most 3 flashes per second. No saturated red: R / (R + G + B) < 0.8. | code: the launch step; config review (the warmest drawable tint is 0.42) |
-| T6 | Launches only in the hero (if D4 picks farewell meteors, those over the end bookend, 6.12), under full motion, visible, revealed, present and settled; narrow screens at most `narrowLimit` per visit. | code: `LaunchGate`, the launch step |
+| T6 | Launches only in the hero (if D4 picks farewell meteors, those around Contact and the footer, 6.12), under full motion, visible, revealed, present and settled; narrow screens at most `narrowLimit` per visit, and a kind with a `limit` (farewell meteors) at most that many. | code: `LaunchGate`, the launch step |
 | T7 | One transient of each kind at a time. | code: the launch step |
 | RD1 | A visit's sources stay fixed until a resize, or a launch allowed near copy none of whose steers fits, re-picks them. A layout keeps them, as it keeps the veil commit's sticky radiant (layouts also fire for harmless re-measures), and so does a hidden tab. Every visit's shower can yield paths, on screen or off. | code: `forgetVisitSky` (resize); `planMeteorTransient` (a failed launch, as the veil commit's `planLaunch` drops a failed radiant); `pickVisitSky` (one usability test for both branches) |
 | RD2 | A path climbing more than `RADIANTS.climbDegrees` comes only from a sporadic source and is at most `climbShare` of the longest path (D8: or no path climbs more than 10°). | code: `visitSteer` |
 | RD3 | A meteor's speed and length follow the window geometry: short and slow near its radiant, longest 90° away, slower and dimmer low in the window. | code: `radiantMotion`, `meteorRange` |
 
-### 4.4 Ownership across the two sessions
+### 4.4 Ownership
 
-- **The file rule** (`COORDINATION.md`, "Answers to the planning session's questions", answer 1, which confirms this reading):
-  - nothing is ever edited in the main checkout;
-  - before V, nothing on the veil session's hands-off list (answer 1's list of its symbols with changed lines, which replaces "Changed shape") is edited, except the overlaps 8.6 lists, each agreed in CP-0, and none of its symbols is reformatted, reordered or moved;
-  - other lines of the same files change only on the integration branch, which reaches master after the rebase, where their lines win (or earlier by agreement, or under PF).
-- **Ours, from P1.**
-  - Config: `DEPTH`, `CAMERA`, `DRIFT`, `LEAN`, `PACING`, `STAR_PHASES`, `FRAME.motionEase`, and the `drift` and `lean` scene levels.
-  - Model: `catalog.ts` nearness; `camera.ts`, `pacing.ts`, `presence.ts`, `quietIndex.ts`.
-  - Drawing: `drawLayer`, `StarField`, `placePoint`, the atlas.
-  - Scheduling: `schedule`, `onFrame`, `onTimer`, `cancelFrames` and `frameInterval`, which become the gathered `FrameState`, `frameDemand` and the pacing policy, with `frameMode` and `tick` (overlaps, 8.6).
-  - Worker handlers: `init`, `motion`, `visible`.
-  - Main thread: the activity, pointer and pause wiring inside `mountSky` (an overlap, 8.6); the pause UI.
-- **The veil session's until its commit lands:** every symbol on its hands-off list (the planner and veil in `meteors.ts`, the quiet math and `scrollKept` in `scene.ts`, its `config.ts` blocks and docs, `color.ts`, `SkyRect.headroom`, the worker's meteor, layout and quiet-ease code, `drawMeteor` and `drawTrain`, and `mountSky.ts`'s rect measurement). They become shared after the rebase.
-- **The veil's even after the rebase:** `veiledFrom`'s rules and `METEOR_VEIL`. After V we extend `PlanOptions` (`steer`, `fireball`), replace `PassOptions.timing` with a `fallback` flag and drop the `radiant` parameter, edit `planFlight`'s direction, end-test, train and fireball lines (I2, P9, P10), and export its start area (`startArea`).
-- **Overlaps before V,** listed once, in 8.6: `frameAt` and `sameRects`, agreed on the veil session's terms (answer 2); and one request in CP-0 for the rest of its list our phases touch before V: `frameMode` and `tick`, `SkyFrame`, the function `mountSky`, and the import lines of `sky.worker.ts` and `renderSky.ts`. If the veil session declines any of them, the phases that edit it wait for V or PF, in 7.2's order: the import lines or `SkyFrame` hold P1 to P7 and P13; `frameMode` and `tick` hold P2 onward; `mountSky` holds P4, P5 (its store, control, icons and `Navbar.tsx` are prepared), P7 and P13, and through 7.0's gate P6. D10's question then comes early (CP-4), and if P1 waited, P0's baselines are redone on the rebased or PF tree first (8.5 step 4, 8.7).
-- **Read only, by us, at any time:** `scrollY`, `quietBlend(t)`, `layoutAt`, `easedQuietFactor`, `quietFactor`, `quietAt`, `screenQuietZones`, and from V `transientQuietFactor`, `scrollKept` and `quietEasing`. Reading their outputs never conflicts with how they compute them. Section 8.1 lists the names their code reads from ours, which our phases keep stable.
-- **Written by both:** `parallaxScroll`, by their `scroll` handler under full motion and by our `motion` handler on resume (P2), with the same meaning (8.1), until P8 retires it.
-- **Shared after the rebase.** The transient scheduler replaces `updateMeteor`: the meteor kind (`meteorKind.ts`) ports their `planLaunch`, and every kind keeps their `scrollKept` (I3).
+The veil commit (cf4d7b8) is this plan's baseline, so its code is the code every phase edits (8.1). Its rules stay the veil session's: `veiledFrom` never changes, and neither do `METEOR_VEIL`, `INK_BUDGET`, `METEOR_PASS` or `SCROLL_CANCEL`. 8.4 lists the veil symbols this plan uses or extends, and how; everything else 5.1 names is ours.
 
 ## 5. Architecture and module map
 
 ### 5.1 Files
 
-| File | New or changed | Side | Owner | Phase | What changes |
-|---|---|---|---|---|---|
-| `src/lib/sky/config.ts` | changed | model | ours (new blocks) | P1 to P12 | `STAR_PHASES` (P1); `DEPTH`, `CAMERA` (P2); `PACING`, `ADAPT` and `FRAME` docs (P3); `FRAME` idle docs (P4); `FRAME.motionEase` (P5); `DRIFT`, `SCENE.*.drift`, `ADAPT.thinFade` (P6); `LEAN`, `SCENE.*.lean` (P7); at V (under PF, once PF and P2 have both landed), `LayerConfig.parallax` and `LAYERS.*.parallax` removed and the `LAYERS` doc rewritten on top of theirs (8.5 step 5); `TRANSIENTS`, with `METEOR`'s scheduler keys and `FRAME.meteorScrollQuietMs` moved into it, `SCENE.heroMeteorMaxScroll` renamed (P8); `GapLaw`, `WakeColor`, `SKY_WINDOW`, `RADIANTS`, `SPEED_CLASSES`, `METEOR_RATE`, `METEOR_BRIGHTNESS`, `METEOR.fallbackScale`, the `METEOR` and `METEOR_LOOK` docs (P9); `METEOR_KINDS` (P10); `SATELLITE`, `CLEAR_SKY_KEEPS` (P11); each could kind's entry or block, and `SCENE.endLaunchLevel` with farewell meteors (P12) |
-| `src/lib/sky/catalog.ts` | changed | model | ours | P2, P12 | `Star.q`, `nearness`, `LAYER_NEARNESS` (P2); the planet (P12) |
-| `src/lib/sky/scene.ts` | changed | model | ours (`sceneAt`, `sameRects`); veil (quiet math, `scrollKept`) | P1, P6, P7, P8, P12 | `sameRects` moved here (P1, with the veil session's yes; it compares `headroom` from V); `drift` and `sceneAt`'s doc (P6); `lean` (P7); `meteors` renamed `launches` (P8); `launches` becomes `launchScene` with farewell meteors (P12) |
-| `src/lib/sky/camera.ts` | **new** | model | ours | P2, P6, P7 | `Vec`, `Spring`, `Camera`, `CameraInput`, `stepSpring`, `createCamera`, `stepCamera`, `resumeCamera`, `forgetStep`, `cameraOffset`, `cameraSpeed` (P2); `driftAt`, `driftVelocity`, `DRIFT_REACH`, `DriftGate`, `driftWanted`, `driftTarget`, `driftRate` (P6); the lean and `leanWanted` (P7) |
-| `src/lib/sky/pacing.ts` | **new** | model | ours | P3, P5, P6 | `FrameDemand`, `NO_FRAMES`, `EVERY_FRAME`, `FADE_FRAMES`, `combineDemands`, `FrameState`, `frameDemand`, `driftCap`, `motionFps`, `refreshDivisor`, `Divisor`, `stepDivisor`, `frameDue`, `RefreshEstimate`, `createRefreshEstimate` (P3); `Ease`, `easeAt`, `easing`, `easeEnded` (P5); `fadeOutAt` (P6) |
-| `src/lib/sky/presence.ts` | **new** | model | ours | P4 | `Presence`, `createPresence`, `notePresence`, `isIdle`, `presenceLevel` |
-| `src/lib/sky/quietIndex.ts` | **new** | model | ours (wraps veil math) | P1, P11 | `QuietIndex`, `createQuietIndex`, `ZONE_REACH` (derived from the veil's `QUIET_REACH` from V) and `zoneReaches` (P1); `segmentClear` (P11) |
-| `src/lib/sky/random.ts` | changed | model | ours | P8, P9 | `Random` type (P8); `gaussian` (P9) |
-| `src/lib/sky/transients.ts` | **new** | model | ours | P8, P10, P11, P12 | kind-agnostic: the union, `VisitMemory`, `PlanContext`, `TransientSpec`, the registry, the scheduler, the lease, the cancel, the demand (P8); `PlanContext.sinceReveal` (P10); the satellite kind's entry and D12's hold (P11); the spec's `clearSky(body)`, `LaunchGate.bodyShowing`, and the farewell entry with the scene report, `LaunchGate.scene` and `TransientSpec.scene` (P12, per kind) |
-| `src/lib/sky/meteorKind.ts` | **new** | model | ours | P8, P9, P10, P12 | the meteor kind: `MeteorMemory`, `createMeteorMemory`, `planMeteorTransient` (`planLaunch` ported), `METEOR_SPEC` (P8); the visit's sky and its steers (P9); the fireball decision (P10); the could variants (P12) |
-| `src/lib/sky/gaps.ts` | **new** | model | ours | P9 | `nextGap`, the one gap law every kind's clock uses (a leaf, so kind modules import it without a cycle) |
-| `src/lib/sky/radiants.ts` | **new** | model | ours | P9, P12 | `SkyDirection`, `SkyWindow`, `Source`, `VisitSky`, `skyWindow`, `pickVisitSky`, `visitSteer`, `radiantMotion`, `elevationAt`, `meteorRange` (P9); the point flash (P12) |
-| `src/lib/sky/satellites.ts` | **new** | model | ours | P11, P12 | `SatellitePass`, `SatelliteFrame`, `planSatellite`, `satelliteMoving`, `satelliteAt`, `SATELLITE_SPEC` (P11); its `scene` with farewell meteors (P12) |
-| `src/lib/sky/bodies.ts` | **new** | model | ours | P12, if D4 picks the comet | the static comet as a `SkyBody`: placement, fades, box test and launch scroll, as pure functions (6.12) |
-| `src/lib/sky/meteors.ts` | changed | model | veil until V | P9, P10 | after V only: `Course`, `Steer`, the `steer` option in place of the `radiant` parameter, `startArea`, the end guards (I2, P9); the `fireball` option (P10). The `nearCopy` option and field are the veil commit's (I1; ours under PF). |
-| `src/lib/sky/protocol.ts` | changed | types | shared | P4, P5, P7, P13 | `activity` (P4), the `SkyMotion` doc (P5), `pointer` (P7), `tick` and `relay` (P13) |
-| `src/components/sky/sky.worker.ts` | changed | worker | ours except the veil handlers | P1 to P13 | camera, presence, the motion ease, the `FrameState` and `DriftGate` it gathers at each frame decision, the frame mechanism, the schedule, the header and `schedule` docs (P3, P6), the comet's state, pause time and hand-off, `bodyShowing` and the scene in the launch gate (P12), the relay (P13); never the `scroll` or `layout` handler bodies before V |
-| `src/components/sky/renderSky.ts` | changed | worker | ours except `drawMeteor`/`drawTrain` | P1, P2, P4, P6, P8, P9, P11, P12 | `StarField` and the quiet index it owns, `placePoint`, `drawLayer`, `drawSky`, `SkyFrame.snap` (P1); `SkyFrame.offset` (P2); `SkyFrame.twinkleTime` and the `time` doc (P4); the thinning fade (P6); `drawTransient` (P8); the wake tint (P9); `drawSatellite` (P11); the `drawMeteor` keeps argument and could cases (P12) |
-| `src/components/sky/skyAssets.ts` | changed | worker | ours | P1 | the phased atlas, the separable painter, `starSpriteIndex` |
-| `src/components/sky/mountSky.ts` | changed | main | ours except the rect measurement | P4, P5, P7, P13 | the activity (P4) and pointer (P7) listeners and `mountSky`'s doc; `motion()` from the pause store, the worker-message `switch` with `setSkyRunning` (P5); the relay loop (P13) |
-| `src/components/sky/skyPause.ts` | **new** | main | ours | P5 | `SkyPlayback`, `skyPaused`, `skyPlayback`, `serverSkyPlayback`, `setSkyRunning`, `setSkyPaused`, `subscribeSkyPlayback` |
-| `src/components/sky/SkyPauseButton.tsx` | **new** | main (client) | ours | P5 | the pause control |
-| `src/components/icons/PauseSVG.tsx`, `PlaySVG.tsx`, `icons/index.ts` | new, changed | main | ours | P5 | two decorative glyphs on the shared `Icon` frame (`icons/Icon.tsx`), re-exported from the barrel |
-| `src/components/Navbar.tsx` | changed | main (client) | ours | P5 | hosts the control last in `<nav>`, in the entrance stagger (and `NAV_STAGGER`'s doc), `inert` while the phone menu is open; the header shows itself when focus enters it and stays while it holds keyboard focus |
-| `AGENTS.md` | changed | docs | ours | P5, P11 | one line: the pause control is the sky's WCAG 2.2.2 mechanism, and any new continuous sky motion must stop under `motion: 'reduced'`. It goes after the `data-sky-quiet` line, which the veil commit rewrites (8.6). The worker-file list changes only if P11 splits `renderTransients.ts` out (5.2). |
-| `README.md` | changed | docs | ours | P5, P6, P8, P9, P11, P12 | the two sky-folder lines (`README.md:75`, `:80`) name what each phase adds (the pause store and control; the camera, pacing, presence and the quiet index; the transients and the meteor kind; radiants and gaps; satellites; the comet's `bodies.ts`, if built) |
+| File | New or changed | Side | Phase | What changes |
+|---|---|---|---|---|
+| `src/lib/sky/config.ts` | changed | model | P1 to P12 | `STAR_PHASES` (P1); `DEPTH`, `CAMERA`, and `LayerConfig.parallax` and `LAYERS.*.parallax` removed with the `LAYERS` doc's "scroll parallax" (P2); `PACING` and the `FRAME` doc (P3); `FRAME` idle docs (P4); `FRAME.motionEase` (P5); `DRIFT`, `SCENE.*.drift`, the `ADAPT` doc's drift cap, `ADAPT.thinFade` (P6); `LEAN`, `SCENE.*.lean` (P7); `TRANSIENTS`, with `METEOR`'s scheduler keys and `FRAME.meteorScrollQuietMs` moved into it, `SCENE.heroMeteorMaxScroll` renamed (P8); `GapLaw`, `WakeColor`, `SKY_WINDOW`, `RADIANTS`, `SPEED_CLASSES`, `METEOR_RATE`, `METEOR_BRIGHTNESS`, `METEOR.fallbackScale`, the `METEOR` and `METEOR_LOOK` docs (P9); `METEOR_KINDS` and the fireball doc's move (P10); `SATELLITE`, `CLEAR_SKY_KEEPS` (P11); each could kind's entry or block, and `SCENE.endLaunchLevel` with farewell meteors (P12) |
+| `src/lib/sky/catalog.ts` | changed | model | P2, P12 | `Star.q`, `nearness`, `LAYER_NEARNESS` (P2); the planet (P12) |
+| `src/lib/sky/scene.ts` | changed | model | P1, P6, P7, P8, P12 | `sameRects` moved here, still comparing `headroom` (P1); `drift` and `sceneAt`'s doc (P6); `lean` (P7); `meteors` renamed `launches` (P8); `launches` becomes `launchScene` with farewell meteors (P12); the veil's quiet math and `scrollKept` unchanged |
+| `src/lib/sky/camera.ts` | **new** | model | P2, P6, P7 | `Vec`, `Spring`, `Camera`, `CameraInput`, `stepSpring`, `createCamera`, `stepCamera`, `resumeCamera`, `forgetStep`, `cameraOffset`, `cameraSpeed` (P2); `driftAt`, `driftVelocity`, `DRIFT_REACH`, `DriftGate`, `driftWanted`, `driftTarget`, `driftRate` (P6); the lean and `leanWanted` (P7) |
+| `src/lib/sky/pacing.ts` | **new** | model | P3, P5, P6 | `FrameDemand`, `NO_FRAMES`, `EVERY_FRAME`, `FADE_FRAMES`, `combineDemands`, `FrameState`, `frameDemand`, `driftCap`, `motionFps`, `refreshDivisor`, `Divisor`, `stepDivisor`, `frameDue`, `RefreshEstimate`, `createRefreshEstimate` (P3); `Ease`, `easeAt`, `easing`, `easeEnded` (P5); `fadeOutAt` (P6) |
+| `src/lib/sky/presence.ts` | **new** | model | P4 | `Presence`, `createPresence`, `notePresence`, `isIdle`, `presenceLevel` |
+| `src/lib/sky/quietIndex.ts` | **new** | model | P1, P11 | `QuietIndex` (it wraps the veil's `easedQuietFactor`), `createQuietIndex`, `ZONE_REACH` (from `QUIET_REACH`) and `zoneReaches` (P1); `segmentClear` (P11) |
+| `src/lib/sky/random.ts` | changed | model | P8, P9 | `Random` type (P8); `gaussian` (P9) |
+| `src/lib/sky/transients.ts` | **new** | model | P8 to P12 | kind-agnostic: the union, `VisitMemory`, `PlanContext`, `TransientSpec`, the registry, the scheduler, the lease, the cancel, the demand (P8); `SkyField.pinned` (P9); `PlanContext.sinceReveal` (P10); the satellite kind's entry and D12's hold (P11); the spec's `clearSky(body)`, `LaunchGate.bodyShowing`, and the farewell entry with the scene report, `LaunchGate.scene`, `TransientSpec.scene`, `room` and `limit`, and the per-kind `kindLaunches` (P12, per kind) |
+| `src/lib/sky/meteorKind.ts` | **new** | model | P8, P9, P10, P12 | the meteor kind: `MeteorMemory`, `createMeteorMemory`, `planMeteorTransient` (`planLaunch` ported), `METEOR_SPEC` (P8); the visit's sky and its steers (P9); the fireball decision (P10); the could variants, and farewell meteors' spec through `planMeteorTransient`'s second argument (P12) |
+| `src/lib/sky/gaps.ts` | **new** | model | P9 | `nextGap`, the one gap law every kind's clock uses (a leaf, so kind modules import it without a cycle) |
+| `src/lib/sky/radiants.ts` | **new** | model | P9, P12 | `SkyDirection`, `SkyWindow`, `Source`, `VisitSky`, `skyWindow`, `pickVisitSky`, `visitSteer`, `radiantMotion`, `elevationAt`, `meteorRange` (P9); the point flash (P12) |
+| `src/lib/sky/satellites.ts` | **new** | model | P11, P12 | `SatellitePass`, `SatelliteFrame`, `planSatellite`, `satelliteMoving`, `satelliteAt`, `SATELLITE_SPEC` (P11); its `scene` with farewell meteors (P12) |
+| `src/lib/sky/bodies.ts` | **new** | model | P12, if D4 picks the comet | the static comet as a `SkyBody`: placement, fades, box test, launch scroll and start rule (over the launch gate), as pure functions (6.12) |
+| `src/lib/sky/meteors.ts` | changed | model | P9, P10, P12 | `Course`, `Steer`, the `steer` option in place of the `radiant` parameter, `startArea`, the end guards, the fallback pass's shorter minimum and `clearOf` (I2, P9); the `fireball` option (P10); the `starts` option and `clearOf`'s farewell clause, with farewell meteors (P12); `veiledFrom` unchanged (8.4) |
+| `src/lib/sky/protocol.ts` | changed | types | P4 to P8, P13 | `activity` (P4), the `SkyMotion` doc (P5, extended in P6 to P8), `pointer` (P7), `tick` and `relay` (P13) |
+| `src/components/sky/sky.worker.ts` | changed | worker | P1 to P13 | camera, presence, the motion ease, the `FrameState` and `DriftGate` it gathers at each frame decision, the frame mechanism, the schedule and `launchesAllowed` (P8), the header and `schedule` docs (P3, P6), the comet's state, pause time, resize retirement, fade-in frames and hand-off, `bodyShowing` and the scene in the launch gate (P12), the relay (P13); the veil's layout and quiet-ease code unchanged (8.4) |
+| `src/components/sky/renderSky.ts` | changed | worker | P1, P2, P4, P6, P8, P9, P11, P12 | `StarField` and the quiet index it owns, `placePoint`, `drawLayer`, `drawSky`, `SkyFrame.snap`, `SHAPE_COUNT` and the `easedQuietFactor` and `STAR_SHAPES` imports dropped (P1); `SkyFrame.offset` (P2); `SkyFrame.twinkleTime` and the `time` doc (P4); the thinning fade (P6); `drawTransient` (P8); the wake tint (P9); `drawSatellite` (P11); the `drawMeteor` keeps argument and could cases (P12) |
+| `src/components/sky/skyAssets.ts` | changed | worker | P1 | the phased atlas, the separable painter, `starSpriteIndex` |
+| `src/components/sky/mountSky.ts` | changed | main | P4, P5, P7, P9, P13 | the activity (P4) and pointer (P7) listeners and `mountSky`'s doc; `motion()` from the pause store, the worker-message `switch` with `setSkyRunning` (P5); the rails' guard named in `copyReader`'s doc (P9); the relay loop, cancelled in `destroy` (P13); the veil's rect measurement unchanged |
+| `src/components/sky/skyPause.ts` | **new** | main | P5 | `SkyPlayback`, `skyPaused`, `skyPlayback`, `serverSkyPlayback`, `setSkyRunning`, `setSkyPaused`, `subscribeSkyPlayback` |
+| `src/components/sky/SkyPauseButton.tsx` | **new** | main (client) | P5 | the pause control |
+| `src/components/icons/PauseSVG.tsx`, `PlaySVG.tsx`, `icons/index.ts` | new, changed | main | P5 | two decorative glyphs on the shared `Icon` frame (`icons/Icon.tsx`), re-exported from the barrel |
+| `src/components/Navbar.tsx` | changed | main (client) | P5 | hosts the control last in `<nav>`, in the entrance stagger (and `NAV_STAGGER`'s doc), `inert` while the phone menu is open; the header shows itself when focus enters it and stays while it holds keyboard focus |
+| `AGENTS.md` | changed | docs | P5, P11 | one line: the pause control is the sky's WCAG 2.2.2 mechanism, and any new continuous sky motion must stop under `motion: 'reduced'`. It goes after the `data-sky-quiet` line. The worker-file list changes only if P11 splits `renderTransients.ts` out (5.2). |
+| `README.md` | changed | docs | P5, P6, P8, P9, P11, P12 | the two sky-folder lines (`README.md:75`, `:80`) name what each phase adds (the pause store and control; the camera, pacing, presence and the quiet index; the transients and the meteor kind; radiants and gaps; satellites; the comet's `bodies.ts`, if built) |
 
 `Background.tsx`, `Background.module.css` and `SkyCanvas.tsx` do not change.
 
 ### 5.2 Import boundaries (AGENTS.md)
 
-- **`src/lib/sky/*`** imports only its own files, by relative path. Every new model file (`camera.ts`, `pacing.ts`, `presence.ts`, `quietIndex.ts`, `transients.ts`, `meteorKind.ts`, `gaps.ts`, `radiants.ts`, `satellites.ts`, `bodies.ts`) imports only `./config`, `./scene`, `./meteors`, `./pacing`, `./random`, `./protocol` (types) or each other. None uses React, `window`/`document`, the `@/lib` barrel or `@/lib/utils`.
+- **`src/lib/sky/*`** imports only its own files, by relative path. Every new model file (`camera.ts`, `pacing.ts`, `presence.ts`, `quietIndex.ts`, `transients.ts`, `meteorKind.ts`, `gaps.ts`, `radiants.ts`, `satellites.ts`, `bodies.ts`) imports only `./config`, `./catalog` (`bodies.ts`'s `nearness`), `./scene`, `./meteors`, `./pacing`, `./random`, `./protocol` (types) or each other. None uses React, `window`/`document`, the `@/lib` barrel or `@/lib/utils`.
 - **No runtime import cycles.**
   - `radiants.ts` imports `startArea` and types (`Point`, `MeteorField`, `Course`, `Steer`) from `meteors.ts`, and `meteors.ts` never imports `radiants.ts`: the planner defines the contract it consumes and the area it samples.
   - `transients.ts` is kind-agnostic. Its registry imports each kind's spec value (`METEOR_SPEC` from `meteorKind.ts`, `SATELLITE_SPEC` from `satellites.ts`), and a kind module imports only types back, with a statement-level `import type { ... } from './transients'`, never inline `type` specifiers: Node's type stripping, which the harnesses run on, keeps an import whose specifiers are all inline `type` as a runtime import (the Next.js build drops both forms).
   - The values a kind needs come from modules that never import `transients.ts` (`nextGap` from the leaf `gaps.ts`, `segmentClear` from `quietIndex.ts`, `skyWindow` from `radiants.ts`). So the kind modules finish loading before the registry reads their specs, and a temporal-dead-zone error (the registry reading a spec before it exists, which the domain-model draft hit in a first sketch) can't happen.
 - **Worker files** (`sky.worker.ts`, `renderSky.ts`, `skyAssets.ts`) keep importing only `@/lib/sky/*` by file and each other. No new worker file is added (deviation 4).
   - If `renderSky.ts` grows past about 400 lines with transients, split `renderTransients.ts` out in P11 and add it to AGENTS.md's list (R3 §7.5).
-  - `sky.worker.ts` stays one file, the orchestrator. Its frame mechanism (`requestFrame`, the watchdog, the probe) is a few handles bound to its state and calls (`needsDraw`, `lastDrawAt`, `tick`), and the policy they run is already pure and tested in `pacing.ts` (6.2), so this plan keeps them there, after V too. Moving them behind a `framePending()` once P8 owns the `scroll` handler is a possible follow-up outside this plan.
+  - `sky.worker.ts` stays one file, the orchestrator: its frame handles are bound to its state, and the policy they run is pure and tested in `pacing.ts` (deviation 4, 6.2).
 - **Main thread.**
   - `mountSky.ts` keeps importing only types and `@/lib/sky/color` from `src/lib/sky`. Its new constants (the activity interval, the pointer query) live in `mountSky.ts` beside `DPR_CAP` (`mountSky.ts:17-27`).
   - `skyPause.ts` imports nothing from `src/lib/sky`. It reads `REDUCED_MOTION_QUERY` from `@/lib/utils` (`utils.ts:20`), as `mountSky.ts:3` does today. `mountSky` then drops its own import, because the store owns the query (one reader of the setting for the sky).
@@ -386,15 +363,15 @@ Per frame, the data flows one way:
   - `SkyPauseButton.tsx` has no directive. It is rendered only by `Navbar.tsx`, which is already the client entry of its subtree (`Navbar.tsx:1`).
   - AGENTS.md says to "add 'use client' only at the entry of an interactive subtree". The Next.js docs put it on "the files whose components you want to render directly within Server Components" (`01-app/03-api-reference/01-directives/use-client.md:10`; also `01-app/01-getting-started/05-server-and-client-components.md:178-180`).
   - If D1 moves the control into a Server Component (the hero or the footer), its own file becomes such an entry and gains the directive; the host stays a Server Component.
-- **Bundling.** The worker entry is unchanged: `new Worker(new URL('./sky.worker.ts', import.meta.url))` (`mountSky.ts:79-80`), which Turbopack already bundles as its own chunk today: its docs mention `new Worker()` expressions for magic comments (`03-api-reference/08-turbopack.md:130`) and an asset prefix for Web Worker URLs covering the "entrypoint + module chunks" (`turbopackWorkerAssetPrefix`, `:482`). Every new model file reaches the worker chunk through a static import from `sky.worker.ts`, with no configuration.
+- **Bundling.** The worker entry is unchanged: `new Worker(new URL('./sky.worker.ts', import.meta.url))` (`mountSky.ts:84-85`), which Turbopack already bundles as its own chunk today: its docs mention `new Worker()` expressions for magic comments (`03-api-reference/08-turbopack.md:130`) and an asset prefix for Web Worker URLs covering the "entrypoint + module chunks" (`turbopackWorkerAssetPrefix`, `:482`). Every new model file reaches the worker chunk through a static import from `sky.worker.ts`, with no configuration.
 
 ### 5.3 Main thread and worker split
 
 ```
  main thread                                       worker
  ResizeObserver ──── init/resize ───────────────►  sizes, assets; the camera created on the restored scroll
- Motion scroll() ─── scroll (veil handler) ──────►  scrollY, parallaxScroll, noteInput      (handler body unchanged)
- ResizeObserver ──── layout (veil handler) ──────►  quiet rects, ease                         (handler body unchanged)
+ Motion scroll() ─── scroll ─────────────────────►  scrollY, parallaxScroll, noteInput        (body unchanged until P8)
+ ResizeObserver ──── layout ─────────────────────►  quiet rects, ease, deferred layout        (the veil's, unchanged)
  pointer, keys ───── activity (≤ 1/s) ───────────►  noteInput                                 (P4)
  pointermove ─────── pointer (≤ 1 per frame) ────►  lean target                               (P7)
  skyPause store ──── motion: full | reduced ─────►  motion level eases; springs hold; resume (P5)
@@ -416,11 +393,11 @@ All per-frame work stays in the worker. The main thread only forwards facts (the
 - **No Cache Components APIs** (AGENTS.md); nothing here needs them.
 - **Verification.**
   - While `next dev` runs, use its MCP endpoint `/_next/mcp` (`get_errors`, `get_compilation_issues`, `compile_route` for `/`) instead of `next build` (AGENTS.md). `get_errors` takes no route: it reads errors from browser sessions with the page open (`01-app/02-guides/mcp.md:54`, `:88`). A hydration error appears only after a full load, and on this page only there, since it would sit in IntroGate's hidden preload tree, which the reveal discards. So full-reload `/` on the implementing server's port first (Fast Refresh and client navigations don't hydrate), and also read the log file `get_logs` names (`:55`).
-  - At the end of every phase (almost every one adds a module to the worker's graph or changes the client bundle), run one production build in the implementing worktree with its own dev server stopped: `npm run build`, then the `portfolio-prod` preview. Confirm the sky draws with no console errors, since production builds minify and mangle export names.
+  - Every phase ends with a production build and the `portfolio-prod` preview (7.0), since production builds minify and mangle export names.
 
 ## 6. Detailed design per area
 
-Code sketches follow the codebase: tabs, single quotes, no semicolons, a doc comment on every exported constant, relative imports inside `src/lib/sky`, `@/` imports elsewhere, and `noUncheckedIndexedAccess`. They are plans, not patches: names and contracts are binding, and bodies may be tightened. Plan references inside sketch comments (phase tags such as "(P6)", invariant, decision, request and research IDs, `file:line`, and words about the two sessions' process such as "the veil commit's", "theirs" or "observed") are notes for the implementer: committed comments drop them or say the reason in words (7.0).
+Code sketches follow the codebase: tabs, single quotes, no semicolons, a doc comment on every exported constant, relative imports inside `src/lib/sky`, `@/` imports elsewhere, and `noUncheckedIndexedAccess`. They are plans, not patches: names and contracts are binding, and bodies may be tightened. Imports and module constants arrive with their first reader's phase, since an unread one is a lint warning (`no-unused-vars`, `eslint.config.mjs:13`): P1's `quietIndex.ts` has no `quietAt`, `Point` or `SEGMENT_STEP` (P11 adds them with `segmentClear`), P2's `camera.ts` imports only `CAMERA`, and P3's `pacing.ts` has no `smoothstep` (P5 adds it with `easeAt`). They leave with their last reader: P1's `SHAPE_COUNT` and `STAR_SHAPES` import in `renderSky.ts`, P3's `FrameMode` type, and the meteor imports P8's schedule takes over from the worker. Plan references inside sketch comments (phase tags such as "(P6)", IDs, `file:line`, process wording such as "theirs") are notes for the implementer: committed comments drop them or say the reason in words (7.0).
 
 ### 6.1 Camera, depth and drift
 
@@ -487,7 +464,7 @@ export const LAYER_NEARNESS = Object.fromEntries(
 //	stars.push({ x, y, alpha: magnitudeAlpha(m), q: nearness(m), …the rest as today })
 ```
 
-P2 stops reading `LayerConfig.parallax` and the three `parallax` values (`config.ts:58-59`, `:78-80`; their only reader is `renderSky.ts:100`). They go at V (or in PF), when the `LAYERS` doc's "scroll parallax" becomes "how far each star moves comes from its magnitude (DEPTH)" (8.5 step 5).
+P2 removes `LayerConfig.parallax` and the three `parallax` values (`config.ts:58-59`, `:78-80`; their only reader is `renderSky.ts:100`), and the `LAYERS` doc (`config.ts:73`) drops "scroll parallax" from its first sentence's list and gains "How far each star moves comes from its magnitude (DEPTH).", beside the veil's ink sentences.
 
 | Layer | Share of stars | Nearness range | q median | q mean | Scroll share (0.07·q), mean | Today |
 |---|---|---|---|---|---|---|
@@ -582,7 +559,7 @@ Computed for v₀ = 3 [computed: the judge's `drift.mjs` and `heading.mjs`, cros
 | Largest change of speed | 3.8% per second |
 | Wander bound | exact supremum ΣR + \|ΣR e^(iφ)\| = 205.2 px (68.4 s × v₀; a 6-hour simulation reaches 205.2); for any phases at most 2ΣR = 212.3 px (70.8 s × v₀). R1's phases give 190.9 px. |
 | Wander per band | brightest 328, near mean 210, mid mean 103, far mean 60 px |
-| First minute, from the dusk (the 3 s ease included) | heading 19° up-right at 5 s, 9° at 10 s, level by 15 to 20 s, −7° at 30 s, −16° at 45 s, −52° at 60 s; speed 0.92, 1.03, 1.18, 1.18, 0.96 and 0.68 v₀ at 5, 10, 20, 30, 45 and 60 s; within 30° of level for 52.7 s and rightward for all 60 |
+| First minute, from the dusk (the 3 s ease included) | heading 19° up-right at 5 s, 9° at 10 s, level by 15 to 20 s, −7° at 30 s, −16° at 45 s, −52° at 60 s; speed 0.92, 1.03, 1.18, 1.18, 0.96 and 0.68 v₀ at 5, 10, 20, 30, 45 and 60 s; within 30° of level for 53.2 s and rightward for all 60 |
 | Later | clockwise: down at about 70 s, left at about 120 s, up at about 150 s; back within about 24 px of the start at 180 s |
 | Exact repeat | the ratios are the decimals 809/500 and 1207/500, so the path repeats exactly after 500 main periods, 25 hours of drift clock |
 | Frequencies | 0.0056, 0.0090 and 0.0134 Hz: far below the 0.05 to 0.5 Hz band linked to motion sickness (Diels and Howarth 2013) |
@@ -865,7 +842,7 @@ let cameraMoving = false
 let skyMoved = false
 /** The motion level: 1 under full motion, 0 otherwise, easing over FRAME.motionEase when the preference changes (M1). (P5) */
 let motionLevel: Ease = { from: 1, to: 1, since: -Infinity }
-/** A narrow screen (NARROW_MAX_WIDTH), set in resize. Not `narrow`, which would shadow the veil planner's locals. */
+/** A narrow screen (NARROW_MAX_WIDTH), set in resize: the one test the drift and, from P8, the launch gate read. */
 let narrowScreen = false
 /** What the drift and the twinkle depend on right now, filled by `gather` (reused). (P6; until then the twinkle reads presence and the motion level directly) */
 const driftGate: DriftGate = { allowed: false, dusk: 0, on: false, level: 0, scene: 0, narrow: false }
@@ -901,18 +878,18 @@ function updateCamera(now: number, scene: SceneLevels): void {
 }
 ```
 
-- **`init`** (ours, `sky.worker.ts:401-427`): `camera = createCamera(message.scrollY)` next to `scrollY = parallaxScroll = message.scrollY` (`:420`); `skyMoved = message.motion === 'full'`; and `motionLevel` at rest on that motion's level (1 or 0, `since: -Infinity`), so nothing eases at load.
-- **`motion` handler** (ours, `:437-443`). It acts only when the value changes:
+- **`init`** (`sky.worker.ts:467-493`): `camera = createCamera(message.scrollY)` next to `scrollY = parallaxScroll = message.scrollY` (`:486`); `skyMoved = message.motion === 'full'`; and `motionLevel` at rest on that motion's level (1 or 0, `since: -Infinity`), so nothing eases at load.
+- **`motion` handler** (`:503-509`). It acts only when the value changes:
   - first, `motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, t), to: message.motion === 'full' ? 1 : 0, since: t }`;
   - on a change to full, `skyMoved = true`, today's `holdMeteors(now)`, then `parallaxScroll = scrollY` and `resumeCamera(camera, scrollY)` (C8).
-  - Today `parallaxScroll` stays stale until the next scroll message and then leaps (`:465`). This fixes that without touching the veil-owned scroll handler, which keeps recording `scrollY` and, under full motion only, `parallaxScroll` (until P8 retires it, 6.9).
-- **`visible` handler** (ours, `:444-458`): `forgetStep(camera)` in the hidden branch, beside `cancelFrames()`.
+  - Today `parallaxScroll` stays stale until the next scroll message and then leaps (`:531`). This fixes that without touching the scroll handler, which keeps recording `scrollY` and, under full motion only, `parallaxScroll` (until P8 retires it, 6.9).
+- **`visible` handler** (`:510-524`): `forgetStep(camera)` in the hidden branch, beside `cancelFrames()`.
 - **`tick`**: `gather(now, scene)` and `updateCamera(now, scene)` after `settleQuiet(now)` and before the frame decision. The camera steps on every wake-up, drawn or not, with the true elapsed time.
-- **`frameAt`** (`:246-267`): `offset: cameraOffset(camera, offset)` replaces `parallaxScroll` in the `SkyFrame`.
-  - From P6 it first calls `gather(now, scene)` with the scene it computes, since its twinkle reads `driftGate.level` (6.6) and `resize`, `stepDown` and `probeRaster` draw outside a frame decision (`:380`, `:302`, `:314`): a resize after an idle sleep would otherwise leave a frame with a stale twinkle on screen (F7).
+- **`frameAt`** (`:305-326`): `offset: cameraOffset(camera, offset)` replaces `parallaxScroll` in the `SkyFrame`; the veil's lines stay (8.4).
+  - From P6 it first calls `gather(now, scene)` with the scene it computes, since its twinkle reads `driftGate.level` (6.6) and `resize`, `stepDown` and `probeRaster` draw outside a frame decision (`:446`, `:361`, `:373`): a resize after an idle sleep would otherwise leave a frame with a stale twinkle on screen (F7).
   - `snap` is `true` in P1.
   - From P2 it is `!skyMoved`, a worker flag that `init` and the `motion` handler set the first time motion is `'full'` in this page view. A load under reduced motion or paused draws exactly today's points; after that, a pause, a reduced-motion switch or Play keeps every star at its quarter-pixel phase rather than hopping it up to half a device pixel, as the idle sleep already does (M1). The first full motion after such a load still moves each star once to its phase: M1's one-time settle, accepted, because easing it would need each star's rounding at the switch.
-- **`probeRaster`** (`:309-320`) keeps calling `frameAt` without stepping the camera.
+- **`probeRaster`** (`:368-379`) keeps calling `frameAt` without stepping the camera.
 - **Before P5**, there is no motion ease: P2 uses `follow: motion === 'full'` and no drift. Until P3 replaces `frameMode`, P2 makes `frameMode` return `'active'` while `cameraMoving`, so the glide draws on every refresh.
 
 #### Reconciling R1's drift with R4's heading rules
@@ -926,7 +903,7 @@ They still meet what R4's rules were for:
 - **No sway in the sickness band.** Every frequency is under 0.014 Hz.
 - **No rhythm to notice.** The speed beats on about 69 s and 127 s, which are incommensurate. The heading's roughly 3-minute cycle is the intended float. The path never retraces itself in a way anyone could see: within 30 minutes, no 60 s stretch matches an earlier one closer than 6.3 px at q = 1 with the two aligned at their first points (at a 24-minute lag, searched on a 0.25 s grid), and the exact path repeats only after 25 hours [computed].
 
-Passing near the starting position is not a repeat. Every bounded quasi-periodic path does it: these phases come within 4 px of the start at about 9 minutes, and R1's within 6 px. The base draft's "near-returns differ by 21 to 38 px" was wrong, so AC-7 measures retraced stretches instead.
+Passing near the starting position is not a repeat. Every bounded quasi-periodic path does it: these phases come within 4 px of the start at about 9 minutes, and R1's within 6 px. So AC-7 measures retraced stretches instead.
 
 R4's other worry, induced motion of the headline when the drift heads vertically, is met by keeping the faint majority nearly still (the far band's mean at most 1.25 px/s), and AC-17 checks it. Section 9 therefore amends AC-4 and AC-7 instead of changing the drift, and section 12 lists the one-constant fallback if AC-17 fails.
 
@@ -944,7 +921,7 @@ The frame clock has two concerns with different owners:
 
 - **Policy** (pure, in `src/lib/sky/pacing.ts` and, for the drift, `camera.ts`): what each part of the sky needs, mapped from the `FrameState` the worker gathers at each frame decision (`frameDemand`), the strictest demand, the frames per second motion needs, the whole-number divisor and its hysteresis, the refresh estimate, the eases, and whether a wake-up draws. All of it runs in the scratch harness, so H4 tests the shipped mapping, not a copy.
 - **Mechanism** (in `sky.worker.ts`): the `requestAnimationFrame` and `setTimeout` handles.
-  - They stay worker variables named `rafId` and `timerId`, because the veil-owned scroll handler reads them: `if (!rafId && timerId === undefined) needsDraw = true` (`sky.worker.ts:469`).
+  - They stay worker variables named `rafId` and `timerId`, because the scroll handler reads them: `if (!rafId && timerId === undefined) needsDraw = true` (`sky.worker.ts:535`).
   - `rafId` becomes `number | null`, with `null` as the "nothing pending" sentinel (MDN: request IDs may wrap to 0).
   - `!rafId` still means "no frame pending", so the handler keeps working without an edit. In the rare case of a pending id of 0 it draws one extra frame, which is harmless.
   - The watchdog gets its own `watchdogId`, which the handler never sees. In timer-fallback mode the frame timer lives in `timerId`, so the handler sees a pending frame.
@@ -984,7 +961,7 @@ export const PACING = {
 } as const
 ```
 
-The `FRAME` doc (`config.ts:206`) gains: "Motion (the drift, a shooting star, scrolling) draws on animation frames paced by PACING; these timers serve a sky that only changes brightness." The `ADAPT` doc gains: "step 1 also caps the drift at PACING.slowMaxFps".
+The `FRAME` doc (`config.ts:222`) gains: "Anything that moves draws on animation frames paced by PACING; these timers serve a sky that only changes brightness." In P6, which brings the drift, the `ADAPT` doc gains "step 1 also caps the drift at PACING.slowMaxFps".
 
 **Why three strikes.** The drafts disagreed on the watchdog.
 
@@ -1052,7 +1029,7 @@ export interface FrameState {
 	scrolling: boolean
 	/** Full motion: scrolling then moves the stars (every refresh); otherwise it only fades them. */
 	full: boolean
-	/** The shooting stars' demand: today's meteor line until P8, the schedule's transientDemand from it. */
+	/** The transients' demand (transientDemand): every frame while one moves, fade frames while one lingers (a train). */
 	transientDemand: FrameDemand
 	/** The camera moves, or the drift or the lean heads up: decided by where they head, not their eased levels (F6). */
 	cameraActive: boolean
@@ -1066,7 +1043,7 @@ export interface FrameState {
 	twinkleFps: number
 }
 
-/** The strictest demand of every part of the sky this tick; before P6 it reproduces today's frameMode exactly (H4). */
+/** The strictest demand of every part of the sky this tick. */
 export function frameDemand(state: FrameState): FrameDemand {
 	if (!state.live) return NO_FRAMES
 	return combineDemands(
@@ -1095,14 +1072,14 @@ export function easeAt(ease: Ease, duration: number, t: number): number {
 	return ease.from + (ease.to - ease.from) * smoothstep(0, duration, t - ease.since)
 }
 
-/** True while an ease that started at `since` (s) runs: fade frames show it. */
-export function easing(since: number, duration: number, t: number): boolean {
-	return t - since < duration
+/** True while an ease that started at `since` (s; null while it hasn't begun) runs: fade frames show it. */
+export function easing(since: number | null, duration: number, t: number): boolean {
+	return since !== null && t - since < duration
 }
 
 /** True once an ease has run out while the last drawn frame (`drawnAt`, s) still showed it part way: one more frame shows its end (F7). */
-export function easeEnded(since: number, duration: number, t: number, drawnAt: number): boolean {
-	return drawnAt - since < duration && t - since >= duration
+export function easeEnded(since: number | null, duration: number, t: number, drawnAt: number): boolean {
+	return since !== null && drawnAt - since < duration && t - since >= duration
 }
 
 /** A one-way fade: 1 until `since` (s; null while it hasn't begun), then down to 0 over `duration` s. */
@@ -1135,12 +1112,13 @@ export function stepDivisor(divisor: Divisor, wanted: number, now: number): numb
 }
 
 /**
- * Whether a wake-up at `now` (ms) draws for `demand`: an animation frame once k - 1/2 refreshes have passed since the last
- * drawn frame, a timer once its interval has (4 ms early is fine: timers fire a little early or late).
+ * Whether a wake-up at `now` (ms) draws for `demand`: every animation frame at k = 1 (even just after a timer drew, so
+ * motion starts on the next refresh), otherwise one once k - 1/2 refreshes have passed since the last drawn frame; a timer
+ * once its interval has (4 ms early is fine: timers fire a little early or late).
  */
 export function frameDue(demand: FrameDemand, now: number, lastDrawAt: number, k: number, interval: number): boolean {
 	if (demand.fps <= 0) return false
-	if (demand.vsync) return now - lastDrawAt >= (k - 0.5) * interval
+	if (demand.vsync) return k <= 1 || now - lastDrawAt >= (k - 0.5) * interval
 	return now - lastDrawAt >= 1000 / demand.fps - 4
 }
 
@@ -1208,11 +1186,11 @@ export function createRefreshEstimate(): RefreshEstimate {
 }
 ```
 
-The domain-model draft tested this body: a 60 Hz stream with a dropped frame every 13 settles at 16.7 ms, it follows a switch to 30 Hz after exactly 16 samples, a 15.0 to 15.1 ms stream reads as unaligned, and 120 Hz gives 8.33 ms.
+The domain-model draft tested this body on H4's refresh cases.
 
-#### The worker's demand (replaces `frameMode` and `frameInterval`, `sky.worker.ts:116-133`)
+#### The worker's demand (replaces `frameMode` and `frameInterval`, `sky.worker.ts:135-152`)
 
-The worker only gathers; `frameDemand` (pure, above) decides. `frameMode` and `tick` are on the veil session's hands-off list, so P3 replaces them only with its yes (8.6).
+The worker only gathers; `frameDemand` (pure, above) decides. The veil's `quietEasing(t)` is the quiet-ease term of `fading`, and `tick` keeps calling `settleQuiet` before the frame decision (8.4).
 
 ```ts
 /** What the frame clock sees now (reused). */
@@ -1251,7 +1229,6 @@ Lines that refer to later phases arrive with them:
 | `driftTarget(driftGate)` in the speed line | absent: `cameraSpeed(camera)` (6.1) | P6 |
 | the cap line (`driftCap(narrowScreen, …, softwareFps)`), and `softwareFps` (below) | `Infinity`, and no `softwareFps` | P6 |
 | `leanWanted(camera, leanTarget(scene), …)` (`camera.ts`, which `stepCamera` shares: full motion, and a lean spring away from its target; 6.13 says why the motion test matters) | `false` | P7 |
-| `quietEasing(t)` in `fading` (the veil commit's) | today's `layoutAt !== null && t - layoutAt < QUIET.ease` | V |
 | the motion ease in `fading` | absent | P5 |
 | `driftGate.on` | today's `motion === 'full' && !isIdle(now)` (P4: `isIdle(presence, now)`) | P6 |
 | `transientDemand(transients, t)` in the transient line | today's meteor line (as written) | P8 |
@@ -1266,29 +1243,29 @@ Before P6 nothing new moves except the scroll glide. So `frameDemand` reproduces
 
 **Software raster** (P6: the drift is its first reader).
 
-- `probeRaster` (`:309-320`) keeps the milliseconds it measured, scaled by 1 / dpr² when it stepped down to CSS resolution.
+- `probeRaster` (`:368-379`) keeps the milliseconds it measured, scaled by 1 / dpr² when it stepped down to CSS resolution.
 - `softwareFps` is `Math.floor(PACING.softwareShare * 1000 / rasterMs)` when the probe found a software canvas, and `Infinity` otherwise.
 - The drift is affordable (`driftGate.allowed`) only when `softwareFps >= PACING.minFps`.
 - A 1440 × 900 software canvas at CSS resolution (3.3 to 3.9 ms a frame, R3 §6) affords 20 to 24 fps and drifts. A 4K software canvas (about 29 ms) gets 2 fps and keeps a still sky, as today. Scroll parallax and meteors still work there, at today's cadence.
 
-#### The worker's mechanism (replaces `schedule`, `onTimer`, `onFrame`, `tick` and `cancelFrames`, `:136-190`)
+#### The worker's mechanism (replaces `schedule`, `onTimer`, `onFrame`, `tick` and `cancelFrames`, `:154-160` and `:167-209`)
 
 - **`requestFrame()`.**
-  - If `rafWorks`, it sets `rafId = scope.requestAnimationFrame(onFrame)` and arms `watchdogId = setTimeout(onStalled, PACING.watchdogMs)`.
-  - Otherwise it sets `timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + divisor.k * 1000 / PACING.fallbackFps - now))`, today's `onTimer` (`:171-174`), which ticks without sampling the refresh estimate. In this mode the timer stands in for the display: `tick` divides it like a 60 Hz refresh, so the timer fires once per drawn frame, k periods after the last one (armed one period after it, a k = 2 demand would wake 3 times per drawn frame). It is armed against the last drawn frame, as today's timers are (`:167`), because `schedule` re-runs after every message: armed from `now`, scroll and pointer messages 8 ms apart would push the frame back for as long as they come.
+  - If `rafWorks`, it sets `rafId = scope.requestAnimationFrame?.(onFrame) ?? null` and arms `watchdogId = setTimeout(onStalled, PACING.watchdogMs)`.
+  - Otherwise it sets `timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + divisor.k * 1000 / PACING.fallbackFps - now))`, today's `onTimer` (`:190-193`), which ticks without sampling the refresh estimate. In this mode the timer stands in for the display: `tick` divides it like a 60 Hz refresh, so the timer fires once per drawn frame, k periods after the last one (armed one period after it, a k = 2 demand would wake 3 times per drawn frame). It is armed against the last drawn frame, as today's timers are (`:186`), because `schedule` re-runs after every message: armed from `now`, scroll and pointer messages 8 ms apart would push the frame back for as long as they come.
   - In that fallback mode it also asks for one animation frame every `PACING.reprobeMs`, through its own `probeId`; when one calls back, `rafWorks` is true again and the strikes reset.
-  - `rafWorks` starts as `typeof scope.requestAnimationFrame === 'function'`. In `SkyWorkerScope` (`:17-22`) both animation-frame members become optional.
+  - `rafWorks` starts as `typeof scope.requestAnimationFrame === 'function'`. In `SkyWorkerScope` (`:17-22`) both animation-frame members become optional, so every call to them uses `?.` (a direct one is TS2722 under `strict`).
 - **`onFrame(time)`** clears the watchdog, sets `rafId = null`, resets the strikes, samples the refresh estimate and calls `tick(time)`.
-- **`onStalled()`** cancels the request, sets `rafId = null`, counts a strike (at `PACING.watchdogStrikes`, `rafWorks = false`) and serves this frame with `tick(performance.now())`. The `contextrestored` listener (`:409-413`) and the `visible` handler reset the strikes.
-- **`schedule(now)`** keeps today's structure (`:152-168`):
+- **`onStalled()`** cancels the request, sets `rafId = null`, counts a strike (at `PACING.watchdogStrikes`, `rafWorks = false`) and serves this frame with `tick(performance.now())`. The `contextrestored` listener (`:475-479`) and the `visible` handler reset the strikes.
+- **`schedule(now)`** keeps today's structure (`:171-187`):
   - It returns if a frame is pending (`rafId !== null`), there is no context, or the page is hidden, and it clears `timerId`.
-  - It computes `demandNow`. A vsync demand requests a frame. An fps of 0 sleeps, keeping today's one timer for `needsDraw` or the next due shooting star or transient, and calls `refresh.pause()`. Otherwise it sets a timer at `needsDraw ? 0 : Math.max(0, lastDrawAt + 1000 / demand.fps - now)`, as today (`:167`), so a message that changes the sky draws at once.
+  - It computes `demandNow`. A vsync demand requests a frame. An fps of 0 sleeps, keeping today's one timer for `needsDraw` or the next due shooting star or transient, and calls `refresh.pause()`. Otherwise it sets a timer at `needsDraw ? 0 : Math.max(0, lastDrawAt + 1000 / demand.fps - now)`, as today (`:186`), so a message that changes the sky draws at once.
 - **`tick(now)`** runs, in order:
   1. the shooting star, `settleQuiet`, `gather`, the motion ease's last frame (`easeEnded`, P5, 6.6) and `updateCamera`;
   2. the divisor: in timer-fallback mode the refresh is the timer, `interval = 1000 / PACING.fallbackFps` and `fps = demand.fps` (the estimate may be stale: 8.33 ms after a 120 Hz display stalled); otherwise `interval = refresh.interval` and `fps = refresh.unaligned ? Infinity : demand.fps`. Then `k = demand.vsync ? stepDivisor(divisor, refreshDivisor(1000 / interval, fps, demand.cap), now) : 1`;
   3. `if (needsDraw || frameDue(demand, now, lastDrawAt, k, interval)) draw(now)`;
   4. `schedule(now)`.
-- **`cancelFrames()`** (the hidden branch, `:447`) also clears the watchdog, sets `rafId = null` and calls `refresh.pause()`.
+- **`cancelFrames()`** (the hidden branch, `:513`) cancels with `if (rafId !== null) scope.cancelAnimationFrame?.(rafId)`, clears the watchdog, sets `rafId = null` and calls `refresh.pause()`.
 
 #### What it gives (v₀ = 3, the brightest star at the drift's peak, q = 1.6) [computed]
 
@@ -1321,7 +1298,7 @@ These are the frames at the drift's top speed (1.42 v₀). At v₀ a DPR-2 lapto
  * Sub-pixel positions per device pixel and axis in the star atlas (4, like Skia's glyph cache): a moving star is drawn
  * from the sprite pre-rendered at its nearest quarter-pixel phase, placed at a whole device pixel, so it glides without
  * blurring or pulsing and lands within 1/8 px of its true place. Phase 0 is today's sprite, byte for byte; 1 rounds every
- * star to whole pixels, as before the drift.
+ * star to whole pixels.
  */
 export const STAR_PHASES = 4
 ```
@@ -1349,9 +1326,9 @@ function profile(size: number, sigma: number, phase: number): Float64Array {
 }
 ```
 
-- **`paintSprite`** (`:63-78`) paints `round(min(1, (cx[i]·cy[j] + haloPeak·hx[i]·hy[j]) / peak) × 255)` for phases (i/4, j/4). `peak` is the **phase-0** centre value of the same shape, computed once per shape, so every phase carries nearly the same total light. Sprites keep today's sizes (2⌈3σ⌉ + 1, `:57-60`), so a phase shifts the Gaussian toward one edge and cuts a little of its tail: over every DPR from 0.5 to 2 (below 1 when the page is zoomed out, which `canvasDpr` allows, `mountSky.ts:87-92`) and every shape, phase sums stay within 0.5% of phase 0 before rounding (worst: DPR 2, shape 2, σ 1.0 px in a 7 px sprite) and within 1.7% in bytes from DPR 1 to 2 (worst: DPR 1.125, a 90% zoom on a 125% display) and 2.5% below it (worst: 2.45% at DPR 0.825) [computed]. That is far under R4's 5%, and growing sprites to close it would push the DPR-2 atlas past B-10.
-- **`buildStarAtlas`** (`:81-120`) lays each (tint, shape) out as a 4 × 4 block of its phases, with a 1 px gutter. The meteor core and glow keep one unphased sprite each, because the head is a fast glow drawn fractionally as today.
-- **Index.** A new `starSpriteIndex(tint, shape, phaseX, phaseY) = ((tint * STAR_SHAPES.length + shape) * STAR_PHASES + phaseY) * STAR_PHASES + phaseX` replaces `tint * SHAPE_COUNT + shape`, and `StarAtlas.stars` documents it (`:26-27`).
+- **`paintSprite`** (`:63-78`) paints `round(min(1, (cx[i]·cy[j] + haloPeak·hx[i]·hy[j]) / peak) × 255)` for phases (i/4, j/4). `peak` is the **phase-0** centre value of the same shape, computed once per shape, so every phase carries nearly the same total light. Sprites keep today's sizes (2⌈3σ⌉ + 1, `:57-60`), so a phase shifts the Gaussian toward one edge and cuts a little of its tail: over every DPR from 0.5 to 2 (below 1 when the page is zoomed out, which `canvasDpr` allows, `mountSky.ts:92-97`) and every shape, phase sums stay within 0.5% of phase 0 before rounding (worst: DPR 2, shape 2, σ 1.0 px in a 7 px sprite) and within 1.7% in bytes from DPR 1 to 2 (worst: DPR 1.125, a 90% zoom on a 125% display) and 2.5% below it (worst: 2.45% at DPR 0.825) [computed]. That is far under R4's 5%, and growing sprites to close it would push the DPR-2 atlas past B-10.
+- **`buildStarAtlas`** (`skyAssets.ts:81-120`) lays each (tint, shape) out as a 4 × 4 block of its phases, with a 1 px gutter. The meteor core and glow keep one unphased sprite each, because the head is a fast glow drawn fractionally as today.
+- **Index.** A new `starSpriteIndex(tint, shape, phaseX, phaseY) = ((tint * STAR_SHAPES.length + shape) * STAR_PHASES + phaseY) * STAR_PHASES + phaseX` replaces `tint * SHAPE_COUNT + shape`, and `StarAtlas.stars` documents it (`skyAssets.ts:26-27`).
 - **Size.** About 0.7 MB at DPR 1 and 1.9 MB at DPR 2, against 48 KB and 127 KB today. The atlas is rebuilt only when the ratio changes.
 
 `src/components/sky/renderSky.ts` gets one placement function for every point of light: stars now, satellites in P11.
@@ -1406,17 +1383,17 @@ Today every star calls `easedQuietFactor` over every quiet zone (`renderSky.ts:1
 
 ```ts
 // src/lib/sky/quietIndex.ts (new)
-import { QUIET } from './config'
+import { QUIET, QUIET_REACH } from './config'
 import type { Point } from './meteors'
 import type { SkyRect } from './protocol'
 import { easedQuietFactor, quietAt, sameRects, type QuietBlend, type QuietKeeps } from './scene'
 
 /**
  * Farthest from a padded quiet zone that the quiet math looks (CSS px): a zone more than this away on either axis adds
- * nothing to any quiet factor, and the ink term only reaches inside it. From V it is `QUIET_REACH - QUIET.padding`: the
- * veil's QUIET_REACH is measured from a text rect, before the padding. Every "clear of copy" test reads it.
+ * nothing to any quiet factor, and the ink term only reaches inside it. QUIET_REACH is measured from a text rect, before
+ * the padding. Every "clear of copy" test reads it.
  */
-export const ZONE_REACH = QUIET.feather
+export const ZONE_REACH = QUIET_REACH - QUIET.padding
 
 /** Side of the square screen tiles the zones are bucketed into (CSS px). */
 const TILE = 64
@@ -1430,7 +1407,7 @@ const SEGMENT_STEP = 8
  * nothing to quietFactor, so the factor equals easedQuietFactor over all zones bit for bit (Q1).
  */
 export interface QuietIndex {
-	/** No zones on screen: drawLayer skips the lookup, as today's quiet flag does. */
+	/** No zones on screen: drawLayer skips the lookup. */
 	readonly empty: boolean
 	/** Follows the zones on screen; rebuilds the buckets only when a zone list or the grid changed (scroll, layout, an ease starting or ending). */
 	update(blend: QuietBlend, width: number, height: number, margin: number): void
@@ -1507,18 +1484,18 @@ export function createQuietIndex(): QuietIndex {
 }
 ```
 
-The domain-model draft checked this body over 60 random layouts (390 × 844, 1440 × 900, 2560 × 1440; 31 and 64 rects; settled and mid-ease; three keep pairs; points exactly `QUIET.feather` beyond an edge): its 722,355 lookups differed from `easedQuietFactor` over all zones by exactly 0.
+The domain-model draft checked this body over 722,355 lookups on 60 random layouts, edge cases included: they differed from `easedQuietFactor` over all zones by exactly 0 (H3 repeats it).
 
 - **Why it is exact.**
-  - A zone more than `QUIET.feather` from the point on either axis contributes nothing, and neither does one exactly `QUIET.feather` away (its quiet is 1 − smoothstep(0, 40, 40) = 0). The veil's one-pass `quietFactor` skips such a zone and lets the most protective of the others win (a minimum); today's takes maxima of `quietAt` and `inkAt` (whose ink term reaches only inside the padded rect), which skip it too.
-  - So a zone whose grown box doesn't touch a tile adds nothing anywhere in it, and a minimum or maximum over a subsequence that holds every contributing zone, in the same order, is the same number.
+  - A zone more than `QUIET.feather` from the point on either axis contributes nothing, and neither does one exactly `QUIET.feather` away (its quiet is 1 − smoothstep(0, 40, 40) = 0). `quietFactor` makes one pass, skips such a zone and lets the most protective of the others win (a minimum).
+  - So a zone whose grown box doesn't touch a tile adds nothing anywhere in it, and a minimum over a subsequence that holds every contributing zone, in the same order, is the same number.
   - Each tile holds the same zone objects, so an `inkKeep` that is a function of the rect (`budgetKeeps`, reading its `headroom`) sees the same rect.
   - The per-tile blend then mixes the same two values by the same formula.
-  - From V a blend may carry a waiting layout (`next`). The index ignores it, as `easedQuietFactor` does: only transients answer to it (`transientQuietFactor`).
+  - A blend may carry a waiting layout (`next`). The index ignores it, as `easedQuietFactor` does: only transients answer to it (`transientQuietFactor`).
 - **Even empty tiles go through `easedQuietFactor`** while any zone exists. During an ease, a star far from every zone still computes `1 × level + 1 × (1 − level)`, which today's code also computes and which can round one unit below 1. Skipping it would break bit identity. Only `empty` (no zones at all) skips the lookup, exactly as today's `quiet` flag does.
-- **Rebuilds.** Zones are in screen space, so drift frames never rebuild; only a scroll, a layout, or an ease starting or ending does. `update` compares the incoming lists with the last ones by content, using `sameRects` moved from `sky.worker.ts:82-84` to `scene.ts` and exported, because the veil's `quietBlend` builds new arrays on every call (`sky.worker.ts:227-234`). From V it compares `headroom` too, as the veil commit's does: a rect whose headroom alone changed must rebuild its tiles. 64 comparisons cost about 0.5 µs, and a rebuild 0.01 to 0.23 ms. The worker's `layout` handler keeps calling `sameRects(...)` unchanged; only its import moves.
+- **Rebuilds.** Zones are in screen space, so drift frames never rebuild; only a scroll, a layout, or an ease starting or ending does. `update` compares the incoming lists with the last ones by content, using `sameRects`, moved from `sky.worker.ts:92-98` to `scene.ts` and exported with its `headroom` comparison, because `quietBlend` builds new arrays on every call (`sky.worker.ts:264-272`): a rect whose headroom alone changed rebuilds its tiles. 64 comparisons cost about 0.5 µs, and a rebuild 0.01 to 0.23 ms. The worker's `layout` handler keeps calling `sameRects(...)` unchanged; only its import moves.
 - **Grid.** Tiles cover the viewport plus `margin` on every side. `renderSky.ts` owns one index at module scope (`const quietIndex = createQuietIndex()`, beside `EDGE`, the band in which stars beyond an edge are still drawn). `drawSky` calls `quietIndex.update(frame.quiet, frame.width, frame.height, EDGE)` once per frame, before the layers, and `drawLayer` uses `if (!quietIndex.empty) alpha *= quietIndex.factor(x, y, config)` in place of `renderSky.ts:107` and `:120`. `SkyFrame` stays plain data (`quiet: QuietBlend`, filled from `quietBlend(t)` unchanged), so the worker's `draw` and `probeRaster` need no new argument.
-- **Ownership.** It wraps the veil session's `easedQuietFactor`, so their math stays the single source. Whatever they change inside `quietFactor`, `inkAt` or `easedQuietFactor` stays exact as long as no padded zone reaches past `ZONE_REACH` (re-checked by H3 at the rebase). Transients keep the veil's `transientQuietFactor` over all zones (Q2).
+- **Ownership.** It wraps the veil's `easedQuietFactor`, so that math stays the single source, and stays exact as long as no padded zone reaches past `ZONE_REACH` (H3). Transients keep the veil's `transientQuietFactor` over all zones (Q2).
 - **Cost.** Star quiet math at 1,430 stars falls from 1.3 to 1.7 ms mid-ease to 0.14 to 0.32 ms. On a 1440 × 900 laptop it falls from about 0.11 to 0.40 ms to 0.04 to 0.12 ms (R3 §4.1).
 
 ### 6.5 The star-field cache, and why nothing wraps (P1)
@@ -1629,7 +1606,7 @@ export function isIdle(presence: Presence, now: number): boolean {
 
 /**
  * Records input. Back during the idle fade-out, ambient motion eases back in from where it was; after a full idle stretch,
- * from nothing. Returns true when the visitor was away, so the worker holds the next transient back.
+ * from nothing. Returns true when the visitor was away, so the worker holds the next launch back.
  */
 export function notePresence(presence: Presence, now: number): boolean {
 	const since = now - presence.lastInputAt
@@ -1639,14 +1616,14 @@ export function notePresence(presence: Presence, now: number): boolean {
 	return wasIdle
 }
 
-/** 0 to 1: the share of ambient motion (twinkle, drift) presence allows, easing out before the idle sleep and in after a return (PR1). */
+/** 0 to 1: the share of ambient motion presence allows, easing out before the idle sleep and in after a return (PR1). */
 export function presenceLevel(presence: Presence, now: number): number {
 	const fadingOut = smoothstep(FRAME.idleSleepMs - FRAME.idleFadeMs, FRAME.idleSleepMs, now - presence.lastInputAt)
 	return (1 - fadingOut) * smoothstep(0, FRAME.idleFadeMs, now - presence.wokeAt)
 }
 ```
 
-These are today's `isIdle`, `idleTwinkle` and `noteInput` (`sky.worker.ts:87-114`), moved into the model with the same arithmetic, so twinkle behaves bit for bit as before (H11). The worker keeps a function named `noteInput(now)`, because the veil-owned scroll handler calls it (`:467`):
+These are today's `isIdle`, `idleTwinkle` and `noteInput` (`sky.worker.ts:100-128`), moved into the model with the same arithmetic, so twinkle behaves bit for bit as before (H11). The worker keeps a function named `noteInput(now)`, because the scroll handler calls it (`:533`):
 
 ```ts
 /** Records input of any kind; back from an idle stretch, no shooting star straight away. */
@@ -1655,8 +1632,8 @@ function noteInput(now: number): void {
 }
 ```
 
-- `init` sets `presence = createPresence(now)` where today it sets `lastInputAt = now` (`:421`).
-- `twinkleLevel` (`:97-99`) becomes `scene.twinkle × presenceLevel(presence, now)`, times the motion level from P5, and from P6 `scene.twinkle × driftGate.level`, the one ambient level `gather` computes for the twinkle and the drift (6.1). `meteorsAllowed` (`:144-146`) uses `!isIdle(presence, now)`: one presence gate for all ambient motion (R3 §2.5).
+- `presence` is declared `let presence = createPresence(0)`, today's starting values (`sky.worker.ts:57-58`), as the camera is, since `scroll` and `visible` messages reach `noteInput` before `init`; `init` sets `presence = createPresence(now)` where today it sets `lastInputAt = now` (`:487`).
+- `twinkleLevel` (`:111-113`) becomes `scene.twinkle × presenceLevel(presence, now)`, times the motion level from P5, and from P6 `scene.twinkle × driftGate.level`, the one ambient level `gather` computes for the twinkle and the drift (6.1). `meteorsAllowed` (`:163-165`) uses `!isIdle(presence, now)`: one presence gate for all ambient motion (R3 §2.5).
 
 The main thread reports input that isn't scrolling:
 
@@ -1668,7 +1645,7 @@ const ACTIVITY_INTERVAL_MS = 1000
 /** Input that shows someone is still here without scrolling. */
 const ACTIVITY_EVENTS = ['pointermove', 'pointerdown', 'keydown', 'focusin'] as const
 
-// Inside mountSky, with the other listeners (mountSky.ts:243-247):
+// Inside mountSky, with the other listeners (mountSky.ts:310-314):
 let lastActivity = -Infinity
 const noteActivity = () => {
 	const now = performance.now()
@@ -1681,7 +1658,7 @@ for (const type of ACTIVITY_EVENTS) window.addEventListener(type, noteActivity, 
 ```
 
 - The worker handles `activity` with `noteInput(now)`, followed by the usual `schedule(now)`, whose `demandNow` gathers this moment's gates, so a ping after the idle sleep restarts frames at once (F6).
-- `FRAME.idleSleepMs`'s doc changes from "with no scroll for this long" to "with no input (scroll, pointer, keys, focus) for this long the twinkle and the drift ease out, transients pause and the worker sleeps until the visitor is back". `idleFadeMs`'s doc becomes "twinkle and drift fade out and back in around the idle sleep".
+- `FRAME.idleSleepMs`'s doc changes from "with no scroll for this long" to "with no input (scroll, pointer, keys, focus) for this long ambient motion eases out, nothing new launches and the worker sleeps until the visitor is back", and `idleFadeMs`'s to "Ambient motion fades out and back in around the idle sleep": true of the twinkle now and of the drift later, so no later phase edits them.
 - After 90 s without input:
   1. the drift rate eases to 0 over the last 4 s;
   2. the camera comes to rest and keeps its place;
@@ -1691,7 +1668,7 @@ for (const type of ACTIVITY_EVENTS) window.addEventListener(type, noteActivity, 
 **Within P4: a twinkle clock without hidden time** (R3 §6). Today, a tab hidden for a minute returns with every twinkling star at a new phase, so all of them change brightness at once. It costs a few lines and AC-32 checks it.
 
 - `SkyFrame` gains `twinkleTime`: the worker clock minus `hiddenTotal`, the seconds the tab has spent hidden.
-- The `visible` handler measures each hidden stretch once, from `hiddenAt`, adds it to `hiddenTotal`, and moves `exitAt` from the same measurement by today's rule (`:453`), which also starts a dusk that began while hidden: one measurement of hidden time, not two.
+- The `visible` handler measures each hidden stretch once, from `hiddenAt`, adds it to `hiddenTotal`, and moves `exitAt` from the same measurement by today's rule (`sky.worker.ts:519`), which also starts a dusk that began while hidden: one measurement of hidden time, not two.
 - Twinkle reads `twinkleTime`; meteors keep `frame.time`.
 
 #### The motion level (P5)
@@ -1699,7 +1676,7 @@ for (const type of ACTIVITY_EVENTS) window.addEventListener(type, noteActivity, 
 Pausing, and switching reduced motion on or off, change `motion`, and the motion level eases between 0 and 1 over `FRAME.motionEase` (the worker sketch in 6.1). It scales twinkle (from P5, in place of `twinkleLevel`'s `motion === 'full'` guard, which would still drop the twinkle in one frame) and the drift rate (from P6):
 
 ```ts
-// FRAME (config.ts:207-221), new key
+// FRAME (config.ts:223-237), new key
 	/**
 	 * Seconds over which motion stops or starts again (the pause control, a reduced-motion switch): the drift and twinkle
 	 * ease out or in, so nothing stops or starts in one frame, and even the brightest star at its peak speed moves only
@@ -1711,7 +1688,7 @@ Pausing, and switching reduced motion on or off, change `motion`, and the motion
 - **Why a finite smoothstep, not an exponential.** It ends exactly, like the codebase's other eases (the idle fade, `QUIET.ease`), so the worker knows when to stop drawing. The experience draft's exponential with a "within a thousandth" cut-off only reached 0 after 1.38 s.
 - **Why 0.3 s.** It is long enough to turn today's one-frame twinkle drop into a quick fade, and short enough for R4's AC-27: the brightest star at peak speed travels 6.82 × 0.15 = 1.02 px after the switch [computed].
 - **One ease, two helpers.** The worker keeps the level as `motionLevel: Ease` (`pacing.ts`), read with `easeAt`. A load starts at rest on its motion's level (0 under reduced motion, `since: −Infinity`), so nothing eases at start.
-- **The last frame.** `tick` sets `needsDraw` once when `easeEnded(motionLevel.since, FRAME.motionEase, t, lastDrawAt / 1000)`: the ease has run out and the last drawn frame fell inside it. That is the test the veil's `settleQuiet` (`sky.worker.ts:241-243`) makes for the quiet ease, and P6's thin fade uses it too; after V, `settleQuiet` may adopt it. The last fade frame can land up to 33 ms before the end, at level 0.01 to 0.03, so without it a pause with a still camera (P5 before P6, reading at D2 = 0, software raster) would leave a trace of twinkle on screen (F7).
+- **The last frame.** `tick` sets `needsDraw` once when `easeEnded(motionLevel.since, FRAME.motionEase, t, lastDrawAt / 1000)`: the ease has run out and the last drawn frame fell inside it. That is the test `settleQuiet` (`sky.worker.ts:301`) makes for the quiet ease, and `settleQuiet` keeps its own copy (8.4); P6's thin fade uses `easeEnded` too. The last fade frame can land up to 33 ms before the end, at level 0.01 to 0.03, so without it a pause with a still camera (P5 before P6, reading at D2 = 0, software raster) would leave a trace of twinkle on screen (F7).
 - **Under the eased stop**, the springs stop following at once (C6) and the drift slows with the level. A flying transient fades out over `TRANSIENTS.cancelFade` (from P8).
 
 ### 6.7 Scene integration (P6, P7, P8)
@@ -1735,7 +1712,7 @@ export const SCENE = {
 - `SceneLevels` (`scene.ts:11-18`) gains `drift: number` ("share of the drift clock's rate") in P6 and `lean: number` ("share of the pointer lean: hero only") in P7. P6 also rewrites `sceneAt`'s doc (`scene.ts:20-23`), whose "a dimmer and still sky while reading" no longer holds: "a dimmer, slowly drifting sky while reading".
 - `sceneAt`'s `mix` (`scene.ts:30`) widens its key to `'haze' | 'twinkle' | 'drift' | 'lean'`: one mixer for every scalar level (DRY), and "hero only" for the lean is data, not a code path. The quiet functions in `scene.ts` are not touched.
 - Levels are continuous in scroll, so moving from hero to reading changes the drift *rate* smoothly over 0.5 to 1.3 viewport heights of scroll.
-- **P8** renames `SceneLevels.meteors` to `launches` ("transients launch only over the hero") and `SCENE.heroMeteorMaxScroll` (`config.ts:156`, read at `scene.ts:36`) to `heroLaunchMaxScroll` (value unchanged, 0.4), because it then gates every kind; its doc (`:155`) becomes "Transients launch only while no more than this many viewport heights are scrolled."
+- **P8** renames `SceneLevels.meteors` to `launches`, its doc keeping the veil's wording: "Transients launch only over the hero; shooting stars ignite and peak in clear sky and may glide on behind its copy, dimmed to what that copy can take (METEOR_VEIL)." It renames `SCENE.heroMeteorMaxScroll` (`config.ts:171`, read at `scene.ts:36`) to `heroLaunchMaxScroll` (value unchanged, 0.4), because it then gates every kind; its doc (`config.ts:170`) becomes "Transients launch only while no more than this many viewport heights are scrolled."
 - **The dusk is unchanged.** The drift's ease starts with it (6.1), so the sky comes out already gently moving.
 - **The drift and the springs never move quiet rects or transient paths.** Transients and quiet zones stay in screen space, and every star is veiled at its drawn position every frame. COORDINATION.md: "Star drift is fine, because each star is veiled at its own position every frame".
 - **The kill switch for the drift** is `SCENE.hero.drift = SCENE.reading.drift = SCENE.end.drift = 0`. That gives no drift and no drift frames, with everything else intact. It is data, not a special case in code. (A comparison like `DRIFT.speed === 0` would not even compile: with `as const` the type of `DRIFT.speed` is the literal 3, so TypeScript reports TS2367.)
@@ -1869,16 +1846,7 @@ Nothing touches `window`, `matchMedia` or `localStorage` at module scope, so the
 
 **Why only a pause is stored** (deviation 7). The default respects the OS setting on every visit, and a stored "playing" can never override a reduced-motion setting turned on later. A stored "paused" is always safe to keep.
 
-The domain-model draft tested this store's rules with 12 behavior checks:
-
-- the default with and without reduced motion;
-- a pause surviving a reload;
-- Play under reduced motion lasting only for the page view;
-- reduced motion turning on mid-visit;
-- a pause from another tab;
-- blocked storage.
-
-H12 repeats them with the `running` flag added.
+The domain-model draft tested this store's rules with 12 behavior checks; H12 repeats them with the `running` flag added.
 
 #### The control
 
@@ -1923,7 +1891,7 @@ export default function SkyPauseButton({ className }: SkyPauseButtonProps) {
 - **The pattern.** The W3C APG carousel's rotation control says: "The label changes to match the action the button will perform", and "since the label changes, the rotation control does not have any states, e.g., aria-pressed". The APG Button pattern sanctions the same choice: "if the design were to call for the button label to change from 'Mute' to 'Unmute,' the aria-pressed attribute would not be needed" (both fetched 2026-10-27). The glyph and the name agree for every user: two bars and "Pause sky animation" while the sky moves, a triangle and "Play sky animation" while it holds still. The name is an `aria-label`, as on the APG example's rotation button and on every icon-only control here (`Navbar.tsx:97`, `:114`); the name `SkyPauseButton` says it is not an `aria-pressed` toggle.
 - **Targets and contrast.** The target is 40 × 40 CSS px; WCAG 2.5.8 needs 24 × 24. The glyph carries the state at 14.1:1 (green `#64ffda` on navy `#0a192f`) and 12.7:1 on the mobile menu's light navy [computed]. A state shown only by a 10% mint fill would be 1.28:1 and fail 1.4.11. The focus ring is the global `:focus-visible` rule, a 2 px dashed green outline (`globals.css:80-83`).
 - **Forced colors.** `forced-colors:hidden`, because forced colors hide the sky (`Background.module.css:27-31`).
-- **Hydration.** `useSyncExternalStore` uses `getServerSnapshot` "only during server rendering and during hydration" (react.dev). At hydration both snapshots are `null`, since the sky reports running only after the worker's first frame, so nothing re-renders with a different state then; the control appears when the store notifies (5.4). In this app the visible navbar never hydrates anyway: IntroGate remounts its children with a key flip when the loader lifts (`IntroGate.tsx:94-100`), so the control the visitor sees mounts fresh on the client.
+- **Hydration.** Both snapshots are `null` at hydration, and the visible navbar mounts fresh after IntroGate's key flip anyway (5.4).
 - **React Compiler** is on, so there is no manual memoization; the store functions are module-level and stable.
 
 #### Placement (D1 default)
@@ -1967,7 +1935,7 @@ React's `onFocus` bubbles (React listens for `focusin`).
 
 ```ts
 // src/components/sky/mountSky.ts
-// motion() (mountSky.ts:149) reads the store; the store owns the reduced-motion query for the sky
+// motion() (mountSky.ts:214) reads the store; the store owns the reduced-motion query for the sky
 const motion = (): SkyMotion => (forcedColors.matches ? 'off' : skyPaused() ? 'reduced' : 'full')
 let sentMotion = motion()
 // Post only real changes: the store notifies whenever the playback may have changed (the sky starting or stopping, the
@@ -1981,16 +1949,16 @@ const syncMotion = () => {
 const stopPlayback = subscribeSkyPlayback(syncMotion)
 ```
 
-- `mountSky`'s own `reducedMotion` query, its import and its `change` listener (`:3`, `:146`, `:245`) go, because the store watches the query. The `forcedColors` listener stays and calls `syncMotion`.
+- `mountSky`'s own `reducedMotion` query, its import and its `change` listener (`:3`, `:211`, `:312`) go, because the store watches the query. The `forcedColors` listener stays and calls `syncMotion`.
 - One channel carries both the preference and `running`: the control's snapshot needs both (PB4), and one `useSyncExternalStore` reads one store. Splitting them would not remove `syncMotion`'s dedupe, since the OS and storage listeners also notify without changing the motion.
 - `init` posts `motion: sentMotion`.
-- The worker-message listener (`:261-268`) becomes a `switch (event.data.type)`: `'ready'` sets `canvas.dataset.ready` and calls `setSkyRunning(true)`, `'error'` calls `destroy`, and a `never` default makes any new message type a compile error. Today's `else destroy()` would tear the sky down on the first new message (P13's `relay`, the debug patch's `debug-frame`), and TypeScript wouldn't flag it.
-- `destroy` (`:249-259`) calls `stopPlayback()` and `setSkyRunning(false)`. A failed sky (an `'error'` message or a worker error) goes through `destroy`, so the control disappears with it.
+- The worker-message listener (`:328-335`) becomes a `switch (event.data.type)`: `'ready'` sets `canvas.dataset.ready` and calls `setSkyRunning(true)`, `'error'` calls `destroy`, and a `never` default makes any new message type a compile error. Today's `else destroy()` would tear the sky down on the first new message (P13's `relay`, the debug patch's `debug-frame`), and TypeScript wouldn't flag it.
+- `destroy` (`:316-326`) calls `stopPlayback()` and `setSkyRunning(false)`. A failed sky (an `'error'` message or a worker error) goes through `destroy`, so the control disappears with it.
 - **No new worker message.** A pause arrives as `motion: 'reduced'`, the pipeline today's reduced motion already uses (PB3; R2 §9.4, R3 §11).
-- `protocol.ts:26-32`: the `reduced` doc becomes "prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only".
-- `AGENTS.md` gains one line under the sky notes, after the `data-sky-quiet` line (the veil commit rewrites that line with its quiet-copy precondition; at V keep theirs, then ours, 8.6): "The sky's pause control (`src/components/sky/SkyPauseButton.tsx`, state in `skyPause.ts`) is its WCAG 2.2.2 mechanism: it maps to the worker's `motion: 'reduced'`, and any new continuous sky motion must stop under it."
+- `protocol.ts:32-38`: the `reduced` doc becomes "prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only", and `full` "twinkle, scroll parallax and its glide, and shooting stars"; P6, P7 and P8 add the drift, the pointer lean and "transients", giving 6.13's line.
+- `AGENTS.md` gains one line under the sky notes, after the `data-sky-quiet` line and its quiet-copy precondition: "The sky's pause control (`src/components/sky/SkyPauseButton.tsx`, state in `skyPause.ts`) is its WCAG 2.2.2 mechanism: it maps to the worker's `motion: 'reduced'`, and any new continuous sky motion must stop under it."
 
-### 6.9 The transient system (P8; blocked on the veil commit)
+### 6.9 The transient system (P8)
 
 #### Rules the visitor would notice if they broke
 
@@ -2012,6 +1980,7 @@ import { TRANSIENTS } from './config'
 import { METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
 import type { Meteor, MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
+import type { SkyRect } from './protocol'
 import type { Random } from './random'
 import { scrollKept } from './scene'
 // P11 adds: import { SATELLITE_SPEC, type SatellitePass } from './satellites'
@@ -2028,7 +1997,10 @@ export type TransientKind = keyof TransientBodies
 export const TRANSIENT_KINDS = ['meteor'] as const satisfies readonly TransientKind[]
 
 /** Where transients may fly: the viewport and the padded quiet rects on screen (CSS px), the field every kind plans in. */
-export type SkyField = MeteorField
+export interface SkyField extends MeteorField {
+	/** The padded zones of copy pinned to the screen (the side rails), also in `quiet`: shooting stars keep clear of them (planMeteor's clearOf). (P9; P8 aliases MeteorField) */
+	pinned: readonly SkyRect[]
+}
 
 /** What the scheduler tracks for a transient of kind K. Times are seconds on the worker clock. */
 export interface TransientEnvelope<K extends TransientKind> {
@@ -2097,7 +2069,7 @@ export interface TransientSpec<K extends TransientKind> {
 const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC }
 ```
 
-Every call into a spec goes through a helper generic in K, `launchKind<K>(schedule, kind, context, ...)` and `movingOf<K>(transient, now)`, because TypeScript can't correlate a union of transients with a union of specs (microsoft/TypeScript#30581, R3 §7.4): a call such as `SPECS[transient.kind].moving(transient.body, now)` on a `Transient` fails with TS2345 once P11 adds a second kind. Inside the helpers `SPECS[kind]` is `TransientSpec<K>`, and the launch's `schedule.active.push(envelope as Transient)` is the one cast [computed, TypeScript 6.0.3: `reviser-r4/tc/two.ts`, and the whole design with both kinds in `reviser-r4/design/`, which also loads under Node's type stripping with no load-order error].
+Every call into a spec goes through a helper generic in K, `launchKind<K>(schedule, kind, context, ...)` and `movingOf<K>(transient, now)`, because TypeScript can't correlate a union of transients with a union of specs (microsoft/TypeScript#30581, R3 §7.4): a call such as `SPECS[transient.kind].moving(transient.body, now)` on a `Transient` fails with TS2345 once P11 adds a second kind. Inside the helpers `SPECS[kind]` is `TransientSpec<K>`, and the launch's `schedule.active.push(envelope as Transient)` is the one cast [computed, TypeScript 6.0.3 and Node's type stripping, both kinds, `reviser-r4/`].
 
 The meteor kind lives in its own module:
 
@@ -2109,9 +2081,9 @@ import { between } from './random'
 import type { PlanContext, TransientSpec } from './transients'
 
 /**
- * What the meteor family remembers between launches. P8: the sticky radiant, as the veil commit leaves it. P9: the visit's
- * sky (VisitSky) instead. P10: when the last fireball flew. A failed launch allowed near copy and a resize (forget) clear
- * the radiant or the sky; nothing clears the last fireball's time within a page view (RD1).
+ * What the meteor family remembers between launches. P8: the sticky radiant. P9: the visit's sky (VisitSky) instead.
+ * P10: when the last fireball flew. A failed launch allowed near copy and a resize (forget) clear the radiant or the sky;
+ * nothing clears the last fireball's time within a page view (RD1).
  */
 export interface MeteorMemory {
 	radiant: Point | null
@@ -2123,14 +2095,13 @@ export function createMeteorMemory(): MeteorMemory {
 }
 
 /**
- * The veil commit's planLaunch, ported in its order: it draws the fresh radiants first (up to METEOR.radiantTries, 1 on
- * narrow screens), then tries long flights
- * (`flights: 'long'`) on the visit's sticky radiant and the fresh ones before the short fallback (`flights: 'short'`) over
- * the same radiants, each with the context's `nearCopy` and `ink`; a fit keeps its radiant. From P9 the visit's sky
- * replaces the radiant: it picks one when there is none (pickVisitSky) and tries the steer visitSteer draws, then fresh
- * steers, each a new source and scatter (I2), in the same pass order. When none fits it clears the radiant (P8) or the sky
- * (P9), as planLaunch drops a failed radiant, unless the context kept it in clear sky (`nearCopy` false): that failure
- * proves nothing about the sky.
+ * Plans one launch: it draws the fresh radiants first (up to METEOR.radiantTries, 1 on narrow screens), then tries long
+ * flights (`flights: 'long'`) on the visit's sticky radiant and the fresh ones before the short fallback
+ * (`flights: 'short'`) over the same radiants, each with the context's `nearCopy` and `ink` and, from P9, the field's
+ * `pinned` as `clearOf`; a fit keeps its radiant. From P9 the visit's sky replaces the radiant: it picks one when there is
+ * none (pickVisitSky) and tries the steer visitSteer draws, then fresh steers, each a new source and scatter (I2), in the
+ * same pass order. When none fits it clears the radiant (P8) or the sky (P9), unless the context kept it in clear sky
+ * (`nearCopy` false): that failure proves nothing about the sky.
  */
 function planMeteorTransient(context: PlanContext): Meteor | null
 
@@ -2154,17 +2125,19 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 #### The scheduler
 
 ```ts
-/** Whether and where transients may launch now; the worker fills it from its own state every tick (T6). */
+/** Whether and where transients may launch now; the worker refills one reused gate every tick (T6). */
 export interface LaunchGate {
 	/** Full motion, visible, revealed, the visitor present and the hero scene (SceneLevels.launches). */
 	allowed: boolean
 	/** No scroll for TRANSIENTS.scrollQuiet seconds. */
 	settled: boolean
+	/** A narrow screen (the worker's narrowScreen): phones keep their own limit (P8) and gaps (P9). */
 	narrow: boolean
 	sinceReveal: number
 	scrollY: number
-	field: SkyField
-	/** The contrast preference's meteorInk (the worker's contrastLevels(), which PF adds too): PlanContext.ink. */
+	/** The field to plan in, built afresh on each call, so the launch step builds it once, only for a due kind it may plan. */
+	field(): SkyField
+	/** The contrast preference's meteorInk (the worker's contrastLevels()): PlanContext.ink. */
 	ink: number
 }
 
@@ -2188,7 +2161,7 @@ export interface TransientSchedule {
 export function createTransientSchedule(): TransientSchedule
 /** Starts each kind's clock at the reveal with its own first delay, and the crossing cooldown (crossingAfter = now + TRANSIENTS.crossingCooldown). */
 export function revealTransients(schedule: TransientSchedule, random: Random, now: number): void
-/** No launch for TRANSIENTS.afterReturn s (back to the tab, back from idle, back to full motion: today's holdMeteors). `now` in seconds. */
+/** No launch for TRANSIENTS.afterReturn s after the visitor is back (to the tab, from idle, to full motion). `now` in seconds. */
 export function holdTransients(schedule: TransientSchedule, now: number): void
 /**
  * One tick: retires what has finished or kept no light (transientFade), then launches each kind that is due and allowed.
@@ -2199,7 +2172,7 @@ export function updateTransients(schedule: TransientSchedule, random: Random, no
 export function cancelTransients(schedule: TransientSchedule, now: number): void
 /** Removes every active transient at once (hidden tab, resize: their paths belonged to the old layout); the visit's memory stays. */
 export function dropTransients(schedule: TransientSchedule): void
-/** A new layout may have room again: kinds stopped after TRANSIENTS.maxFailedPlans failures retry after TRANSIENTS.retry (today's retryMeteors, on every layout message). `now` in seconds. */
+/** A new layout may have room again: kinds stopped after TRANSIENTS.maxFailedPlans failures retry after TRANSIENTS.retry; the worker calls it on every layout message. `now` in seconds. */
 export function retryTransients(schedule: TransientSchedule, random: Random, now: number): void
 /** The viewport changed: every spec forgets its part of the visit's memory (the meteor radiant in P8, the visit's sky from P9). A layout never calls it (RD1). */
 export function forgetVisitSky(schedule: TransientSchedule): void
@@ -2216,18 +2189,20 @@ export function transientFade(transient: Transient, now: number, scrollY: number
 	return scrollKept(transient.launchScrollY, scrollY, fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now))
 }
 
-/** The ink lease is free: no active transient's light may reach quiet copy, and the crossing cooldown is over (T2). */
+/** An active transient holds the ink lease: its light may reach quiet copy (T2). */
+export function leaseHeld(schedule: TransientSchedule): boolean {
+	return schedule.active.some((transient) => transient.nearCopy)
+}
+
+/** The ink lease is free: nobody holds it, and the crossing cooldown is over (T2). */
 export function inkLeaseFree(schedule: TransientSchedule, now: number): boolean {
-	return now >= schedule.crossingAfter && !schedule.active.some((transient) => transient.nearCopy)
+	return now >= schedule.crossingAfter && !leaseHeld(schedule)
 }
 ```
 
 **One tick of `updateTransients`**, in order, each rule once:
 
-1. **Retire (T1, T4)** each transient at the earlier of `startedAt + lifetime` and the tick its `transientFade(transient, now, gate.scrollY)` reaches 0, so a cancel never extends a life.
-   - That is the veil's `scrollKept`: 1 within `SCROLL_CANCEL.from` (12 px) of the launch scroll, 0 from `SCROLL_CANCEL.to` (24 px), times the pause fade. It follows the scroll position, so even a one-step jump retires a transient at once.
-   - It is the only scroll-cancel rule (deviation 8). Under PF, PF adds and wires the same helper and constant (8.7).
-   - The `scroll` handler never evaluates it (I3, "In the worker" below).
+1. **Retire (T1, T4)** each transient at the earlier of `startedAt + lifetime` and the tick its `transientFade(transient, now, gate.scrollY)` reaches 0, so a cancel never extends a life. That is the veil's `scrollKept` (all light within 12 px of the launch scroll, none from 24 px, times the pause fade), the only scroll-cancel rule (deviation 8): it follows the scroll position, so even a one-step jump retires a transient at once, and the `scroll` handler never evaluates it (I3).
 2. **For each kind in `TRANSIENT_KINDS`:**
    1. *Not due* (`now < nextAt[kind]`): skip.
    2. *Held back* (one of the following): set `nextAt[kind] = now + TRANSIENTS.recheck`.
@@ -2235,16 +2210,15 @@ export function inkLeaseFree(schedule: TransientSchedule, now: number): boolean 
       - on a narrow screen only: a kind with `!spec.phones`, or `launched >= TRANSIENTS.narrowLimit`;
       - an onset within `TRANSIENTS.minOnsetGap` (T5);
       - one of this kind already active (T7);
-      - from P11, under D12's default: a kind with `lease` false while a `nearCopy` transient is active.
-   3. *Plan* with `nearCopy: spec.lease && inkLeaseFree(schedule, now)` and the gate's `ink`. From P11, under D12's default, `nearCopy` is also true only while no other transient is active, so the hold runs both ways; and it is false while a sky body shows (P12's `LaunchGate.bodyShowing`, under either answer).
-      - If the plan is null, `failedPlans[kind]++`. Retry after `between(random, ...TRANSIENTS.retry)`, or after `maxFailedPlans` wait for a new layout (`Infinity`), as today (`sky.worker.ts:213-218`). A null plan made with `nearCopy` false (the lease busy or the cooldown running, the reveal's included) only retries: clear sky alone failing shows no lack of room, and on a phone, where the hero copy leaves little clear sky, counting it could stop shooting stars for the visit. In P8 every plan may reach copy, so this matches the oracle.
+      - from P11, under D12's default: a kind with `lease` false while `leaseHeld(schedule)`;
+      - from P12: a kind outside its `spec.scene`, or at its `spec.limit` launches this visit (`kindLaunches[kind]`), or, last, one whose `spec.room(field)` is false, `field` being `gate.field()` built here once and passed on to the plan.
+   3. *Plan* in `gate.field()` (or that `field`) with `nearCopy: spec.lease && inkLeaseFree(schedule, now)` and the gate's `ink`. From P11, under D12's default, `nearCopy` is also true only while no other transient is active, so the hold runs both ways; and it is false while a sky body shows (P12's `LaunchGate.bodyShowing`, under either answer).
+      - If the plan is null, `failedPlans[kind]++`. Retry after `between(random, ...TRANSIENTS.retry)`, or after `maxFailedPlans` wait for a new layout (`Infinity`), as today (`sky.worker.ts:227-231`). A null plan made with `nearCopy` false (the lease busy or the cooldown running, the reveal's included) only retries: clear sky alone failing shows no lack of room, and on a phone, where the hero copy leaves little clear sky, counting it could stop shooting stars for the visit. From P12 so does a null plan of a kind with a `room` test: its room moves with the scroll, which posts no layout. In P8 every plan may reach copy, so this matches the oracle.
       - The scheduler resets nothing else. From P9 the meteor planner has already cleared the visit's sky (its doc above), so each strike tries a fresh sky, and `maxFailedPlans` strikes in a row mean the layout has no room, not that one sky was bad.
       - A plan whose lifetime exceeds `TRANSIENTS.maxLife`, or whose body reports `nearCopy` (`spec.nearCopy`) when its context's `nearCopy` was false, counts as failed: T1 and T2 are enforced at the one place every transient enters the sky, whatever a planner does.
    4. *Launch* (in `launchKind<K>`). Push the envelope with `startedAt: now`, `nearCopy: spec.nearCopy(body)`, `clearSky: !spec.lease`, `launchScrollY: gate.scrollY` and `cancelledAt: null`.
       - `schedule.active.push(envelope as Transient)` is the one cast (Types, above).
-      - Then set `lastOnsetAt = now` and `failedPlans[kind] = 0` (as today, `sky.worker.ts:220`), increment `launched`, set `crossingAfter = now + TRANSIENTS.crossingCooldown` if `nearCopy`, and set `nextAt[kind] = now + spec.nextAfter(body, random, gate.sinceReveal, gate.narrow)`. Gaps count from the end of the body's own time, as today, so meteors never overlap.
-
-The ink lease is not an object. It is held by whichever active transient has `nearCopy`, so it is released the moment that transient retires and can never leak or go stale.
+      - Then set `lastOnsetAt = now` and `failedPlans[kind] = 0` (as today, `sky.worker.ts:233`), increment `launched` (and from P12 `kindLaunches[kind]`), set `crossingAfter = now + TRANSIENTS.crossingCooldown` if `nearCopy`, and set `nextAt[kind] = now + spec.nextAfter(body, random, gate.sinceReveal, gate.narrow)`. Gaps count from the end of the body's own time, as today, so meteors never overlap.
 
 ```ts
 // src/lib/sky/config.ts (P8)
@@ -2276,14 +2250,14 @@ export const TRANSIENTS = {
 
 **Changes to `METEOR` in P8 and P9.**
 
-- P8 moves `retry`, `maxFailedPlans`, `recheck`, `afterReturn` and `narrowLimit` out of `METEOR` (`config.ts:246-255`, `:289`), because they now apply to every kind, and the narrow block's doc (`:283`) drops "`narrowLimit` per visit" (P9 rewrites the rest). For the same reason `FRAME.meteorScrollQuietMs` (`config.ts:215-216`, 1200 ms) becomes `TRANSIENTS.scrollQuiet` (1.2 s); after P8 the launch gate is its one reader.
+- P8 moves `retry`, `maxFailedPlans`, `recheck`, `afterReturn` and `narrowLimit` out of `METEOR` (`config.ts:262-271`, `:305`), because they now apply to every kind, and the narrow block's doc (`:299`) drops "`narrowLimit` per visit" (P9 rewrites the rest). For the same reason `FRAME.meteorScrollQuietMs` (`config.ts:231-232`, 1200 ms) becomes `TRANSIENTS.scrollQuiet` (1.2 s); after P8 the launch gate is its one reader.
 - `narrowLimit` stays 2 in P8 (no visible change) and becomes 6 in P9.
 - P9 adds `TRANSIENTS.longVisit: { from: 120, scale: 240, max: 3 }` and its doc sentence: "From `longVisit.from` seconds after the reveal every gap stretches by 1 + (t − from) / `longVisit.scale`, at most `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver".
 - **The pause fade.** `cancelFade` (0.2 s, R2's limit) is the pause's fade (and, if P12 builds the comet, its box fade), never a scroll distance: those are the veil's `SCROLL_CANCEL` (12 to 24 px), never a key of ours.
-- **The cooldown.** `crossingCooldown` is 0 in P8: one meteor flies at a time with today's 30 s floor, so P8 launches exactly as the oracle does (H7). P9 sets it with the new rate (55 s to start) and accepts it on "crossings per minute at or below the veil commit's over the same window" (AC-38; deviation 11). A crossing is a launch that takes the lease (its meteor reports `nearCopy`).
-  - **The bar** is the veil commit's planner (today's gap law, about one flight every 42 s) on the same captured layouts over a visit's first two minutes: its `nearCopy` share × 1.6 launches a minute. Its landed shares (60.6, 56.1 and 35.1% of launches at 1440 × 900, 1280 × 800 and 1920 × 1080; `COORDINATION.md`, "Landed in the working tree") put it at 0.97, 0.90 and 0.56 a minute [computed, `reviser-r7/cooldown-landed.mjs`]. Visitors see fewer: on the GPU canvas the worker draws on, 18.3, 12.8 and 19.3% of its flights show a streak behind copy and 32.6, 26.2 and 26.8% a glimmer.
-  - **Why the reveal starts it.** A cooldown that starts only at the first crossing also meets those bars, but at 1.5 to 2 times the length (at a P9 share of 0.5: 55, 65 and 110 s, against 35, 35 and 55 s from the reveal), since the one crossing it always allows comes in the visit's first seconds, while the visitor starts reading [computed]. So `revealTransients` starts it, and no transient crosses copy in a visit's first `crossingCooldown` seconds. In P8 (0 s) that changes nothing.
-  - **The setting** is a two-way knob: the smallest multiple of 5 s whose H9 rate on each captured layout, at P9's share there, is at or below that layout's bar, raising it as readily as lowering it. By P9's share of lease-free launches that take the lease [computed]:
+- **The cooldown.** `crossingCooldown` is 0 in P8: one meteor flies at a time with today's 30 s floor, so P8 launches exactly as the oracle does (H7). P9 sets it with the new rate by the rule below (55 s to start; AC-38, deviation 11). A crossing is a launch that takes the lease (its meteor reports `nearCopy`).
+  - **The bar** is what the veil commit flies on the same captured layouts over a visit's first two minutes: its `nearCopy` launches a minute, retrying a null plan as its worker does (`sky.worker.ts:227-231`), which H9 measures with H7's oracle. On desktop nearly every attempt plans, so it is the landed `nearCopy` share (`COORDINATION.md`, "Landed in the working tree") × about 1.6 launches a minute: 0.97, 0.90, 0.56, 1.09, 0.77, 0.95 and 1.36 a minute at 1440 × 900, 1280 × 800, 1920 × 1080, 1366 × 768, 1536 × 864, 1280 × 720 and 1024 × 768, and 0.41 at 2560 × 1440 (share 25.8%, the lowest) [computed, `reviser-r7/cooldown-landed.mjs`, `reviser-r8/bars9.mjs`]. The phone's 67.3% counts planner attempts, a third of which find no path and are retried, and nearly every planned flight there dims near copy, so its two launches a visit give about 0.96 a minute [computed, check report].
+  - **Why the reveal starts it.** A cooldown started at the first crossing needs 1.5 to 2 times the length (at a P9 share of 0.5: 55, 65 and 110 s against 35, 35 and 55 s at the first three layouts), because the one crossing it always allows comes while the visitor starts reading [computed]. So `revealTransients` starts it, and no transient crosses copy in a visit's first `crossingCooldown` seconds; in P8 (0 s) that changes nothing.
+  - **The setting** is a two-way knob: the smallest multiple of 5 s whose H9 rate on every captured layout, at P9's share there, is at or below that layout's bar (so the layout needing the most sets it), raising it as readily as lowering it. By P9's share of lease-free launches that take the lease [computed]:
 
   | P9's crossing share | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 |
   |---|---|---|---|---|---|---|
@@ -2291,8 +2265,9 @@ export const TRANSIENTS = {
   | Setting at 1440 × 900 (bar 0.97) | 5 s | 20 s | 25 s | 35 s | 35 s | 40 s |
   | Setting at 1280 × 800 (bar 0.90) | 10 s | 20 s | 30 s | 35 s | 40 s | 45 s |
   | Setting at 1920 × 1080 (bar 0.56) | 30 s | 45 s | 50 s | 55 s | 55 s | 60 s |
+  | Setting at 2560 × 1440 (bar 0.41) | 45 s | 60 s | 75 s | 85 s | 95 s | 100 s |
 
-  So 55 s meets every bar for shares up to 0.6. On the phone layout (390 × 844: `nearCopy` 67.3%, today's two a visit) the bar is 0.67 a minute, and 55 s gives 0.29 to 0.48 for shares of 0.3 to 0.7 [computed, `reviser-r7/cooldown-phone.mjs`]. AC-38's window stays a visit's first two minutes; parity over the first five minutes would need 10 to 90 s over these shares (45 to 90 s at 1920 × 1080) [computed]. Above about 90 s a slower `METEOR_RATE.hero` is the better lever.
+  So 55 s meets every other desktop layout's bar for shares up to 0.6 (the four untabled ones need at most 50 s even at 0.7), but 2560 × 1440's only up to 0.28: there P9's measured share sets the cooldown, and above about 0.55 (90 s) a slower `METEOR_RATE.hero` is the better lever. On the phone a plan allowed near copy nearly always flies near it, so P9's rate there turns on how often a clear-sky plan fits during the cooldown: at 55 s about 0.52 a minute if every one fits and up to 0.90 if none does, 0.50 at 60 s either way, all under its bar [computed, check report; `reviser-r9/phone-r9.mjs`]; at 50 s it reaches 0.95 to 1.0 where none fits, so H9's fit rate bears on a setting below 55 s. AC-38's window stays a visit's first two minutes: over five, the same settings let P9 cross up to about 40% more often than the veil commit at 1920 × 1080 and 2560 × 1440, where parity would need 45 to 85 s and 75 to 120 s for shares of 0.2 to 0.5 [computed, check report].
 
 `random.ts` gains `export type Random = () => number`, used by every new signature; existing signatures keep `() => number`.
 
@@ -2349,23 +2324,23 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 }
 ```
 
-It uses a `switch` with a `never` check rather than a record of drawers, because TypeScript can't correlate a union member with a record of per-member functions without a cast (microsoft/TypeScript#30581, R3 §7.4). The check is on the destructured `kind`: with one kind, `Transient` is not a union, so a `never` check on `transient` itself fails to compile (TS2322), while with two kinds `transient.kind` would be TS2339; `kind` compiles in both and still fails for a kind without a case [computed, TypeScript 6.0.3, `reviser-r4/tc/one.ts` and `two.ts`]. `drawMeteor(ctx, assets, meteor, frame, fade = 1)` is the veil commit's (I7): `fade` multiplies its train, wake, glow and core alphas. `SkyFrame` carries no scroll for it; the worker passes the fade in. P12's clear-sky meteor variants get `transient.clearSky ? CLEAR_SKY_KEEPS : undefined` as one more `drawMeteor` argument (6.12).
+It uses a `switch` with a `never` check rather than a record of drawers, for the same reason as the spec helpers (#30581). The check is on the destructured `kind`: with one kind a `never` check on `transient` fails to compile (TS2322), and with two `transient.kind` would be TS2339; `kind` compiles in both and still fails for a kind without a case [computed, TypeScript 6.0.3, `reviser-r4/tc/one.ts` and `two.ts`]. `drawMeteor`'s `fade` is the veil's (I7, 8.3). P12's clear-sky meteor variants get `transient.clearSky ? CLEAR_SKY_KEEPS : undefined` as one more `drawMeteor` argument (6.12).
 
 #### In the worker (P8)
 
-- `meteor`, `radiant`, `launched`, `failedPlans` and `nextMeteorAt` (`sky.worker.ts:61-66`), and the veil commit's `launchScrollY`, become `const transients = createTransientSchedule()`. Not `schedule`: that name is the frame scheduler, `function schedule(now)` (`:152`), which the message listener and our own functions call (a second declaration is TS2300).
-- `updateMeteor` (`:193-224`) and the veil commit's `planLaunch` become one `updateTransients(transients, random, t, launchGate(now))` call; when it returns true, set `needsDraw`.
-  - `launchGate` is built from today's `meteorsAllowed` (`:144-146`) and the scroll-quiet test (`:202`), now `settled: now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000`: worker milliseconds against the key's seconds, converted as for the hold and the retry below. No harness-built gate reaches this adapter, so H13's case 7 runs it.
-  - Its field is today's: `{ width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }` (`:206`), as the veil commit leaves it, and its `ink` is `contrastLevels().meteorInk`, which their `planLaunch` passes.
-- `holdMeteors(now)` and `retryMeteors(now)` become `holdTransients(transients, now / 1000)` and `retryTransients(transients, random, now / 1000)`: today's callers pass worker milliseconds and convert inside (`:103`, `:345`), while the schedule keeps seconds. `reveal` calls `revealTransients`.
-- The `motion` handler's `meteor = null` (`:441`) becomes `cancelTransients(transients, t)`. Hidden and resize call `dropTransients` (`:448`, `:370`).
-- `resize`'s `radiant = null` (`:369`), the one line outside the planner that clears the radiant, becomes `forgetVisitSky(transients)`, so P8 forgets exactly when the oracle does (H7). The veil commit's layout handler never re-picks it, because layouts also fire for harmless re-measures, and from P9 a layout keeps the visit's sky the same way. A hidden tab keeps both (RD1).
-- `demandNow`'s meteor line becomes `frameState.transientDemand = transientDemand(transients, t)`, and the sleeping timer uses `nextLaunchAt(transients)`, armed only while `launchGate(now).allowed`, as today's `meteorsAllowed(now)` guards it (`:164`), so a worker asleep in the reading scene stays asleep.
-- `draw` (`:270-283`) calls `drawTransient(ctx, assets, transient, frame, transientFade(transient, t, scrollY))` for each active transient, in place of the veil commit's `drawMeteor(..., scrollKept(launchScrollY, scrollY))`.
-- The veil commit's scroll cancel (`scrollKept`'s retire in `updateMeteor` and its fade in `draw`) thus moves into `updateTransients` and `transientFade` for every kind (I3), never into the `scroll` handler: P8's only edit there is step 4's removal of the `parallaxScroll` write.
-- **`parallaxScroll` retires** (P8's last step; 8.1 lets P8 change the seams): `updateCamera` reads `scrollY`, and its three writers go: the `scroll` handler's write, the `motion` handler's resume line and `init`'s chained assignment, which becomes `scrollY = message.scrollY` (`:420`). Nothing visible changes: while stopped the springs hold, and `resumeCamera` sets `shift` and `lastGoal` so the next goal is the camera's own position. H5's pause, scroll, resume case, fed the live scroll while paused, checks it; CP-2 reports it to the veil session.
+- `nextMeteorAt`, `meteor`, `launchScrollY`, `radiant`, `launched` and `failedPlans` (`sky.worker.ts:65-72`) become `const transients = createTransientSchedule()`. Not `schedule`: that name is the frame scheduler, `function schedule(now)` (`:171`), which the message listener and our own functions call (a second declaration is TS2300).
+- `updateMeteor` (`:212-238`) and `planLaunch` (`:246-261`) become one `updateTransients(transients, random, t, launchGate(now))` call; when it returns true, set `needsDraw`.
+  - `launchGate(now)` refills one reused gate, as `frameState` is, from `launchesAllowed` (today's `meteorsAllowed`, `:163-165`, renamed for every kind and documented "True when transients may launch at all right now (each kind's own timing aside)") and the scroll-quiet test (`:222`), now `settled: now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000`: worker milliseconds against the key's seconds, converted as for the hold and the retry below. Its `narrow` is `narrowScreen` (6.1), not a second test of the width (`:221`). No harness-built gate reaches this adapter, so H13's case 7 runs it.
+  - Its `field()` builds today's field, `{ width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }` (`:226`), once per due kind past its holds (step 2.2), as `updateMeteor` builds it only past its due check and holds (`:220-226`); from P9 it pads the rails once (`screenQuietZones([], scrollY, pinned)`) for both `quiet` and `pinned` (6.10). Its `ink` is `contrastLevels().meteorInk`, which `planLaunch` passes.
+- `holdMeteors(now)` and `retryMeteors(now)` become `holdTransients(transients, now / 1000)` and `retryTransients(transients, random, now / 1000)`: today's callers pass worker milliseconds and convert inside (`:117`, `:411`), while the schedule keeps seconds. `reveal` calls `revealTransients`. `reveal`'s doc (`:455`), the `motion` case's comment (`:504`) and `noteInput`'s doc say transients, not shooting stars ("no launch straight away").
+- The `motion` handler's `meteor = null` (`:507`) becomes `cancelTransients(transients, t)`. Hidden and resize call `dropTransients` (`:514`, `:436`).
+- `resize`'s `radiant = null` (`:435`), the one line outside the planner that clears the radiant, becomes `forgetVisitSky(transients)`, so P8 forgets exactly when the oracle does (H7). The layout handler never re-picks it, because layouts also fire for harmless re-measures, and from P9 a layout keeps the visit's sky the same way. A hidden tab keeps both (RD1).
+- `demandNow`'s meteor line becomes `frameState.transientDemand = transientDemand(transients, t)`, and the sleeping timer uses `nextLaunchAt(transients)`, armed only while `launchesAllowed(now)`, the test the gate's `allowed` reads, as today (`:183`), so a worker asleep in the reading scene stays asleep.
+- `draw` (`:329-342`) calls `drawTransient(ctx, assets, transient, frame, transientFade(transient, t, scrollY))` for each active transient, in place of the veil commit's `drawMeteor(..., scrollKept(launchScrollY, scrollY))`.
+- So the scroll cancel (`scrollKept`'s retire in `updateMeteor` and its fade in `draw`) moves into `updateTransients` and `transientFade` for every kind (I3); P8's only edit to the `scroll` handler is step 4's removal of the `parallaxScroll` write.
+- **`parallaxScroll` retires** (P8's last step): `updateCamera` reads `scrollY`, and its three writers go: the `scroll` handler's write, the `motion` handler's resume line and `init`'s chained assignment, which becomes `scrollY = message.scrollY` (`:486`). Nothing visible changes: while stopped the springs hold, and `resumeCamera` sets `shift` and `lastGoal` so the next goal is the camera's own position. H5's pause, scroll, resume case, fed the live scroll while paused, checks it.
 
-### 6.10 The meteor population model and speed classes (P9; blocked on the veil commit)
+### 6.10 The meteor population model and speed classes (P9)
 
 #### What it buys the visitor
 
@@ -2373,7 +2348,7 @@ Directions come from real geometry instead of one diagonal (R2 §4).
 
 - **The direction mix.** At a window pitched 40°, about 75% of real meteors fall, 13.5% slant sideways and 11% climb, evenly left and right, for starts across the whole width (R2 §4.3). The plan keeps today's right-hand spawn area, where paths run away from vanishing points that mostly lie farther left, so planned launches (with D8's default guard and the end guards below) come out at about 76% falling, 17% sideways and 7% climbing, and about 57% head right, away from the left-aligned copy [computed].
 - **The shower.** Meteors from the visit's shower fan out from a shared vanishing point (when the radiant is behind the viewer, they converge toward the opposite point instead, R2 §4.2).
-- **The radiant on screen.** On 15% of desktop visits the shower radiant sits on screen in open sky (never on phones: nearly all of their spawn area lies within 25° of any on-screen radiant, mean 13.5°, where paths are too short for anything but stubs [computed]). Its meteors there are short, slow stubs, and with D4 the head-on ones become point flashes.
+- **The radiant on screen.** On 15% of desktop visits the shower radiant sits on screen in open sky (never on phones, deviation 14). Its meteors there are short, slow stubs, and with D4 the head-on ones become point flashes.
 - **Speed and color.** Speed and wake color vary by class: quick ones cool to mint, slow ones glow warm, medium ones stay white.
 
 #### Config
@@ -2384,7 +2359,7 @@ Directions come from real geometry instead of one diagonal (R2 §4).
  * The screen as a window on the sky, for the geometry of shooting stars and satellites: its longer side spans `fov`
  * degrees and its center looks `elevation` degrees above a horizon just below the screen, so a 16:10 window spans about 18°
  * at its bottom corners to 60° at the top of its center (twinkle already grows toward the bottom, TWINKLE_HORIZON_GAIN).
- * Today's nominal speed, 0.2 long sides a second, is 12°/s here, a medium meteor (IMO: 3 to 25°/s). Shooting stars glow
+ * A nominal speed of 0.2 long sides a second is 12°/s here, a medium meteor (IMO: 3 to 25°/s). Shooting stars glow
  * about `meteorHeightKm` km up over a planet of radius `earthRadiusKm` km, so lower in the window they are farther away:
  * slower, shorter and dimmer.
  */
@@ -2442,8 +2417,9 @@ export const SPEED_CLASSES = {
 /**
  * How often shooting stars launch. A dark rural site sees 1 to 3 sporadic meteors an hour in the evening and 4 to 10
  * before dawn (AMS), and a screen-sized window holds about 29% of an observer's field (IMO): a real window shows one every
- * 25 to 100 minutes, or one every 2 to 4 at a Perseid or Geminid peak. The hero compresses that about 120 times, a
- * time-lapse of a strong shower night: gaps after each flight follow `hero` (floor 4 s plus an exponential 8 s, at most
+ * 25 to 100 minutes, or one every 2 to 4 at a Perseid or Geminid peak. The hero runs about 120 times a dawn sky's rate
+ * (500 times an evening's, 10 to 20 times a shower peak's), a time-lapse of a strong shower night: gaps after each flight
+ * follow `hero` (floor 4 s plus an exponential 8 s, at most
  * 30 s: 11.7 s on average, about 4.7 a minute) or `narrow` on phones (21 s on average), stretched on long visits
  * (TRANSIENTS.longVisit).
  */
@@ -2457,7 +2433,7 @@ export const METEOR_RATE = {
  * the hero keeps only `faintShare` of ordinary flights faint, peaking within `faint`, so most stay easy to see, and the
  * rest peak within `normal`. Lower in the window a meteor is farther away and dims by the square of its distance over the
  * distance at the top of the spawn area (so none ever brightens past `normal`), never below `rangeFloor` of its peak. On
- * average they peak at about 0.6 of today's 0.83, about 1 in 8 under 0.3; raise `normal` and `rangeFloor` if they read
+ * average they peak at about 0.5, about 1 in 8 under 0.3; raise `normal` and `rangeFloor` if they read
  * too faint: the veil fits any peak to each copy's INK_BUDGET. Fireballs peak at 1 and stay in clear sky.
  */
 export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [0.6, 0.85], rangeFloor: 0.6 } as const
@@ -2465,21 +2441,23 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
 
 `GapLaw` and `WakeColor` live in `config.ts`, like `LayerConfig` and `HazePool`, so the config never depends on the modules that read it. `METEOR_LOOK.fireballTint` (palette index 5, pale yellow) also serves slow meteors' warm wakes, and `METEOR_LOOK.mintToWhite` every mint wake: no second key holds the same color (the train keeps its own `TRAIN.mintToWhite`). The last sentence of `METEOR_LOOK`'s doc becomes the tint rule below, stated once: "Each wake takes its speed class's color: fast ones cool to --color-green mixed `mintToWhite` toward --color-white, medium ones stay white, and slow ones warm to palette index `fireballTint` (pale yellow), as fireballs do unless they are fast."
 
-**Removed in P9**, with I2 or after PF (dead keys mislead the next tuner, and the dead locals and parameter would trip `@typescript-eslint/no-unused-vars`, `eslint.config.mjs:13`):
+**Removed in P9**, with I2 (dead keys mislead the next tuner, and dead locals and parameters are lint warnings, section 6):
 
 - `METEOR.gapMin`, `gapMeanExtra`, `gapMax`, `slowAfter`, `slowFactor`, `angle`, `radiantX`, `radiantY`, `radiantJitter` and `trainSpeedShare`;
-- the keys I2 orphans, since speed, duration and peak now come from the steer: `METEOR.speedShare`, `speed`, `narrowSpeed`, `duration`, `fallbackDuration`, `narrowDuration`, `narrowFallbackDuration` and `peak` (`speedJitter` stays: the steer reads it). P9 adds `METEOR.fallbackScale: 0.64` (today's 0.9 / 1.4), documented "The fallback pass flies each speed class's durations times this";
-- in `planFlight`, `PassOptions.timing` (a `fallback` flag replaces it) and the `minSpeed`, `maxSpeed` and `nominalSpeed` locals (`meteors.ts:130-131`);
+- the keys I2 orphans, since speed, duration and peak now come from the steer: `METEOR.speedShare`, `speed`, `narrowSpeed`, `duration`, `fallbackDuration`, `narrowDuration`, `narrowFallbackDuration` and `peak` (`speedJitter` stays: the steer reads it). P9 adds `METEOR.fallbackScale: 0.64` (today's 0.9 / 1.4), documented "The fallback pass scales each speed class's durations, and the shortest path it accepts, by this";
+- in `planFlight`, `PassOptions.timing` (a `fallback` flag replaces it) and the `minSpeed`, `maxSpeed` and `nominalSpeed` locals (`meteors.ts:195-196`); and the `DEG` constant (`:77-78`), whose only readers are the `away` and `below` lines;
 - the `radiant` parameter of `planMeteor` and `planFlight`, and the functions `pickRadiant` and `nextMeteorGap`.
 
-`METEOR.radiantTries` stays (its one reader, the veil commit's `planLaunch`, moves into `planMeteorTransient`) with a new meaning and doc: "Fresh steers (a new source and scatter from the visit's sky) tried per launch when the first yields no long flight, before any shorter one; narrow screens try one." The inner docs of the keys that stay are rewritten:
+`METEOR.radiantTries` stays (its one reader, `planLaunch`, moves into `planMeteorTransient`) with a new meaning and doc: "Fresh steers (a new source and scatter from the visit's sky) tried per launch when the first yields no long flight, before any shorter one; narrow screens try one." The inner docs of the keys that stay are rewritten:
 
-- `attempts` (`config.ts:250`): "Candidate start points tried per steer for long flights, and again for the fallback; a launch traded for a pass behind copy (METEOR_PASS) tries up to as many again."
-- the flight block (`:270-274`): "Speeds and durations come from SPEED_CLASSES, and each flight's speed spreads by `speedJitter`; where no long flight fits (a short laptop window, a phone), the fallback pass flies its class's durations times `fallbackScale`."
-- the narrow block (`:283`): "Narrow screens: paths at least `narrowMinPath` px and at most `narrowMaxPathShare` of the width."
-- the train (`:305`): "A faint persistent train behind some fireballs and fast flights (SPEED_CLASSES' `train`)."
+- `attempts` (`config.ts:266`): "Candidate start points tried per steer for long flights, and again for the fallback; a launch traded for a pass behind copy (METEOR_PASS) tries up to as many again."
+- the flight block (`:286-290`): "Speeds and durations come from SPEED_CLASSES, and each flight's speed spreads by `speedJitter`; where no long flight fits (a short laptop window, a phone), the fallback pass flies its class's durations times `fallbackScale` and accepts paths that much shorter."
+- the narrow block (`:299`): "Narrow screens: paths at least `narrowMinPath` px and at most `narrowMaxPathShare` of the width."
+- `maxEndY` (`:281`): "Paths end above this share of the height, clear of the bottom corners; planMeteor's `clearOf` keeps them off the side rails' copy."
+- the fireballs (`:313`): "Fireballs (rare, long flights only): longer, slower and brighter, with more drag and a longer wake, warm unless fast (mint)." P10 moves it onto `fireballSpeedScale`, naming `METEOR_KINDS.fireball` for their odds and timing.
+- the train (`:321`): "A faint persistent train behind some fireballs and fast flights (SPEED_CLASSES' `train`)."
 
-`METEOR`'s doc (`config.ts:231-234`) becomes: "Shooting stars: where they start, the layout guards, their length, drag, wake, flares and trains. Directions, speeds and brightness come from the visit's sky (RADIANTS, SPEED_CLASSES, METEOR_BRIGHTNESS) and rates from METEOR_RATE. Each lights up and peaks in clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET). Its layout guards (`top`, `edgeMargin`, `maxEndY`) keep every transient clear of the navbar, the edges and the side rails." Its third sentence is the veil commit's. `spawnX` and `spawnY` stay: R2 measured today's spawn area accepting 37% of candidates under the new mix, against 21% across the full width.
+`METEOR`'s doc (`config.ts:247-250`) becomes: "Shooting stars: where they start, the layout guards, their length, drag, wake, flares and trains. Directions, speeds and brightness come from the visit's sky (RADIANTS, SPEED_CLASSES, METEOR_BRIGHTNESS) and rates from METEOR_RATE. Each lights up and peaks in clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET). Its layout guards keep every transient below the navbar (`top`), inside the edges (`edgeMargin`) and clear of the bottom corners (`maxEndY`), and a shooting star also clear of the side rails (planMeteor's `clearOf`)." Its third sentence is the veil commit's. `spawnX` and `spawnY` stay: R2 measured today's spawn area accepting 37% of candidates under the new mix, against 21% across the full width.
 
 #### `src/lib/sky/radiants.ts` (new)
 
@@ -2538,7 +2516,7 @@ export function elevationAt(view: SkyWindow, x: number, y: number): number
 export function meteorRange(h: number): number
 ```
 
-`radiantMotion`, `elevationAt`, `meteorRange`, `toward` and `sampleRadiant` are R2 §10's sketches as written. R2 checked the screen-speed formula against finite differences, and the experience draft re-derived:
+`radiantMotion`, `elevationAt`, `meteorRange`, `toward` and `sampleRadiant` are R2 §10's sketches as written, except that `meteorRange` reads `SKY_WINDOW.earthRadiusKm` and `meteorHeightKm`. R2 checked the screen-speed formula against finite differences, and the experience draft re-derived:
 
 - the gnomonic image direction (u·r_z − r_x, v·r_z − r_y);
 - the asin(√U) elevation sampling for density sin h cos h;
@@ -2551,7 +2529,7 @@ export function meteorRange(h: number): number
 1. `view = skyWindow(field.width, field.height)`.
 2. **On screen**, on `RADIANTS.onScreen` of wide-screen visits (never on narrow screens): up to 20 points uniform in [`METEOR.edgeMargin`, width − `edgeMargin`] × [`METEOR.top`, `onScreenTop` × height], keeping the first with `quietAt(field.quiet, x, y) === 0` whose shower passes the usability test (below). The shower radiant is the direction through it, ((x − cx) / focal, (y − cy) / focal, 1) normalized, and `showerOnScreen` is the point. If none passes, go to step 3. Without the test, a radiant low in the spawn area sends most shower paths climbing: 20 to 23% of on-screen showers at 1440 × 900 would fail it [computed, check report].
 3. **Off screen**: `sampleRadiant`, resampled (up to 50 tries, then the last is kept) while its vanishing point (r_z > 0) lies inside the viewport, so on-screen radiants come only from step 2 (R2 measured 13% of visits by chance, which would make the total about 26%), or while the shower fails the usability test. A shower sitting low in front of the window otherwise climbs from every start in about 6% of visits, so D8's default rejects every shower launch [computed].
-   - **The usability test** (steps 2 and 3): at least 8 of 16 probes give a non-null `radiantMotion` with `dirY ≥ −sin(climbDegrees)`. The probes are a 4 × 4 grid at the cell centres of the planner's start area, `startArea(field)`, which I2 exports from `meteors.ts` and `planFlight`'s sampling uses (today `METEOR.spawnX` × `METEOR.spawnY`, each y clamped to `METEOR.top`, `meteors.ts:136-139`): the test is deterministic and follows the planner if its sampling changes. The on-screen band in step 2 is a placement choice, not that area, and stays as written.
+   - **The usability test** (steps 2 and 3): at least 8 of 16 probes give a non-null `radiantMotion` with `dirY ≥ −sin(climbDegrees)`. The probes are a 4 × 4 grid at the cell centres of the planner's start area, `startArea(field)`, which I2 exports from `meteors.ts` and `planFlight`'s sampling uses (today `METEOR.spawnX` × `METEOR.spawnY`, unclamped; the planner and the probes raise each y to `METEOR.top`, `meteors.ts:204-207`): the test is deterministic and follows the planner if its sampling changes. The on-screen band in step 2 is a placement choice, not that area, and stays as written.
 4. The shower's speed class is uniform over `SPEED_CLASSES`. The three sporadic sources come from `sampleRadiant`, one per class, with no on-screen test (their near-radiant paths fail the 160 px minimum and are resampled); under D8's alternative, each also passes step 3's usability test at 10°.
 5. `visitSteer` picks the shower with `showerShare`, else a sporadic source uniformly, and moves its radiant by two tangent-plane offsets of `gaussian(random) × scatter`, renormalized.
 
@@ -2563,16 +2541,16 @@ export function meteorRange(h: number): number
 4. `speed = SPEED_CLASSES[class].angular × π/180 × view.focal × motion.rate × jitter / range`, with `jitter` drawn from `METEOR.speedJitter`.
 5. `duration` is the class's range. On the planner's fallback pass it is scaled by `METEOR.fallbackScale`.
 6. `pathShare = climbing ? RADIANTS.climbShare : 1`.
-7. `minPath = RADIANTS.nearRadiantPath` when the steer's source is the shower and `showerOnScreen` lies within `RADIANTS.nearRadiant`° of `start` (only shower meteors are foreshortened there; a sporadic stub would point anywhere and blur the radiant); otherwise null, so the planner keeps its own minimum (160 px, or 110 on narrow screens).
+7. `minPath = RADIANTS.nearRadiantPath` when the steer's source is the shower and `showerOnScreen` lies within `RADIANTS.nearRadiant`° of `start` (only shower meteors are foreshortened there; a sporadic stub would point anywhere and blur the radiant); otherwise null, so the planner keeps its own minimum (160 px, or 110 on narrow screens, times `METEOR.fallbackScale` on the fallback pass: "Inside `planFlight`" below).
 8. `peak = between(random, ...(random() < METEOR_BRIGHTNESS.faintShare ? faint : normal)) × max(rangeFloor, (rangeTop / meteorRange(elevationAt(view, start.x, start.y)))²)`, with `rangeTop = meteorRange(elevationAt(view, view.cx, METEOR.top))`: the nearest point of the spawn area, so the factor never exceeds 1 and a start on the window's centre row dims to about 0.6. Measuring against the window's centre instead (1 / range²) would brighten nearly every flight, since the spawn area lies above the centre: 38% of laptop flights would pass 0.9 and some reach 1.37 [computed].
 9. `wakeColor` and `train` come from the class.
 
-#### What the veil planner accepts (I1 theirs, I2 ours after the rebase)
+#### What the veil planner accepts (I1 theirs, I2 ours)
 
-The veil commit's `planMeteor` and private `planFlight` take an options object (I1 has the signatures). Our additions, `steer` and `fireball`, extend `PlanOptions` after V and never change `veiledFrom` (R2 §11's light-curve and drag options, also left to us, aren't needed by this plan):
+The veil commit's `planMeteor` and private `planFlight` take an options object (I1 has the signatures). Our additions, `steer`, `clearOf` and `fireball`, extend `PlanOptions` and never change `veiledFrom` (R2 §11's light-curve and drag options, also left to us, aren't needed by this plan):
 
 ```ts
-// src/lib/sky/meteors.ts, after the rebase: their options, then ours
+// src/lib/sky/meteors.ts
 /** How a shooting star launched at a start point flies; the planner keeps start sampling, the layout guards and the veil. */
 export interface Course {
 	/** Unit direction of travel on screen. */
@@ -2586,7 +2564,7 @@ export interface Course {
 	pathShare: number
 	/** Shortest path allowed from this start (px), or null for the planner's own minimum. */
 	minPath: number | null
-	/** Peak brightness (fireballs peak at 1 regardless): veiledFrom and drawMeteor fit it to each copy's INK_BUDGET (8.7 for PF). */
+	/** Peak brightness (fireballs peak at 1 regardless): veiledFrom and drawMeteor fit it to each copy's INK_BUDGET. */
 	peak: number
 	/** The color the wake cools to (SPEED_CLASSES). */
 	wakeColor: WakeColor
@@ -2597,67 +2575,56 @@ export interface Course {
 /** Direction, speed and timing for a start point the planner picked; null when no shooting star starts there. */
 export type Steer = (random: Random, start: Point, fallback: boolean) => Course | null
 
-/** What one launch allows: the veil commit's options, then ours. */
+/** What a plan may do. */
 export interface PlanOptions {
-	/** False: only paths in clear sky, clear of the veil of every quiet rect, as fireballs fly. Default true. (I1, theirs) */
-	nearCopy?: boolean
-	/** Long flights, the shorter fallback, or both in turn (the default). (theirs) */
-	flights?: 'long' | 'short' | 'both'
-	/** Share of each rect's INK_BUDGET the renderer lets it keep on the copy (CONTRAST_*.meteorInk). Default 1. (theirs) */
-	ink?: number
-	/** Where shooting stars go from each start point, in place of the radiant parameter and pickRadiant. (I2, ours: P9) */
+	// …nearCopy, flights and ink exactly as cf4d7b8 has them, docs included (I1)…
+	/** Where shooting stars go from each start point: a Course, or null where none starts there. (I2, P9) */
 	steer: Steer
+	/** Padded zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose links change color on hover and focus, which their measured headroom misses until the next measurement; for farewell meteors, also the sky above the end scene's quiet copy, where unmarked copy shows (P12). Default none. (I2, P9) */
+	clearOf?: readonly SkyRect[]
 	/** This launch is a fireball: clear sky only, METEOR_KINDS.fireball timing, peak 1. (P10) */
 	fireball?: boolean
 }
 
 // P9 drops the radiant parameter, and with `steer` required, the `= {}` default
 export function planMeteor(random: Random, field: MeteorField, now: number, options: PlanOptions): Meteor | null
-/** The area planFlight samples start points from (CSS px): today METEOR.spawnX × spawnY, each y at least METEOR.top. (I2, P9) */
+/** The box planFlight draws start points from (CSS px): width × METEOR.spawnX by height × spawnY, unclamped. (I2, P9) */
 export function startArea(field: MeteorField): { x0: number; x1: number; y0: number; y1: number }
-// planFlight stays private and samples its starts from startArea. From P9 its PassOptions carries `fallback: boolean`
-// (the steer scales its class's durations on that pass) in place of `timing`; from P10, PlanOptions.fireball replaces
+// planFlight stays private and keeps cf4d7b8's draw over startArea: x = between(random, x0, x1) and
+// y = max(METEOR.top, between(random, y0, y1)). From P9 its PassOptions carries `fallback: boolean`
+// (the steer scales its class's durations, and the planner its minimum path, on that pass) in place of `timing`; from P10, PlanOptions.fireball replaces
 // PassOptions.fireballs and the per-attempt METEOR.fireballChance draw. Meteor gains wakeColor (P9; today's Meteor.wake
 // stays the afterglow time constant, meteors.ts:39-40).
 ```
 
-`Steer` is only a direction source. It isn't called "aim" because their `planFlight` already uses `aims` for a launch traded for a pass behind copy (`METEOR_PASS`), which is their rule, unchanged.
+**Their docs follow** (7.0). In P9 `PassOptions`' doc becomes "What one pass of the planner adds to the caller's options: whether it is the shorter fallback (its durations and its shortest path scaled by METEOR.fallbackScale) and whether a fireball may fly", `planFlight`'s first sentence "Up to METEOR.attempts candidate paths steered by `options.steer`, shorter on the fallback pass, fireballs only if `options.fireballs`", and `planMeteor`'s "above the side rails" reads "clear of the copy in `clearOf`"; `copyReader`'s caveat (`mountSky.ts:122-124`) names the planner's `clearOf`, which the launch fills with the padded rails, in place of `METEOR.maxEndY`. P10 drops the fireball clause from `PassOptions`' doc, and `planFlight`'s reads `options.fireball`.
 
-**Inside `planFlight`.** I2 replaces four things with one call to `options.steer(random, start, fallback)` (lines at 246c0aa; the veil commit moves them into `planFlight`'s inner `fit`):
+**Inside `planFlight`.** I2 replaces four things in its inner `fit` with one call to `options.steer(random, start, fallback)`:
 
-- the lines that compute `away`, `dirX`, `dirY` and `below`;
-- the 18 to 42° filter (`meteors.ts:140-145`);
-- the speed and duration lines (`:147-152`);
-- the veil commit's peak line: the course's `peak` goes to its private `veiledFrom(zones, path, peak, ink)` instead (fireballs keep 1; under PF, today's `veiledFrom(zones, path)` is called and the peak goes into the returned meteor, 8.7).
+- the lines that compute `away`, `dirX`, `dirY` and `below` (`meteors.ts:208-212`);
+- the 18 to 42° filter (`:213`);
+- the speed and duration lines (`:215-220`);
+- the peak line (`:229`): the course's `peak` goes to the private `veiledFrom(near, path, peak, ink)` instead (fireballs keep 1).
 
-`length = min(maxPath × course.pathShare, course.speed × duration)` and `minPath = course.minPath ?? minPath`. The train line becomes `dimFrom === 1 && (course.train || fireball) && random() < METEOR.trainChance`, the `jitter >= METEOR.trainSpeedShare` test (`:165`) giving way to the course's `train`: trains stay in clear sky.
+`length = min(maxPath × course.pathShare, course.speed × duration)` and `minPath = course.minPath ?? minPath × (fallback ? METEOR.fallbackScale : 1)`: without cf4d7b8's 240 px/s floor (`METEOR.speed`), fallback flights rarely reach 160 px below about 1,280 px of width, and 11% of launches at 1024 × 768 would fail every steer (1.5% with the scaled minimum: 102 px, 70 on narrow screens) [computed, check report]. The train line becomes `dimFrom === 1 && (course.train || fireball) && random() < METEOR.trainChance`, the `jitter >= METEOR.trainSpeedShare` test (`:236`) giving way to the course's `train`: trains stay in clear sky.
 
-**Fireballs keep their own speed and timing.** The lines I2 replaces also give a fireball attempt its slower, longer flight (`:148-149`). So a fireball flies the steer's direction at `course.speed × METEOR.fireballSpeedScale`, for a duration drawn from `METEOR.fireballDuration` in P9 and from `METEOR_KINDS.fireball.duration` from P10, with peak 1, `fireballDrag`, `fireballWake` and today's clear-sky rule. Until P10, the per-attempt draw (`:135`, `METEOR.fireballChance`, 8%) stays as today.
+**Fireballs keep their own speed and timing.** The lines I2 replaces also give a fireball attempt its slower, longer flight (`:216-217`). So a fireball flies the steer's direction at `course.speed × METEOR.fireballSpeedScale`, for a duration drawn from `METEOR.fireballDuration` in P9 and from `METEOR_KINDS.fireball.duration` from P10, with peak 1, `fireballDrag`, `fireballWake` and today's clear-sky rule. Until P10, the per-attempt draw (`:203`, `METEOR.fireballChance`, 8%) stays as today.
 
-**I2 also completes the end test** (`:156`). Today's guards cover only right-to-left falling paths: `METEOR.top` clamps the start alone (`:138`), and the end test checks the left edge and `maxEndY` only. With the new directions, 16% of accepted laptop flights would end past the right edge and 8.5% above the navbar's 110 px, many leaving the screen still bright (AC-22) [computed, check report]. So the end test also rejects `end.x > width − METEOR.edgeMargin` and `end.y < METEOR.top`: with both ends on screen, the straight path never leaves it and never ends under the navbar. It touches no veil rule.
+**I2 also completes the end test** (`:224`). Today's guards cover only right-to-left falling paths: `METEOR.top` clamps the start alone (`:206`), and the end test checks the left edge and `maxEndY` only. With the new directions, 16% of accepted laptop flights would end past the right edge and 8.5% above the navbar's 110 px, many leaving the screen still bright (AC-22) [computed, check report]. So the end test also rejects `end.x > width − METEOR.edgeMargin` and `end.y < METEOR.top`: with both ends on screen, the straight path never leaves it and never ends under the navbar. **And it keeps paths off the rails.** A rightward path from the spawn area's right side can reach the right rail's link, which starts above `maxEndY` on six of the eight archived desktop layouts, and a measurement keeps a link's hover or focus green until the next one (`mountSky.ts:122-124`): a pass there could show 0.2 white on 12 px light-slate text, 4.3:1 [check report]. So `fit` also rejects a segment touching a `clearOf` zone grown by `QUIET.feather` (the `nearCopy: false` test, `meteors.ts:226-228`), and the meteor kind passes the padded rails (`SkyField.pinned`, 6.9). Neither touches a veil rule.
 
-**No peak bound** after V. The renderer and `veiledFrom` fit any brightness to each copy's budget (`budgetKeeps`), so I2 bounds no peak; `veiledFrom`'s edge-fade rule simply judges the course's peak. Under PF's flat veil a veiled flight must peak at most 1 (8.7, H10).
+**No peak bound.** The renderer and `veiledFrom` fit any brightness to each copy's budget (`budgetKeeps`), so I2 bounds no peak; `veiledFrom`'s edge-fade rule simply judges the course's peak.
 
 **Everything else stays the veil session's:**
 
-- the start-point sampling (I2 only names its area, `startArea`);
-- the layout guard values: 110 px under the navbar, the 12 px edge margin, ends above 0.72 of the height (I2 only adds the two end conditions above, which use them);
+- the start-point sampling (I2 only names its box, `startArea`, and keeps the draw and its clamp);
+- the layout guard values: 110 px under the navbar, the 12 px edge margin, ends above 0.72 of the height (I2 only adds the two end conditions and `clearOf` above);
 - `segmentTouches`, and `veiledFrom` with its rules and `METEOR_VEIL` (COORDINATION.md, "`veiledFrom` rules");
 - the clear-sky rules for fireballs, flares and trains;
 - first fit, then `METEOR_PASS`'s trade of a share of plain launches for a pass behind copy.
 
-With `nearCopy: false`, the planner rejects any path within `QUIET.feather` of a padded rect, which is the test fireballs take today (`:158-159`). Veiled flights keep the default light curve, so `veiledFrom`'s "never brightens again" rule holds (R2 §5.3).
+Veiled flights keep the default light curve, so `veiledFrom`'s "never brightens again" rule holds (R2 §5.3).
 
-**Speed-class colors (ours, P9).** `drawMeteor`'s tint line (`renderSky.ts:222`) picks by `meteor.wakeColor`:
-
-| Case | Tint |
-|---|---|
-| `mint` | today's `mixRgb(green, white, METEOR_LOOK.mintToWhite)` |
-| `white` | the theme white |
-| `warm` | palette index `METEOR_LOOK.fireballTint` |
-| fireballs | `METEOR_LOOK.fireballTint` as today, except fast fireballs, which cool to mint like every fast wake (`METEOR_LOOK.mintToWhite`) |
-
-Saturated red never appears: the warmest wake tint, pale yellow `[255, 230, 200]`, has R / (R + G + B) = 0.37, far under 2.3.1's 0.8.
+**Speed-class colors (ours, P9).** `drawMeteor`'s tint line (`renderSky.ts:237`) follows the tint rule above by `meteor.wakeColor`: `mint` is today's `mixRgb(green, white, METEOR_LOOK.mintToWhite)` (fast fireballs too), `white` the theme white, `warm` (and other fireballs, as today) palette index `fireballTint`. Saturated red never appears: the warmest wake tint, pale yellow `[255, 230, 200]`, has R / (R + G + B) = 0.37, far under 2.3.1's 0.8.
 
 ### 6.11 Satellites (P11; after P8 and P9)
 
@@ -2769,7 +2736,7 @@ export const SATELLITE_SPEC: TransientSpec<'satellite'> = {
 - **Drawing** (`drawSatellite` in `renderSky.ts`, or a split `renderTransients.ts`):
   - `placePoint` with shape `SATELLITE.shape`, unsnapped, so it glides. 26 to 54 px/s at DPR 2 needs every frame, which moving transients get.
   - Two sprites at the same point: the `tint` sprite at alpha × (1 − warmth) and the `shadowTint` sprite at alpha × warmth. Under additive compositing that is an exact color mix.
-  - The alpha is multiplied by its `fade` (`transientFade`, from `drawTransient`) and by `transientQuietFactor(frame.quiet, x, y, keeps)`, the veil's factor for every transient, taken at its drawn position every frame, with the `CLEAR_SKY_KEEPS` `drawTransient` hands it. Those keeps are 0 at the padded edge and on the ink, and `transientQuietFactor` never exceeds the current zones' factor mid-ease, where `easedQuietFactor` alone would keep all of a satellite's light inside a rect a layout has just added at the start of the 0.6 s ease. So a satellite adds **no light inside any padded rect of the current zones or of a waiting layout** (`to` and `next`), from the frame a layout arrives. As a point of light sampled at its center and far smaller than `QUIET.padding`, it meets the veil session's conditions for sharing the sky with a lease holder by construction (`COORDINATION.md`, answer 3; T3) and never needs the ink lease. Whether it shares the sky is D12's look choice.
+  - The alpha is multiplied by its `fade` (`transientFade`, from `drawTransient`) and by `transientQuietFactor(frame.quiet, x, y, CLEAR_SKY_KEEPS)` at its drawn position every frame (`drawTransient` hands it the keeps), never by `easedQuietFactor`, which would keep all of its light inside a rect a layout has just added. So, as T3 says, a satellite adds **no light inside any padded rect of `to` or `next`** from the frame a layout arrives, meets answer 3's conditions by construction and never needs the lease; whether it shares the sky is D12's look choice.
 - **It never takes the lease, is scroll-cancelled like every kind, and stays in screen space** (no drift or parallax: its own motion dominates, and the veil checks are screen-space).
 
 ### 6.12 The "could" kinds (P12, each after D4)
@@ -2779,8 +2746,8 @@ export const SATELLITE_SPEC: TransientSpec<'satellite'> = {
 | Near-radiant point flash | A meteor variant with zero length within 1° of the on-screen radiant: a point that brightens and fades in 0.3 to 0.5 s without moving, peak at most 0.7 | Clear sky only | At most one per 60 s; needs P9's on-screen radiant |
 | Burst | A meteor variant: 2 to 4 faint members from the shower radiant, staggered 0.35 to 1.2 s, the whole span at most 5 s, no flares or trains | All members clear sky (no lease) | 5% of launches, at least 90 s apart, after 45 s; desktop. The stagger keeps flashes at 3 a second or fewer. |
 | Earthgrazer | A meteor variant: at least 0.3 of the width (about 20° at the window's centre: 4 to 6°/s for 2.5 to 3.5 s spans at most 21°, so R2's 0.45, about 30°, could never fit), within 12° of horizontal, 4 to 6°/s, 2.5 to 3.5 s plus about 0.54 s of wake (about 4 s in all), warm | Clear sky only; skipped silently when no band fits | 2.5% of launches, at least 180 s apart, after 60 s; at least 1280 px wide |
-| Farewell meteors | Up to 2 meteors a visit over the end bookend, once its level is at least 0.9, with gaps from a `GapLaw` (R2: 8 + Exp(14) s) | Full veil (Contact and the footer are quiet copy) | Needs the veil commit, like every moving kind. With their own clock and visit cap they get their own registry entry (`'farewell'`: a `Meteor` body planned by `planMeteor` under the full veil and the lease, drawn through `drawMeteor` by its own `drawTransient` case), not a `METEOR_KINDS` variant, which could refuse only with a null plan and so stop the hero's shooting stars after `maxFailedPlans`. The gate then reports the scene as a fact (`LaunchGate.scene`, from `SceneLevels.launchScene`, which replaces P8's `launches` flag: `'hero'` up to `heroLaunchMaxScroll`, `'end'` once the end level reaches `SCENE.endLaunchLevel`, 0.9, else null), and `allowed` keeps only "a launch scene" (`scene !== null`), so a worker asleep in the reading scene keeps no launch timer; each spec names its own (`TransientSpec.scene`: `'hero'` for meteors and satellites), and step 2.2 holds a kind outside it: a hold, never a failed plan. T7 holds, since the two scenes never meet. T6 names the exception, H7 and AC-20 gain it with the kind, and the veil session hears of launches over Contact and the footer. |
-| Static comet | Not a transient: a `SkyBody` with a world position and the far band's mean nearness (0.293, from `nearness()` over the band: it "moves only with the far layer's parallax", R4), drawn after the layers with the camera law. Pseudo-nucleus alpha at most 0.6, mint coma, a curved pale dust tail, a faint straight blue-white ion tail (never a green tail), fading in over at least 8 s. Placed in the upper right, as R4 has it. It never starts to show under `motion: 'reduced'`, and a pause fades it out. | COORDINATION.md request 1 names the comet, and the confirmed interface allows one scroll rule: the comet takes a launch scroll when it starts to show and is drawn at its fade-in × `scrollKept(launchScrollY, scrollY, boxFade × pauseFade)`. Its box fade and its pause fade (from a pause or a switch to reduced motion), each `fadeOutAt` over `TRANSIENTS.cancelFade` as a transient's pause fade is, go in as `fade`; its fade-in brightens, so it stays outside (`scrollKept` only dims, and a fade-in of 0 would retire it on its first frame). When `scrollKept` reaches 0 it is gone for the page view, so it ends within the first 24 px of scroll, or 0.2 s after a pause. The veil session ruled out a fade with the hero's launch gate (answer 4); D4's alternative, a scroll fade of its own, must reach 0 before unmarked copy can come under its drawn footprint at 852 × 393 (a phone held sideways), where the placement rule below already finds it no room [computed, check report]. Quiet rects move with the whole scroll and the comet by the camera law, which also carries it between scroll steps (the drift up to `DRIFT_REACH` and the lean up to `LEAN.reach`, times its nearness), so copy and comet can meet without a scroll. So: every part (nucleus, coma, both tails) is drawn through `transientQuietFactor` with `CLEAR_SKY_KEEPS` at its own position; its whole box stays clear of every zone's reach (`zoneReaches`), re-tested on every drawn frame against `frame.quiet.to` and, while a layout waits, `frame.quiet.next` (one box against up to 128 rects), with a `TRANSIENTS.cancelFade` fade when that fails; and it is placed so that its box, grown by that drift and lean reach, stays below `METEOR.top` (clear of the glass navbar, as satellites are) and above About's header row at 0.4 viewport heights plus `SCROLL_CANCEL.to` of scroll, less `ZONE_REACH` (that row is 0.6 H plus About's top padding and header margin: 70, 90 or 110 px by breakpoint, `styles.ts:7`, `globals.css:203`), since it may start to show anywhere up to 0.4 viewport heights. It never holds the lease and keeps D12's hold both ways (T3): it starts to show only while no lease holder flies, and the launch gate reports it (`LaunchGate.bodyShowing`) so no meteor takes the lease while it shows. | 1 visit in 8 to 10, desktop hero; changes the reviewed composition; may read as a rendering bug (R4). Blocked on V like every transient. A model module, `src/lib/sky/bodies.ts`, owns its placement, fades, box test and launch scroll as pure functions; `renderSky.ts` only draws what it returns. |
+| Farewell meteors | Up to 2 meteors a visit around Contact and the footer, once the end bookend's level is at least 0.9, with gaps from a `GapLaw` (R2: 8 + Exp(14) s) | Full veil (Contact and the footer are quiet copy), and nothing above Contact, where tall screens show unmarked copy in the flight region (Other Projects' heading and link from 1920 × 1200, the Projects text at 3840 × 2160) that the veil knows nothing of (C1) [measured, check report]. The field holds every flow root's zones wherever they are, the hero's included (`mountSky.ts:231`, `scene.ts:60-69`), so the band's edge is the top of the highest in-flow zone on screen: of `field.quiet` without `field.pinned` (the same padded objects, 6.9), those with `zone.y < height` and `zone.y + zone.height > 0`. `clearOf` adds the full width above that edge less `ZONE_REACH`, and starts come from the edge down to the screen bottom inside `spawnX` (a `starts` option in place of `startArea(field)`). `room(field)` is false (a hold, never a failed plan) while no in-flow zone is on screen or the edge lies at or below `METEOR.maxEndY` × height, where no path below it can end above `maxEndY` | With their own clock and visit cap they get their own registry entry (`'farewell'`: a `Meteor` body whose `plan` calls `planMeteorTransient(context, { clearOf, starts })`, an optional second argument whose `clearOf` joins the rails and whose `starts` every `planMeteor` call takes, so the veil's pass order stays in one function; never a fireball, since P10's decision is the meteor spec's; drawn through `drawMeteor` by its own `drawTransient` case), not a `METEOR_KINDS` variant, which could refuse only with a null plan and so stop the hero's shooting stars after `maxFailedPlans`. Their cap is `TransientSpec.limit` (2), held in step 2.2 against `kindLaunches`. The gate reports the scene as a fact (`LaunchGate.scene`, from `SceneLevels.launchScene`, which replaces P8's `launches` flag: `'hero'` up to `heroLaunchMaxScroll`, `'end'` once the end level reaches `SCENE.endLaunchLevel`, 0.9, else null), and `allowed` keeps only "a launch scene" (`scene !== null`), so a worker asleep in the reading scene keeps no launch timer; each spec names its own (`TransientSpec.scene`: `'hero'` for meteors and satellites), held in step 2.2. T7 holds, since the two scenes never meet. T6 names the exception. H7 and AC-20 gain the kind, checked on end-scene layouts P12 captures at 2560 × 1440 and 3840 × 2160 over the launch scrolls (every rect the worker receives, the hero's included, and the unmarked text boxes above Contact): no accepted path within `ZONE_REACH` of an unmarked box. The veil session hears of launches around Contact and the footer, and of that unmarked copy. |
+| Static comet | Not a transient: a `SkyBody` with a world position and the far band's mean nearness (0.293, from `nearness()` over the band: it "moves only with the far layer's parallax", R4), drawn after the layers with the camera law. Pseudo-nucleus alpha at most 0.6, mint coma, a curved pale dust tail, a faint straight blue-white ion tail (never a green tail), fading in over at least 8 s. Placed in the upper right, as R4 has it. It never starts to show under `motion: 'reduced'`, and a pause fades it out. | Under the one scroll rule (COORDINATION.md request 1 names the comet), it takes a launch scroll when it starts to show and is drawn at its fade-in × `scrollKept(launchScrollY, scrollY, boxFade × pauseFade)`. Its box and pause fades (a pause, or a switch to reduced motion), each `fadeOutAt` over `TRANSIENTS.cancelFade`, go in as `fade`; its fade-in brightens, so it stays outside (`scrollKept` only dims, and a fade-in of 0 would retire it on its first frame). When `scrollKept` reaches 0 it is gone for the page view, so it ends within the first 24 px of scroll, or 0.2 s after a pause. The veil session ruled out a fade with the hero's launch gate (answer 4); D4's alternative, a scroll fade of its own, must reach 0 before unmarked copy can come under its drawn footprint, checked at the shortest viewport where the placement rule below finds the comet room, sweeping heights up from 393 px (it leaves the box itself about 20 px at 852 × 393, 43 at 932 × 430 and 165 at 1280 × 600) [computed, check report]. Quiet rects move with the whole scroll and the comet by the camera law, which also carries it between scroll steps (the drift up to `DRIFT_REACH` and the lean up to `LEAN.reach`, times its nearness), so copy and comet can meet without a scroll. So: every part (nucleus, coma, both tails) is drawn through `transientQuietFactor` with `CLEAR_SKY_KEEPS` at its own position; its whole box stays clear of every zone's reach (`zoneReaches`), re-tested on every drawn frame against `frame.quiet.to` and, while a layout waits, `frame.quiet.next`, with a `TRANSIENTS.cancelFade` fade when that fails; and it is placed so that its box, grown by that drift and lean reach, stays below `METEOR.top` (clear of the glass navbar, as satellites are) and above About's header row at `heroLaunchMaxScroll` plus `SCROLL_CANCEL.to` of scroll, less `ZONE_REACH` (that row is 0.6 H plus About's top padding and header margin: 70, 90 or 110 px by breakpoint, `components/styles.ts:7`, `globals.css:203`), since it may start to show anywhere up to `heroLaunchMaxScroll`. It never holds the lease and keeps D12's hold both ways (T3): it starts to show only while `leaseHeld` is false, and the launch gate reports it (`LaunchGate.bodyShowing`) so no meteor takes the lease while it shows. | 1 visit in 8 to 10, desktop hero; changes the reviewed composition; may read as a rendering bug (R4). A model module, `src/lib/sky/bodies.ts`, owns its placement, fades, box test, launch scroll and start rule as pure functions. The start rule reads the launch gate (`allowed`, with `scene === 'hero'` once farewell meteors add it; `settled`; `!narrow`; `sinceReveal` past a first delay in its config block, so the entrance and rails have settled and been measured) plus the visit's draw and `leaseHeld`. The worker only feeds them and keeps the comet's state: a resize retires it beside `dropTransients` (its placement and About guard were the old viewport's), a hidden tab keeps it with its fade-in on `twinkleTime`'s clock, and `demandNow`'s `fading` covers its fade-in (one term from `bodies.ts`, as P6's thin fade). `renderSky.ts` only draws what it returns. |
 | Planet | A catalog addition in the near layer at alpha 0.78, twinkle 0, a slightly wider warm core | Star keeps | Changes the reviewed sky; composition review; it shows under reduced motion, so AC-26's P0 screenshot is re-baselined when it ships |
 
 Static bodies (the comet and the planet) obey the camera law like stars, as R1 §9 asks of long-lived bodies. Transients stay in screen space, so the veil planning stays in screen space.
@@ -2809,7 +2776,7 @@ export type SkyMainMessage =
 	| { type: 'pointer'; at: { x: number; y: number } | null }
 ```
 
-P13 alone would add `{ type: 'tick' }` (main to worker) and `{ type: 'relay'; on: boolean }` (worker to main). The veil commit adds `SkyRect.headroom` (the measured text class, a number); our messages don't touch it.
+P13 alone would add `{ type: 'tick' }` (main to worker) and `{ type: 'relay'; on: boolean }` (worker to main), its main-thread loop's pending frame cancelled in `destroy` as P7's is (a terminated worker can't turn it off). Our messages leave `SkyRect.headroom` (the measured text class, a number) as it is.
 
 **The pointer listener (P7; R3 §8).**
 
@@ -2819,9 +2786,9 @@ P13 alone would add `{ type: 'tick' }` (main to worker) and `{ type: 'relay'; on
   /** Pointers that lean the sky (LEAN): a mouse or pen on a screen that can hover. */
   const LEAN_POINTER_QUERY = '(hover: hover) and (pointer: fine)'
   ```
-- Normalized to −1 to 1 with the ResizeObserver's size, so it causes no layout read.
+- Normalized to −1 to 1 with the ResizeObserver's size, so it causes no layout read. Nothing is sent before that size is known (`!size.width`, as R3 §8 has it: a size of 0 would send a non-finite target that hangs `drawLayer`'s cell loop), and each axis is clamped to −1..1.
 - At most one message per animation frame; `null` on `pointerout` with no related target and on `blur`; sent only under full motion; the pending frame cancelled in `destroy`.
-- In the worker, `pointer` sets the lean target and calls `noteInput`; `schedule(now)` runs after every message, as today. It doesn't set `needsDraw`, which would draw on every refresh while the mouse moves and bypass the divisor: `demandNow` sets the frame state's camera line while `leanWanted(camera, leanTarget(scene), motion === 'full')` (`camera.ts`, the test `stepCamera` also makes: full motion, and a lean spring away from its target), so a resting camera still wakes (F6). The lean's speed then sets the frames through `motionFps`, in whole-number holds: on a 1,440 px window at DPR 2 and 60 Hz, every refresh once the pointer moves faster than about 300 CSS px/s, with steps past 0.5 device px from about 400 CSS px/s (1.05 at 1,200). Where the drift's caps bind (narrow screens, ADAPT's first step, software raster), steps reach about 2 device px in a brisk sweep [computed, `reviser-r5/lean.mjs`]. The motion test matters: a pause freezes the springs wherever they are, often short of the pointer that just moved to the control, and without it the worker would draw 20 identical frames a second until Play [computed, check report]. `leanTarget(scene)` multiplies the pointer by `scene.lean` (0 below the hero), and is (0, 0) without a fine pointer.
+- In the worker, `pointer` sets the lean target (an `at` with a coordinate that isn't finite is ignored, so no message can make the camera non-finite) and calls `noteInput`; `schedule(now)` runs after every message, as today. It doesn't set `needsDraw`, which would draw on every refresh while the mouse moves and bypass the divisor: `demandNow` sets the frame state's camera line while `leanWanted(camera, leanTarget(scene), motion === 'full')` (`camera.ts`, the test `stepCamera` also makes: full motion, and a lean spring away from its target), so a resting camera still wakes (F6). The lean's speed then sets the frames through `motionFps`, in whole-number holds: on a 1,440 px window at DPR 2 and 60 Hz, every refresh once the pointer moves faster than about 300 CSS px/s, with steps past 0.5 device px from about 400 CSS px/s (1.05 at 1,200). Where the drift's caps bind (narrow screens, ADAPT's first step, software raster), steps reach about 2 device px in a brisk sweep [computed, `reviser-r5/lean.mjs`]. The motion test matters: a pause freezes the springs wherever they are, often short of the pointer that just moved to the control, and without it the worker would draw 20 identical frames a second until Play [computed, check report]. `leanTarget(scene)` multiplies the pointer by `scene.lean` (0 below the hero), and is (0, 0) without a fine pointer.
 
 ```ts
 // src/lib/sky/config.ts (P7)
@@ -2839,19 +2806,18 @@ export const LEAN = { reach: 12, omega: 4 } as const
 
 ### 7.0 Rules for every phase
 
-- **Where.** Implement on an integration branch, `claude/sky-ambient-motion-impl`, in its own worktree (`.claude/worktrees/sky-ambient-motion-impl`), cut from master 246c0aa, and run `npm ci` there.
-  - Each phase is a PR into that branch, never into master, until checkpoint V. COORDINATION.md agreed that the veil fix lands first and this plan rebases onto it, so at V (8.5) the branch rebases onto the veil commit and only then reaches master, by the route in 8.5 step 2, when the user approves. Under PF it reaches master the same way once PF's handshake is done (8.7). Merging any phase into master earlier needs the veil session's explicit agreement first (D10), logged in `COORDINATION.md`.
-  - After V (or PF), P8 to P12 keep landing on the integration branch, and each reaches master by the same route when the user approves.
-  - Never edit `src/` in the main checkout (`S:\Documents\repos\Portfolio`): the veil session works there, uncommitted, until the user approves its commit (COORDINATION.md, 2026-10-27).
-  - Before V, no phase edits a symbol on the veil session's hands-off list except the overlaps 8.6 lists, once CP-0's answer (theirs or the user's) agrees to them (4.4).
-  - **Logs.** `COORDINATION.md` and `HANDOFF.md` live on the planning branch `claude/quirky-carson-btv2u4` (worktree `.claude/worktrees/sky-ambient-motion`). Commit each log entry there, not on the integration branch, which carries code only.
-- **Dev server.** Start our own `portfolio-dev` from the implementing worktree. `.claude/launch.json` has `autoPort: true`, so it takes a free port while the veil session's server holds port 3000.
-  - Never stop or restart the veil session's server.
+- **Where.** Implement on `claude/sky-ambient-motion-impl`, in its own worktree (`.claude/worktrees/sky-ambient-motion-impl`), cut from `origin/master` at cf4d7b8 or later, and run `npm ci` there.
+  - Each phase's pull request goes from that branch into `origin/master`; the user merges it, or approves the merge, and the next phase starts from the updated `origin/master`. Never move the local `master` ref: the main checkout has it checked out, so Git refuses, and the user fast-forwards it.
+  - Never edit the main checkout (`S:\Documents\repos\Portfolio`).
+  - Veil symbols follow 8.4's rule: use them, extend them through options, never rewrite them.
+  - **Logs.** `COORDINATION.md` and `HANDOFF.md` live on the planning branch `claude/quirky-carson-btv2u4` (worktree `.claude/worktrees/sky-ambient-motion`). Commit each log entry there, not on the implementing branch, which carries code only.
+- **Dev server.** Start our own `portfolio-dev` from the implementing worktree. `.claude/launch.json` has `autoPort: true`, so it takes a free port if another session's server holds port 3000.
+  - Never stop or restart another session's server.
   - Point the `next-devtools` MCP checks at our port.
-- **One phase, one pull request** into the integration branch (one commit per numbered step, each green), merged only after its verification. Phases land in order, except that P5 lands before P4 (Gates). P7, P12 and P13 are optional or conditional; P10 reaches master with P9 or right after it, because P9 alone makes fireballs about 3.4 times as frequent, against E7.
+- **One phase, one pull request** (one commit per numbered step, each green), merged only after its verification. Phases land in order, except that P5 lands before P4 (Gates). P7, P12 and P13 are optional or conditional; P10 reaches master with P9 or right after it, because P9 alone makes fireballs about 8 times as frequent (one every 3 minutes), against E7.
   - Commit subjects and PR titles are conventional, as the recent history is: `feat(sky): ...` for visible changes, `refactor(sky): ...` for steps with no visible change (P1, P3), `docs: ...` for commits that touch only `AGENTS.md` or `README.md`.
-  - Committed comments carry no plan cross-references (phase, invariant, decision, request or research IDs, or `file:line`) and no wording about the two sessions' process (the veil commit, the confirmed interface, theirs or ours, observed in their working tree): they say the reason in words, since the plan never reaches the integration branch. "(C8)", say, becomes "so the sky resumes where it stopped".
-  - A committed doc describes what its phase ships, and the phase that adds a kind or a constant extends the docs that name it: P8's docs say shooting stars and clear-sky kinds, and P11 adds satellites and `CLEAR_SKY_KEEPS` to them (`TRANSIENTS`, the envelope's `clearSky`, the spec's `lease`, `drawTransient`); a P12 kind that ships without P11 adds `CLEAR_SKY_KEEPS` itself. The sketches in section 6 show the docs once every phase they name has landed.
+  - Committed comments carry no plan cross-references (phase, invariant, decision, request or research IDs, or `file:line`) and no wording about the planning process (the veil commit, the confirmed interface, theirs or ours): they say the reason in words, since the plan never reaches the implementing branch. "(C8)", say, becomes "so the sky resumes where it stopped".
+  - A committed doc describes what its phase ships, and the phase that adds a feature extends the docs that name it. The sketches in section 6 show each doc once every phase it names has landed, so earlier phases write it without the later clauses: P5 adds the motion ease (`FADE_FRAMES`, `FrameState.fading`); P6 the drift, its caps, the thin fade and `gather` to the 6.1 and 6.2 docs naming them, `FRAME.motionEase` and `SkyPauseButton`; P7 the lean and the pointer ping to those docs and `SCENE`'s (with D3 skipped, no doc names the lean); P8 every kind to `FrameState.transientDemand` (P3: "Every frame while a shooting star flies, fade frames while its train lingers"); P11 satellites and `CLEAR_SKY_KEEPS` to the docs P8 writes for shooting stars and clear-sky kinds (`TRANSIENTS`, the envelope's `clearSky`, the spec's `lease`, `drawTransient`), and a P12 kind that ships without P11 adds `CLEAR_SKY_KEEPS` itself.
 - **Commands.**
   - `npm run lint` and `npm run type-check` (AGENTS.md).
   - While `next dev` runs, its MCP endpoint `/_next/mcp`: `get_errors` (no route; it reads browser sessions that have the page open, so full-reload `/` on our port first, 5.4), `get_compilation_issues`, `compile_route` for `/`.
@@ -2860,10 +2826,10 @@ export const LEAN = { reach: 12, omega: 4 } as const
   - If `next dev` or `next build` stops with a Next.js upgrade reminder, tell the user and rerun; don't upgrade Next.js.
   - Never POST to `/api/schedule/book`; nothing here touches it.
 - **Gates.**
-  - Before each phase, CP-1 (8.2): has the veil commit landed? If it has, finish the current phase, run checkpoint V, then continue.
+  - Before each phase, CP-1 (8.2).
   - P5 (the pause control) merges before any phase that extends automatically started motion: P4 (the twinkle and shooting stars no longer stop at 90 s while the pointer moves), P6 (the drift) and P9 to P12 (more transients). No commit ever has more continuous motion than today without its WCAG 2.2.2 control.
 - **Shippable and reversible.**
-  - After each phase, the integration branch could deploy as is.
+  - After each phase, master could deploy as is.
   - Phases that change nothing visible prove it with identity harnesses and the reduced-motion screenshot.
   - Each phase names a kill switch, where one exists: a config value that turns its visible change off without a revert. It doesn't always restore today's exact behavior, and each says what remains. It also names its revert, together with the later phases that depend on it.
 - **Evidence.** Each PR description records:
@@ -2872,7 +2838,7 @@ export const LEAN = { reach: 12, omega: 4 } as const
   - screenshots or traces where the change is visible.
 
   Evidence never goes into the repository as files.
-- **Coordination.** After each merge, CP-2 (8.2): a dated `COORDINATION.md` entry on the planning branch, and the same note to the veil session.
+- **Coordination.** After each merge, CP-2 (8.2).
 
 ### 7.1 Verification kit (no test runner; D5)
 
@@ -2915,21 +2881,21 @@ registerHooks({
 **The debug patch** (scratch, never committed).
 
 - A worker message `{ type: 'debug-frame', time, camera, speed, heading, rate, fps, k, js }` is sent per drawn frame (`speed` is `cameraSpeed`, CSS px/s at nearness 1, which times H6's band medians gives AC-1, AC-2 and AC-15; it also counts the scroll glide and the lean, so read it at least 1.2 s after the last scroll or pointer input, when only the drift moves), and `{ type: 'debug-transient', kind, start, end, heading, peak, startedAt }` per launch.
-- `mountSky` collects them into `window.__skyDebug` (R4 §3.3), through cases in P5's message `switch` (before P5, the patch must also replace the `else destroy()` at `mountSky.ts:265`, or the first debug message destroys the sky).
+- `mountSky` collects them into `window.__skyDebug` (R4 §3.3), through cases in P5's message `switch` (before P5, the patch must also replace the `else destroy()` at `mountSky.ts:332`, or the first debug message destroys the sky).
 - Apply it with `git apply` for verification runs, and revert it before committing.
 
 | Harness | Proves | Pass when | Phase |
 |---|---|---|---|
 | **H1** atlas | Phase sprites match today's at phase 0 and keep their light | Phase-(0, 0) bytes equal the baseline's for every tint and shape at DPR 0.825, 1, 1.125, 1.25, 1.5, 1.75 and 2; every phase's unrounded sum within 0.6% of phase 0's and its alpha-byte sum within 2.5% (measured worst: 0.50% at DPR 2; 2.45% at DPR 0.825, 1.63% at 1.125); with `STAR_PHASES = 1` the whole atlas equals the baseline's | P1 |
-| **H2** draw calls | Nothing visible changed | `drawSky` on a recording context gives the same list of (destination x, y, size, globalAlpha, source-pixel hash) as the baseline, with `snap` forced true. The scenarios: scroll {0, 1234.5, 5000} × zones {none, 31 settled, 31 mid-ease} × dusk {0.8 s, done} × DPR {1, 2} × keep {full, thinned} | P1, P2, V |
-| **H3** quiet index | The index is exact | 100,000 random points × {31, 64 rects} × {settled, level 0.37} × {1440 × 900, 3840 × 2160, 390 × 844} × every layer's keeps, and from V rects with random `headroom` and `budgetKeeps(0.5, METEOR_VEIL.quietKeep)` (an `inkKeep` that reads each rect), and blends with a `next` list: `Object.is(index.factor(...), easedQuietFactor(...))` always; unchanged zones never rebuild, and a change of `headroom` alone does; timing at 1,430 stars, 64 rects, mid-ease under 0.4 ms | P1, V |
-| **H4** pacing | The clock plans what 6.2 says | `frameDemand` reproduces today's `frameMode` over a table of `FrameState`s (meteor flying or lingering, scrolling under full or reduced motion, dusk, quiet ease, twinkle, idle, sleep), the shipped mapping rather than a copy of it; `easing` and `easeEnded` mark the ends of the motion ease and the thin fade; and a fade beside the capped drift keeps the drift's cap (on an unaligned clock, every third tick, not every tick); `refreshDivisor` reproduces 6.2's table; `stepDivisor` lowers k at once and raises it only after 0.5 s; the refresh estimate settles at 16.7 ms at 60 Hz with dropped frames, 8.33 ms at 120 Hz, moves to 33.3 ms within 16 samples after a switch to 30 Hz, and flags 15.0 ± 0.2 ms as unaligned; in timer-fallback mode a k = 2 demand wakes once per drawn frame, every 33.3 ms, even after the estimate read 8.33 ms | P3, P5, P6 |
-| **H5** camera | Springs and drift behave | **Springs:** two half steps equal one step within 10⁻¹²; no overshoot from rest, or after a scroll that moves one way, at dt ∈ {1/144, 1/60, 1/15, 0.25, 5} s; 95% at 0.474 s for ω = 10; a one-step jump over one viewport snaps, and sustained flings of 3,000 to 10,000 px/s at H = 700 and 900 never do (no per-frame star step beyond the normal motion plus 0.25 px); eased jumps (ease-in-out) of 3,000 to 20,000 px over 0.3 to 1 s and sustained flings of 3,000 to 25,000 px/s, at H ∈ {700, 852, 900, 1440} and 30 to 144 Hz, also with `maxLag` 0.15 and with `scrollOmega` 12 (R-16): the brightest star glides at most `maxLag` × H × 0.112 after the page stops (25.2 px at H = 900; measured at most 23.6 after eased jumps), never overshoots, glides alike at 30, 60 and 144 Hz (eases in-out cubic) within 0.002 × H px wherever no step snaps (1.4, 1.8 and 2.9 px at H = 700, 900 and 1,440) and within 0.01 px after a fling that stops while capped, with the stop on a frame of every rate (C4), and is within 2.8 × 10⁻⁴ × H px of rest 0.7 s after the page stops and settled by 1.2 s up to H = 2,560, 1.3 s up to 3,840 (AC-39; one-step jumps of 0.1, 0.2 and 0.245 H at H up to 3,840 included, at AC-39's display rates, from a camera at rest and landing just after a frame, so the glide starts a frame late, C5); after 60 s at rest, a 100 px scroll moves the brightest star at most 1 px in its first step (C5); pause, scroll 5000 px with the live scroll fed while paused, resume: the position stays continuous within 10⁻⁹ px (C8; from P8 also with `parallaxScroll` retired).<br>**Drift (P6):** `driftWanted` and `driftRate` over a table of `DriftGate`s (DR2, DR3); `driftAt(0)` = 0; over 6 h the speed stays in [0.58, 1.42] v₀, the wander ≤ 68.4 s × `DRIFT.speed` + 0.1 px at q = 1 (205.3 px at v₀ = 3), the turn rate ≤ 4.4°/s, and its mean 2°/s within 0.01 over the 6 h and within 0.2 over every 10 minutes (AC-4); the first-minute headings match 6.1's table within 1°; rate steps (1 → 0.35 → 0) never move the camera within a frame (AC-9); a 5 s stall advances the clock ≤ 0.1 s.<br>**Lean (P7):** 95% at 1.19 s, no overshoot; `leanWanted` over a table: true under full motion while either spring is away from its target, false once both settle, and false under a pause with the springs short of the target. | P2, P6, P7, P8 |
+| **H2** draw calls | Nothing visible changed | `drawSky` on a recording context gives the same list of (destination x, y, size, globalAlpha, source-pixel hash) as the baseline (P0's lists: cf4d7b8's render), with `snap` forced true. The scenarios: scroll {0, 1234.5, 5000} × zones {none, 31 settled, 31 mid-ease} × dusk {0.8 s, done} × DPR {1, 2} × keep {full, thinned}; with `STAR_PHASES = 1` too (P1's kill-switch identity); P2, P6 and P7 rerun the scroll-0 rows as the renderer's zero-offset identity (their switches never reach `drawSky`, so H5 checks them) | P1, P2, P6, P7 |
+| **H3** quiet index | The index is exact | 100,000 random points × {31, 64 rects} × {settled, level 0.37} × {1440 × 900, 3840 × 2160, 390 × 844} × every layer's keeps, and rects with random `headroom` and `budgetKeeps(0.5, METEOR_VEIL.quietKeep)` (an `inkKeep` that reads each rect), and blends with a `next` list: `Object.is(index.factor(...), easedQuietFactor(...))` always; unchanged zones never rebuild, and a change of `headroom` alone does; timing at 1,430 stars, 64 rects, mid-ease under 0.4 ms | P1 |
+| **H4** pacing | The clock plans what 6.2 says | `frameDemand` reproduces today's `frameMode` over a table of `FrameState`s (meteor flying or lingering, scrolling under full or reduced motion, dusk, quiet ease, twinkle, idle, sleep), the shipped mapping rather than a copy of it; `easing` and `easeEnded` mark the ends of the motion ease and the thin fade, and are false before the thin fade begins (`since` null); and a fade beside the capped drift keeps the drift's cap (on an unaligned clock, every third tick, not every tick); `refreshDivisor` reproduces 6.2's table; `stepDivisor` lowers k at once and raises it only after 0.5 s; the refresh estimate settles at 16.7 ms at 60 Hz with dropped frames, 8.33 ms at 120 Hz, moves to 33.3 ms within 16 samples after a switch to 30 Hz, and flags 15.0 ± 0.2 ms as unaligned; in timer-fallback mode a k = 2 demand wakes once per drawn frame, every 33.3 ms, even after the estimate read 8.33 ms | P3, P5, P6 |
+| **H5** camera | Springs and drift behave | **Springs:** two half steps equal one step within 10⁻¹²; no overshoot from rest, or after a scroll that moves one way, at dt ∈ {1/144, 1/60, 1/15, 0.25, 5} s; 95% at 0.474 s for ω = 10; a one-step jump over one viewport snaps, and sustained flings of 3,000 to 10,000 px/s at H = 700 and 900 never do (no per-frame star step beyond the normal motion plus 0.25 px); eased jumps (ease-in-out) of 3,000 to 20,000 px over 0.3 to 1 s and sustained flings of 3,000 to 25,000 px/s, at H ∈ {700, 852, 900, 1440} and 30 to 144 Hz, also with `maxLag` 0.15 and with `scrollOmega` 12 (R-16): the brightest star glides at most `maxLag` × H × 0.112 after the page stops (25.2 px at H = 900; measured at most 23.6 after eased jumps), never overshoots, glides alike at 30, 60 and 144 Hz (eases in-out cubic) within 0.002 × H px wherever no step snaps (1.4, 1.8 and 2.9 px at H = 700, 900 and 1,440) and within 0.01 px after a fling that stops while capped, with the stop on a frame of every rate (C4), and is within 2.8 × 10⁻⁴ × H px of rest 0.7 s after the page stops and settled by 1.2 s up to H = 2,560, 1.3 s up to 3,840 (AC-39; one-step jumps of 0.1, 0.2 and 0.245 H at H up to 3,840 included, at AC-39's display rates, from a camera at rest and landing just after a frame, so the glide starts a frame late, C5); after 60 s at rest, a 100 px scroll moves the brightest star at most 1 px in its first step (C5); pause, scroll 5000 px with the live scroll fed while paused, resume: the position stays continuous within 10⁻⁹ px (C8; from P8 also with `parallaxScroll` retired).<br>**Drift (P6):** `driftWanted` and `driftRate` over a table of `DriftGate`s (DR2, DR3); `driftAt(0)` = 0; over 6 h the speed stays in [0.58, 1.42] v₀, the wander ≤ 68.4 s × `DRIFT.speed` + 0.1 px at q = 1 (205.3 px at v₀ = 3), the turn rate ≤ 4.4°/s, and its mean 2°/s within 0.01 over the 6 h and within 0.2 over every 10 minutes (AC-4); the first-minute headings match 6.1's table within 1°; rate steps (1 → 0.35 → 0) never move the camera within a frame (AC-9); a 5 s stall advances the clock ≤ 0.1 s.<br>**Lean (P7):** 95% at 1.19 s, no overshoot; `leanWanted` over a table: true under full motion while either spring is away from its target, false once both settle, and false under a pause with the springs short of the target.<br>**Kill switches:** `CAMERA.snapViewports = 0` keeps the offset at 0.07 × the scroll, with `stepCamera` false without drift or lean (no glide, P2); every `SCENE.*.drift = 0` gathers a `DriftGate` with scene 0, so `driftWanted` is false and `driftRate` 0 (P6); `LEAN.reach = 0` keeps `cameraOffset`'s lean term at 0 through a pointer sweep, and `leanWanted` false after one step (P7). | P2, P6, P7, P8 |
 | **H6** depth | The depth law is as specified and the catalog didn't move | q bands 0.240 to 0.389, 0.389 to 0.741, 0.741 to 1.600; band means 0.293, 0.501, 1.024; monotone; capped from m 0.112; `cellStars` for 1,000 cells per layer equals the baseline field by field except the added `q` | P2 |
-| **H7** scheduler | Transient invariants | Over 10⁵ random event sequences (scroll, layout, pause, hidden, resize, idle; a layout takes effect when the veil applies it, up to `QUIET.ease` after it arrives, and is `next` until then), with the veil commit's `updateMeteor` and `planLaunch` kept in the harness as the oracle for P8 (today's `updateMeteor` with PF's changes under PF), the port drawing its fresh radiants up front in the landed `planLaunch`'s order: never two `nearCopy` transients at once; a body reporting `nearCopy` when its context's `nearCopy` was false counts as failed, while a null plan in that context never counts toward `maxFailedPlans`; no lease before the reveal plus `crossingCooldown`; no lifetime over 5 s; no transient alive or drawn once `scrollKept` from its launch scroll is 0 (24 px); a cancel never extends a life; onsets ≥ 3 s apart; none on narrow screens past the limit or past 0.4 viewport heights; from P11 under D12's default, no transient that never takes the lease is ever active together with a `nearCopy` one; none adds light inside a padded rect of `to` or `next` from the frame a layout arrives; for the same seed and inputs, P8's launches, gaps and scroll retirements equal the oracle's (`crossingCooldown` is 0 in P8), including sequences with a resize (which clears the radiant) or a layout (which keeps it) between two launches | P8 to P12 |
-| **H8** directions | The population model | **Sky parts** (P9 step 1), over 20,000 visits: at 1440 × 900 `showerOnScreen` set on 15 ± 1% and no other visit's radiant projecting inside the viewport; at 393 × 852 none on screen; every visit's shower passes the usability test, on screen or off.<br>**Launch parts** (P9 step 2), with no quiet rects and today's spawn area, launching as `planMeteorTransient` does (long flights on the first steer and fresh ones, then the short fallback over the same steers, 6.9): at 1440 × 900, 200,000 planned launches falling 76 ± 3%, sideways 17.5 ± 3%, climbing (D8 default) 7 ± 2% and only from sporadic sources, heading right 57 ± 3%; at 1440 × 900 and 393 × 852, launch attempts failing every steer under 5% and the shower's share of planned launches 40 ± 5%, in on-screen and off-screen visits alike [computed: 75.8, 17.6, 6.6 and 57.1%; failures 0.0% and 1.2%; shower shares 40.9% and 41.9%]; every path ends at least 12 px inside the sides, at or below `METEOR.top` and above `maxEndY`; at least 99% of shower paths' great circles within 4.5° (3σ) of the shower radiant, which holds for radiants behind the viewer too, where paths converge forward; on the nine archived layouts (`harness/`), plan acceptance per layout | P9 |
-| **H9** rates | The frequency model | Mean gaps 11.69 s (hero) and 21.00 s (narrow) over 10⁵ draws; first minute after the reveal median 5 with 3 to 6 in at least 85% of 20,000 simulated visits; crossings (`nearCopy` launches) a minute over a visit's first two minutes at or below the veil commit's planner's on the same layouts over the same window (0.97, 0.90 and 0.56 at 1440 × 900, 1280 × 800 and 1920 × 1080, 6.9), on the nine archived layouts with the archived harness, the phone's (390 × 844) also giving how often a clear-sky plan fits (the cooldown and a busy lease keep a phone's plans in clear sky); the cooldown, started at the reveal, set from the measured crossing share (6.9) | P9 |
-| **H10** limits | The 5 s and flash rules, from the config | Every kind's longest first-to-last light ≤ 5 s (fireball with train 4.9 s; satellite 4.8 s; a normal flight with train 3.8 s in P8, 3.2 s from P9, when only the fast class has trains); burst stagger ≥ 0.35 s; no drawable tint with R / (R + G + B) ≥ 0.8 (the maximum is 0.42); under PF, no veiled flight peaks above 1 (8.7) | P8 to P12 |
+| **H7** scheduler | Transient invariants | Over 10⁵ random event sequences (scroll, layout, pause, hidden, resize, idle; a layout takes effect when the veil applies it, up to `QUIET.ease` after it arrives, and is `next` until then), with cf4d7b8's `updateMeteor` and `planLaunch` kept in the harness as the oracle for P8, the port drawing its fresh radiants up front in `planLaunch`'s order: never two `nearCopy` transients at once; a body reporting `nearCopy` when its context's `nearCopy` was false counts as failed, while a null plan in that context never counts toward `maxFailedPlans`; no lease before the reveal plus `crossingCooldown`; no lifetime over 5 s; no transient alive or drawn once `scrollKept` from its launch scroll is 0 (24 px); a cancel never extends a life; onsets ≥ 3 s apart; none on narrow screens past the limit or past 0.4 viewport heights; from P11 under D12's default, no transient that never takes the lease is ever active together with a `nearCopy` one; none adds light inside a padded rect of `to` or `next` from the frame a layout arrives; for the same seed and inputs, P8's launches, gaps and scroll retirements equal the oracle's (`crossingCooldown` is 0 in P8), including sequences with a resize (which clears the radiant) or a layout (which keeps it) between two launches | P8 to P12 |
+| **H8** directions | The population model | **Sky parts** (P9 step 1), over 20,000 visits: at 1440 × 900 `showerOnScreen` set on 15 ± 1% and no other visit's radiant projecting inside the viewport; at 393 × 852 none on screen; every visit's shower passes the usability test, on screen or off.<br>**Launch parts** (P9 step 2), with no quiet rects and today's spawn area, launching as `planMeteorTransient` does (long flights on the first steer and fresh ones, then the short fallback over the same steers, 6.9): at 1440 × 900, 200,000 planned launches falling 76 ± 3%, sideways 17.5 ± 3%, climbing (D8 default) 7 ± 2% and only from sporadic sources, heading right 57 ± 3%; at 1440 × 900 and 393 × 852, launch attempts failing every steer under 5% and the shower's share of planned launches 40 ± 5%, in on-screen and off-screen visits alike [computed: 75.8, 17.6, 6.6 and 57.1%; failures 0.0% and about 1%; shower shares 40.9% and 41.9%]; every path ends at least 12 px inside the sides, at or below `METEOR.top` and above `maxEndY`; at least 99% of shower paths' great circles within 4.5° (3σ) of the shower radiant, which holds for radiants behind the viewer too, where paths converge forward; on the nine archived layouts (`harness/`), with `nearCopy` true, launches failing every steer under 5% on each desktop layout, and on 390 × 844 no more often than cf4d7b8's one-radiant planner (32.5%, `planner-9-viewports.txt`) [computed, check report: at most about 1.5%, at 1024 × 768; 13 to 15% on 390 × 844], and no accepted path within `ZONE_REACH` of a pinned zone (`clearOf`) | P9 |
+| **H9** rates | The frequency model | Mean gaps 11.69 s (hero) and 21.00 s (narrow) over 10⁵ draws; first minute after the reveal median 5 with 3 to 6 in at least 85% of 20,000 simulated visits; crossings (`nearCopy` launches) a minute over a visit's first two minutes, over 20,000 simulated visits per layout, from the real `updateTransients` with P9's specs on each of the nine archived layouts' fields (P9 adapts the harness), at or below that layout's bar, which H7's oracle measures the same way on the baseline tree (6.9; 0.41 at 2560 × 1440, the lowest), the phone's (390 × 844) also giving how often a clear-sky plan fits (6.9); the cooldown, started at the reveal, set by 6.9's rule from these rates | P9 |
+| **H10** limits | The 5 s and flash rules, from the config | Every kind's longest first-to-last light ≤ 5 s (fireball with train 4.9 s; satellite 4.8 s; a normal flight with train 3.8 s in P8, 3.2 s from P9, when only the fast class has trains); burst stagger ≥ 0.35 s; no drawable tint with R / (R + G + B) ≥ 0.8 (the maximum is 0.42) | P8 to P12 |
 | **H11** presence | One gate, unchanged twinkle | `presenceLevel` equals today's `idleTwinkle` for the same input timelines, and `notePresence` returns true exactly when today's `isIdle` was true | P4 |
 | **H12** pause store | The store's rules | With `matchMedia`, `localStorage` and `window` stubbed: the default with and without reduced motion; a pause surviving a reload; Play under reduced motion lasting only for the page view; reduced motion turning on mid-visit; a pause from another tab (`storage` event); blocked storage throwing on every access; `skyPlayback` null until `setSkyRunning(true)` and after `setSkyRunning(false)`; unsubscribe removing the global listeners; a remount (subscribe, unsubscribe everything, change the stored key and the reduced-motion stub, then read `skyPaused()` before subscribing again) following the new state | P5 |
 | **H13** wake-up loop | Liveness and no jumps | The real worker on 7.1's rig (a fake `self` and one fake clock, a fresh module per case):<br>0. (P3) The same message scripts (load, reveal, a flight, a scroll and its glide, rest, hidden and back) on P2's worker and P3's, with a 60 Hz animation-frame clock, draw at the same times wherever P3 promises no change (at rest, during a flight, while scrolling; the glide's divided tail excepted); with animation frames that never fire, the watchdog's timer serves each frame and after three misses the 60 Hz fallback does.<br>1. In the reading scene (twinkle 0), after 95 s without input, one `activity` ping restarts frames at once, and the drift is back to full rate 4 s later (F6). In the hero, the same ping restarts twinkle frames at once, not at the next launch timer, and the twinkle eases in from 0.<br>2. A 100 px scroll after a minute at rest moves the brightest star at most 1 px in its first frame, then glides (C5).<br>3. A pause eases a twinkling star's alpha to its rest over the 0.3 s ease, across several drawn frames, never in one (deviation 3), and draws its last frame at level 0 with every star still at its phase, so none hops (F7, M1); a load under reduced motion draws snapped frames, and its first Play moves each star at most 0.5 device px per axis in one frame (M1's settle), then eases the drift in.<br>4. A pause with the camera at rest (drift 0, as in P5 before P6) still draws a final level-0 frame, with no twinkle (`easeEnded`).<br>5. (P7) A pointer sweep toward the control, then a pause within 0.5 s: 0 frames after the 0.3 s ease (`leanWanted`'s motion test).<br>6. (P6) In the reading scene with no drift (a slow raster probe, or D2 at 0), after the idle sleep, a `resize` that moves the scroll into the hero draws no twinkle (`frameAt` gathers first).<br>7. (P8) The launch gate, which H7's harness-built gates never reach: with `Math.random` seeded and a shooting star due 0.5 s after a `scroll` message, it launches no sooner than 1.2 s after that scroll, and none launches while idle, past 0.4 viewport heights or under reduced motion. | P3, P5, P6, P7, P8 |
@@ -2945,79 +2911,71 @@ registerHooks({
 ### 7.2 Phase map
 
 ```
-P0 baseline ─► P1 render core ─► P2 camera seam ─► P3 pacing ─► P5 pause control ─► P4 presence ─► P6 drift ─► P7 lean (optional)
-                                                       │                 (integration branch; master at V, after PF, or earlier by agreement, 7.0)
-                                                       └─► P13 WebKit relay (only if P6's device tests ask)
-───────────────────────────────────────── veil boundary ─────────────────────────────────────────────────────────────────
-checkpoint V (the veil commit lands; rebase, then merge to master) ─► P8 transient core ─► P9 population and rates ─► P10 fireballs ─► P11 satellites ─► P12 coulds
-   or, on the user's go-ahead (D10) and a handshake: PF fallback ─► (P1 to P7 here, if they waited, 8.7) ─► then P8 to P12 as above
+P0 baseline ─► P1 render core ─► P2 camera seam ─► P3 pacing ─► P5 pause control ─► P4 presence ─► P6 drift ─┬─► P7 lean (optional)
+                                                                                                             ├─► P13 WebKit relay (only if P6's device tests ask)
+                                                                                                             └─► P8 transient core ─► P9 population and rates ─► P10 fireballs ─► P11 satellites ─► P12 coulds
 ```
 
-| Phase | Visible change | Blocked on the veil? (4.4's reading) | Depends on | Kill switch (what remains) | Approx. size |
-|---|---|---|---|---|---|
-| P0 | none | no | | | no code |
-| P1 | none | no | | `STAR_PHASES = 1` | ~250 lines |
-| P2 | depth spread and glide while scrolling | no | P1 | `CAMERA.snapViewports = 0` (no glide; the graded depth stays) | ~250 |
-| P3 | none at rest | no | P2 | | ~300 |
-| P5 | the pause control | no | P3 | | ~250 |
-| P4 | twinkle stays while the visitor is active | no | P5 | | ~80 |
-| P6 | **the drift** (the headline change) | no | P4, P5 | every `SCENE.*.drift = 0` | ~200 |
-| P7 | the lean (optional, D3) | no | P6 | `LEAN.reach = 0` | ~120 |
-| V | none (the rebase) | lands with it | the veil commit | | merge |
-| P8 | a paused meteor fades instead of vanishing | **yes** | V or PF, P3, P5 | | ~350 |
-| P9 | about 5 meteors a minute from varied directions | **yes** | P8 | `METEOR_RATE.hero` and `.narrow` = `{ floor: 30, mean: 12, cap: 75 }`, `TRANSIENTS.narrowLimit = 2` (the directions and the long-visit stretch stay) | ~400 |
-| P10 | fireballs retuned (reaches master with P9) | **yes** | P9 | `METEOR_KINDS.fireball.chance = 0` (no fireballs; today has 8%) | ~80 |
-| P11 | satellites | **yes** | P8, P9 | none in config: remove `'satellite'` from `TRANSIENT_KINDS` (one line; `TransientBodies` and the registry keep it, so it compiles) | ~350 |
-| P12 | each "could" kind | **yes** (planet: no) | P9 (planet: P2); `CLEAR_SKY_KEEPS` from P11, or its own (7.0) | per kind | ~100 to 200 each |
-| P13 | smoother Safari | no | P6 and device tests | relay off | ~40 |
-
-A declined overlap turns the "no" of every phase 4.4 names into "at V, or after PF if D10 picks it" (the planet's too, through P2), and D10's question comes early.
+| Phase | Visible change | Depends on | Kill switch (what remains) | Approx. size |
+|---|---|---|---|---|
+| P0 | none | | | no code |
+| P1 | none | | `STAR_PHASES = 1` | ~250 lines |
+| P2 | depth spread and glide while scrolling | P1 | `CAMERA.snapViewports = 0` (no glide; the graded depth stays) | ~250 |
+| P3 | none at rest | P2 | | ~300 |
+| P5 | the pause control | P3 | | ~250 |
+| P4 | twinkle stays while the visitor is active | P5 | | ~80 |
+| P6 | **the drift** (the headline change) | P4, P5 | every `SCENE.*.drift = 0` | ~200 |
+| P7 | the lean (optional, D3) | P6 | `LEAN.reach = 0` | ~120 |
+| P8 | a paused meteor fades instead of vanishing | P3, P4, P5, P6 (`narrowScreen`, `fadeOutAt`) | | ~350 |
+| P9 | about 5 meteors a minute from varied directions | P8 | `METEOR_RATE.hero` and `.narrow` = `{ floor: 30, mean: 12, cap: 75 }`, `TRANSIENTS.narrowLimit = 2` (the directions and the long-visit stretch stay) | ~400 |
+| P10 | fireballs retuned (reaches master with P9) | P9 | `METEOR_KINDS.fireball.chance = 0` (no fireballs; today has 8%) | ~80 |
+| P11 | satellites | P8, P9 | none in config: remove `'satellite'` from `TRANSIENT_KINDS` (one line; `TransientBodies` and the registry keep it, so it compiles) | ~350 |
+| P12 | each "could" kind | P9 (planet: P2); `CLEAR_SKY_KEEPS` from P11, or its own (7.0) | per kind | ~100 to 200 each |
+| P13 | smoother Safari | P6 and device tests | relay off | ~40 |
 
 ### 7.3 The phases
 
 #### P0. Baseline and preflight (no repository change)
 
-- **Goal.** Measure today, so every later phase can prove "no change" or "this much change", and open the line to the veil session.
+- **Goal.** Measure cf4d7b8, so every later phase can prove "no change" or "this much change".
 - **Steps.**
-  1. **CP-1** (8.2), from 246c0aa, then read `COORDINATION.md`. If the veil commit has landed, run checkpoint V first. Its interface, answers and landed numbers (2026-10-27) are already built into this plan (CP-5, done); run CP-5 again before P1 only if a later message changed them.
-  2. Create the integration branch and its worktree (7.0) and run `npm ci`. `npm run lint` and `npm run type-check` must be clean before any change.
-  3. Set up the harness kit and the baseline tree (7.1). Record H2's baseline draw-call lists and the atlas bytes per DPR.
-  4. **Browser baselines** (Chrome, 1440 × 900 at DPR 2 and DPR 1; 393 × 852 at DPR 2):
+  1. Create the implementing branch and its worktree from `origin/master` (7.0), run `npm ci` and CP-1 (8.2), and read `COORDINATION.md` for anything after 2026-10-27. `npm run lint` and `npm run type-check` must be clean before any change.
+  2. Set up the harness kit and the baseline tree (7.1). Record H2's baseline draw-call lists and the atlas bytes per DPR.
+  3. **Browser baselines** (Chrome, 1440 × 900 at DPR 2 and DPR 1; 393 × 852 at DPR 2):
      - reduced-motion screenshots of the hero and the end bookend after the dusk;
      - a reading-scene screenshot (1.5 viewport heights) under full motion once the scroll has settled;
      - a 60 s Performance trace of the hero hands-off (drawn frames per second, worker JS per frame);
      - a 30 s trace in the reading scene (expect 0 frames);
      - the tab's CPU during hero idle;
      - R4's 60-second watch notes (meteor count and directions).
-     
+
      Repeat the watch on an iPhone if one is available.
-  5. **CP-0.** Send the message in 8.4 and log it in `COORDINATION.md`.
-- **Done when.** Two harness runs produce identical logs, the baselines are saved in the scratchpad, and CP-0 has been sent. P1 starts once the veil session (or the user) has answered CP-0's overlap request (8.6); the answer is logged, and a no holds the phases 4.4 names.
+- **Done when.** Two harness runs produce identical logs, and the baselines are saved in the scratchpad.
 
 #### P1. Render core: phase sprites, quiet index, stamp cache (no visible change)
 
 - **Goal.** Draw today's exact sky through the machinery moving stars need.
-- **Blocked on.** P0, and CP-0's answer: P1 edits the import lines of `renderSky.ts` and `sky.worker.ts` and adds `SkyFrame.snap`, which the overlap request covers (8.6; `frameAt` and the `sameRects` move are agreed). On a no, P1 waits as 4.4 says.
+- **Blocked on.** P0.
 - **Files.**
   - `config.ts`: `STAR_PHASES`.
   - `skyAssets.ts`: `profile`, the phase-aware `paintSprite`, the 4 × 4 block layout, `starSpriteIndex`.
-  - `quietIndex.ts`: new, with `ZONE_REACH` and `zoneReaches`.
-  - `scene.ts`: `sameRects` moved in and exported, with the veil session's yes (the veil commit adds a `headroom` comparison to it, which V ports, 8.6).
+  - `quietIndex.ts`: new, with `ZONE_REACH` (from `QUIET_REACH`) and `zoneReaches`.
+  - `scene.ts`: `sameRects` moved in and exported, still comparing `headroom` (8.4).
   - `renderSky.ts`:
     - `placePoint` and `corner`;
     - `SkyFrame.snap`, and the one quiet index `renderSky.ts` owns (6.4);
-    - `drawLayer` placing stars with `placePoint` and dimming them with the index;
+    - `drawLayer` placing stars with `placePoint` and dimming them with the index, so the `easedQuietFactor` import goes, as do `SHAPE_COUNT` and the `STAR_SHAPES` import with the old sprite lookup (nothing else in `renderSky.ts` reads them);
     - `StarField` with stamps, `CELL_CACHE_SLACK` and the key guard;
     - `drawSky` calling `beginFrame`, `quietIndex.update` and `trim`;
     - the docs of `EDGE` and the key.
-  - `sky.worker.ts`: imports `sameRects`; `frameAt` sets `snap: true` (both overlaps, 8.6).
+  - `sky.worker.ts`: imports `sameRects`; `frameAt` sets `snap: true`.
 - **Steps (one commit each).**
   1. The atlas, with H1 green; in the same commit `drawLayer` looks sprites up through `starSpriteIndex(tint, shape, 0, 0)`, since the 4 × 4 block layout moves every sprite (`renderSky.ts:127`).
   2. `placePoint` and `snap`.
   3. The quiet index and the `sameRects` move, with H3 green.
   4. The stamp cache, the guard and the docs.
 - **No visible change means:**
-  - H2's lists equal P0's over the whole grid;
+  - H2's lists equal P0's (cf4d7b8's render) over the whole grid, and again with `STAR_PHASES = 1` (the kill-switch identity);
   - the phase-(0, 0) atlas bytes equal P0's;
   - the index differs from `easedQuietFactor` by exactly 0;
   - the P0 screenshots match pixel for pixel.
@@ -3032,9 +2990,9 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
 #### P2. Camera seam: continuous depth and scroll glide (visible while scrolling)
 
 - **Goal.** One camera for every star: brightness-graded depth and a scroll glide, identical at rest.
-- **Blocked on.** P1 (through it, CP-0's answer: P2 edits `frameMode`, `tick` and `SkyFrame`, 8.6).
+- **Blocked on.** P1.
 - **Files.**
-  - `config.ts`: `DEPTH`, `CAMERA`. `LAYERS` stays untouched until V: the veil commit edits the same entries and doc, so P2 only stops reading `LAYERS.*.parallax` (its one reader is `renderSky.ts:100`), and V (under PF, whichever of PF and P2 lands second) removes `LayerConfig.parallax` and the three values and rewrites the doc on top of theirs (8.5 step 5).
+  - `config.ts`: `DEPTH`, `CAMERA`; `LayerConfig.parallax` and the three `parallax` values go, with "scroll parallax" in the `LAYERS` doc (6.1).
   - `catalog.ts`: `Star.q`, `nearness`, `LAYER_NEARNESS`.
   - `camera.ts`: new, with the scroll part only (6.1).
   - `renderSky.ts`: `SkyFrame.offset` replaces `parallaxScroll`; `drawLayer` offsets each star by q·C and culls cells on both axes with `LAYER_NEARNESS` (6.5).
@@ -3048,7 +3006,7 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
 - **Steps** (each ending with lint and type-check green).
   1. `DEPTH`, `nearness`, `LAYER_NEARNESS` and `Star.q`, with H6 green.
   2. `camera.ts` with the scroll part, with H5's spring cases green.
-  3. `SkyFrame.offset` and `drawLayer`'s offset and two-axis culling; until step 4, `frameAt` passes `offset: { x: 0, y: CAMERA.scrollParallax * parallaxScroll }`. H2 green on its scroll-0 rows at camera (0, 0) with `snap` forced true (at scroll 1234.5 and 5000, P1's lists carry the old per-layer parallax, so P2's continuous depth differs there by design).
+  3. `SkyFrame.offset` and `drawLayer`'s offset and two-axis culling, and the parallax keys removed; until step 4, `frameAt` passes `offset: { x: 0, y: CAMERA.scrollParallax * parallaxScroll }`. H2 green on its scroll-0 rows at camera (0, 0) with `snap` forced true (at scroll 1234.5 and 5000, P1's lists carry the old per-layer parallax, so P2's continuous depth differs there by design).
   4. The worker wiring.
 - **Visible change.**
   - At scroll 0, none: positions are identical, with stars at their exact quarter-pixel phases under full motion (S4).
@@ -3057,27 +3015,27 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   - Turning reduced motion off after scrolling no longer leaps the sky.
   - Under reduced motion, identical to today.
 - **Verification.** Lint, type-check, plus:
-  - H2: on its scroll-0 rows, with `snap` forced true and the camera at (0, 0), the lists equal P1's;
-  - H5 (springs, the snap, the lag cap, the rest rule, the resume continuity);
+  - H2: on its scroll-0 rows, with `snap` forced true and the camera at (0, 0), the lists equal P1's (the renderer's zero-offset identity);
+  - H5 (springs, the snap, the lag cap, the rest rule, the resume continuity, the kill switch);
   - H6;
   - in the browser: scroll and stop (the glide); a navbar section link, Home and End (a short glide, AC-39); `scrollTo({ top: 8000, behavior: 'instant' })` from the console (the snap); reduced motion (still, screenshots identical to P0's at scroll 0); toggle reduced motion after scrolling 3,000 px (no jump);
   - a review of the reading scene's composition while scrolling (R1's risk).
 
   Checklist: AC-1 (the scroll part), AC-9, AC-26, AC-27, AC-30, AC-34, AC-35, AC-36, AC-39.
-- **Rollback.** `CAMERA.snapViewports = 0` follows the scroll exactly, with no glide; the brightness-graded depth stays, so only a revert restores today's parallax (the three values stay in `LAYERS` until V or PF). Or revert the PR (P3 and later depend on it).
+- **Rollback.** `CAMERA.snapViewports = 0` follows the scroll exactly, with no glide; the brightness-graded depth stays, so only a revert of the PR restores today's parallax (P3 and later depend on it).
 
 #### P3. Frame pacing (no visible change at rest)
 
 - **Goal.** Draw motion on display refreshes divided by a whole number, with a watchdog, without changing what a resting sky draws.
-- **Blocked on.** P2 (through it, CP-0's answer).
+- **Blocked on.** P2.
 - **Files.**
-  - `config.ts`: `PACING`; the `FRAME` and `ADAPT` docs.
+  - `config.ts`: `PACING`; the `FRAME` doc.
   - `pacing.ts`: new (6.2), with `FrameState`, `frameDemand` and `driftCap`.
   - `sky.worker.ts`:
-    - `frameState` and `demandNow`, which fill the frame state at each frame decision;
+    - `frameState` and `demandNow`, which fill the frame state at each frame decision (the veil's `quietEasing(t)` in `fading`);
     - `rafId: number | null`; `requestFrame`, `onStalled`, the watchdog with its strikes and the probe; `rafWorks`;
     - the refresh estimate and the divisor in `tick`;
-    - `schedule` and `cancelFrames`, and the file's header doc and `schedule`'s doc (`:1-5`, `:148-151`), which describe today's timer split;
+    - `schedule` and `cancelFrames`, and the file's header doc and `schedule`'s doc (`:1-5`, `:167-170`), which describe today's timer split;
     - `SkyWorkerScope`'s animation-frame members optional.
 - **Steps.**
   1. `PACING` and `pacing.ts`, with H4 green.
@@ -3092,8 +3050,8 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   - a local patch that makes `requestAnimationFrame` never call back: frames continue from the watchdog's timer, and after three misses from the 60 Hz timer, still about 60 a second through 5 s of scrolling (messages never push the timer back); a variant that blocks animation frames for 2 s only goes back to them within 5 s of the block's end (then remove the patch);
   - the production build smoke test.
 
-  Checklist: AC-10 (the glide: every refresh while it needs more than the refresh rate, true steps at most 0.5 device px once k > 1, drawn positions within 1/8 px of true), AC-13, AC-14 (the idle part), AC-32.
-- **Rollback.** Revert the PR (P4 to P7 and P13 depend on it).
+  Checklist: AC-10 (the glide: every refresh while it needs more than the refresh rate, true steps at most 0.5 device px once k > 1, drawn positions within 1/8 px of true), AC-13, AC-14 (the idle part), AC-16 (b), AC-32.
+- **Rollback.** Revert the PR (every later phase depends on it).
 
 #### P4. Presence (visible: the twinkle keeps going while the visitor uses the pointer or keys)
 
@@ -3123,12 +3081,12 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   - at most one `activity` message a second.
 
   Checklist: AC-14, AC-32 (twinkle continuity), AC-33.
-- **Rollback.** Revert the PR (P6 depends on it).
+- **Rollback.** Revert the PR (P6 and every later phase depend on it).
 
 #### P5. Pause control (visible: the control in the navbar; lands before P4)
 
 - **Goal.** Give the sky its WCAG 2.2.2 control before any phase extends automatic motion.
-- **Blocked on.** P3 (through it, CP-0's answer, which also covers its lines inside `mountSky` and `tick`, 8.6); on a no, only its new files and `Navbar.tsx` are prepared before V or PF (4.4). It uses D1's default unless the user picks another placement.
+- **Blocked on.** P3. It uses D1's default unless the user picks another placement.
 - **Files.**
   - New: `skyPause.ts` and `SkyPauseButton.tsx`; `icons/PauseSVG.tsx` and `icons/PlaySVG.tsx`, plus their `icons/index.ts` lines.
   - `Navbar.tsx`: the control last in `<nav>` and in the stagger (`NAV_STAGGER`'s doc, `Navbar.tsx:14`, gains "and the sky's pause control"), `inert` while the menu is open; the burger's `ml-auto` and `#primary-nav`'s `md:ml-auto`; the header's `onFocus`, its ref and the focus test in the scroll callback.
@@ -3157,19 +3115,20 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   - **The hidden header:** tabbing into it after scrolling down brings the header back (2.4.11); with the control focused, Page Down and the arrow keys scroll without hiding it (2.4.7); after a mouse click on a nav link, scrolling down still hides it.
   - **Size:** DevTools shows a 40 × 40 target.
   - **Storage:** with storage blocked (DevTools "Block site data", or a Safari private window), toggling still works for the page and nothing throws. Clearing site data returns to the OS default.
-  - **Preferences:** under forced colors the control is gone. Under the reduced-motion emulation it starts paused, Play works for the page view, and a reload starts paused again.
+  - **Preferences:** under forced colors the control is gone. Under the reduced-motion emulation it starts paused, Play works for the page view, and a reload starts paused again. From here on AC-26 compares with P0's screenshots with the navbar masked, since the control joins it.
 
   Checklist: AC-9, AC-26, AC-27, AC-28, AC-29, AC-41.
-- **Rollback.** Revert the PR (P4 and P6 depend on it). P4 and P6 must never ship without P5: revert them first (P6 may instead set every `SCENE.*.drift` to 0; P4 has no kill switch).
+- **Rollback.** Revert the PR (P4 and every later phase depend on it). P4 and P6 must never ship without P5: revert them first (P6 may instead set every `SCENE.*.drift` to 0; P4 has no kill switch).
 
 #### P6. Ambient drift (the headline change)
 
 - **Goal.** The floating drift, paced, gated by presence and the pause control.
 - **Blocked on.** P4 and P5 merged (P6 may merge together with them). It uses D2 and D6.
 - **Files.**
-  - `config.ts`: `DRIFT`; `SCENE.*.drift` and the `SCENE` doc; `ADAPT.thinFade` (recommended, below).
+  - `config.ts`: `DRIFT`; `SCENE.*.drift` and the `SCENE` doc; the `ADAPT` doc's drift cap (6.2); `ADAPT.thinFade` (recommended, below).
   - `pacing.ts`: `fadeOutAt`, with the thin fade (below).
   - `scene.ts`: `SceneLevels.drift`, the `mix` key and `sceneAt`'s doc (6.7).
+  - `protocol.ts`: the drift in `SkyMotion`'s `full` doc (6.8).
   - `renderSky.ts`: `SkyFrame.thinFrom` and `thinLevel`, and the thinning fade in `drawLayer` (recommended, below).
   - `camera.ts`: `clock`, `EPICYCLES`, `DRIFT_REACH`, `driftAt`, `driftVelocity`, `DriftGate` with `driftWanted`, `driftTarget` and `driftRate`, and the drift terms of `stepCamera`, `cameraOffset` and `cameraSpeed`.
   - `sky.worker.ts`: `driftGate` and `gather` (called by `tick`, `demandNow` and `frameAt`, 6.1), `narrowScreen` set in `resize`; the drift in the frame state's camera line and its cap, with `softwareFps` from `probeRaster`'s kept milliseconds (6.2); the twinkle reading `driftGate.on` and `.level`; the header doc (reading and idle no longer simply sleep); the ADAPT fade: `thinnedAt` in `stepDown`, `frameAt`'s `thinFrom`, `thinLevel` and `keep`, and its `fading` line and `easeEnded` (recommended, below).
@@ -3180,7 +3139,7 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   3. The worker, with H13 green.
   4. The ADAPT fade (below), checked with a local patch that forces step 1: the thinned stars fade over 1 s on fade frames, then one final frame.
   5. A by-eye pass on a DPR-2 laptop, a DPR-1 monitor and a phone, changing only `DRIFT.speed` within 2.5 to 3 and, if wanted, rotating the phases (D6). Every drift check holds for any v₀ in that range. A v₀ above 3 is the user's D6 choice: H5's wander bound is then 68.4 s × v₀, AC-15's limits scale with v₀ (they are stated per v₀), B-2 allows every refresh at DPR 2 above v₀ 3.3, and above 3.5 AC-2's 8 px/s ceiling fails by design. Rotating the phases also moves AC-4's first-minute check.
-- **Recommended within P6 (do it)** (E11). Fade the stars that ADAPT step 1 thins out over 1 s, instead of removing 20% of them in one frame (`sky.worker.ts:295-298`; R3 §6): on a moving sky a one-frame loss of a fifth of the stars reads as a glitch.
+- **Recommended within P6 (do it)** (E11). Fade the stars that ADAPT step 1 thins out over 1 s, instead of removing 20% of them in one frame (`sky.worker.ts:354-357`; R3 §6): on a moving sky a one-frame loss of a fifth of the stars reads as a glitch.
   - `ADAPT.thinFade: 1`; the `ADAPT` doc gains "the stars step 1 thins out fade over `thinFade` seconds".
   - The worker records `thinnedAt` (s) when `stepDown` takes step 1.
   - `SkyFrame` gains `thinFrom`, the thinned share (`densityKeep × ADAPT.thinning`, `Infinity` before step 1), and `thinLevel`, `fadeOutAt(thinnedAt, ADAPT.thinFade, t)` (`pacing.ts`, the one-way fade P8's pause fade and P12's comet reuse; `thinnedAt` is null before step 1). While `thinLevel` is above 0, `frame.keep` stays the unthinned share.
@@ -3188,6 +3147,7 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   - `demandNow`'s `fading` also covers `easing(thinnedAt, ADAPT.thinFade, t)`, and `easeEnded` asks for one more frame when it ends (6.6).
 - **Visible change.** Section 2.1.
 - **Verification.** Lint, type-check, H4 (the thin fade's `easing` and `easeEnded`), H5 (the drift part) and H13, plus:
+  - H2's scroll-0 rows (the renderer's zero-offset identity, `thinFrom` at `Infinity`) and H5's drift kill-switch row;
   - P4's idle checks again, in the hero and the reading scene: after 95 s without input a key press restarts frames at once, and the twinkle and drift ease back in over 4 s;
   - with the debug patch: the camera speed, which times H6's band medians gives AC-1, AC-2 and AC-15, and the on-screen band order (AC-1); k and fps, JS per frame (AC-13), and no frames after the idle timeout (AC-14);
   - the 60-second watch (9.1) on a DPR-2 laptop in Chrome, a DPR-1 monitor and an iPhone in Safari;
@@ -3197,7 +3157,7 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   - the D7 device tests (WebKit judder and Low Power Mode drain).
 
   Checklist: AC-1 to AC-17, AC-26 to AC-28, AC-30, AC-32 to AC-34, AC-36.
-- **Rollback.** Set every `SCENE.*.drift` to 0: no drift and no drift frames, with everything else intact. Or revert the PR (P7 depends on it).
+- **Rollback.** Set every `SCENE.*.drift` to 0: no drift and no drift frames, with everything else intact. Or revert the PR (every later phase depends on it, P8 through `narrowScreen` and `fadeOutAt`).
 
 #### P7. Pointer lean (optional, D3)
 
@@ -3207,8 +3167,8 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   - `config.ts`: `LEAN`; `SCENE.*.lean` (hero 1, reading 0, end 0).
   - `scene.ts`: `lean` in `SceneLevels` and the `mix` key.
   - `camera.ts`: the lean springs and terms, and `leanWanted`.
-  - `protocol.ts`: `pointer`.
-  - `mountSky.ts`: `LEAN_POINTER_QUERY`; the frame-coalesced `pointermove`; `pointerout` and `blur` sending `null`; `cancelAnimationFrame` in `destroy` (6.13); `mountSky`'s doc (it forwards the pointer too).
+  - `protocol.ts`: `pointer`, and the lean in `SkyMotion`'s `full` doc (6.8).
+  - `mountSky.ts`: `LEAN_POINTER_QUERY`; the frame-coalesced `pointermove`, with its size guard and clamp; `pointerout` and `blur` sending `null`; `cancelAnimationFrame` in `destroy` (6.13); `mountSky`'s doc (it forwards the pointer too).
   - `sky.worker.ts`: the `pointer` case, `leanTarget(scene)` with `updateCamera`'s `scene`, and `leanWanted` in the frame state's camera line.
 - **Steps.**
   1. `LEAN`, the lean springs, `leanWanted` and the `lean` scene level, with H5's lean cases green; `updateCamera` passes a shared zero lean until step 3.
@@ -3216,31 +3176,28 @@ A declined overlap turns the "no" of every phase 4.4 names into "at V, or after 
   3. The worker: the `pointer` case, `leanTarget` and the camera line's `leanWanted`.
 - **Visible change.** On a desktop with a mouse, the hero's stars lean away from the cursor (the brightest up to 19 px) and settle in about 1.2 s. Nothing happens on touch screens, below the hero, under reduced motion or paused.
 - **Verification.**
-  - H5 (the lean) and H13's fifth case.
-  - With the debug patch: at most one `pointer` message per animation frame while sweeping the mouse, and none from touch; while the pointer moves, drawn frames follow the camera's speed (every refresh at DPR 2 once it moves faster than about 300 CSS px/s on a 1,440 px window, 6.13) in whole-number holds (AC-13), and the drift's divisor returns within 0.5 s of the lean settling; pausing right after moving the mouse to the control leaves 0 frames once the ease ends (AC-14).
+  - H5 (the lean and its kill switch), H13's fifth case, and H2's scroll-0 rows (the renderer's zero-offset identity).
+  - With the debug patch: at most one `pointer` message per animation frame while sweeping the mouse, none from touch and none before the canvas's first size; while the pointer moves, drawn frames follow the camera's speed (every refresh at DPR 2 once it moves faster than about 300 CSS px/s on a 1,440 px window, 6.13) in whole-number holds (AC-13), and the drift's divisor returns within 0.5 s of the lean settling; pausing right after moving the mouse to the control leaves 0 frames once the ease ends (AC-14).
   - In the browser: the lean stops below the hero; entering and leaving the window never jumps (AC-9).
 
   Checklist: AC-3 (lean excluded), AC-9, AC-10, AC-13, AC-14, AC-26.
 - **Rollback.** `LEAN.reach = 0`, or revert.
 
-#### Checkpoint V: the veil commit lands (8.5)
-
-Everything below waits for it, or for PF (8.7), which only the user can start (D10). The trigger to ask the user is D10's: P7 merged or skipped while the veil commit still hasn't landed, or earlier after a declined overlap (4.4). Ask then, with D10's answers, and again weekly while the answer is to wait (CP-4), rather than waiting indefinitely.
-
-#### P8. Transient core (blocked on V)
+#### P8. Transient core
 
 - **Goal.** One scheduler for every short-lived event, with the ink lease and the scroll cancel, launching exactly as before.
+- **Blocked on.** P3, P4, P5 and P6 (`narrowScreen`, `fadeOutAt`).
 - **Files.**
   - `transients.ts`: new (6.9), kind-agnostic.
+  - `protocol.ts`: "transients" in `SkyMotion`'s `full` doc (6.8).
   - `meteorKind.ts`: new (6.9): `MeteorMemory`, `createMeteorMemory`, `planMeteorTransient` (`planLaunch` ported) and `METEOR_SPEC`.
   - `random.ts`: `Random`.
-  - `config.ts`: `TRANSIENTS` (`crossingCooldown` 0), taking `METEOR`'s scheduler keys (the narrow-block doc trimmed) and `FRAME.meteorScrollQuietMs` as `scrollQuiet` in seconds (6.9); `SCENE.heroMeteorMaxScroll` (`config.ts:156`) becomes `heroLaunchMaxScroll`, with its doc (6.7).
-  - `scene.ts`: `SceneLevels.meteors` becomes `launches`, read where the key is (`scene.ts:36`).
-  - `meteors.ts`: nothing of ours (I1 and I7 are the veil commit's; under PF, PF step 3 has added them).
+  - `config.ts`: `TRANSIENTS` (`crossingCooldown` 0), taking `METEOR`'s scheduler keys (the narrow-block doc trimmed) and `FRAME.meteorScrollQuietMs` as `scrollQuiet` in seconds (6.9); `SCENE.heroMeteorMaxScroll` (`config.ts:171`) becomes `heroLaunchMaxScroll`, with its doc (6.7).
+  - `scene.ts`: `SceneLevels.meteors` becomes `launches` (its doc keeps the veil's wording, 6.7), read where the key is (`scene.ts:36`).
   - `renderSky.ts`: `drawTransient`, which hands `drawMeteor` its `fade`.
   - `sky.worker.ts`:
     - `const transients = createTransientSchedule()` replaces `meteor`, `launchScrollY`, `radiant`, `launched`, `failedPlans` and `nextMeteorAt` (6.9);
-    - `launchGate` (with `ink` from `contrastLevels()`); cancel and drop; `forgetVisitSky` where the oracle clears the radiant (resize only; 6.9); `holdTransients` and `retryTransients` in seconds;
+    - `launchGate` (with `ink` from `contrastLevels()` and `narrow` from `narrowScreen`); cancel and drop; `forgetVisitSky` where the oracle clears the radiant (resize only; 6.9); `holdTransients` and `retryTransients` in seconds; `meteorsAllowed` renamed `launchesAllowed`, and the `reveal`, `motion` and `noteInput` docs worded for transients (6.9);
     - `transientDemand` and `nextLaunchAt`;
     - `draw` with `transientFade`, in place of the veil commit's `scrollKept` call (I3);
     - `parallaxScroll` retired (6.9): `updateCamera` reads `scrollY`; the `scroll` handler's write and the `motion` handler's resume line go, and `init`'s chained assignment becomes `scrollY = message.scrollY`.
@@ -3248,35 +3205,38 @@ Everything below waits for it, or for PF (8.7), which only the user can start (D
 - **Steps.**
   1. `TRANSIENTS`, `Random` and the types (`METEOR`'s moved keys and `FRAME.meteorScrollQuietMs` stay until step 3: the worker still reads them).
   2. The scheduler (its retire step through `transientFade`) and the meteor kind (`planLaunch` ported), with H7 green against the oracle.
-  3. The worker swap, in one commit because the worker reads every name it replaces: `transients`, the launch gate, cancel and drop, `forgetVisitSky` where the oracle clears the radiant, `drawTransient` with `transientFade` in `draw` (I3, I7), the `launches` and `heroLaunchMaxScroll` renames with their docs, `METEOR`'s moved keys (and the narrow block's doc) and `FRAME.meteorScrollQuietMs` removed, and the README line.
+  3. The worker swap, in one commit because the worker reads every name it replaces: `transients`, the launch gate, cancel and drop, `forgetVisitSky` where the oracle clears the radiant, `drawTransient` with `transientFade` in `draw` (I3, I7), the `launches`, `heroLaunchMaxScroll` and `launchesAllowed` renames with their docs, `METEOR`'s moved keys (and the narrow block's doc) and `FRAME.meteorScrollQuietMs` removed, and the README line.
   4. `parallaxScroll` retired (its `let` and its three writers, 6.9), with H5's pause, scroll, resume case and H13 green.
 - **No visible change means:**
-  - the same rate (today's gap law, as their commit leaves it), the same radiant behavior, the same narrow limit (2), the same veil checks, the same scroll cancel and no crossing cooldown (H7's oracle equality);
-  - the one difference: pausing fades a flying meteor over 0.2 s instead of dropping it (scrolling already dims it through their `scrollKept`).
+  - the same rate (today's gap law), the same radiant behavior, the same narrow limit (2), the same veil checks, the same scroll cancel and no crossing cooldown (H7's oracle equality);
+  - the one difference: pausing fades a flying meteor over 0.2 s instead of dropping it (scrolling already dims it through `scrollKept`).
 - **Verification.** Lint, type-check, H7 (with the oracle), H10, H5's pause, scroll, resume case and H13 (its case 7 runs the worker's launch gate), plus the production build smoke test.
 
   Checklist: AC-18, AC-19, AC-22, AC-28 (the fade), AC-30, AC-31, AC-37, AC-38 (the lease), AC-40.
-- **Rollback.** Revert the PR; the veil-era `updateMeteor` returns (P9 to P12 depend on it).
+- **Rollback.** Revert the PR; today's `updateMeteor` returns (P9 to P12 depend on it).
 
-#### P9. Meteor population model and rates (blocked on P8)
+#### P9. Meteor population model and rates
 
 - **Goal.** Meteors from realistic directions, then at the new rate.
+- **Blocked on.** P8.
 - **Files.**
   - `config.ts`:
     - added: `GapLaw`, `WakeColor`, `SKY_WINDOW`, `RADIANTS`, `SPEED_CLASSES`, `METEOR_RATE`, `METEOR_BRIGHTNESS`, `METEOR.fallbackScale`, `TRANSIENTS.longVisit`;
-    - changed: `TRANSIENTS.narrowLimit` 6 and `crossingCooldown` to the value checkpoint V set (55 to start); the `METEOR` and `METEOR_LOOK` docs, `radiantTries`' meaning and the inner key docs (6.10);
+    - changed: `TRANSIENTS.narrowLimit` 6 and `crossingCooldown` (55 to start; the verification below sets it); the `METEOR` and `METEOR_LOOK` docs, `radiantTries`' meaning and the inner key docs (6.10);
     - removed: the keys 6.10 lists.
   - `radiants.ts`: new (6.10).
   - `random.ts`: `gaussian`.
   - `meteorKind.ts`: `MeteorMemory` becomes `{ sky: VisitSky | null }`; `planMeteorTransient` tries long flights on the first steer and fresh ones, then the short fallback over the same steers (6.9), and clears a failed sky; `METEOR_SPEC` uses `nextGap(METEOR_RATE…)`.
   - `gaps.ts`: new, `nextGap` (6.9).
-  - `meteors.ts`: `Course`, `Steer`, the `steer` option in place of the `radiant` parameter, `startArea`, `PassOptions.fallback` in place of `timing`, the end guards, the fireball path and `Meteor.wakeColor` (I2).
+  - `meteors.ts`: `Course`, `Steer`, the `steer` option in place of the `radiant` parameter, `startArea`, `PassOptions.fallback` in place of `timing`, the fallback's scaled minimum, the end guards, `clearOf`, the fireball path and `Meteor.wakeColor` (I2), and the `PassOptions`, `planFlight` and `planMeteor` docs (6.10).
+  - `transients.ts` and `sky.worker.ts`: `SkyField.pinned`, which `launchGate` fills with the padded rails (6.9).
+  - `mountSky.ts`: `copyReader`'s caveat names `clearOf` as the rails' guard (6.10).
   - `renderSky.ts`: the wake tint (6.10).
   - `README.md`: the sky lines (`radiants.ts`, `gaps.ts`).
 - **Steps** (one commit each; the directions come first, because the rate may rise only after they have cut the crossing share: about 57% of the new flights fly away from the left-aligned copy).
   1. `WakeColor`, `SKY_WINDOW`, `RADIANTS`, `SPEED_CLASSES`, `METEOR_BRIGHTNESS`, `METEOR.fallbackScale` (which `visitSteer` reads), the `Course` and `Steer` types and `startArea` in `meteors.ts` (an exported function naming today's spawn area, which `radiants.ts` probes and `planFlight` adopts in step 2), `radiants.ts` and `gaussian`, with H8's sky parts green.
-  2. I2 in `planFlight` and `planMeteor` (the steer in place of the radiant, starts sampled from `startArea`, the fallback flag, the end guards, the peak, the fireball path), `Meteor.wakeColor`, the wake tint, the new `MeteorMemory` and `planMeteorTransient`'s steers; the old radiant, angle, speed, duration and peak keys removed; with H8's launch parts green.
-  3. `GapLaw`, `METEOR_RATE`, `gaps.ts`, `TRANSIENTS.longVisit`, `narrowLimit` 6, and `crossingCooldown` at V's value (P8's `revealTransients` already starts it at the reveal), with H9 green; the old gap keys removed.
+  2. I2 in `planFlight` and `planMeteor` (the steer in place of the radiant, starts drawn from `startArea` as today, the fallback flag and its scaled minimum, the end guards, `clearOf` with `SkyField.pinned`, the peak, the fireball path), `Meteor.wakeColor`, the wake tint, the new `MeteorMemory` and `planMeteorTransient`'s steers; the old radiant, angle, speed, duration and peak keys removed; with H8's launch parts green.
+  3. `GapLaw`, `METEOR_RATE`, `gaps.ts`, `TRANSIENTS.longVisit`, `narrowLimit` 6, and `crossingCooldown` at the value 6.9's rule gives from H9, searched from 55 s (P8's `revealTransients` already starts it at the reveal), with H9 green; the old gap keys removed.
 - **Visible change.**
   - About 4.7 shooting stars a minute in the hero (median 5 in the first minute), from varied directions, about 4 in 10 sharing the visit's shower radiant.
   - The radiant on screen on about 15% of desktop visits.
@@ -3285,10 +3245,11 @@ Everything below waits for it, or for PF (8.7), which only the user can start (D
   - Gaps that stretch from the third minute.
   - Up to 6 a visit on phones.
   - No crossing of the copy in a visit's first `crossingCooldown` seconds.
-  - Fireballs keep today's odds per launch, so at the new rate they come about 3.4 times as often (about one every 3 minutes) until P10 makes them 4% and 120 s apart; so P10 reaches master with P9 or right after it (7.0).
+  - Fireballs keep today's 8% chance per candidate path, so at the new rate, with more clear sky, they come about one every 3 minutes at 1440 × 900, 8 times today's one every half hour [computed, check report], until P10 makes them 4% and 120 s apart (7.0).
 - **Verification.** Lint, type-check, H7, H8, H9 and H10, plus:
-  - crossings per minute over a visit's first two minutes and plan acceptance on the nine archived layouts with the archived harness (`harness/README.md`; I8), at or below the veil commit's over the same window, otherwise retune `crossingCooldown` from the measured share (6.9's table); on the phone's layout, also how often a clear-sky plan fits (H9);
-  - the veil session's crossing measurement rerun on the same layouts (P9's end tests change which paths fit), reported to the user beside the veil commit's numbers, as the veil session asked, and logged (CP-2);
+  - the crossing cooldown, set by 6.9's rule from H9's nine layouts (AC-38);
+  - the veil session's crossing measurement rerun (P9's end tests and `clearOf` change which paths fit), reported to Joseph beside its numbers (8.4) and logged (CP-2): the five rows of `COORDINATION.md`'s "Final crossing numbers" at its three sizes, and the `nearCopy` share and the pass at 0.12 on the other six layouts, each share per launch attempt, as `sim2.mjs` counts it, with H9's crossings a minute over a visit's first two and first five minutes beside the oracle's (6.9);
+  - **the archived harness** (`harness/README.md`; I8) plans through names P9 removes, so adapt it outside the repository: extract it into the implementing session's scratchpad, point `lib.mjs`'s `ROOT` (its `HERE` and `ZONES` follow) and `transpile.mjs`'s `HERE` and `PLAN` at that copy, never at the veil session's scratchpad they name today, whose results they would overwrite (README steps 1 and 2), and create `live/out`, which the render writes to; then, in place of README step 3, which predates P9, follow this list: `transpile.mjs` with `REPO` at the implementing worktree (it transpiles every `src/lib/sky` file); `lib.mjs`'s loaders and the nine layouts, with `meteorKind`, `radiants`, `gaps` and `transients` added to its `P` and the field's `pinned` to `fieldOf`; each `pickRadiant` and `planMeteor` pair (`sim2.mjs:23-24`, `check11/render3-canvas.mjs:136`) replaced by `METEOR_SPEC.plan` on a fresh `PlanContext` per launch (a fresh `createMeteorMemory()`, as `sim2.mjs` draws a fresh radiant; `nearCopy` true; `ink` 1; `narrow` as `sim2.mjs:27` sets it); the proto tree only (`TREES=proto`; `sim2.mjs`'s base rows dropped, since `base` would be the implementing HEAD), with `sim2.mjs:28`'s short-flight count dropped (it reads `fallbackDuration`); the GPU rows from `check11/render3-canvas.mjs` (default `CANVAS=gpu`; never `render3.mjs`'s software canvas) at `FLIGHTS=200` and `SEED` 0 to 2 per size, as the veil ran them, its frame literal given P9's `SkyFrame` fields in place of `parallaxScroll` and `meteorScroll`, and its `launch` from `live/alib.mjs` (its `PW` and `CHROME` set), which keeps the GPU flags, in place of the unarchived `code-logic/lib.mjs`. `run-batch.sh`, `harness/build.mjs` and the live runs stay unused: they read worker names P3 and P8 replace;
   - B-9 (every-frame drawing at the new rate);
   - the 60-second watch.
 
@@ -3299,10 +3260,10 @@ Everything below waits for it, or for PF (8.7), which only the user can start (D
 
 - **Goal.** Fireballs rarer, spaced and inside the 5 s rule.
 - **Files.**
-  - `config.ts`: `METEOR_KINDS`, below; `METEOR.fireballChance` and `fireballDuration` removed.
+  - `config.ts`: `METEOR_KINDS`, below; `METEOR.fireballChance` and `fireballDuration` removed, the fireball doc moving onto `fireballSpeedScale` (6.10).
   - `transients.ts`: `PlanContext.sinceReveal`, filled from `gate.sinceReveal` in the launch step.
   - `meteorKind.ts`: the meteor spec decides fireballs before planning: desktop only, at least `after` s since the reveal, at least `spacing` s since the last one (in `MeteorMemory`), and `chance` per launch.
-  - `meteors.ts`: the `fireball` option replaces `PassOptions.fireballs` and the per-attempt chance.
+  - `meteors.ts`: the `fireball` option replaces `PassOptions.fireballs` and the per-attempt chance, in the code and the two docs (6.10).
 
 ```ts
 /**
@@ -3332,7 +3293,6 @@ export const METEOR_KINDS = {
   - `quietIndex.ts`: `segmentClear`, the clear-sky test of every path we plan ourselves (6.4).
   - `transients.ts`: `satellite` in `TransientBodies`, `TRANSIENT_KINDS` and the registry (`SATELLITE_SPEC`); D12's two-way hold in the launch step, unless D12 lifts it (6.9).
   - `renderSky.ts`, or a split `renderTransients.ts` (if split, add it to AGENTS.md's worker list): `drawSatellite` (through `transientQuietFactor`) and its `case`, which hands it `CLEAR_SKY_KEEPS`.
-  - `meteors.ts`: nothing of ours.
   - `README.md`: the sky lines (`satellites.ts`).
 - **Steps.** (1) `SATELLITE` and `satellites.ts` without the kind: `SatellitePass`, `SatelliteFrame`, `satelliteMoving` and `satelliteAt`, with the speed, fade and warmth checks green. (2) The kind, in one commit, because the registry and the drawing switch make a kind without a spec or a `case` a compile error: `'satellite'` in `TransientBodies` and `TRANSIENT_KINDS`, `planSatellite`, `SATELLITE_SPEC` and its registry entry, `drawSatellite` and its `case`, with H7 and the pass checks below green.
 - **Visible change.** Now and then, a steady point glides across clear sky for under 5 s, often fading into Earth's shadow.
@@ -3348,9 +3308,9 @@ export const METEOR_KINDS = {
 #### P12. Could kinds (each its own PR, per D4)
 
 - **Goal.** Ship each "could" kind the user picks in D4, one at a time: the near-radiant point flash, bursts, earthgrazers, farewell meteors, the static comet and the planet (6.12).
-- **Blocked on.** V (or PF) for every kind but the planet, which is a star (star keeps, per star, per frame) and could follow P2. COORDINATION.md request 1 names the comet, so it waits like the others.
-- **Files per kind.** The point flash, bursts and earthgrazers: a `METEOR_KINDS` entry in `config.ts` (with a doc comment), the variant in `meteorKind.ts` (decided like fireballs, reported by the spec's `clearSky(body)`), `transients.ts` (the first of them adds `clearSky(body)` to `TransientSpec` and folds it into the envelope's `clearSky`), `renderSky.ts` (the `drawMeteor` keeps argument from `drawTransient`), and `radiants.ts` for the point flash. Farewell meteors: their registry entry and the scene report (`transients.ts`: `'farewell'`, `LaunchGate.scene`, `TransientSpec.scene`, step 2.2's hold), `scene: 'hero'` in `METEOR_SPEC` and `SATELLITE_SPEC`, `scene.ts` (`SceneLevels.launchScene` in place of `launches`, computed in `sceneAt`, with its doc), `SCENE.endLaunchLevel` (documented beside `heroLaunchMaxScroll`) and the spec's gap law and visit cap in `config.ts`, their spec in `meteorKind.ts`, `drawTransient`'s `'farewell'` case, and the scene in the worker's `launchGate` (6.12). The comet: its block in `config.ts`, the model module `src/lib/sky/bodies.ts` (placement; its fade-in, and its box and pause fades through `fadeOutAt`; the box test; the launch scroll; its light is the fade-in × `scrollKept`, 6.12), `LaunchGate.bodyShowing` in `transients.ts`, the worker (the comet's state, its pause time set in the `motion` handler beside `cancelTransients`, `bodyShowing` in `launchGate`, and its hand-off to `renderSky.ts` in `draw`), its drawing after the layers in `renderSky.ts`, and README's sky line. The planet: its catalog entry in `catalog.ts`.
-- **Steps.** (1) Config and model, with its harness checks green: burst members at least 0.35 s apart and all clear-sky; the comet's box clear of every zone's reach in `to` and `next` on every drawn frame, the drift and the lean included. (2) The drawing. (3) Its acceptance item.
+- **Blocked on.** P9 for every kind but the planet, which is a star (star keeps, per star, per frame) and could follow P2.
+- **Files per kind.** The point flash, bursts and earthgrazers: a `METEOR_KINDS` entry in `config.ts` (with a doc comment), the variant in `meteorKind.ts` (decided like fireballs, reported by the spec's `clearSky(body)`), `transients.ts` (the first of them adds `clearSky(body)` to `TransientSpec` and folds it into the envelope's `clearSky`), `renderSky.ts` (the `drawMeteor` keeps argument from `drawTransient`), and `radiants.ts` for the point flash. Farewell meteors: their registry entry and the scene report (`transients.ts`: `'farewell'`, `LaunchGate.scene`, `TransientSpec.scene`, `room` and `limit`, `TransientSchedule.kindLaunches`, step 2.2's holds), `scene: 'hero'` in `METEOR_SPEC` and `SATELLITE_SPEC`, `scene.ts` (`SceneLevels.launchScene` in place of `launches`, computed in `sceneAt`, with its doc), `SCENE.endLaunchLevel` (documented beside `heroLaunchMaxScroll`) and the spec's gap law and visit cap in `config.ts`, their spec in `meteorKind.ts` (the band's edge for `room` and `plan`, and `planMeteorTransient`'s optional second argument), the `starts` option and `clearOf`'s farewell clause in `meteors.ts`, `drawTransient`'s `'farewell'` case, and the scene in the worker's `launchGate` (6.12). The comet: its block in `config.ts` (its first delay included), the model module `src/lib/sky/bodies.ts` (placement; its fade-in, and its box and pause fades through `fadeOutAt`; the box test; the launch scroll; the start rule over the launch gate; its light is the fade-in × `scrollKept`, 6.12), `LaunchGate.bodyShowing` in `transients.ts`, the worker (the comet's state, its pause time set in the `motion` handler beside `cancelTransients`, its retirement in `resize` beside `dropTransients`, its fade-in in `demandNow`'s `fading`, `bodyShowing` in `launchGate`, and its hand-off to `renderSky.ts` in `draw`), its drawing after the layers in `renderSky.ts`, and README's sky line. The planet: its catalog entry in `catalog.ts`.
+- **Steps.** (1) Config and model, with its harness checks green: burst members at least 0.35 s apart and all clear-sky; farewell paths clear of the end scene's unmarked copy, a hold (never a failed plan) wherever `room` finds none, and at most 2 a visit (6.12); the comet's box clear of every zone's reach in `to` and `next` on every drawn frame, the drift and the lean included, the comet never starting while `leaseHeld`, before its first delay, unsettled or idle, nor a lease beginning while it shows, and a resize retiring it. (2) The drawing. (3) Its acceptance item.
 - **Visible change.** The kind appears as its 6.12 row says.
 - **Verification.** Lint, type-check, H7 and H10 with the kind, its harness checks, its acceptance item (AC-25 for the comet) and the 60-second watch; the comet and the planet also get a composition review, and the planet re-baselines AC-26's P0 screenshot (it shows under reduced motion).
 - **Rollback.** Set the variant's `METEOR_KINDS` chance to 0, remove the comet's or the planet's body, or revert its PR. Nothing depends on it.
@@ -3361,7 +3321,7 @@ export const METEOR_KINDS = {
 - **Go criteria.** On an iPhone in Safari or on macOS Safari, AC-10 or AC-13 fails visibly (judder of the near stars, about 4.5 jolts a second, R3 §2.2), or a 10-minute Low Power Mode test shows an energy impact well above Chrome's on the same machine.
 - **Files.**
   - `protocol.ts`: `tick` and `relay`.
-  - `mountSky.ts`: the `relay` case in P5's message `switch`, and a main-thread rAF loop that posts `tick` while the worker asks for it.
+  - `mountSky.ts`: the `relay` case in P5's message `switch`, and a main-thread rAF loop that posts `tick` while the worker asks for it, its pending frame cancelled in `destroy`, as P7's is.
   - `sky.worker.ts`: asks for the relay (`{ type: 'relay', on }`) while its clock is unaligned and a vsync demand exists, and draws on `tick`.
 - **Steps.** (1) The two messages and the `relay` case. (2) The main-thread loop. (3) The worker's request and its `tick` frames.
 - **Visible change.** On Safari only, moving stars land on display refreshes (no judder); elsewhere nothing changes.
@@ -3369,176 +3329,69 @@ export const METEOR_KINDS = {
   - The same device tests now pass.
   - The main-thread trace shows the relay at 10 to 30 µs per frame and no long tasks.
   - Chrome and Firefox never enable it, because their clocks are aligned.
+  - After `/links`, View Full Portfolio, then Back, a main-thread trace on `/links` shows no relay frames.
 
   Checklist: AC-10, AC-13; budget B-5.
 - **Rollback.** Revert; the worker falls back to its own clock.
 
-#### PF. Veil fallback (only on the user's go-ahead, D10, and a handshake)
+## 8. The veil commit this plan builds on
 
-- **Goal, trigger and rules.** Section 8.7.
-- **Files.** `meteors.ts` (I1's `nearCopy` option and field, with the confirmed `flights` and `ink`; later I2 and the `fireball` option, in P9 and P10); `config.ts` (`LAYERS.far.inkKeep` 0 and the `LAYERS` doc's arithmetic, and, once P2 has landed, the parallax keys it no longer reads and their sentence, as at V, 8.5 step 5; `SCROLL_CANCEL`); `scene.ts` (`scrollKept` and `transientQuietFactor`); `renderSky.ts` (`drawMeteor`'s `fade`, I7, and its veil through `transientQuietFactor`; its wake tint needs `Meteor.wakeColor` and so comes with I2 in P9); `sky.worker.ts` (`contrastLevels()`, and `launchScrollY` with `scrollKept` wired into today's `updateMeteor` and `draw`, as the veil commit wires them).
-- **What PF lacks**, so P8 to P12 read differently there: no `INK_BUDGET`, `inkBudget` or `budgetKeeps` (the planner accepts `ink` and ignores it, since today's `drawMeteor` already scales its veil by `meteorInk`; docs that cite `INK_BUDGET` read `METEOR_VEIL` under PF); today's two-parameter `veiledFrom` (I2 sets the course's peak in the returned meteor and calls `veiledFrom(zones, path)`), with veiled peaks at most 1 (8.7); no `planLaunch` (P8's oracle is today's `updateMeteor`, and `planMeteorTransient` keeps its radiant handling, one fresh radiant at a time, until P9). Every other name, signature and value is the confirmed interface's; nothing exports `segmentTouches`, since `segmentClear` serves the paths we plan ourselves.
-- **Steps.** (1) The handshake (8.7). (2) `LAYERS.far.inkKeep` 0, with AC-30's arithmetic, and the parallax keys (above). (3) I1 (the confirmed `PlanOptions`, `nearCopy`, `flights` and `ink`, and `Meteor.nearCopy`), I3 (`scrollKept`, `SCROLL_CANCEL` and `launchScrollY`, wired into `updateMeteor` and `draw`), I7, `transientQuietFactor` and `contrastLevels()`. (4) When the user approves, the integration branch (PF, and P1 to P7 where built) reaches master by the route in 8.5 step 2. Then P8 (after a declined overlap, once the phases that waited have run on the PF tree, 8.7), whose H7 oracle is today's `updateMeteor` with PF's changes.
-- **Visible change.** Far stars no longer show on the letters of quiet copy themselves; they still dim through the padding, as today. A shooting star dims from 12 px of scroll after its launch and is gone by 24 px, which fixes the About bug. Nothing else changes until P8.
-- **Rollback.** Revert PF (P8 to P12 depend on it).
+### 8.1 Baseline: the veil commit
 
-## 8. Coordination protocol
-
-### 8.1 Stable seams (what the veil session's code reads from ours)
-
-Until checkpoint V, this plan edits the veil session's listed symbols only as the overlaps 8.6 lists, and it keeps every name their code reads stable in name and meaning, so that when the integration branch rebases onto their commit, their handlers keep working unchanged with our phases.
-
-| Their code | What it reads | Note |
-|---|---|---|
-| The `scroll` handler (`sky.worker.ts:463-470`) | `scrollY`, `motion`, `parallaxScroll`, `lastScrollAt`, `noteInput(now)`, `rafId` (falsy when no frame is pending), `timerId` (undefined when no timer is), `needsDraw` | P3 changes `rafId`'s type to `number \| null` but not its meaning. Our `motion` handler also writes `parallaxScroll` on resume (P2), with the same meaning. |
-| The `layout` handler (`:471-484`) and their `applyLayout` | `documentHeight`, `sameRects`, `quiet`, `pinned`, `quietBefore`, `pinnedBefore`, `layoutAt`, `retryMeteors(now)`, `needsDraw` | `sameRects` moves to `scene.ts` in P1, still imported under that name |
-| `quietBlend` and `settleQuiet` (`:227-243`) | `layoutAt`, `scrollY`, `quiet`, `pinned`, `quietBefore`, `pinnedBefore`, `lastDrawAt`, `needsDraw` | Their `settleQuiet` also applies a deferred layout; our `tick` keeps calling it before the frame decision (6.2). |
-| `updateMeteor` (`:193-224`) and their `planLaunch` | `meteor`, `radiant`, `launched`, `failedPlans`, `nextMeteorAt`, `revealAt`, `meteorsAllowed(now)`, `lastScrollAt`, `scrollY`, `width`, `height`, `random` | `meteorsAllowed` keeps its name; P4 changes only its presence test |
-| `frameAt` and `draw` (`:246-283`) | `scrollY`, `width`, `height`, `dpr`, `documentHeight`, `exitAt`, `contrastMore`, `quality`, `twinkleLevel(now)`, `field`, `lastDrawAt`, `needsDraw` | Both plans edit `frameAt` before V (8.6). `twinkleLevel` keeps its name (P4, P5 and P6 change its body); `parallaxScroll` gives way to `offset` there in P2. |
-
-P8 (after V) is the first phase allowed to rename or remove any of these; it retires `parallaxScroll` (6.9).
+The meteor-veil fix is cf4d7b8 on master ("feat(sky): let shooting stars glide faintly behind hero copy", parent 246c0aa, pushed): its confirmed diff exactly (patch-id checked), with every recommended setting and no launch hold. It lets a shooting star glide on behind quiet copy at a glimmer fitted to each rect's measured `headroom` (`INK_BUDGET`), retires flights on scroll (`scrollKept`), keeps transients under the current and waiting zones (`transientQuietFactor`), defers a layout that arrives mid-ease, and takes far stars off the copy's letters (`LAYERS.far.inkKeep` 0). `COORDINATION.md` has the rest: "Confirmed veil interface", "Answers to the planning session's questions", "Committed: cf4d7b8" and the final crossing numbers in "Landed in the working tree".
 
 ### 8.2 Checkpoints
 
-| ID | When | Action | Exit |
+| ID | When | Action |
+|---|---|---|
+| **CP-1** | Before every phase | `git fetch origin`, then `git log --oneline <last-checked>..origin/master -- src/lib/sky src/components/sky`, and the same for the local `master`. A new sky commit on `origin/master` (a veil follow-up, say) is merged before the phase starts: read it, recheck 8.4's rows against it, and rerun H2 and H3. One only on the local `master` waits until the user pushes it or says to include it, since the phase's pull request would publish it. Read any message from the veil session. |
+| **CP-2** | After each phase merges | A dated `COORDINATION.md` entry on the planning branch (7.0) listing the files and functions the phase changed, and the same note to the veil session while it is active (SendMessage through `ListAgents`, or the user relays it). P9's entry carries its crossing numbers and `copyReader`'s new rail guard (8.4). |
+
+### 8.3 Interface requests: final status
+
+`COORDINATION.md` (2026-10-27) settles every request. Our code imports none of the veil's private helpers (`fitKeep`, `luminance`, `contrastRatio`, `segmentTouches`): the control's contrast figures (6.8) were computed offline, and a harness that rechecks them carries its own WCAG formula.
+
+| # | Request | Final status |
+|---|---|---|
+| I1 | An options object on the planner, and `Meteor.nearCopy` | **In cf4d7b8**: `planMeteor(random, field, radiant, now, options: PlanOptions = {})` with `PlanOptions { nearCopy?, flights?, ink? }`; `Meteor.nearCopy`, true when `dimFrom < 1`; `planFlight` private, with `PassOptions` (`timing`, `fireballs`). The ink lease (P8) reads `nearCopy` without re-checking the path. |
+| I2 | The direction source, the `fireball` option and the end test | **Ours**, agreed with three asks (8.4): `steer` replaces the `radiant` parameter and `pickRadiant`, `PassOptions.timing` becomes a `fallback` flag, the 18 to 42° filter goes, the end test gains the right edge and `METEOR.top`, and `clearOf` keeps paths off the rails (P9); `fireball` joins `PlanOptions` (P10). `veiledFrom` never changes. |
+| I3 | One kind-agnostic scroll cancel | **In cf4d7b8**: `scrollKept(launchScrollY, scrollY, fade = 1)` with `SCROLL_CANCEL = { from: 12, to: 24 }`; retire at 0; pause and cancel fades go in as `fade`; no second threshold-plus-fade rule. `transientFade` calls it for every kind (P8). |
+| I4 | A `QUIET_REACH` export | **In cf4d7b8**: `QUIET.padding + QUIET.feather`, 72 px from a measured rect; `ZONE_REACH` is it less `QUIET.padding`, 40 px from a padded zone (P1, Q1). |
+| I5 | A per-rect text class and its budgets | **In cf4d7b8**: `SkyRect.headroom`, a measured number (no enum); `INK_BUDGET`, `inkBudget(headroom)` and `budgetKeeps(white, quietKeep, ink = 1)`; the far-star case closed (`LAYERS.far.inkKeep` 0, so `STAR_INK_PEAK` is 0). Each budget counts one transient plus the haze, so the lease stays "one lit transient near copy". |
+| I6 | Export `segmentTouches` | **Declined** (it stays private). Our planners share `segmentClear` (6.4); meteors keep the planner's own test. |
+| I7 | A `fade` on `drawMeteor` | **In cf4d7b8**: `drawMeteor(ctx, assets, meteor, frame, fade = 1)` multiplies the train, wake, glow and core alphas; `SkyFrame` gains no scroll field. The wake tint from `meteor.wakeColor` is ours (P9). |
+| I8 | Their numbers | **Answered**: the SHA (cf4d7b8); the names and answer 1's list; `SCROLL_CANCEL`, `INK_BUDGET` and the final crossing numbers (`COORDINATION.md`); the harness and the nine captured layouts, 390 × 844 at DPR 3 among them, archived in `harness/` and never extracted into the repository. No `quietBlend` cache (R-20). |
+| I9 | May never-lease kinds overlap a lease holder, and may a comet fade with the launch gate? | **Answered** (answers 3 and 4): yes, on answer 3's three conditions (no light inside a padded rect of `to` or `next`, T3; `scrollKept` from its own launch, T4; the lease for light on quiet copy, T2), which our clear-sky kinds meet by construction; two at once is a look choice (D12). Not the launch gate: the comet keeps `scrollKept`, unless its own scroll fade passes 6.12's check on the shortest screen where it can show. |
+
+### 8.4 Veil symbols this plan uses or extends
+
+**The rule: use them, extend them through options, never rewrite them; `veiledFrom` never changes.** Where a phase replaces a veil function (P3's `frameMode` and `tick`, P8's `updateMeteor` and `planLaunch`), it carries the veil's lines over in their order, as the row says. The symbols are answer 1's, checked against cf4d7b8.
+
+| File | Symbols | How this plan uses or extends them | Phase |
 |---|---|---|---|
-| **CP-0** | P0 | Send the message in 8.4 to the veil session: SendMessage if `ListAgents` shows "Star and comment animation redesign" (`local_e2e17660-e99d-43e6-84ab-7337ee88227d`); otherwise ask the user to relay it. It names the implementing session as a recipient of their landing notice and asks for the overlaps 8.6 marks requested (if V has already run, P0 step 1, it sends only its first paragraph and the request). Log it in `COORDINATION.md`. | Sent and logged. Until they, or the user, agree, no phase edits a requested overlap; a no holds the phases 4.4 names. Their answer is logged. |
-| **CP-1** | Before every phase | Starting from 246c0aa: `git fetch origin`; `git log --oneline <last-checked>..master -- src/lib/sky src/components/sky` (local master: the veil session commits in the main checkout, whose refs every worktree shares, and may never push); the same for `origin/master`; `git -C S:/Documents/repos/Portfolio status --short -- src/lib/sky src/components/sky` (read only: their work in progress, which they commit only once the user approves it), with each listed file's last-write time (metadata only, never the contents), so CP-4 can tell whether that work still moves; read any reply. | If the veil commit landed: finish the current phase, run checkpoint V (8.5), then continue. After V it keeps running until the veil session says it has finished (its plan ends with an audit that may follow up); a later veil commit is merged into the integration branch by 8.5 step 2's rule. |
-| **CP-2** | After each merge of a phase (P1 to P13, PF) into the integration branch, until the veil session says it has finished | Append a dated entry to `COORDINATION.md` on the planning branch (7.0), listing the files and functions the phase changed and confirming the stable seams (8.1); send the veil session the same note by SendMessage, or through the user. | Logged and sent. |
-| **CP-3** | The veil commit lands | Checkpoint V (8.5). Then update `COORDINATION.md` (the SHA, and anything the commit changed since the landed message) and reply with what we adopted. | P8 unblocked. |
-| **CP-4** | D10's trigger (P7 merged or skipped, or earlier after a declined overlap, 4.4) with still no veil commit; then weekly while the answer is to wait | Run CP-1 and send the veil session a status query (SendMessage through `ListAgents`, or the user relays it): is the change still in progress, or finished and waiting for the user's approval? Then ask the user D10's question: keep waiting (and, if the change only waits for them, whether to approve it), run PF (8.7), or merge P1 to P7 early with the veil session's agreement (7.0; void where a declined overlap held them). | Each decision is logged, dated, in `COORDINATION.md` and `HANDOFF.md`; it ends at V or PF. |
-| **CP-5** | The veil session's confirmed plan arrives (it comes before its commit), and again with its landing notice | Log it in `COORDINATION.md`. Re-check 8.1's seams, 8.3's I1 to I9 and 8.6's hotspots against its final names and its hands-off list, and that list against the commit's `git diff`. Tell the veil session at once about any symbol both plans change (8.6 keeps the one list), before more phases stack on it. | Logged; every overlap raised. Done for the interface, answers and landed message of 2026-10-27; CP-0 asks for 8.6's requested overlaps. |
+| `meteors.ts` | `planMeteor`, `planFlight`, `PlanOptions`, `PassOptions`, `Meteor` | `steer`, `clearOf`, `fireball`, the `fallback` flag, `startArea`, the end tests, `Meteor.wakeColor` and their docs (I2, 6.10); farewell meteors' `starts` option (6.12) | P9, P10, P12 |
+| `meteors.ts` | `veiledFrom`, `segmentTouches`, `headGain`, `WAKE_GAIN`, the pass trade (`METEOR_PASS`) | unchanged; `veiledFrom` judges each course's `peak` | P9 |
+| `scene.ts` | `quietFactor`, `easedQuietFactor`, `quietAt`, `QuietKeeps`, `QuietBlend`, `screenQuietZones` | the quiet index wraps `easedQuietFactor` (H3); `segmentClear` and `pickVisitSky` read `quietAt` | P1, P9, P11 |
+| `scene.ts` | `transientQuietFactor`, `scrollKept`, `inkBudget`, `budgetKeeps` | every transient draws through `transientQuietFactor` and fades through `scrollKept` (`transientFade`) | P8, P11, P12 |
+| `scene.ts` | `SceneLevels.meteors` | renamed `launches`, its doc keeping the veil's wording (6.7); with farewell meteors, `launchScene` in its place, its doc naming the end bookend (6.12) | P8, P12 |
+| `config.ts` | `LAYERS`, `STAR_INK_PEAK`, `QUIET_REACH` | `ZONE_REACH` derives from `QUIET_REACH` (P1); `parallax` and the doc's "scroll parallax" go, beside the veil's ink sentences (P2) | P1, P2 |
+| `config.ts` | `METEOR` and its docs | the scheduler keys move to `TRANSIENTS` (P8); the direction, speed, duration, gap, peak and fireball keys go, `radiantTries`, `attempts`, `maxEndY` and the fireballs are re-documented, and the spawn and guard values stay (P9, P10) | P8 to P10 |
+| `config.ts` | `INK_BUDGET`, `METEOR_VEIL`, `METEOR_PASS`, `SCROLL_CANCEL`, `CONTRAST_*.meteorInk` | read only | P8 to P12 |
+| `renderSky.ts` | `drawMeteor`, `drawTrain`, `SkyFrame`, the imports | `drawTransient` passes `drawMeteor` its `fade`; the wake tint (P9) and a keeps argument (P12) join `drawMeteor`; our `SkyFrame` fields sit beside `meteorInk` and `quiet` (P1, P2, P4, P6), the imports change with what each phase reads (5.1), and the unread `easedQuietFactor` and `STAR_SHAPES` imports go (P1) | P1, P2, P4, P6, P8, P9, P11, P12 |
+| `sky.worker.ts` | `frameMode`, `tick`, `quietEasing` | `demandNow` replaces `frameMode` with `quietEasing(t)` in `fading`, and `tick` keeps calling `settleQuiet` before the frame decision as P5, P6 and P8 add to it (6.2) | P2, P3, P5, P6, P8 |
+| `sky.worker.ts` | `frameAt`, `draw` | `frameAt` keeps its `contrast` local, `quiet: quietBlend(t)`, `meteorInk: contrast.meteorInk` and its doc line (answer 2) beside our fields; `draw` calls `drawTransient`, and hands P12's comet to `renderSky.ts` | P1 to P8, P12 |
+| `sky.worker.ts` | `sameRects`, the imports | `sameRects` moved to `scene.ts`, still comparing `headroom`, so a headroom-only change still reaches the worker (answer 2); the imports change with what each phase reads (5.1), and P8 drops the meteor imports the schedule takes over | P1 to P8, P12 |
+| `sky.worker.ts` | `updateMeteor`, `planLaunch`, `launchScrollY`, `contrastLevels` | replaced by the schedule: `planMeteorTransient` ports `planLaunch` in its order and `transientFade` the scroll retire; the launch gate's `ink` reads `contrastLevels()` (6.9) | P8 |
+| `sky.worker.ts` | `quietBlend`, `applyLayout`, `settleQuiet`, `pendingLayout`, `rebuildHaze`, the `layout` branch | unchanged, except that the `layout` branch's `retryMeteors` becomes `retryTransients` (no layout calls `forgetVisitSky`, RD1) and, only if B-1 fails, R-20's cache of the zone arrays inside `quietBlend`, keeping its output (H3, AC-16 (b)) | P8 (R-20: P6) |
+| `mountSky.ts` | `copyReader`, `CopyReader`, `quietRect`, `quietRects`, `Shift`, `NORMAL_FONT_WEIGHT`, `mountSky` | the measurement unchanged, its doc's rail guard now `clearOf` (P9, 6.10); our listeners and the pause wiring join `mountSky` beside it | P4, P5, P7, P9, P13 |
+| `protocol.ts`, `color.ts` | `SkyRect.headroom`; `parseRgbColor`, `minimumContrast`, `lightHeadroom` | unchanged; nothing of ours imports `color.ts`'s WCAG helpers | none |
+| `AGENTS.md` | the `data-sky-quiet` line | P5's pause line follows it | P5 |
 
-### 8.3 Interface requests
+**The veil session's three asks for P9** (`COORDINATION.md`, "Answers to the planning session's questions"):
 
-The veil session's confirmed interface, its answers and its landed message (`COORDINATION.md`, 2026-10-27) answer all of these but the SHA. Each row says whether it is **answered** (with the final names) or **ours** after the veil commit. Our code imports none of its private helpers (`fitKeep`, `luminance`, `contrastRatio`, and `segmentTouches`, which it doesn't export): the control's contrast figures (6.8) were computed offline, and a harness that rechecks them carries its own WCAG formula.
-
-| # | Request | Status | Why | If declined, or under PF |
-|---|---|---|---|---|
-| I1 | `planFlight` and `planMeteor` take an options object with `nearCopy`, and the returned `Meteor` reports `nearCopy`. | **answered**: `planMeteor(random, field, radiant, now, options: PlanOptions = {})` with `PlanOptions { nearCopy?, flights?, ink? }`; `Meteor.nearCopy`, true when `dimFrom < 1`; `planFlight` private, with `PassOptions` (`timing`, `fireballs`) | The ink lease (P8): the scheduler holds the lease without re-checking the path. | Under PF we add both under these names, with `flights` and `ink` (the PF planner ignores `ink`, 8.7). |
-| I2 | The direction source (`steer`, 6.10) and, in P10, the `fireball` option extend `PlanOptions`; `steer` replaces the `radiant` parameter and `PassOptions.timing` becomes a `fallback` flag. The 18 to 42° filter goes, and the end test gains the right edge and `METEOR.top`. | **ours**, after V (they won't add the direction source) | The population model (P9) and the fireball retune (P10). | Not applicable. We inform them, and it never changes `veiledFrom`. |
-| I3 | One kind-agnostic scroll cancel that takes the launch scrollY, the current scrollY and the fade state. | **answered**: `scrollKept(launchScrollY, scrollY, fade = 1)` in `scene.ts`, with `SCROLL_CANCEL = { from: 12, to: 24 }`; retire at 0; pause and cancel fades go in as `fade`; no second threshold-plus-fade rule | One rule for every kind, testable without the DOM; `transientFade` calls it for every kind from P8. | Under PF we add it under these names and values. |
-| I4 | A `QUIET_REACH` export, covering every zone's reach. | **answered**: `QUIET_REACH = QUIET.padding + QUIET.feather` in `config.ts`, 72 px from a measured rect; from a padded zone, the index's input, the reach is `QUIET.feather` (40 px) | The quiet index is exact only while no zone reaches farther (Q1). | At V, `quietIndex.ts` derives `ZONE_REACH` from it; H3 re-checks it at every rebase. |
-| I5 | The per-rect text class on `SkyRect`, the budgets in `config.ts`, and the far-star case (AC-30). | **answered**: `SkyRect.headroom`, a measured number (no enum); `INK_BUDGET`, `inkBudget(headroom)` and `budgetKeeps(white, quietKeep, ink = 1)`; the far-star case closed by construction (`LAYERS.far.inkKeep` 0, `STAR_INK_PEAK = 0.6 * LAYERS.far.inkKeep`) | The index passes rects through unchanged, and `sameRects` compares `headroom`. The lease stays "one lit transient near copy": each budget counts one transient plus the haze. | Under PF we set `LAYERS.far.inkKeep` to 0 ourselves (8.7). |
-| I6 | Export `segmentTouches` unchanged. | **declined** by the confirmed interface (it stays private), so not asked again | Satellites and the could kinds share one clear-sky test (DRY). | Our planners use `segmentClear` (6.4); meteors keep the veil planner's own test; PF exports nothing either. |
-| I7 | `drawMeteor(ctx, assets, meteor, frame, fade = 1)` multiplies its train, wake, glow and core alphas. | **answered** as asked; `SkyFrame` gains no scroll field. The wake tint from `meteor.wakeColor` is **ours**, in P9 (`meteor.wake` stays the afterglow time constant). | The scroll and pause fades (a frozen or cut streak looks broken), and the speed-class colors. | Under PF we add the `fade`. |
-| I8 | Their numbers: the commit SHA; the final names and the functions that changed shape; crossing shares and crossings per minute on captured layouts; the scroll-cancel distance; the budgets. Optionally, cache `quietBlend`'s zone arrays per scroll and layout: it allocates about 64 rects per call, and drift calls it 20 to 30 times a second. | **answered**, but for the SHA, which comes with the commit: the names, the hands-off list (answer 1), `SCROLL_CANCEL`, `INK_BUDGET` and the final crossing numbers are in `COORDINATION.md`, and the harness and the nine captured layouts (390 × 844 at DPR 3 among them, so the phone's clear-sky room can be measured) are archived in `harness/` (never extracted into the repository); no cache | They set the crossing cooldown (6.9, AC-38) and confirm section 11. | Under PF the archived layouts and harness serve. The allocations are minor garbage. |
-| I9 | Keep the stable seams of 8.1. May the kinds that never take the lease overlap a lease-holding meteor in time? May a comet fade with the launch gate instead of `scrollKept`? | **answered** (answers 3 and 4): yes on three conditions (no light inside any padded rect of `to` or `next` over the whole drawn footprint, every frame; `scrollKept` from its own launch; the lease for anything that lights quiet copy), the look of two at once being the user's (D12); no to the launch gate, though a comet's own scroll fade may serve if it reaches 0 before unmarked copy can come under it at 852 × 393 (6.12) | Our phases land on top of theirs; T3 states the conditions. | D12 applies under PF too. |
-
-### 8.4 The CP-0 message (ready to send)
-
-> From the sky-ambient-motion implementing session: integration branch `claude/sky-ambient-motion-impl` in the worktree `.claude/worktrees/sky-ambient-motion-impl`; the plan is `.claude/plans/sky-ambient-motion/PLAN.md` on `claude/quirky-carson-btv2u4`. Our plan builds on your veil fix, your confirmed interface and your answers of 2026-10-27 exactly. We build its veil-independent phases first, on that branch, and nothing of ours reaches master until your commit has landed and we have rebased onto it, unless you agree to an earlier merge. We never touch your working copies in the main checkout.
->
-> **Your hands-off list** (your answer 1) is ours: before your commit we edit none of those symbols but the overlaps below, and never reformat, reorder or move them. `frameAt` and `sameRects` go as you agreed (answer 2); in `frameAt` we add `snap`, the camera's `offset` (for `parallaxScroll`), `twinkleTime`, the thinning fade's `thinFrom`, `thinLevel` and `keep` line, and, from our drift phase, a `gather(now, scene)` call after the scene line.
->
-> **One more overlap, please:** the rest of your list that our phases touch before your commit. We add or change only lines you didn't; at our rebase your lines win and ours stay beside them.
-> - `frameMode` and `tick`: our pacing phase replaces `frameMode` (and `frameInterval`) with a frame-demand policy and rewrites `tick`; earlier phases add a camera line to each. Your `quietEasing(t)` becomes the quiet-ease term of our fade test, and `tick` keeps calling `settleQuiet` before it decides the frame. We see no changed line of yours in `tick`; tell us if one comes.
-> - `SkyFrame`: our fields (`snap`, `offset` for `parallaxScroll`, `twinkleTime`, `thinFrom`, `thinLevel`) and its `time` doc; never `quiet` or `meteorInk`.
-> - `mountSky`: activity and pointer listeners, `motion()` from our pause store with `syncMotion`, the worker-message `switch`, and `destroy`; never `headrooms`, `measureLayout` or the rect measurement.
-> - The import lines of the worker and `renderSky.ts`: ours added beside yours.
->
-> If you'd rather we didn't, the phases that edit those symbols wait for your commit.
->
-> **What we plan to build before it lands:**
-> - sub-pixel star sprites;
-> - a per-tile quiet index for stars, which calls your `easedQuietFactor` on tile subsets (bit-identical);
-> - continuous depth and a scroll glide through one camera;
-> - frame pacing on divided animation frames;
-> - presence pings (pointer, keys, focus);
-> - a pause control that maps to `motion: 'reduced'`;
-> - the ambient drift (stars only, each quieted at its drawn position);
-> - optionally, a pointer lean.
->
-> **Seams we keep stable for your handlers:**
-> - `rafId` (now `number | null`, still falsy when nothing is pending) and `timerId`;
-> - `noteInput`, `parallaxScroll`'s meaning, `retryMeteors` and `meteorsAllowed`, and `sameRects` under its name.
->
-> **After your commit:**
-> - shooting stars join one scheduler (one ink lease, at most 5 s each, and your `scrollKept` for every kind, with the pause fade passed in as `fade`), with your `planLaunch` ported into it in its order, and `parallaxScroll` retires (your `scroll` handler stops writing it);
-> - we extend your `PlanOptions` with a direction source (`steer`, which replaces the `radiant` parameter and `pickRadiant`) and a `fireball` option, `PassOptions.timing` becomes a `fallback` flag, and `planFlight` takes its start area from an exported `startArea(field)`, without touching `veiledFrom`;
-> - `planFlight`'s end test also gains `end.x > width − edgeMargin` and `end.y < METEOR.top`, using your guard values;
-> - `LAYERS` loses its `parallax` values, on top of your entries and doc;
-> - at the new rate a crossing cooldown, started at the reveal, keeps copy crossings per minute at your commit's level, measured with your archived harness on your captured layouts; after our directions phase we rerun your crossing measurement there and send the numbers to Joseph beside yours, as you asked;
-> - satellites (and perhaps a static comet) come later, on your three conditions (answer 3), never taking the lease; the comet keeps `scrollKept` (answer 4).
->
-> **Request:** please send your landing notice, with the SHA, to this implementing session too (ListAgents shows it), or to the user if you can't reach it.
-
-### 8.5 Checkpoint V: when the veil commit lands
-
-1. Read the commit and log it in `COORDINATION.md`.
-2. Finish and commit the current phase, then rebase the integration branch onto their commit (or onto master if they merged it there). Resolve the hotspots (8.6) by their rule (answer 1): their lines win. In an overlap both plans changed, keep both; into `frameMode`'s replacement, port each line their commit changed there (8.6); for shared types and the message switch, keep both. List their lines first (`git diff 246c0aa..<their SHA> -- src/lib/sky src/components/sky`) and recheck every veil name this plan uses against them, `veiledFrom(zones, path, peak, ink)`, `planLaunch`'s draw order and `quietEasing` above all.
-   - **The route to master**, once step 4 passes and the user approves. Master is checked out in the main checkout, where the veil session works, and Git refuses to move a branch another worktree has checked out (`git branch -f`, `git fetch . x:master` and `git push . x:master` all refuse). So push the integration branch and open a PR into `origin/master`, which the user merges or approves. If their commit isn't on origin yet, ask the veil session or the user before pushing a branch that contains it. The main checkout's local master is then fast-forwarded only by the user, or with their approval once `git -C S:/Documents/repos/Portfolio status --short` shows no uncommitted sky edits and the veil session has been told.
-3. **Kill-switch identity.**
-   - Set these temporarily: `STAR_PHASES = 1`, every `SCENE.*.drift = 0`, `CAMERA.snapViewports = 0`, `LEAN.reach = 0`, and `snap` forced true.
-   - Then H2 at scroll 0 on the rebased tree must equal H2 on their commit (`SKY_SRC` at an archive of it). Our phases add nothing visible beyond their intended effects.
-   - At other scroll positions only P2's continuous depth differs.
-4. Re-verify against their code (8.6), and run lint, type-check, H1 to H6 and H11 to H13, and the 60-second watch. If a declined overlap held phases (4.4), they run only now, in 7.2's order; if P1 was among them, first redo P0's steps 3 and 4 on the rebased tree, since their `LAYERS.far.inkKeep` 0 takes far stars off the letters of quiet copy, and "P0's" in P1, AC-26 and AC-35 then means that baseline.
-5. Adopt their names and numbers.
-   - `quietIndex.ts`'s `ZONE_REACH` becomes `QUIET_REACH - QUIET.padding`, imported from `config.ts`, and the moved `sameRects` compares `headroom`.
-   - `LayerConfig.parallax` and `LAYERS.*.parallax` go, and the `LAYERS` doc's parallax sentence becomes "how far each star moves comes from its magnitude (DEPTH)", on top of their entries and ink sentences (P2 left `LAYERS` alone).
-   - Check that `scrollKept`, `SCROLL_CANCEL`, `transientQuietFactor`, `drawMeteor`'s `fade` and `PlanOptions` match the confirmed interface; a difference reopens CP-5.
-   - **The crossing cooldown's bar.** Re-measure it on their commit with the archived harness on the nine archived layouts (`harness/README.md`, I8): `nearCopy` launches a minute over a visit's first two minutes. If it matches 6.9's (their landed numbers), P9 starts at 55 s; otherwise recompute 6.9's table and set the start from it. Log it in `COORDINATION.md`.
-6. Unblock P8, update `HANDOFF.md`, and reply to the veil session.
-
-### 8.6 Merge-conflict hotspots and what to re-verify
-
-This is the one list of what both plans touch; 4.4, CP-0 and CP-5 point here. "Theirs" is the veil session's hands-off list (answer 1, `COORDINATION.md`) with what the landed working tree shows in each symbol; recheck it against the commit (8.5 step 2). Before V, both plans change only the rows marked "overlap": `frameAt` and `sameRects`, agreed (answer 2), and the others, requested in CP-0, where ours are other lines of the same symbol and theirs win at the rebase.
-
-| File | Function or block | Ours | Theirs | Resolution |
-|---|---|---|---|---|
-| `sky.worker.ts` | `frameMode` and `tick` (overlap) | P2's camera lines; P3 replaces `frameMode` (and `frameInterval`) with `demandNow` and rewrites `tick`; P5's `easeEnded`, P6's `gather` | `quietEasing(t)` in `frameMode`'s fade test; no changed line in `tick` | `quietEasing(t)` becomes `demandNow`'s quiet-ease term (6.2); `tick` keeps calling `settleQuiet` before the frame decision; port any other line they add |
-| `sky.worker.ts` | `schedule`, `onFrame`, `onTimer`, `cancelFrames` | replaced (P3) | none | port any line the commit adds there |
-| `sky.worker.ts` | `frameAt` (overlap) | `snap` (P1, P2), `offset` (P2), `twinkleTime` (P4), `gather(now, scene)` after the scene line, `thinFrom`, `thinLevel` and the `keep` line (P6) | the `contrast` local (`contrastLevels()`), `quiet: quietBlend(t)`, `meteorInk: contrast.meteorInk` and the doc line, which answer 2 keeps theirs | keep both |
-| `sky.worker.ts` | `draw` | `drawTransient` with `transientFade` per transient (P8, after V) | `drawMeteor(..., scrollKept(launchScrollY, scrollY))` | V keeps theirs; P8 replaces it |
-| `sky.worker.ts` | the `scroll` handler | read only until V; P8 removes its `parallaxScroll` write | none (not on their list): their cancel lives in `updateMeteor` and `draw` | nothing to move |
-| `sky.worker.ts` | the `layout` case, `applyLayout`, `quietBlend`, `settleQuiet`, `quietEasing`, `rebuildHaze` | untouched until V; `quietBlend` read in `frameAt`; `sameRects` import moved; after V, P8's `retryTransients` | `pendingLayout` and `applyLayout`: a layout mid-ease waits for the ease (the newest wins), `quietBlend` carries it as `next`, and `rebuildHaze` waits out the ease; it never re-picks the radiant | keep theirs; only the `sameRects` import and P8's `retryTransients` change, and no `forgetVisitSky` goes there (RD1) |
-| `sky.worker.ts` | `updateMeteor`, `planLaunch` and their state (`meteor`, `launchScrollY`, `radiant`, ...) | replaced by the schedule (P8) | `scrollKept`'s retire; `planLaunch`'s sticky radiant, every fresh radiant drawn up front, long flights before the short fallback, `ink` from `contrastLevels()` | port `planLaunch` into `planMeteorTransient` in its order and the retire into `transientFade` (P8); keep its pass order in P9's steers (6.9) |
-| `sky.worker.ts` | `sameRects` (overlap) | moved to `scene.ts` (P1) | compares `headroom`, so a headroom-only change still reaches the worker and rebuilds the index | port the comparison into the moved function |
-| `sky.worker.ts` | the import lines (overlap); `init`, `motion`, `visible`, `noteInput`, presence | each phase's names; P2 to P5 | their imports | merge the imports, theirs kept; keep the seam names |
-| `renderSky.ts` | `SkyFrame` (overlap) | `snap` (P1), `offset` for `parallaxScroll` (P2), `twinkleTime` and the `time` doc (P4), `thinFrom`, `thinLevel` (P6) | the `meteorInk` doc (the field is at 246c0aa) | keep both; never `quiet` or `meteorInk` |
-| `renderSky.ts` | the import lines (overlap) | `starSpriteIndex`, and `createQuietIndex` from `quietIndex.ts` (P1) | `budgetKeeps`, `transientQuietFactor`, `QuietKeeps` | keep theirs and drop `easedQuietFactor`: after the rebase nothing in `renderSky.ts` reads it (`drawLayer` reads the index, their `drawMeteor` reads `transientQuietFactor`), and lint flags it |
-| `renderSky.ts` | `drawLayer`, `StarField`, `drawSky` | P1, P2 | none | |
-| `renderSky.ts` | `drawMeteor`, `drawTrain` | P9's wake tint, P12's keeps argument | the budget veil (`budgetKeeps`, `headGain`, `WAKE_GAIN`) through `transientQuietFactor`, and `fade` | theirs first, then ours on top |
-| `scene.ts` | `SceneLevels`, `sceneAt` | `drift` (P6), `lean` (P7), `launches` (P8), `launchScene` (P12, farewell); `sameRects` moved in | the `meteors` doc | fold their wording into P8's `launches` doc |
-| `scene.ts` | `screenQuietZones`, `quietAt`, `inkAt`, `quietFactor`, `QuietKeeps`, `easedQuietFactor` | read only | zones keep `headroom`; a one-pass `quietFactor`; `inkKeep` a number or a function of the rect; new `transientQuietFactor`, `inkBudget`, `budgetKeeps`, `scrollKept` | rerun H3, function keeps included |
-| `config.ts` | `LAYERS`, `SCENE`, `FRAME`, `ADAPT`, new blocks | new blocks and docs (P1, P3 to P11); `LAYERS` untouched until V | `LAYERS.far.inkKeep` 0 and the `LAYERS` doc, `STAR_INK_PEAK`, `INK_BUDGET`, `METEOR_VEIL`, `METEOR_PASS`, `SCROLL_CANCEL`, `QUIET_REACH`, the `QUIET`, `CONTRAST_NORMAL` and `METEOR` docs | keep theirs; at V drop `parallax` from `LAYERS` and add the depth sentence to their doc (8.5 step 5); new blocks never reuse their keys |
-| `meteors.ts` | `planFlight`, `planMeteor`, `PlanOptions`, `Meteor`, `veiledFrom`, `pickRadiant`, `nextMeteorGap` | I2 (P9), P10 | options, passes, `Meteor.nearCopy`, `METEOR_PASS`, `headGain`, the budget veil (the private `veiledFrom(zones, path, peak, ink)` returns `{ dimFrom, behind } \| null`) | after V only; `veiledFrom` stays theirs |
-| `protocol.ts` | `SkyMainMessage`, `SkyRect` | `activity`, `pointer`, the `SkyMotion` doc | `SkyRect.headroom` | union |
-| `mountSky.ts` | the function `mountSky` (overlap) | P4's activity listeners; P5's `motion()`, `sentMotion`, `syncMotion`, `init`'s `motion`, the worker-message `switch` and `destroy` (its reduced-motion query goes); P7's pointer listener; P13's relay | the `headrooms` map and `measureLayout`'s `copyReader` lines | the same function, separate lines: keep both; never `headrooms`, `measureLayout` or the rect measurement |
-| `mountSky.ts` | `copyReader`, `CopyReader`, `quietRect`, `quietRects`, `Shift`, `NORMAL_FONT_WEIGHT`; the import lines | the activity and pointer constants beside `DPR_CAP` (P4, P7) | the rect measurement, net of translations, with `headroom` | keep theirs; merge the imports |
-| `color.ts` | | none | `parseRgbColor`, `lightHeadroom`, `minimumContrast` (main thread) | none |
-| `AGENTS.md` | the sky notes | P5's pause line | the `data-sky-quiet` line, with the quiet-copy precondition | keep theirs, ours after it |
-| `Introduction.tsx`, `SidePane.tsx` | the `data-sky-quiet` comments | none (only D1's hero-corner alternative would edit `Introduction.tsx`) | the comments | keep theirs |
-
-**Re-verify after the rebase:**
-
-1. **H3:** the quiet index is still exact against their one-pass `quietFactor` and `easedQuietFactor`, with `ZONE_REACH` (`QUIET_REACH - QUIET.padding`) covering every padded zone's reach and `budgetKeeps` (an `inkKeep` that reads the rect) passing through `factor`.
-2. **The kill-switch identity** (8.5, step 3), and 8.1's seams (CP-5).
-3. **No star pops** while stars drift through their eased and deferred layouts: AC-16 (b), no star's alpha changing faster than the quiet ease allows (at most 2 a second) while rects are re-measured; their deferred layout still applies (`settleQuiet`, called before our `tick`'s frame decision).
-4. **The scroll cancel**: at V their `scrollKept` still dims and retires a flight (`updateMeteor`, `draw`); from P8, `transientFade` for every kind (AC-40).
-5. **The lease** still means one lit transient near copy: each rect's `INK_BUDGET` counts one transient plus the haze (AC-38).
-6. **The first launch timing** after their settled-layout fix (AC-19).
-7. **Section 11's contrast numbers** against their final `INK_BUDGET` and `METEOR_VEIL` comments, and the far-star case closed by construction: `LAYERS.far.inkKeep` 0, so `STAR_INK_PEAK` is 0 (AC-30).
-
-### 8.7 If the veil work never lands (PF)
-
-- **Trigger.** Only the user's decision at CP-4 (D10), if the veil work is abandoned. Not before: the veil session asked to land first, it is active, and its fix is the better product.
-- **Handshake.** Before any PF edit, message the veil session (SendMessage through `ListAgents`, or the user relays it), naming the functions PF takes over (8.4's list), and check the main checkout for uncommitted sky edits (`git -C S:/Documents/repos/Portfolio status --short -- src/lib/sky src/components/sky`, read only). Wait for its answer, or for the user's confirmation that it has stopped. While it is still active, PF waits: both sides editing the planner, `drawMeteor` and `METEOR_VEIL` at once would collide.
-- **Ownership.** Record the takeover and the exchange in `COORDINATION.md` and `HANDOFF.md` (on the planning branch): the veil-owned functions become this plan's.
-- **What PF does, and only this, keeping the same invariants:**
-  1. **Contrast stays safe without their fix.** Today's `veiledFrom` and its rules are stricter than they need to be: dimming can't start before 65% of the flight, so fewer flights cross copy. Keep them exactly as they are, with the one change the confirmed veil fix also makes, which closes the known exceedance (section 11, AC-30): `LAYERS.far.inkKeep` becomes 0. No star then adds light on the copy itself. Under that flat veil a veiled head adds 0.0593 × its peak of white on the copy (`config.ts:317`'s arithmetic per unit of peak), so veiled flights must peak at most 1, which adds 0.059 against the 0.064 of headroom under the haze: today's peaks are 0.75 to 0.9 (0.053), P9's at most 0.85, and fireballs, at 1, stay in clear sky. H10 checks the bound, and the docs that cite `INK_BUDGET` read `METEOR_VEIL` under PF (PF's "What PF lacks"), `METEOR_BRIGHTNESS`'s adding that veiled flights peak at most 1. The `LAYERS` doc's arithmetic changes with it, and the parallax keys P2 no longer reads go with their sentence, as at V (8.5 step 5); `METEOR_VEIL` stays as it is.
-  2. **The scroll cancel** fixes the verified bug in which unquiet copy, such as About, scrolls under a meteor head at about 1:1 contrast. PF adds the confirmed interface's `scrollKept` and `SCROLL_CANCEL`, under the same names and values, and wires them into today's `updateMeteor` (retire at 0) and `draw` (`drawMeteor`'s `fade`) with a `launchScrollY`, as the veil commit does, so the fix reaches master with PF. P8 then applies them to every kind through `transientFade`, never in the scroll handler (6.9).
-  3. **The one ink lease and the crossing cooldown** are P8's and P9's own (T2, 6.9). With no veil commit, the cooldown's bar is today's planner on the same layouts.
-  4. **I1, I2 and I7 by us**, under the confirmed interface's names: `PlanOptions` with `nearCopy`, `flights` and `ink` (the PF planner ignores `ink`), `Meteor.nearCopy`, the `steer` and `fireball` options, `drawMeteor`'s `fade = 1` and wake tint (the tint with I2, in P9), `transientQuietFactor`, through which `drawMeteor` and every later kind draw, and the worker's `contrastLevels()`. No `segmentTouches` export: `segmentClear` serves the paths we plan ourselves. `veiledFrom` and the rest of the veil math stay unchanged. D12 applies as decided.
-  5. **Only with the user's explicit OK**, because they are the veil session's planned fixes and not needed for this plan's invariants: deferring a layout that arrives mid-ease (a star pop), and removing entrance-transform offsets from the measured rects. The sticky radiant needs no fix: the visit's sources replace it in P9.
-- **Left open, documented in `COORDINATION.md`:**
-  - the strict `clearUntil`, which means fewer crossings than the redesign intended;
-  - the cosmetic star pop when rects are re-measured mid-ease;
-  - rects first measured mid-entrance. This is mitigated, because the first shooting star waits 4.5 to 7 s, after the 1.5 s re-measure (`mountSky.ts:42-47`).
-- **Verification.** PF's own: AC-16 (a) (PF leaves the re-measure pop, AC-16 (b), open), AC-19 to AC-22 as today, and AC-30 with `LAYERS.far.inkKeep` 0 (the far-star case closed). P8's, once it runs on PF: AC-37's invariants, AC-38, AC-40, and a check that no meteor stays lit once the page has scrolled `SCROLL_CANCEL.to` px from its launch.
-- **Then** the integration branch reaches master by the route in 8.5 step 2 when the user approves (PF step 4), and P8 to P12 run on top of PF, as planned.
-  - After a declined overlap (4.4), PF's handshake ends the wait as V would: the phases that waited run on the PF tree in 7.2's order, before P8, on P0 baselines redone there first if P1 waited (PF's `LAYERS.far.inkKeep` 0 takes far stars off the letters of quiet copy), as at V (8.5 step 4).
-  - Uncommitted veil edits left in the main checkout are the user's to keep or stash, never ours to build on.
+1. `steer` reaches into `planLaunch`'s port: keep its order (long flights on every candidate direction, the sticky one first, then fresh ones up to `METEOR.radiantTries`, one on narrow screens, before any short flight) and its stickiness (a resize clears it; a layout doesn't re-pick it).
+2. `PassOptions.timing` may become a `fallback` flag: keep the timing values in config (`SPEED_CLASSES`, `METEOR.fallbackScale`) and `planMeteor`'s `flights` option.
+3. The new end tests change which paths fit, so after P9 rerun the crossing measurement on the archived layouts and report the numbers to Joseph next to the veil's. The veil's edge-fade rule stays on every viewport.
 
 ## 9. Acceptance checklist
 
@@ -3585,21 +3438,21 @@ Methods: **W** watch, **S** scripted screenshots or frame capture, **T** a perfo
 | AC-13 | Frame pacing | During drift, ≥ 95% of intervals within ±25% of k refreshes; worker JS ≤ 4 ms at p95 (≤ 2 ms on a mid laptop, B-1); no main-thread task over 50 ms from the sky | T, L | P3, P6, P7, P13 |
 | AC-14 | Energy | Budgets B-1 to B-7; 0 drawn frames after the idle timeout, while hidden, and when paused or under reduced motion with no scroll | T | P3, P4, P6, P7 |
 | AC-15 ★ | Calm while reading (amended) | Drift at D2's level (default 0.35 of the hero; or 0), twinkle 0, no transients. At 0.35 the camera's drift speed at nearness 1 (debug log, read as 7.1 says) stays at most 0.5 v₀ (design peak 1.42 × 0.35 = 0.497 v₀), so the law's near-median star (q 0.941, H6) moves at most about 0.47 v₀ and no star on screen over 0.8 v₀ (1.41 and 2.4 px/s at v₀ = 3; design 1.0 on average and 1.40 at the peak for the near median, 2.39 for the brightest; R4 said 2); all scale with D2's level. The on-screen sample's near median isn't the test: it runs 0.45 to 0.55 v₀ at the peak across common sizes (6.1) | L, S | P6 |
-| AC-16 | Restraint near copy | (a) A drifting star crossing a quiet edge changes alpha by at most 0.05 per drawn frame. (b) While rects are re-measured mid-ease, no star's alpha changes faster than the quiet ease allows (at most 2 a second: 0.78 × 1.5 / 0.6 s), with no one-frame pop | S, L | (a) P1, P6; (b) V |
+| AC-16 | Restraint near copy | (a) A drifting star crossing a quiet edge changes alpha by at most 0.05 per drawn frame. (b) While rects are re-measured mid-ease, no star's alpha changes faster than the quiet ease allows (at most 2 a second: 0.78 × 1.5 / 0.6 s), with no one-frame pop. Both on the alpha before the twinkle, measured with the hero's twinkle at 0: the twinkle alone moves a near star up to 0.07 a frame at 20 fps [computed, check report] | S, L | (a) P1, P6; (b) P3, P6 |
 | AC-17 ★ | Headline stays put | 3 of 3 reviewers watching the h1 for 20 s report no apparent motion of the copy | W | P6 |
 | AC-18 | Attention budget | No onset in the first 3 s after the reveal; onsets at least 3 s apart; at most one onset per 6 s on average (design one per 11 to 13 s) | H7, L | P8, P9 |
-| AC-19 ★ | A first shooting star | 4.5 to 7 s after the reveal in ≥ 18 of 20 fresh desktop loads | L | P8 (recheck at V and P9) |
-| AC-20 ★ | Frequency (amended) | First 60 s after the reveal: median 5 over H9's 20,000 simulated visits (3 to 6 in 90%); in the browser, 3 to 6 in ≥ 8 of 10 runs (a correct sky passes about 93% of the time; the 10-run median alone is 5 only about half the time); never two meteors at once outside a burst; gaps stretch from minute 2 (×2 at 6 min, ×3 at 10); narrow screens ≤ 6 a visit. R4 said median 4 and a stretch after 3 minutes, for its 12 to 18 s gap. | H9, L | P9 |
+| AC-19 ★ | A first shooting star | 4.5 to 7 s after the reveal in ≥ 18 of 20 fresh desktop loads | L | P8, P9 |
+| AC-20 ★ | Frequency (amended) | First 60 s after the reveal: median 5, with 3 to 6 at H9's bar (about 90% by design); in the browser, 3 to 6 in ≥ 8 of 10 runs, which a sky at 90% passes about 93% of the time and one at H9's 85% floor 82% (the 10-run median alone is 5 only about half the time); never two meteors at once outside a burst; gaps stretch from minute 2 (×2 at 6 min, ×3 at 10); narrow screens ≤ 6 a visit. R4 said median 4 and a stretch after 3 minutes, for its 12 to 18 s gap. | H9, L | P9 |
 | AC-21 ★ | Varied, believable directions (amended) | Over 10 meteors: ≥ 3 radiants and headings spanning ≥ 60°; climbs over 15° only from sporadic sources, at most 0.6 of the longest path and ≤ 10% of launches (D8; under its alternative, none over 10°); each shower meteor's path, extended on the sky as a great circle, passes within 4.5° (3σ) of the visit's shower radiant, whether the radiant is in front (paths fan out) or behind the viewer (they converge forward). R4 said "none rises more than 10°" (D8). | H8, L | P9 |
 | AC-22 ★ | Light in, light out | Head light under 15% of its peak at the first and last on-screen points; never enters or leaves an edge bright; peaks in clear sky (the veil) | L, C | P8, P9 |
 | AC-23 | Tail on its path | Wake axis within 1° of the direction of travel (unchanged today) | C, S | P9 |
 | AC-24 | Satellites (amended) | Speed varies under 2%; pass ≤ 4.8 s; no tail, no blinking; one at a time; at most one mid-sky fade per pass (a dusk pass slides in lit from a side and fades into the shadow; a dawn pass fades in over ≥ 0.8 s and leaves through a side); clear sky at launch; no light inside a padded rect of `to` or `next` from the frame a layout arrives; desktop hero only; a first attempt within 60 s on 39 ± 2% of simulated visits (E7). R4 asked for ≥ 40 s across and a 2 s fade, which break the 5 s rule (D9). | H7, L, S | P11 |
-| AC-25 | Comet (if built) | Moves only by the camera law; fades in over ≥ 8 s; never starts under reduced motion, and a pause fades it out over `cancelFade`; every part drawn through `transientQuietFactor` with `CLEAR_SKY_KEEPS`, and its box clear of every zone's reach in `to` and `next`, re-tested on every drawn frame (the drift and the lean move it between scroll steps), fading over `cancelFade` when that fails; drawn at its fade-in × `scrollKept` from the scroll where it started to show (the box and pause fades go in as `fade`, never the fade-in), and gone for the page view when `scrollKept` reaches 0, so never over reading copy; at most one a visit | S, H | P12 (after V) |
-| AC-26 ★ | Reduced motion is still | With `prefers-reduced-motion: reduce`, two hero screenshots 30 s apart after the dusk are identical, and identical to P0's at scroll 0 (re-baselined if P12's planet ships, since it shows under reduced motion); no drift, glide, lean, twinkle or transients | S | P2, P5, P6, P7 |
+| AC-25 | Comet (if built) | 6.12's rules: only the camera law moves it; it starts only through the launch gate past its first delay (full motion, settled, present) and fades in over ≥ 8 s; a pause fades it out over `cancelFade`; every part through `transientQuietFactor` with `CLEAR_SKY_KEEPS`, its box clear of every zone's reach in `to` and `next` on every drawn frame (fading over `cancelFade` when not); its light is its fade-in × `scrollKept` from where it started to show, gone for the page view at 0, so never over reading copy; a resize retires it; at most one a visit | S, H | P12 |
+| AC-26 ★ | Reduced motion is still | With `prefers-reduced-motion: reduce`, two hero screenshots 30 s apart after the dusk are identical, and identical to P0's at scroll 0 (from P5 with the navbar masked, since the control joins it; re-baselined if P12's planet ships, since it shows under reduced motion); no drift, glide, lean, twinkle or transients | S | P2, P5, P6, P7 |
 | AC-27 | Live preference switch (amended) | Turning reduced motion on stops every star within 1 s, each moving at most 1.05 px after the switch (1.02 for the brightest at the drift's peak, the 0.3 s ease); turning it off resumes without a jump (after a load under reduced motion, apart from M1's one sub-pixel settle), even after scrolling while stopped; no shooting star for 3 s. R4 said "≤ 1 px" without an ease; the ease keeps that limit within rounding. | S, H5 | P2, P5, P6 |
 | AC-28 ★ | Pause control (2.2.2) | Visible, named, keyboard-operable; its name and glyph switch with the action; stops drift, twinkle, parallax and transients within 1 s; still paused after a reload; other tabs follow; resumes from the paused positions; starts paused under reduced motion when nothing is stored; passes the G186 and F16 procedures. Focus: Tab order equals the visual order at every width (2.4.3); with the phone menu open, Tab and Shift+Tab never land on the covered control, and tabbing into a hidden header shows it, which stays while it holds keyboard focus (2.4.7, 2.4.11) | W, S | P5, P6 (fades from P8) |
 | AC-29 | Forced colors and contrast | Forced colors hide the sky and the control; `prefers-contrast: more` drops the haze and dims the stars, drift allowed | S | P1, P5 |
-| AC-30 | Contrast budget (amended) | Quiet copy: body text keeps ≥ 4.5:1 over the brightest moving star (drift changes positions, never alpha; the quiet factor at the drawn position); a transient adds at most its rect's `inkBudget(headroom)` on the copy (the veil's; under PF, today's flat veil: 0.0593 × its peak, with veiled peaks at most 1, 8.7); satellites and the point flash add no light inside the padded rects of `to` or `next` (T3); one lease. The far-star case (a meteor's 0.053 of white plus a far star's 0.039 to 0.06, against 0.064 under the haze) is closed by construction: no star keeps light on the copy (`LAYERS.far.inkKeep` 0, so `STAR_INK_PEAK` is 0), checked at V; under PF, PF sets it. Reading copy (no quiet rects): stars behind it never brighter than today's at the same scroll, plus D2's chosen option | C, H3, H7 | P1, P2, P6, P8, P11, V |
+| AC-30 | Contrast budget (amended) | Quiet copy: body text keeps ≥ 4.5:1 over the brightest moving star (drift changes positions, never alpha; the quiet factor at the drawn position); a transient adds at most its rect's `inkBudget(headroom)` on the copy (the veil's); satellites and the point flash add no light inside the padded rects of `to` or `next` (T3); one lease. No star keeps light on the copy (`LAYERS.far.inkKeep` 0, so `STAR_INK_PEAK` is 0). Reading copy (no quiet rects): stars behind it never brighter than today's at the same scroll, plus D2's chosen option | C, H3, H7 | P1, P2, P6, P8, P11 |
 | AC-31 | Flash safety | At most 3 luminance flashes in any second; each transient's change ≤ about 2,000 CSS px² (limit 21,824); no tint with R / (R + G + B) ≥ 0.8 | C, H10 | P8 to P12 |
 | AC-32 | Hidden tab | After 60 s hidden, the sky reappears where it was (no leap of v × time hidden); no shooting star for 3 s; with P4's twinkle clock, the twinkle continues where it left off | S, H5 | P3, P4, P6 |
 | AC-33 | Idle | After 90 s without scroll, pointer, keys or focus, the drift and twinkle ease out over 4 s, then 0 frames; any input eases them back over 4 s, in every scene, including reading (F6) | T, S, H13 | P4, P6 |
@@ -3607,7 +3460,7 @@ Methods: **W** watch, **S** scripted screenshots or frame capture, **T** a perfo
 | AC-35 | Pixel equivalence (new) | P1's draw calls equal P0's over the H2 grid; P2's equal P1's on the grid's scroll-0 rows, at camera (0, 0) with `snap` forced true | H2 | P1, P2 |
 | AC-36 | Exactness (new) | Quiet-index difference 0; spring half-step composition difference 0 and overshoot 0; the drift bound and speed range as computed (6.1) | H3, H5 | P1, P2, P6 |
 | AC-37 | Transient invariants (new) | T1 to T7 hold over 10⁵ random event sequences; every kind's first-to-last light ≤ 5 s from the config (H10); from P10, fireballs at 4% of launches, at least 120 s apart and none before 20 s, in about 12% of first minutes (E7) | H7, H10 | P8 to P12 |
-| AC-38 | Ink lease and crossings (new) | Never two `nearCopy` transients at once; at most one lease grant per `crossingCooldown`, and none in a visit's first `crossingCooldown`; copy crossings (`nearCopy` launches) per minute over a visit's first two minutes at or below the veil commit's planner's on the same captured layouts over the same window (its `nearCopy` share × about 1.6 a minute: 0.97, 0.90 and 0.56 at 1440 × 900, 1280 × 800 and 1920 × 1080 from its landed shares, re-measured at V), with the cooldown retuned up or down from the measured share if not (6.9) | H7, H9, L | P8, P9 |
+| AC-38 | Ink lease and crossings (new) | Never two `nearCopy` transients at once; at most one lease grant per `crossingCooldown`, and none in a visit's first `crossingCooldown`; copy crossings (`nearCopy` launches) per minute over a visit's first two minutes at or below what the veil commit flies on the same captured layouts over the same window (6.9's bar for each layout), with the cooldown retuned up or down from the measured rates if not (6.9) | H7, H9, L | P8, P9 |
 | AC-39 | Scroll glide (new) | After any scroll that moves one way stops (a fling, a navbar jump, Home or End), at the display rates browsers run (30, 48, 50, 60, 66.7 for WebKit's worker clock, 72, 75, 90, 100, 120 and 144 Hz), every star is within 2.8 × 10⁻⁴ × H CSS px of rest 0.7 s after the page stops (0.25 px at H = 900, 0.40 at 1,440, 0.72 at 2,560; computed worst 0.246, 0.393 and 0.699) and settled by 1.2 s up to H = 2,560 and by 1.3 s up to 3,840. The worst case is a one-step jump just under `maxLag` × H from a camera at rest at 30 and 48 Hz, whose glide starts on the sky's next frame (C5) [computed, `reviser-r5/ac39.mjs`]; at other rates, or after a late first frame, it starts later: up to 3.6 × 10⁻⁴ × H at 0.7 s between 30 and 48 Hz, settled by 1.25 s up to H = 2,700 [computed, check report]. No reversal over 0.1 px, and none glides more than `maxLag` × H × 0.112 after the stop (about 25 px at H = 900); a jump in one step (an instant `scrollTo`) snaps; a sustained fling that moves less than a viewport per frame never does (C4) | S, H5 | P2 |
 | AC-40 | Scroll cancel (new) | Every transient keeps `scrollKept(launchScrollY, scrollY, pause fade)` of its light: all of it within 12 px of scroll from its launch, none from 24 px, where it retires that tick, even after a one-step jump; a pause fades it over `cancelFade`; a cancel never extends a life | H7, S | P8 |
 | AC-41 | Hydration and presence of the control (new) | After a full reload of `/` on our dev server, past the reveal: no hydration warning from `get_errors` (through `nextjs_call`, no route) or in the `get_logs` file; `GET /` returns HTML with no "sky animation" in it; the control is absent until the sky's first frame, and gone if the sky fails | MCP, S | P5 |
@@ -3628,11 +3481,7 @@ These figures come from R3's measurements (§4.6; V8 in Node on a shared Xeon, s
 | Software raster, 4K | about 1,400 | about 29 ms | none (the budget gives 2 fps, under 20) | as today (a still sky) |
 
 - **What pays for continuous frames.** The quiet index cuts the star math at 1,430 stars from 1.3 to 1.7 ms mid-ease to 0.14 to 0.32 ms. Phase sprites cost the same to draw as today, since every destination is a whole pixel.
-- **When the sky draws nothing:**
-  - under reduced motion, or paused (after the 0.3 s ease);
-  - in the reading scene if D2 picks 0;
-  - 90 s after the last input (the 4 s fade runs inside that window, as today's `idleTwinkle` does);
-  - in hidden tabs.
+- **When the sky draws nothing:** under reduced motion or paused (after the 0.3 s ease), while reading if D2 picks 0, 90 s after the last input (the 4 s fade runs inside that window), and in hidden tabs.
 - **Memory.** The atlas grows from 48 KB to about 0.7 MB at DPR 1 and from 127 KB to about 1.9 MB at DPR 2 (built in under 1.5 ms). The cell cache holds at most twice the cells in use, about 2.7 MB at 4K.
 
 ### 10.2 Frames a minute, today and after (60 Hz, DPR-2 laptop)
@@ -3675,10 +3524,10 @@ These figures come from R3's measurements (§4.6; V8 in Node on a shared Xeon, s
 
 | Criterion | Level | How the sky meets it |
 |---|---|---|
-| 2.2.2 Pause, Stop, Hide | A | Continuous drift and twinkle start automatically, last more than 5 s and run beside the copy, and decorative motion is not exempt (w3c/wcag #3478, #4921). So the page gets one control that stops every moving part of the sky at once (G186, G4) and resumes from the paused positions. It sits at the top of the page, is remembered, and is paused by default under reduced motion. It ships before the drift (P5 before P6). Each transient lasts at most 5 s (T1), which passes on the per-instance reading the veil session also uses, and the control stops transients too. The idle stop, hero-only transients, the scroll cancel and the long-visit slowdown are UX and battery choices, not the 2.2.2 mechanism: scrolling away is not "hide" (#5029), and reduced motion is the control's default, not the only mechanism (#3766, #4319). The control covers the sky only; the gradient cards' rotating border is page motion outside this plan (open question 9). |
+| 2.2.2 Pause, Stop, Hide | A | Continuous drift and twinkle start automatically, last more than 5 s and run beside the copy, and decorative motion is not exempt (w3c/wcag #3478, #4921). So the page gets one control that stops every moving part of the sky at once (G186, G4) and resumes from the paused positions. It sits at the top of the page, is remembered, and is paused by default under reduced motion. It ships before the drift (P5 before P6). Each transient lasts at most 5 s (T1), which passes on the per-instance reading the veil session also uses, and the control stops transients too. The idle stop, hero-only transients, the scroll cancel and the long-visit slowdown are UX and battery choices, not the 2.2.2 mechanism: scrolling away is not "hide" (#5029), and reduced motion is the control's default, not the only mechanism (#3766, #4319). The control covers the sky only; the gradient cards' rotating border is page motion outside this plan (open question 8). |
 | 2.3.1 Three Flashes or Below Threshold | A | At most one or two luminance flashes per transient (rise and burn-out, or a flare); bursts staggered ≥ 0.35 s, with no flares, so at most 3 a second. Every transient's changing area is at most about 2,000 CSS px², under 10% of the 21,824 px² limit (G176; R2 §9.2). No saturated red: the warmest drawable tint has R / (R + G + B) = 0.42, against the 0.8 threshold. |
 | 2.3.3 Animation from Interactions | AAA | Scroll parallax, its glide and the pointer lean are interaction-driven motion. All stop under prefers-reduced-motion (C39, SCR40) and when paused: the springs hold. Twinkle and fades are opacity changes, which "motion animation" excludes. |
-| 1.4.3 Contrast (Minimum): the veil | AA | Stars dim per star behind quiet copy (`data-sky-quiet`: the hero, Contact, the footer and the rails) exactly as today: the quiet index is bit-identical, and the factor is taken at each star's drawn position every frame. Drift changes positions, never alpha. One transient at a time may light up near copy (the ink lease), because each rect's budget counts one transient plus the haze. The main thread measures each rect's `headroom`, and the veil fits any brightness to `inkBudget(headroom)` (`INK_BUDGET`). Under PF, today's flat veil adds 0.0593 × the peak instead, so veiled flights peak at most 1 (0.059 against 0.064, 8.7). Satellites and the clear-sky could kinds are kept clear of the copy as T3 says. **The far-star case** today's sky has (AC-30) is closed by construction: no star keeps light on the copy itself (`LAYERS.far.inkKeep` 0; under PF, PF sets it, 8.7). **Reading copy** (About to Other Projects) has no quiet rects, today or after this plan: stars sit behind it at the reading scene's levels (alpha at most about 0.25) and, with D2's drift, cross it slowly; D2 lists the options. The budgets remain the veil session's. |
+| 1.4.3 Contrast (Minimum): the veil | AA | Stars dim per star behind quiet copy (`data-sky-quiet`: the hero, Contact, the footer and the rails) exactly as today: the quiet index is bit-identical, and the factor is taken at each star's drawn position every frame. Drift changes positions, never alpha. One transient at a time may light up near copy (the ink lease), because each rect's budget counts one transient plus the haze. The main thread measures each rect's `headroom`, and the veil fits any brightness to `inkBudget(headroom)` (`INK_BUDGET`). Satellites and the clear-sky could kinds are kept clear of the copy as T3 says, and shooting stars of the side rails, whose links change color on hover and focus (`clearOf`, 6.10); farewell meteors also keep clear of everything above Contact, where unmarked copy can show on tall screens (6.12). No star keeps light on the copy itself (`LAYERS.far.inkKeep` 0 since cf4d7b8; AC-30). **Reading copy** (About to Other Projects) has no quiet rects, today or after this plan: stars sit behind it at the reading scene's levels (alpha at most about 0.25) and, with D2's drift, cross it slowly; D2 lists the options. The budgets remain the veil session's. |
 | 1.4.11 Non-text Contrast | AA | The glyph carries the state: green on navy is 14.1:1, and 12.7:1 on the phone menu's light navy. The focus ring is the global 2 px dashed green outline (`globals.css:80-83`). |
 | 2.4.7 Focus Visible | AA | The global `:focus-visible` ring applies to the native button, and the header never slides away while it holds keyboard focus (6.8). |
 | 2.4.11 Focus Not Obscured (Minimum) | AA | The header shows itself whenever focus enters it (P5); today a focused nav control in the hidden header sits fully off screen (`Navbar.tsx:79`). The control leaves the tab order while the open phone menu's panel covers it (`inert`). |
@@ -3694,16 +3543,14 @@ L is likelihood and I is impact (H, M, L).
 
 | ID | Risk | L | I | Mitigation | Trigger and owner |
 |---|---|---|---|---|---|
-| R-1 | The veil commit never lands (the user doesn't approve it, or the work is abandoned) | L | H | P1 to P7 need nothing from it to be built (where a declined overlap holds them, they wait for V or PF, 4.4), and reach master at V, after PF, or earlier with the veil session's agreement (D10), always by the route in 8.5 step 2; PF takes over the minimum with today's strict veil, under the confirmed interface's names, and the same invariants | CP-4; the user decides (D10) |
-| R-2 | The landed commit differs from the confirmed interface | L | M | CP-5 runs again on the landing notice; every open request has a fallback (8.3); 8.5 step 5 checks the names | V; the implementer |
-| R-3 | Merge conflicts in the shared files | H | M | New code in new files; appended config blocks; stable seams; rebase as soon as CP-1 sees the commit; hotspot rules and kill-switch identity (8.5, 8.6) | V; the implementer |
+| R-3 | A later sky commit on master (a veil follow-up, say) conflicts with a phase in progress | L | M | CP-1 before every phase; new code in new files and appended config blocks; 8.4's rule for veil symbols | CP-1; the implementer |
 | R-4 | WCAG 2.2.2 read as "decorative motion is exempt" | L | H | The control ships anyway, before the drift; it is cheap, and the working group has said decorative motion is not exempt | P5 |
 | R-5 | Induced motion: the copy seems to drift, or a vertical heading reads as scrolling | M | M | The faint majority nearly still; a horizontal opening (D6); AC-17 with three reviewers. If it fails: v₀ 2.5, or flatten the drift's vertical part with one constant (a y-scale of 0.5 in `driftAt`, accepting a minimum speed of 0.29 v₀ during vertical stretches) | P6 watch; the user |
 | R-6 | Battery: continuous frames where the sky used to sleep (reading) | M | M | The levers in 10.4; B-3, B-6 and B-7 measured against P0 | P6; the implementer |
 | R-7 | The phone GPU cost is an estimate (2 to 4 ms a frame) | M | M | The 30 fps narrow cap; B-7 on a mid Android; lower `minFps` or the reading drift if it fails | P6 devices |
 | R-8 | WebKit's unaligned 15 ms worker clock judders (about 4.5 jolts a second) and ignores Low Power Mode | H (Safari) | L to M | Detect it; uncapped motion every tick, capped drift every third tick on phones; P13 only if device tests show judder or drain | P6 devices; D7 |
 | R-9 | DPR-1 shimmer (about 20% max-pixel swing for 1-D motion at σ 0.7, inherent to the grid) | M | L | The 0.85 device px floor, decided by eye on a DPR-1 monitor | P6 |
-| R-10 | Crossings rise above the veil commit's at the new rate (its passes behind copy make them more common than today's) | M | M | New directions before the new rate (inside P9); the cooldown starts at the reveal, at 55 s, which meets the landed `nearCopy` bars for P9 shares up to 0.6 (6.9); V re-measures the bar on the commit, and P9 moves the cooldown up or down from the share it measures on the archived layouts; above about 90 s, a slower rate; AC-38 | V and P9; the veil's numbers (I8) |
+| R-10 | Crossings rise above the veil commit's at the new rate | M | M | New directions before the new rate (inside P9); the cooldown starts at the reveal, at 55 s, which over a visit's first two minutes (AC-38's window; longer windows run up to about 40% higher, 6.9) meets every landed bar for P9 shares up to 0.6 but 2560 × 1440's, met up to 0.28, and P9 moves it up or down from H9's rates on the nine archived layouts; above about 90 s, a slower rate; AC-38 | P9; the veil's numbers (I8) |
 | R-11 | A transient breaks 5 s (R2's 3 s fireball plus its train, say) | L | H | Fireball flights stay 1.8 to 2.5 s; the scheduler rejects longer plans; H10 asserts every kind from the config | P8 to P12 |
 | R-12 | A hydration mismatch from the stored pause | L | M | `useSyncExternalStore` with a null server snapshot; the reveal remount; AC-41 | P5 |
 | R-13 | `localStorage` unavailable or throwing | M | L | Every access in try/catch; the choice holds for the page view | P5 |
@@ -3713,22 +3560,21 @@ L is likelihood and I is impact (H, M, L).
 | R-17 | The idle stop reads as "it stopped" | M | L | Pointer, keys and focus count as presence (P4); `FRAME.idleSleepMs` is one knob | P4, P6 |
 | R-18 | Harness-only verification misses browser behavior | M | M | Every phase has browser checks and ends with a production smoke build; real devices in P6 | each phase |
 | R-19 | A watchdog false positive under GPU back-pressure, a context loss or an occluded window | L | L | One timer frame per miss; a switch only after three misses in a row, undone by the 5 s probe, a context restore or a return to the tab | P3 |
-| R-20 | More per-frame garbage (`quietBlend` allocations at 20 to 30 fps) | M | L | Minor GC (the confirmed interface adds no cache); cache the zone arrays per scroll and layout after V if B-1 fails | V |
+| R-20 | More per-frame garbage (`quietBlend` allocations at 20 to 30 fps) | M | L | Minor GC (the veil commit adds no cache); if B-1 fails, cache the zone arrays per scroll and layout inside `quietBlend`, keeping its output (8.4's one exception for it) | P6; B-1 |
 | R-21 | No test runner: later changes break the invariants unnoticed | M | M | D5 (Vitest is the low-friction option); the harness kit is reproducible from this plan | the user |
 | R-22 | Satellites at 4.8 s read as slow meteors | M | L | Steady light, no tail and a constant speed tell them apart; D9 holds the realistic version | P11 |
 | R-23 | Two WCAG 2.2.2 questions are unsettled: repeated short animations (#4447) and reduced motion as the mechanism (#4319, #3766) | L | M | The plan takes the conservative side of both: 5 s per transient, plus the control | none: a standing choice |
 
 ### 12.2 Open questions
 
-1. The veil commit's SHA (I8); V then re-measures the cooldown's bar on it (8.5 step 5).
-2. For the user, raised by the veil session and not designed on here: should launches wait while the quiet zones ease or a layout waits (`quietEasing(t)`, or a pending layout), so no launch plans against stale zones?
-3. Is 90 s still the right idle window now that pointer and keys count?
-4. The DPR-1 floor (0.85 device px) for moving stars: decide by eye in P6.
-5. Is the phone GPU cost within budget (B-7)?
-6. Should the end bookend's twinkle (0.8) and drift (0.8) stay as today's config and R1 set them, or match the hero?
-7. The thresholds are lab numbers for high-contrast targets and younger eyes (R1 §4.2). Tune v₀ by eye on a laptop, a phone and a DPR-1 monitor, ideally with an older viewer.
-8. Decisions D1 to D12 (section 3).
-9. Page-level 2.2.2: the gradient cards' border (`.gradient-card`, `globals.css:273-278`, used through `Card.tsx:7`) also rotates continuously under `prefers-reduced-motion: no-preference`, and the sky's control doesn't pause it. This plan leaves it out of scope. A small follow-up could pause it from the same store (a root attribute that sets `animation-play-state: paused`).
+1. For the user, raised by the veil session and not designed on here: should launches wait while the quiet zones ease or a layout waits (`quietEasing(t)`, or a pending layout), so no launch plans against stale zones?
+2. Is 90 s still the right idle window now that pointer and keys count?
+3. The DPR-1 floor (0.85 device px) for moving stars: decide by eye in P6.
+4. Is the phone GPU cost within budget (B-7)?
+5. Should the end bookend's twinkle (0.8) and drift (0.8) stay as today's config and R1 set them, or match the hero?
+6. The thresholds are lab numbers for high-contrast targets and younger eyes (R1 §4.2). Tune v₀ by eye on a laptop, a phone and a DPR-1 monitor, ideally with an older viewer.
+7. Decisions D1 to D9 and D12 (section 3).
+8. Page-level 2.2.2: the gradient cards' border (`.gradient-card`, `globals.css:273-278`, used through `Card.tsx:7`) also rotates continuously under `prefers-reduced-motion: no-preference`, and the sky's control doesn't pause it. This plan leaves it out of scope. A small follow-up could pause it from the same store (a root attribute that sets `animation-play-state: paused`).
 
 ## 13. Sources
 

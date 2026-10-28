@@ -82,7 +82,7 @@ export function frameDemand(state: FrameState): FrameDemand {
 	)
 }
 
-/** Most drift frames per second: PACING.narrowMaxFps on narrow screens, PACING.slowMaxFps after the first adaptive step, within the software-raster budget. */
+/** Most frames per second for the drift and the pointer lean: PACING.narrowMaxFps on narrow screens, PACING.slowMaxFps after the first adaptive step, within the software-raster budget. */
 export function driftCap(narrow: boolean, slowed: boolean, softwareFps: number): number {
 	return Math.min(narrow ? PACING.narrowMaxFps : slowed ? PACING.slowMaxFps : Infinity, softwareFps)
 }

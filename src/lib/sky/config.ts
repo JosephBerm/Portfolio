@@ -343,15 +343,15 @@ export const FRAME = {
  * most `stepDevicePx` per drawn frame (two quarter-pixel phases, under a third of the smallest star's width) where the
  * display's refresh rate allows it, and never draws below `minFps`. Motion draws on animation frames divided by a whole
  * number, so every drawn frame stays up for the same number of display refreshes; a lower need must last
- * `slowDownAfter` seconds before the clock slows down. The drift draws at most `narrowMaxFps` on narrow screens (phone
- * GPUs pay most for a full-screen frame) and `slowMaxFps` after the first adaptive step; a software-rasterized canvas
- * may spend `softwareShare` of a core on it and keeps a still sky below `minFps`. The refresh interval is the median of
- * the last `refreshSamples` frame intervals; a median within `unalignedToleranceMs` of `unalignedIntervalMs` is
- * WebKit's fixed 15 ms worker clock, not the display, so uncapped motion draws every frame there and capped drift every
- * few. A requested animation frame that hasn't come `watchdogMs` after the request (while visible) is served by a
- * timer; after `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which asks for one animation
- * frame every `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored context); the strikes
- * also reset when the context is restored or the tab is shown.
+ * `slowDownAfter` seconds before the clock slows down. The drift and the pointer lean draw at most `narrowMaxFps` on
+ * narrow screens (phone GPUs pay most for a full-screen frame) and `slowMaxFps` after the first adaptive step; a
+ * software-rasterized canvas may spend `softwareShare` of a core on them and keeps a still sky below `minFps`. The
+ * refresh interval is the median of the last `refreshSamples` frame intervals; a median within `unalignedToleranceMs`
+ * of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock, not the display, so uncapped motion draws every frame
+ * there and capped drift every few. A requested animation frame that hasn't come `watchdogMs` after the request (while
+ * visible) is served by a timer; after `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which
+ * asks for one animation frame every `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored
+ * context); the strikes also reset when the context is restored or the tab is shown.
  */
 export const PACING = {
 	stepDevicePx: 0.5,
@@ -371,11 +371,11 @@ export const PACING = {
 
 /**
  * Adaptive quality: after `slowFrames` more slow frames (JS over `slowFrameMs`) than fast ones, draw `thinning` of the
- * stars, twinkle slower and cap the drift at PACING.slowMaxFps; the stars step 1 thins out fade over `thinFade`
- * seconds, since a moving sky that lost a fifth of its stars in one frame would read as a glitch. A second step drops
- * to CSS resolution. A software-rasterized canvas, whose cost lands after the draw calls return where frame timing
- * can't see it, is found at start-up instead: one full frame rasterized off screen in more than `rasterMsPerMp` per
- * device megapixel (and more than `rasterMinMs`) starts at the second step.
+ * stars, twinkle slower and cap the drift and the pointer lean at PACING.slowMaxFps; the stars step 1 thins out fade
+ * over `thinFade` seconds, since a moving sky that lost a fifth of its stars in one frame would read as a glitch. A
+ * second step drops to CSS resolution. A software-rasterized canvas, whose cost lands after the draw calls return where
+ * frame timing can't see it, is found at start-up instead: one full frame rasterized off screen in more than
+ * `rasterMsPerMp` per device megapixel (and more than `rasterMinMs`) starts at the second step.
  */
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 

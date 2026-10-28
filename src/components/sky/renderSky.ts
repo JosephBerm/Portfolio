@@ -10,7 +10,6 @@ import {
 	MIN_STAR_ALPHA,
 	SKY_LAYERS,
 	STAR_ALPHA,
-	STAR_SHAPES,
 	TRAIN,
 	TWINKLE_HORIZON_GAIN,
 	type SkyLayer,
@@ -18,7 +17,7 @@ import {
 import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { budgetKeeps, easedQuietFactor, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
-import type { StarAtlas } from './skyAssets'
+import { starSpriteIndex, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, kept while they stay near the viewport. */
 export interface StarField {
@@ -86,9 +85,6 @@ export interface SkyFrame {
 	meteorInk: number
 }
 
-/** Shapes per palette row of the atlas. */
-const SHAPE_COUNT = STAR_SHAPES.length
-
 /** Stars this far beyond an edge are still drawn, so a halo never pops in at the border. */
 const EDGE = 24
 
@@ -124,7 +120,7 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 					alpha *= Math.exp(sigma * twinkleNoise(star.twinkle, frame.time) - (sigma * sigma) / 2)
 				}
 				if (alpha < MIN_STAR_ALPHA) continue
-				const sprite = sprites[star.tint * SHAPE_COUNT + star.shape]
+				const sprite = sprites[starSpriteIndex(star.tint, star.shape, 0, 0)]
 				if (!sprite) continue
 				// Snapped to device pixels (sprites have odd sides), so resting stars stay crisp points
 				const half = (sprite.size - 1) / 2

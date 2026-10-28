@@ -229,6 +229,54 @@ It is optional and additive.
 - `PassOptions.timing` becoming a `fallback` flag is fine. Keep the timing values in config, and keep `planMeteor`'s `flights` option.
 - The new end tests (`end.x > width − edgeMargin`, `end.y < METEOR.top`) change which paths fit, so crossing rates will move. After P9, rerun the crossing measurement and report the new numbers to Joseph next to the veil's. The edge-fade rule (D1) stays on every viewport.
 
+## Landed in the working tree (2026-10-27, not yet committed)
+
+The veil fix is final in the main working tree (master, on HEAD 246c0aa), uncommitted. Joseph approves the commit, and the SHA comes when he commits.
+- **Checks:**
+  - its final Opus check confirmed the fix with no required changes;
+  - lint and type-check exit 0;
+  - next-devtools `get_errors` and `get_compilation_issues` are empty.
+- **The diff:** the working tree is byte-identical to its confirmed diff (11 files, +577 −184).
+- **The interface:** it matches "Confirmed veil interface" plus the additive items in "Answers to the planning session's questions". Nothing has changed since.
+
+Checkpoint V still means the commit. Phases blocked on V stay blocked, but these numbers are final unless the commit differs.
+
+**Final crossing numbers.** They replace the pre-D1 software-canvas figures in "What it means for PLAN.md" above (29/19/25% planner, 21/14/20% rendered, 24 to 36% edge dims), and any PLAN.md bar derived from them.
+
+| Measure | 1440x900 | 1280x800 | 1920x1080 |
+|---|---|---|---|
+| `nearCopy` share of launches (planner, 4,000 launches each) | 60.6% | 56.1% | 35.1% |
+| Visible behind copy, planner model: head on a text rect adding at least 0.12 white for 0.1 of the flight | 30.4% | 19.0% | 23.7% |
+| The same at 0.04 white | 33.1% | 24.1% | 24.5% |
+| Rendered on the GPU canvas the worker draws on (what visitors see): streaks, at least 87 of 726 for 0.1 s | 18.3% | 12.8% | 19.3% |
+| Rendered on the GPU canvas: glimmers, at least 30 of 726 | 32.6% | 26.2% | 26.8% |
+
+- Don't use the software-canvas figures (23.3/15.1/23.5%): that canvas renders about 2.4% brighter.
+- **Live** (headless Chromium, the real worker bundle):
+  - 1440x900: 37 of 240 streaks and 72 of 240 glimmers;
+  - 1280x800: 26 of 180 streaks and 42 of 180 glimmers.
+- **Cadence:** about one flight every 42 s at 1440x900, so roughly a streak every 4 minutes and a glimmer every 2.
+- **Other sizes** (`nearCopy` share / planner pass at 0.12):
+  - 1366x768: 68.3 / 35.9%
+  - 1536x864@1.25: 48.0 / 25.5%
+  - 2560x1440: 25.8 / 20.3%
+  - 1280x720: 59.3 / 21.6%
+  - 1024x768: 85.1 / 10.8%
+  - 390x844 phone: 67.3 / 0% (no pass is possible by geometry)
+- **Edge fades** under the worker's radiant policy: at most 1.6% on every desktop size and 3.7% on the phone. Live: 0 of 420.
+- **Shorter fallbacks per launch:** 0.0 to 0.3% on desktop, 46.8% on the phone.
+
+**Two corrections to its earlier statements.**
+- D1's "a fallback flight that ends in open sky" is wrong for phones. Only about 3% of phone flights end in open sky. Most still dim smoothly near the copy (`nearCopy` 67%), without the bright edge fade.
+- D2 in practice: when copy moves under a transient in flight, `transientQuietFactor` dims it in one frame, by up to 0.88 of white at 1440x900 and 0.54 at 1280x800. Every transient of ours will behave the same way. It was never seen live: in 440 visits, no layout message arrived after the reveal.
+
+**A possible follow-up, Joseph's to decide; don't build on it yet:** hold launches while `quietEasing(t)` or a layout is waiting, so a launch never plans against stale zones.
+
+**Harness for re-measuring after P9.** The original lives in the veil session's temporary scratchpad, so a copy is archived at `harness/veil-confirm-final-1.tar.gz`. See `harness/README.md` for what is in it and how to run it. It holds:
+- the planner and worker batch, render and live scripts;
+- its result summaries and the exact working-tree diff (`results/wt-final.diff`);
+- the nine captured layouts (`code-logic/zones/*.json`) that I8 asked for.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -242,3 +290,4 @@ It is optional and additive.
   Final names and signatures, and the list of functions that changed shape, come with its confirmed plan.
 - 2026-10-27: its plan was confirmed and implementation started in the main checkout (uncommitted). The final interface is recorded in "Confirmed veil interface" above. Next from it: a message when the implementation is in the working tree. After Joseph approves and commits it, this plan's implementer rebases onto it.
 - 2026-10-27: we asked five questions and told it about P9. It answered the same day; the answers are in "Answers to the planning session's questions" above. Gate round 7 folds them into PLAN.md. Next from it: the "landed" message with the SHA, the touched-symbol list from `git diff`, the crossing numbers and the harness path.
+- 2026-10-27: its "landed" message arrived: final in the working tree, uncommitted, with the final crossing numbers and the harness path (see "Landed in the working tree" above). We archived the harness and the captured layouts in `harness/`. Still to come: the SHA once Joseph commits; then checkpoint V runs.

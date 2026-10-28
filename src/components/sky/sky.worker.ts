@@ -4,13 +4,14 @@
  * while a shooting star flies or the page scrolls. Hidden tabs, reduced motion, reading and idle visits sleep.
  */
 
-import { cameraOffset, createCamera, forgetStep, resumeCamera, stepCamera, type CameraInput, type Vec } from '@/lib/sky/camera'
+import { cameraOffset, cameraSpeed, createCamera, forgetStep, resumeCamera, stepCamera, type CameraInput, type Vec } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
+import { EVERY_FRAME, FADE_FRAMES, frameDemand, NO_FRAMES, type FrameDemand, type FrameState } from '@/lib/sky/pacing'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { between } from '@/lib/sky/random'
-import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend } from '@/lib/sky/scene'
+import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
 import { createStarField, drawMeteor, drawSky, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
@@ -21,8 +22,6 @@ interface SkyWorkerScope {
 	requestAnimationFrame(callback: (time: number) => void): number
 	cancelAnimationFrame(handle: number): void
 }
-
-type FrameMode = 'active' | 'fade' | 'twinkle' | 'sleep'
 
 type LayoutMessage = Extract<SkyMainMessage, { type: 'layout' }>
 
@@ -136,24 +135,38 @@ function quietEasing(t: number): boolean {
 	return layoutAt !== null && t - layoutAt < QUIET.ease
 }
 
-/** How often to draw right now, from the most to the least demanding reason to draw. */
-function frameMode(now: number): FrameMode {
-	if (!ctx || !visible || motion === 'off' || exitAt === null) return 'sleep'
-	const t = now / 1000
-	const scrolling = now - lastScrollAt < FRAME.scrollSettleMs
-	// The stars keep gliding to rest after the page stops scrolling
-	if ((meteor && meteorMoving(meteor, t)) || (scrolling && motion === 'full') || cameraMoving) return 'active'
-	// A lingering train, scrolling under reduced motion, the dusk and copy that has just appeared or moved change slowly
-	if (meteor || scrolling || !emergenceDone(t - exitAt) || quietEasing(t)) return 'fade'
-	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
-	if (motion === 'full' && !isIdle(now) && sceneAt(scrollY, height, documentHeight).twinkle > 0) return 'twinkle'
-	return 'sleep'
+/** What the frame clock sees now (reused). */
+const frameState: FrameState = {
+	live: false,
+	scrolling: false,
+	full: false,
+	transientDemand: NO_FRAMES,
+	cameraActive: false,
+	cameraSpeed: 0,
+	cameraCap: Infinity,
+	fading: false,
+	twinkleFps: 0,
 }
 
-/** Milliseconds between timer-driven frames. */
-function frameInterval(mode: 'fade' | 'twinkle'): number {
-	if (mode === 'fade') return 1000 / FRAME.fadeFps
-	return 1000 / (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps)
+/**
+ * The strictest demand of every part of the sky right now. It reads the worker's state afresh at every frame decision,
+ * so a message that wakes a sleeping worker is judged on this moment, not on what the last frame saw.
+ */
+function demandNow(now: number, scene: SceneLevels): FrameDemand {
+	const t = now / 1000
+	frameState.live = ctx !== null && visible && motion !== 'off' && exitAt !== null
+	frameState.scrolling = now - lastScrollAt < FRAME.scrollSettleMs
+	frameState.full = motion === 'full'
+	frameState.transientDemand = meteor ? (meteorMoving(meteor, t) ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES
+	// The stars keep gliding to rest after the page stops scrolling
+	frameState.cameraActive = cameraMoving
+	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera) * dpr
+	frameState.cameraCap = Infinity
+	// The dusk and copy that has just appeared or moved change slowly
+	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t)
+	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
+	frameState.twinkleFps = motion === 'full' && !isIdle(now) && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
+	return frameDemand(frameState)
 }
 
 /** Drops any pending animation frame or timer. */
@@ -177,18 +190,18 @@ function schedule(now: number): void {
 	if (rafId || !ctx || !visible) return
 	clearTimeout(timerId)
 	timerId = undefined
-	const mode = frameMode(now)
-	if (mode === 'active') {
+	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
+	if (demand.vsync) {
 		rafId = scope.requestAnimationFrame(onFrame)
 		return
 	}
-	if (mode === 'sleep') {
+	if (demand.fps <= 0) {
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
 		// Asleep in the hero (an idle twinkle, say): wake only for the next shooting star
 		else if (Number.isFinite(nextMeteorAt) && meteorsAllowed(now)) timerId = setTimeout(onTimer, Math.max(0, nextMeteorAt * 1000 - now))
 		return
 	}
-	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + frameInterval(mode) - now))
+	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + 1000 / demand.fps - now))
 }
 
 /** Timer-driven frame (fades, twinkle, a due shooting star). */
@@ -208,9 +221,9 @@ function tick(now: number): void {
 	updateMeteor(now)
 	settleQuiet(now)
 	updateCamera(now)
-	const mode = frameMode(now)
+	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
 	// Timers fire a little early or late; 4ms of slack keeps the cadence even
-	if (needsDraw || mode === 'active' || (mode !== 'sleep' && now - lastDrawAt >= frameInterval(mode) - 4)) draw(now)
+	if (needsDraw || demand.vsync || (demand.fps > 0 && now - lastDrawAt >= 1000 / demand.fps - 4)) draw(now)
 	schedule(now)
 }
 

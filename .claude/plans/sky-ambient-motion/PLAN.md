@@ -154,6 +154,8 @@ Each of these was considered and left out:
 
 ## 3. Decisions for the user
 
+**Answered 2026-10-28: Joseph chose the recommended default for every decision below** ("Use the defaults"). The alternatives stay listed for a later change of mind.
+
 Each decision has a recommended default, and the plan is written for the defaults. Every phase starts on the defaults; the "Affects" column names the phases a decision changes. Only D4 must be answered first, before each could kind in P12. D10 and D11 went with the wait for the veil commit; the other numbers are kept.
 
 | # | Decision | Recommended default | Alternatives and their cost | Affects |

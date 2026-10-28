@@ -1,6 +1,8 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-28. Planning is done: `PLAN.md` is built on the veil commit `cf4d7b8`, and it converged in gate round 12. Next comes Joseph's decisions (section 3 of `PLAN.md`, all with defaults), then an implementing session.
+Last updated: 2026-10-28. Planning is done: `PLAN.md` is built on the veil commit `cf4d7b8`, and it converged in gate round 12.
+- Joseph chose the recommended defaults for every decision in section 3 ("Use the defaults").
+- Implementation runs in the local session "Implement the sky ambient-motion plan (P0 onward)" (`local_173b1826-7839-4b4e-a7c8-ad3fe4af9577`). It confirms each phase with Joseph before starting it.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 
@@ -72,7 +74,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 
 ```
 Implement the sky ambient-motion plan in JosephBerm/Portfolio.
-The plan is .claude/plans/sky-ambient-motion/PLAN.md on branch claude/quirky-carson-btv2u4: read HANDOFF.md, PLAN.md section 1, section 3's decisions (use the defaults unless Joseph chose otherwise), section 7.0 and 7.2, and COORDINATION.md first.
+The plan is .claude/plans/sky-ambient-motion/PLAN.md on branch claude/quirky-carson-btv2u4: read HANDOFF.md, PLAN.md section 1, section 3's decisions (Joseph chose the defaults on 2026-10-28), section 7.0 and 7.2, and COORDINATION.md first.
 Cut a new branch from origin/master (cf4d7b8 or later) in its own worktree, run P0, then one phase per pull request in 7.2's order, verifying each as the phase says (npm run lint, npm run type-check, the named harness checks).
 The veil-owned symbols in PLAN.md 8.4 are used and extended through options only; veiledFrom never changes.
 ```

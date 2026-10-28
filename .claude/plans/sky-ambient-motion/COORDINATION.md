@@ -135,6 +135,100 @@ The veil session's fix plan is confirmed (Opus max, 3 check rounds), and impleme
 - The veil change also edits comments in `Introduction.tsx` and `SidePane.tsx`. This plan's P5 AGENTS.md line rebases on top of the veil's.
 - Numbers before the edge-fade rule, from its planner at 1440x900, 1280x800 and 1920x1080: the head passes behind copy at 0.12 white or more for 0.1 s in 29%, 19% and 25% of flights (0% today). Rendered streaks: 21%, 14% and 20%. The edge-fade rule cuts flights that dim at a copy edge without passing behind it from about 24 to 36% to under 2% on desktop. Final numbers come with its "landed" message.
 
+## Answers to the planning session's questions (2026-10-27)
+
+We asked five questions (the file rule, the `frameAt` and `sameRects` overlaps, I9's never-lease overlap, a comet's fade, `QuietBlend.next`) and told it about P9. Its answers, condensed. They are authoritative and supersede PLAN.md's either-or branches on these points.
+
+**Status.** The implementation is in the main working tree. The first live check and four Opus audits are done, and a fix round with a final Opus check is still running. Nothing is committed, and Joseph approves the commit. Treat the working tree as provisional until the "landed" message. That message carries:
+- the SHA, once Joseph commits;
+- the definitive touched-symbol list from `git diff`;
+- the crossing numbers we asked for;
+- the harness path.
+
+**1. The file rule is symbol-level.** Our reading is right:
+- before its commit, never touch the main checkout's working copies;
+- on our branch we may edit other lines of the same files, and at the rebase its lines win;
+- don't reformat, reorder or move its symbols before the rebase.
+
+Its symbols with changed lines today (this replaces the shorter "Changed shape" list above as the hands-off list):
+- `protocol.ts`: `SkyRect.headroom`.
+- `color.ts` (all new):
+  - exported, main thread, used by `copyReader`: `parseRgbColor`, `minimumContrast`, `lightHeadroom`;
+  - private: `linear`, `luminance`, `contrastRatio`, `WCAG_CONTRAST`, `HEADROOM_STEPS`.
+- `config.ts`:
+  - the header doc (the WCAG thresholds now live in `color.ts`);
+  - `LayerConfig`/`LAYERS` (far `inkKeep` 0) and `STAR_INK_PEAK`;
+  - the `QUIET` doc and `QUIET_REACH`;
+  - the `HAZE_POOLS` and `HAZE_REBUILD_MS` docs;
+  - `CONTRAST_NORMAL.meteorInk` (1) and `CONTRAST_MORE.meteorInk` (0);
+  - `INK_BUDGET`, `METEOR_VEIL`, `METEOR_PASS` and `SCROLL_CANCEL`;
+  - the `METEOR` keys and docs (`radiantTries`, `attempts`, the spawn keys).
+- `scene.ts`:
+  - the `SceneLevels.meteors` doc and `screenQuietZones` (keeps `headroom`);
+  - `zoneQuiet`, `zoneInk`, `quietAt` and `inkAt`;
+  - `QuietKeeps`, `QuietBlend`, `quietFactor`, `easedQuietFactor` and `transientQuietFactor`;
+  - `inkBudget`, `fitKeep`, `budgetKeeps` and `scrollKept`.
+- `meteors.ts`:
+  - `Meteor.nearCopy`, `PlanOptions` and `PassOptions`;
+  - `headGain` and `WAKE_GAIN`;
+  - `Veiled`, `CLEAR_SKY`, `Fit` and `segmentTouches`;
+  - `veiledFrom`, `planFlight` and `planMeteor`.
+- `renderSky.ts`: the imports, `SkyFrame` (`meteorInk` added; `meteorScroll` is gone), `drawTrain` and `drawMeteor`.
+- `sky.worker.ts`:
+  - the imports, `LayoutMessage`, `pendingLayout` and `launchScrollY`;
+  - `contrastLevels`, `sameRects` and `quietEasing`;
+  - `frameMode`, `tick`, `updateMeteor` and `planLaunch`;
+  - `quietBlend`, `applyLayout` and `settleQuiet`;
+  - `frameAt`, `draw` and `rebuildHaze`;
+  - the `layout` branch of the message handler.
+- `mountSky.ts`: `NORMAL_FONT_WEIGHT`, `Shift`, `CopyReader`, `copyReader`, `quietRect`, `quietRects` and `mountSky`.
+- Comment lines in `Introduction.tsx` and `SidePane.tsx`, and the `copyReader` line in AGENTS.md.
+
+**2. Yes to both overlaps.**
+- `frameAt`: keep its `contrast` local, `quiet: quietBlend(t)`, `meteorInk: contrast.meteorInk` and the doc line.
+- `sameRects`: we may move it to `scene.ts` and export it, as long as it keeps comparing `headroom`. A headroom-only change (fonts loading, a token or font-weight change) must still reach the worker and update the budgets.
+
+**3. Never-lease kinds may overlap a lease holder in time, on three conditions.**
+- a) "No light inside any padded rect" holds for the kind's whole drawn footprint, glow included, on every frame. It is checked against the zones a transient answers to: `blend.to` and `blend.next`. It holds by construction if:
+  - the kind draws through `transientQuietFactor` with keeps `{ quietKeep: 0, inkKeep: 0 }`, sampled at its center;
+  - its drawn radius stays at or under `QUIET.padding` (32 px).
+
+  The factor is then 0 inside every padded rect of `to` and `next`, and a center outside a padded rect sits more than 32 px from the copy.
+- b) If it moves, it still takes `scrollKept` from its own launch scrollY. "Clear sky" means only clear of quiet copy: About and other unmarked copy scroll in, and the veil knows nothing about them (C1).
+- c) Anything that adds light on quiet copy takes the lease. `INK_BUDGET` leaves room for the haze plus one transient, nothing more (`STAR_INK_PEAK` is 0).
+
+Whether two transients at once look right is Joseph's call, not a veil rule. Its suggestion: keep the shooting star's peak as the only bright moment.
+
+**4. A static comet: not with the hero fade as it stands.**
+- The launch gate (`sceneAt().meteors`: scrolled ≤ `SCENE.heroMeteorMaxScroll`, 0.4 viewport heights) is a boolean.
+- The hero fade (`SCENE.heroFadeFrom` 0.5 to `heroFadeTo` 1.3) runs well past the point where About copy is on screen.
+
+A static comet may use its own scroll-driven fade instead of `scrollKept`, but only if that fade reaches 0 before any unmarked copy can come under its drawn footprint, checked at the shortest supported viewport (phones held sideways). Otherwise it takes `scrollKept`. Either way it draws through `transientQuietFactor`, and it takes the lease if it lights quiet copy.
+
+**5. `QuietBlend.next?` is final interface.** The fix round added it after an audit finding: while a layout waits for the running ease (C2), the copy may already be at the waiting layout's position. `transientQuietFactor` now returns the minimum of:
+- the eased factor;
+- the factor of `to` while easing;
+- the factor of `next` when present.
+
+It is optional and additive.
+
+**Other additive changes since the confirmation (nothing renamed):**
+- A worker-private `quietEasing(t)`, used by `frameMode`, `settleQuiet`, the layout handler and `rebuildHaze`. `rebuildHaze` now waits until the zones stop easing, so a mid-ease stall can't show as a step.
+- `planLaunch` sizes fresh radiants from the meteor field it is given (`meteorField.width`/`height`), not the worker globals.
+- `mountSky.ts` has a private `Shift` interface and `NORMAL_FONT_WEIGHT`.
+- `color.ts` exports `parseRgbColor`, `minimumContrast` and `lightHeadroom`.
+- `SkyFrame.meteorInk`, which `drawMeteor` passes to `budgetKeeps` as `ink`.
+- Doc-only changes:
+  - the `STAR_INK_PEAK`, `METEOR_PASS` and `SCROLL_CANCEL` docs;
+  - the `HAZE_POOLS` doc now points at `INK_BUDGET.hazeReserve`: re-measure that reserve before brightening any haze.
+
+**P9: no conflict with the veil, with three asks.**
+- `steer`, replacing `radiant` and `pickRadiant`, reaches into `planLaunch`. Keep C4's order:
+  - try long flights on every candidate direction (the sticky one first, then fresh ones, up to `METEOR.radiantTries`; one on narrow screens) before any short flight;
+  - keep the stickiness: a resize clears it, and a layout doesn't re-pick it.
+- `PassOptions.timing` becoming a `fallback` flag is fine. Keep the timing values in config, and keep `planMeteor`'s `flights` option.
+- The new end tests (`end.x > width − edgeMargin`, `end.y < METEOR.top`) change which paths fit, so crossing rates will move. After P9, rerun the crossing measurement and report the new numbers to Joseph next to the veil's. The edge-fade rule (D1) stays on every viewport.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -147,3 +241,4 @@ The veil session's fix plan is confirmed (Opus max, 3 check rounds), and impleme
 
   Final names and signatures, and the list of functions that changed shape, come with its confirmed plan.
 - 2026-10-27: its plan was confirmed and implementation started in the main checkout (uncommitted). The final interface is recorded in "Confirmed veil interface" above. Next from it: a message when the implementation is in the working tree. After Joseph approves and commits it, this plan's implementer rebases onto it.
+- 2026-10-27: we asked five questions and told it about P9. It answered the same day; the answers are in "Answers to the planning session's questions" above. Gate round 7 folds them into PLAN.md. Next from it: the "landed" message with the SHA, the touched-symbol list from `git diff`, the crossing numbers and the harness path.

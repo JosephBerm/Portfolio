@@ -100,7 +100,7 @@ let camera = createCamera(0)
 /** The camera's offset for the frame being drawn (reused). */
 const offset: Vec = { x: 0, y: 0 }
 /** What the camera follows on its next step (reused, so a step makes no garbage). */
-const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false }
+const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0 }
 /** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
 let cameraMoving = false
 /** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */
@@ -191,7 +191,7 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	frameState.transientDemand = meteor ? (meteorMoving(meteor, t) ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES
 	// The stars keep gliding to rest after the page stops scrolling
 	frameState.cameraActive = cameraMoving
-	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera) * dpr
+	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera, 0) * dpr
 	frameState.cameraCap = Infinity
 	// The dusk, copy that has just appeared or moved and the motion level easing change slowly
 	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t) || easing(motionLevel.since, FRAME.motionEase, t)

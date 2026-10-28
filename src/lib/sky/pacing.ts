@@ -7,7 +7,7 @@ export interface FrameDemand {
 	fps: number
 	/** Something moves: frames must be animation frames, so each one lands on a display refresh. */
 	vsync: boolean
-	/** At most this many frames per second while this is the strictest demand; Infinity for none. */
+	/** At most this many frames per second while this is the strictest demand (the drift's caps); Infinity for none. */
 	cap: number
 }
 
@@ -22,7 +22,9 @@ export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap:
 
 /**
  * The strictest of several demands: the most frames, on animation frames if any of them moves, within the tightest cap
- * unless one asks for every refresh (a flying shooting star, scrolling). A demand with no cap never lifts another's.
+ * unless one asks for every refresh (a flying shooting star, scrolling). A demand with no cap never lifts another's: a
+ * fade never lifts the drift's cap, which matters on WebKit's unaligned clock, where tick asks for every tick and only
+ * the cap divides it.
  */
 export function combineDemands(...demands: FrameDemand[]): FrameDemand {
 	let fps = 0
@@ -78,6 +80,11 @@ export function frameDemand(state: FrameState): FrameDemand {
 		state.fading ? FADE_FRAMES : NO_FRAMES,
 		state.twinkleFps > 0 ? { fps: state.twinkleFps, vsync: false, cap: Infinity } : NO_FRAMES
 	)
+}
+
+/** Most drift frames per second: PACING.narrowMaxFps on narrow screens, PACING.slowMaxFps after the first adaptive step, within the software-raster budget. */
+export function driftCap(narrow: boolean, slowed: boolean, softwareFps: number): number {
+	return Math.min(narrow ? PACING.narrowMaxFps : slowed ? PACING.slowMaxFps : Infinity, softwareFps)
 }
 
 /** A level easing (smoothstep) from `from` to `to`, starting at `since` (s): the motion level. */

@@ -17,8 +17,8 @@ export interface SceneLevels {
 	drift: number
 	/** Share of the pointer lean: hero only. */
 	lean: number
-	/** Shooting stars only fly over the hero, ignite and peak in clear sky and may glide on behind its copy, dimmed to what that copy can take (METEOR_VEIL). */
-	meteors: boolean
+	/** Transients launch only over the hero; shooting stars ignite and peak in clear sky and may glide on behind its copy, dimmed to what that copy can take (METEOR_VEIL). */
+	launches: boolean
 }
 
 /**
@@ -39,7 +39,7 @@ export function sceneAt(scrollY: number, viewportHeight: number, documentHeight:
 		twinkle: mix('twinkle'),
 		drift: mix('drift'),
 		lean: mix('lean'),
-		meteors: scrolled <= SCENE.heroMeteorMaxScroll,
+		launches: scrolled <= SCENE.heroLaunchMaxScroll,
 	}
 }
 

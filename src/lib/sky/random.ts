@@ -1,5 +1,8 @@
 /** Seeded randomness for the sky catalog, so every visitor sees the same stars and nothing random runs during render. */
 
+/** A source of floats in [0, 1): a seeded generator for the catalog, Math.random for what varies per visit. */
+export type Random = () => number
+
 /** mulberry32: a small, fast 32-bit generator returning floats in [0, 1). */
 export function mulberry32(seed: number): () => number {
 	let state = seed >>> 0

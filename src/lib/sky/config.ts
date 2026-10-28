@@ -257,8 +257,8 @@ export const SCENE = {
 	/** Viewport heights left to scroll where the end bookend starts and is complete. */
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
-	/** Shooting stars only while no more than this many viewport heights are scrolled. */
-	heroMeteorMaxScroll: 0.4,
+	/** Transients launch over the hero only while no more than this many viewport heights are scrolled. */
+	heroLaunchMaxScroll: 0.4,
 } as const
 
 /**
@@ -321,8 +321,6 @@ export const FRAME = {
 	fadeFps: 30,
 	/** Scrolling counts as active this long after the last scroll message. */
 	scrollSettleMs: 180,
-	/** Shooting stars wait this long after scrolling stops. */
-	meteorScrollQuietMs: 1200,
 	/**
 	 * With no input (scroll, pointer, keys, focus, Play, a return to the tab) for this long ambient motion eases out,
 	 * nothing new launches and the worker sleeps until the visitor is back.
@@ -380,6 +378,31 @@ export const PACING = {
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
+ * Every short-lived sky event (so far, shooting stars): at most `maxLife` seconds from first light to last, wake, train
+ * and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least `minOnsetGap` seconds apart, since a motion onset
+ * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
+ * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
+ * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
+ * crossings stay rare (0, since shooting stars already come at least 30 s apart). A pause fades every transient out over
+ * `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls from its launch (SCROLL_CANCEL).
+ * A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the kind waits for a new layout. A held
+ * launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds after scrolling stops, and after a
+ * return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
+ */
+export const TRANSIENTS = {
+	maxLife: 5,
+	minOnsetGap: 3,
+	narrowLimit: 2,
+	crossingCooldown: 0,
+	cancelFade: 0.2,
+	retry: [5, 9],
+	maxFailedPlans: 3,
+	recheck: 1,
+	scrollQuiet: 1.2,
+	afterReturn: 3,
+} as const
+
+/**
  * Shooting stars: rare and small, falling from one radiant beyond the top-right corner. Each lights up and peaks in
  * clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET).
  */
@@ -393,17 +416,10 @@ export const METEOR = {
 	/** After `slowAfter` seconds on the page gaps stretch by `slowFactor`, so the sky never turns into a screensaver. */
 	slowAfter: 180,
 	slowFactor: 1.5,
-	/** Retry delay (s) when no path fits around the copy, and failed plans before waiting for a new layout. */
-	retry: [5, 9],
-	maxFailedPlans: 3,
-	/** Seconds until the next check when a due shooting star is held back (scrolling, idle, past the hero, the narrow-screen limit). */
-	recheck: 1,
 	/** Candidate paths tried per radiant for long flights, and again for the fallback; an aimed launch (METEOR_PASS) tries up to as many again. */
 	attempts: 160,
 	/** Fresh radiants tried per launch when the current one yields no long flight, before any shorter one; narrow screens try one, so theirs stay rare. */
 	radiantTries: 3,
-	/** Earliest launch after the tab becomes visible again (s). */
-	afterReturn: 3,
 	/** Path angle below horizontal (degrees), traveling right to left. */
 	angle: [18, 42],
 	/** Radiant as multiples of the viewport (x beyond the right edge, y above the top) and per-meteor jitter (degrees). */
@@ -431,13 +447,12 @@ export const METEOR = {
 	/** Path length range (px); the longest is also at most `pathShare` of the longer viewport side. */
 	path: [160, 640],
 	pathShare: 0.36,
-	/** Narrow screens: slower flights and their fallback, at least `narrowMinPath` px and at most `narrowMaxPathShare` of the width, `narrowLimit` per visit. */
+	/** Narrow screens: slower flights and their fallback, at least `narrowMinPath` px and at most `narrowMaxPathShare` of the width. */
 	narrowDuration: [0.75, 1.05],
 	narrowFallbackDuration: [0.6, 0.8],
 	narrowSpeed: [200, 300],
 	narrowMinPath: 110,
 	narrowMaxPathShare: 0.55,
-	narrowLimit: 2,
 	/** Peak brightness of normal flights; fireballs peak at 1. */
 	peak: [0.75, 0.9],
 	/** Atmospheric drag: by the end of the flight the speed falls to 1 - 3 × drag of the entry speed (0.06: 82%). */

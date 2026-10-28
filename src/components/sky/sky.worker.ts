@@ -120,8 +120,12 @@ const gate: LaunchGate = {
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
-	// Built afresh on each call: the scheduler asks only for a due kind that may plan
-	field: () => ({ width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }),
+	// Built afresh on each call: the scheduler asks only for a due kind that may plan. The rails are padded once and the very
+	// same objects go in both lists, so a reader can tell them apart from the copy in the page's flow by identity
+	field: () => {
+		const rails = screenQuietZones([], scrollY, pinned)
+		return { width, height, quiet: [...screenQuietZones(quiet, scrollY), ...rails], pinned: rails }
+	},
 	ink: 1,
 }
 
@@ -548,8 +552,8 @@ function adapt(milliseconds: number, now: number): void {
 
 /**
  * One quality step down, never back up: step 1 draws fewer stars (the thinned ones fade out), twinkles slower and caps
- * the drift's frames, step 2 also draws at CSS resolution. The layout is unchanged, so the shooting star, the radiant
- * and the haze stay.
+ * the drift's frames, step 2 also draws at CSS resolution. The layout is unchanged, so the shooting star, the visit's
+ * sky and the haze stay.
  */
 function stepDown(now: number): void {
 	if (quality >= 2) return

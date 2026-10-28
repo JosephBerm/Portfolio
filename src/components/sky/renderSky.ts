@@ -279,6 +279,14 @@ function drawTrain(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, me
 	ctx.stroke()
 }
 
+/** The color a wake cools to: mint for fast flights (fireballs too), warm for slow flights and the other fireballs, white for medium flights. */
+function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
+	const { white, green } = assets.tokens
+	if (meteor.wakeColor === 'mint') return mixRgb(green, white, METEOR_LOOK.mintToWhite)
+	if (meteor.wakeColor === 'warm' || meteor.fireball) return assets.palette[METEOR_LOOK.fireballTint] ?? white
+	return white
+}
+
 /**
  * A shooting star at the frame's time: its train, then the wake, glow and core. The wake is drawn from the flight's
  * emission history: each point glows from the moment the head passes it and fades with the wake time constant,
@@ -292,7 +300,7 @@ function drawTrain(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, me
 export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1): void {
 	const { dpr } = frame
 	const state = meteorAt(meteor, frame.time)
-	const { white, green } = assets.tokens
+	const { white } = assets.tokens
 	const keptBy = (keeps: QuietKeeps) => (point: Point) => transientQuietFactor(frame.quiet, point.x, point.y, keeps) * fade
 	ctx.globalCompositeOperation = 'lighter'
 	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, keptBy(budgetKeeps(state.train, METEOR_VEIL.quietKeep, frame.meteorInk)))
@@ -322,7 +330,7 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 		const ty = tailPoint.y * dpr
 		const length = Math.hypot(hx - tx, hy - ty)
 		if (length > 0.5) {
-			const tint = meteor.fireball ? (assets.palette[METEOR_LOOK.fireballTint] ?? white) : mixRgb(green, white, METEOR_LOOK.mintToWhite)
+			const tint = wakeTint(assets, meteor)
 			// One gradient serves the core and the wider, fainter soft pass
 			const gradient = ctx.createLinearGradient(hx, hy, tx, ty)
 			for (const stop of wake) gradient.addColorStop(stop.f, rgba(mixRgb(white, tint, Math.min(1, stop.f / METEOR_LOOK.coolBy)), stop.light * kept(stop.point)))

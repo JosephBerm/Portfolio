@@ -101,8 +101,13 @@ export interface SkyAssets {
 
 /** Everything one frame needs. Sizes are CSS px unless named device. */
 export interface SkyFrame {
-	/** Seconds on the worker clock (twinkle, shooting stars). */
+	/** Seconds on the worker clock, for everything but the twinkle (which reads twinkleTime). */
 	time: number
+	/**
+	 * Seconds on the worker clock less the time the tab has spent hidden. The twinkle runs on it, so a tab shown again
+	 * picks the twinkle up where it stopped, instead of every star changing brightness at once.
+	 */
+	twinkleTime: number
 	width: number
 	height: number
 	dpr: number
@@ -199,7 +204,7 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 				if (star.twinkle && frame.twinkle > 0) {
 					const depth = y / frame.height
 					const sigma = star.twinkle.sigma * frame.twinkle * (1 + TWINKLE_HORIZON_GAIN * depth * depth)
-					alpha *= Math.exp(sigma * twinkleNoise(star.twinkle, frame.time) - (sigma * sigma) / 2)
+					alpha *= Math.exp(sigma * twinkleNoise(star.twinkle, frame.twinkleTime) - (sigma * sigma) / 2)
 				}
 				if (alpha < MIN_STAR_ALPHA) continue
 				const sprite = placePoint(atlas, star.tint, star.shape, x * frame.dpr, y * frame.dpr, frame.snap)

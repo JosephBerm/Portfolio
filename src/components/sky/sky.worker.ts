@@ -82,6 +82,8 @@ let exitAt: number | null = null
 let revealAt: number | null = null
 let layoutAt: number | null = null
 let nextMeteorAt = Infinity
+/** Seconds the tab has spent hidden, each stretch added when it is shown again: the twinkle's clock leaves them out. */
+let hiddenTotal = 0
 
 let meteor: Meteor | null = null
 // The scroll offset the shooting star launched at (SCROLL_CANCEL)
@@ -445,6 +447,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const contrast = contrastLevels()
 	return {
 		time: t,
+		twinkleTime: t - hiddenTotal,
 		width,
 		height,
 		dpr,
@@ -678,12 +681,16 @@ scope.addEventListener('message', (event) => {
 				hiddenAt = now
 				return
 			}
-			// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
-			if (exitAt !== null && hiddenAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
-			// So does the motion ease: one that began while hidden starts now, instead of running out unseen and jumping every
-			// star's twinkle in the first frame back. An ease that never ran (since -Infinity) stays that way.
-			if (hiddenAt !== null) motionLevel.since = now / 1000 - Math.max(0, hiddenAt / 1000 - motionLevel.since)
-			hiddenAt = null
+			if (hiddenAt !== null) {
+				// The stretch just ended is measured once, for the twinkle's clock, the dusk's and the motion ease's
+				hiddenTotal += (now - hiddenAt) / 1000
+				// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
+				if (exitAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
+				// So does the motion ease: one that began while hidden starts now, instead of running out unseen and jumping every
+				// star's twinkle in the first frame back. An ease that never ran (since -Infinity) stays that way.
+				motionLevel.since = now / 1000 - Math.max(0, hiddenAt / 1000 - motionLevel.since)
+				hiddenAt = null
+			}
 			// Misses from before the tab was hidden say nothing about the display now
 			recheckFrames()
 			noteInput(now)

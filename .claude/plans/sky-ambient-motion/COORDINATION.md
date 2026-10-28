@@ -231,7 +231,7 @@ It is optional and additive.
 
 ## Committed: cf4d7b8 (2026-10-27)
 
-The veil fix is on local master as `cf4d7b86b63ac6e3ea722ad23bda3f9492a98815` ("feat(sky): let shooting stars glide faintly behind hero copy"). Its parent is 246c0aa. **It is not pushed** (no remote branch contains it): pushing master is Joseph's call, so don't push a branch that contains it without his OK.
+The veil fix is on local master as `cf4d7b86b63ac6e3ea722ad23bda3f9492a98815` ("feat(sky): let shooting stars glide faintly behind hero copy"). Its parent is 246c0aa. Master was pushed at 2026-10-27 20:56 (-04:00), so `origin/master` is now `cf4d7b8`.
 - Joseph kept every recommended setting. The launch-hold idea was not added.
 - We verified the commit ourselves:
   - `git diff 246c0aa cf4d7b8` has the same patch-id (`cbe873c5`) as the archived working-tree diff `results/wt-final.diff`;
@@ -301,4 +301,4 @@ Checkpoint V still means the commit. Phases blocked on V stay blocked, but these
 - 2026-10-27: its plan was confirmed and implementation started in the main checkout (uncommitted). The final interface is recorded in "Confirmed veil interface" above. Next from it: a message when the implementation is in the working tree. After Joseph approves and commits it, this plan's implementer rebases onto it.
 - 2026-10-27: we asked five questions and told it about P9. It answered the same day; the answers are in "Answers to the planning session's questions" above. Gate round 7 folds them into PLAN.md. Next from it: the "landed" message with the SHA, the touched-symbol list from `git diff`, the crossing numbers and the harness path.
 - 2026-10-27: its "landed" message arrived: final in the working tree, uncommitted, with the final crossing numbers and the harness path (see "Landed in the working tree" above). We archived the harness and the captured layouts in `harness/`. Still to come: the SHA once Joseph commits; then checkpoint V runs.
-- 2026-10-27: committed as cf4d7b8 on local master (unpushed), identical to the confirmed diff (patch-id checked), every recommended setting kept, no launch hold. `PLAN.md` is restructured to build on cf4d7b8 directly.
+- 2026-10-27: committed as cf4d7b8 on master and pushed (`origin/master` at 20:56), identical to the confirmed diff (patch-id checked), every recommended setting kept, no launch hold. `PLAN.md` is restructured to build on cf4d7b8 directly.

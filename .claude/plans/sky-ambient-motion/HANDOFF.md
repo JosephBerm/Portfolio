@@ -48,8 +48,8 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 - The old upward-moving stars live in git history before d116918; see `src/css/Background.css` at 7c176fb^.
 - `node_modules` must be installed (`npm ci`) for `node_modules/next/dist/docs`.
 - Veil session status on 2026-10-27: the local desktop session "Star and comment animation redesign" (`local_e2e17660-e99d-43e6-84ab-7337ee88227d`) finished the veil fix.
-  - Joseph committed the fix as `cf4d7b8` on local master, on 246c0aa: 11 files, +577 −184, with lint, type-check and its final Opus check clean.
-    - **It is not pushed.** Pushing master is Joseph's call, so don't push a branch that contains `cf4d7b8` without his OK.
+  - Joseph committed the fix as `cf4d7b8` on master, on 246c0aa: 11 files, +577 −184, with lint, type-check and its final Opus check clean.
+    - Master was pushed, so `origin/master` is `cf4d7b8`.
     - We checked the commit's patch-id against the confirmed diff.
     - A read-only checkout of it is at `.claude/worktrees/sky-baseline-cf4d7b8`. This planning branch stays on 246c0aa and holds only documents.
   - `COORDINATION.md` records:

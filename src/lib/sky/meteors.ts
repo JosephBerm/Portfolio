@@ -120,7 +120,7 @@ export const WAKE_GAIN = 1 + METEOR_LOOK.softAlpha
 
 /**
  * The box planFlight draws start points from (CSS px): width × METEOR.spawnX by height × spawnY. The box itself is not
- * clamped: a start drawn above METEOR.top is raised to it, under the navbar.
+ * clamped: a start drawn above METEOR.top, where the navbar is, moves down to it.
  */
 export function startArea(field: MeteorField): { x0: number; x1: number; y0: number; y1: number } {
 	const { width, height } = field

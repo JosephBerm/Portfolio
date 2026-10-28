@@ -62,7 +62,7 @@ export interface VisitSky {
 	window: SkyWindow
 	shower: Source
 	sporadic: readonly Source[]
-	/** Where the shower radiant sits on screen (RADIANTS.onScreen of visits), else null. */
+	/** Where the shower radiant sits on screen (RADIANTS.onScreen of wide-screen visits, never on narrow screens), else null. */
 	showerOnScreen: Point | null
 }
 
@@ -202,7 +202,7 @@ function buildVisitSky(random: Random, view: SkyWindow, radiant: SkyDirection, s
 	return { window: view, shower, sporadic, showerOnScreen }
 }
 
-/** A visit's sky: radiants with elevation density sin h cos h; the shower on screen in clear sky on RADIANTS.onScreen of visits. */
+/** A visit's sky: radiants with elevation density sin h cos h; the shower on screen in clear sky on RADIANTS.onScreen of wide-screen visits (never on narrow screens). */
 export function pickVisitSky(random: Random, field: MeteorField): VisitSky {
 	const view = skyWindow(field.width, field.height)
 	// A share of the wide-screen visits get the shower radiant on screen, in clear sky in the top of it
@@ -217,7 +217,8 @@ export function pickVisitSky(random: Random, field: MeteorField): VisitSky {
 			if (usable(view, radiant, field)) return buildVisitSky(random, view, radiant, point)
 		}
 	}
-	// Off screen otherwise, so a radiant on screen comes only from the draw above: one that projects inside the viewport is drawn again
+	// Off screen otherwise: a radiant is drawn again while it projects inside the viewport (so one on screen comes only
+	// from the draw above) or while its shower would climb from most starts (usable)
 	let radiant = sampleRadiant(random, view)
 	for (let tries = 1; tries < OFF_SCREEN_TRIES && (projectsOnScreen(view, radiant, field) || !usable(view, radiant, field)); tries++) radiant = sampleRadiant(random, view)
 	return buildVisitSky(random, view, radiant, null)

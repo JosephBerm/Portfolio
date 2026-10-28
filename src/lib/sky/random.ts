@@ -30,7 +30,7 @@ export function between(random: () => number, min: number, max: number): number 
 
 /**
  * A standard normal deviate (Box-Muller). It takes the log of 1 - random() because random() can return 0, and the log of
- * 0 would make a NaN.
+ * 0 is -Infinity, which would make the deviate infinite.
  */
 export function gaussian(random: Random): number {
 	return Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random())

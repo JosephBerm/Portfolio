@@ -140,6 +140,14 @@ export const SHAPE_BREAKS = [4.5, 3.5, 2.5, 1.5, 0.5] as const
 export const MIN_CORE_SIGMA_DEVICE_PX = 0.7
 
 /**
+ * Sub-pixel positions per device pixel and axis in the star atlas (4, like Skia's glyph cache): a moving star is drawn
+ * from the sprite pre-rendered at its nearest quarter-pixel phase, placed at a whole device pixel, so it glides without
+ * blurring or pulsing and lands within 1/8 px of its true place. Phase 0 is the resting sprite; 1 rounds every star to
+ * whole pixels.
+ */
+export const STAR_PHASES = 4
+
+/**
  * Behind quiet copy: padding around each rect, the distance over which the effect fades out, and the seconds a new
  * measurement takes to take effect (the copy appearing, an entrance settling, a resize), so stars near the copy fade
  * instead of changing in one frame (a shooting star follows transientQuietFactor, in scene.ts).

@@ -10,42 +10,81 @@ import {
 	MIN_STAR_ALPHA,
 	SKY_LAYERS,
 	STAR_ALPHA,
-	STAR_SHAPES,
+	STAR_PHASES,
 	TRAIN,
 	TWINKLE_HORIZON_GAIN,
 	type SkyLayer,
 } from '@/lib/sky/config'
 import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
-import { budgetKeeps, easedQuietFactor, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
-import type { StarAtlas } from './skyAssets'
+import { createQuietIndex } from '@/lib/sky/quietIndex'
+import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
-/** Lazily generated cells of each layer's infinite plane, kept while they stay near the viewport. */
+/** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
 export interface StarField {
+	/** The stars of one cell; a cell beyond the key range (-32768 to 32767 on each axis) holds none, so keys never collide. */
 	cell(layer: SkyLayer, cx: number, cy: number): readonly Star[]
-	/** Drops the cache once it holds far more cells than one screenful. */
-	trim(visibleCells: number): void
+	/** Starts a frame: cells looked up from now on count as in use. */
+	beginFrame(): void
+	/** Drops the cells this frame didn't use once the cache holds more than CELL_CACHE_SLACK times the cells in use. */
+	trim(): void
 }
+
+/** How many times the cells in use the cache may hold before it drops the unused ones. */
+const CELL_CACHE_SLACK = 2
 
 /** Layer slot in a cell's cache key. */
 const LAYER_INDEX: Record<SkyLayer, number> = { far: 0, mid: 1, near: 2 }
 
-/** An empty star-cell cache; cells are generated on first use. */
+/**
+ * Each axis's cell coordinates from -CELL_KEY_RANGE to CELL_KEY_RANGE - 1 get their own key (about ±8.4 million px),
+ * well past how far the scroll moves any star on the longest page a browser lays out (Chromium stops at about 33.5
+ * million px).
+ */
+const CELL_KEY_RANGE = 0x8000
+
+/** A cell beyond the key range. */
+const NO_STARS: readonly Star[] = []
+
+/** A cached cell's stars and the frame that last used them. */
+interface CachedCell {
+	stars: readonly Star[]
+	frame: number
+}
+
+/**
+ * An empty star-cell cache; cells are generated on first use. A cell the current frame uses is never dropped or
+ * regenerated, so the cells on screen never regenerate in one burst; once the cache holds more than CELL_CACHE_SLACK
+ * times the cells in use, the cells this frame didn't use are dropped.
+ */
 export function createStarField(): StarField {
-	const cells = new Map<number, readonly Star[]>()
+	const cells = new Map<number, CachedCell>()
+	let frame = 0
+	let inUse = 0
 	return {
 		cell(layer, cx, cy) {
-			// Numeric key (no string garbage per frame): cell coordinates stay well inside ±32768
-			const key = ((cx + 0x8000) * 0x10000 + (cy + 0x8000)) * 4 + LAYER_INDEX[layer]
-			let stars = cells.get(key)
-			if (!stars) {
-				stars = cellStars(layer, cx, cy)
-				cells.set(key, stars)
+			if (cx < -CELL_KEY_RANGE || cx >= CELL_KEY_RANGE || cy < -CELL_KEY_RANGE || cy >= CELL_KEY_RANGE) return NO_STARS
+			// Numeric key (no string garbage per frame), one per cell inside the key range
+			const key = ((cx + CELL_KEY_RANGE) * 2 * CELL_KEY_RANGE + (cy + CELL_KEY_RANGE)) * 4 + LAYER_INDEX[layer]
+			let cached = cells.get(key)
+			if (!cached) {
+				cached = { stars: cellStars(layer, cx, cy), frame: -1 }
+				cells.set(key, cached)
 			}
-			return stars
+			if (cached.frame !== frame) {
+				cached.frame = frame
+				inUse++
+			}
+			return cached.stars
 		},
-		trim(visibleCells) {
-			if (cells.size > visibleCells * 4) cells.clear()
+		beginFrame() {
+			frame++
+			inUse = 0
+		},
+		trim() {
+			if (cells.size <= inUse * CELL_CACHE_SLACK) return
+			for (const [key, cached] of cells) if (cached.frame !== frame) cells.delete(key)
 		},
 	}
 }
@@ -84,31 +123,66 @@ export interface SkyFrame {
 	quiet: QuietBlend
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (contrast). */
 	meteorInk: number
+	/** Every star at a whole device pixel, as a sky at rest draws them; false places each at its nearest sub-pixel phase (placePoint). */
+	snap: boolean
 }
 
-/** Shapes per palette row of the atlas. */
-const SHAPE_COUNT = STAR_SHAPES.length
-
-/** Stars this far beyond an edge are still drawn, so a halo never pops in at the border. */
+/**
+ * Stars this far beyond an edge (CSS px) are still drawn, so a halo never pops in at the border: the widest sprite's
+ * half-side, three halo sigmas rounded up to whole device pixels, is at most 12 CSS px, even at the 25% zoom the canvas
+ * ratio can fall to.
+ */
 const EDGE = 24
 
-/** Draws one depth layer; returns the cells visited. */
-function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): number {
+/** The quiet zones bucketed by screen tile over the viewport and EDGE, so each star reads only the zones that can reach it. */
+const quietIndex = createQuietIndex()
+
+/** Top-left device pixel of the sprite placePoint last picked (reused, so no garbage per star). */
+const corner = { x: 0, y: 0 }
+
+/**
+ * The sprite for a point of light centered at (px, py) device px, with its top-left whole pixel in `corner`. A moving
+ * point uses the sprite pre-rendered at its nearest sub-pixel phase, so it glides without blurring or pulsing; `snap`
+ * rounds to whole pixels (sprites have odd sides), so resting stars stay crisp points.
+ */
+function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, py: number, snap: boolean): Sprite | undefined {
+	let ix = snap ? Math.round(px) : Math.floor(px)
+	let iy = snap ? Math.round(py) : Math.floor(py)
+	let phaseX = snap ? 0 : Math.round((px - ix) * STAR_PHASES)
+	let phaseY = snap ? 0 : Math.round((py - iy) * STAR_PHASES)
+	// The nearest phase may be the next pixel's first
+	if (phaseX === STAR_PHASES) {
+		ix++
+		phaseX = 0
+	}
+	if (phaseY === STAR_PHASES) {
+		iy++
+		phaseY = 0
+	}
+	const sprite = atlas.stars[starSpriteIndex(tint, shape, phaseX, phaseY)]
+	if (!sprite) return undefined
+	const half = (sprite.size - 1) / 2
+	corner.x = ix - half
+	corner.y = iy - half
+	return sprite
+}
+
+/** Draws one depth layer. */
+function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): void {
 	const scale = frame.layers[layer]
-	if (scale <= MIN_STAR_ALPHA) return 0
+	if (scale <= MIN_STAR_ALPHA) return
 	const config = LAYERS[layer]
 	const offsetY = frame.parallaxScroll * config.parallax
 	const x0 = Math.floor(-EDGE / CELL_SIZE)
 	const x1 = Math.floor((frame.width + EDGE) / CELL_SIZE)
 	const y0 = Math.floor((offsetY - EDGE) / CELL_SIZE)
 	const y1 = Math.floor((offsetY + frame.height + EDGE) / CELL_SIZE)
-	const { image, stars: sprites } = assets.atlas
+	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
-	const quiet = frame.quiet.to.length > 0 || frame.quiet.from.length > 0
-	let cells = 0
+	// Whether any quiet zone is on screen: fixed for the whole frame, so read once per layer
+	const quiet = !quietIndex.empty
 	for (let cy = y0; cy <= y1; cy++) {
 		for (let cx = x0; cx <= x1; cx++) {
-			cells++
 			for (const star of field.cell(layer, cx, cy)) {
 				if (star.keep >= frame.keep) continue
 				const x = star.x
@@ -117,23 +191,20 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 				let alpha = star.alpha * scale
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)
 				// A bright star beside the copy reads as punctuation or an accent
-				if (quiet) alpha *= easedQuietFactor(frame.quiet, x, y, config)
+				if (quiet) alpha *= quietIndex.factor(x, y, config)
 				if (star.twinkle && frame.twinkle > 0) {
 					const depth = y / frame.height
 					const sigma = star.twinkle.sigma * frame.twinkle * (1 + TWINKLE_HORIZON_GAIN * depth * depth)
 					alpha *= Math.exp(sigma * twinkleNoise(star.twinkle, frame.time) - (sigma * sigma) / 2)
 				}
 				if (alpha < MIN_STAR_ALPHA) continue
-				const sprite = sprites[star.tint * SHAPE_COUNT + star.shape]
+				const sprite = placePoint(atlas, star.tint, star.shape, x * frame.dpr, y * frame.dpr, frame.snap)
 				if (!sprite) continue
-				// Snapped to device pixels (sprites have odd sides), so resting stars stay crisp points
-				const half = (sprite.size - 1) / 2
 				ctx.globalAlpha = Math.min(STAR_ALPHA.peak, alpha)
-				ctx.drawImage(image, sprite.x, sprite.y, sprite.size, sprite.size, Math.round(x * frame.dpr) - half, Math.round(y * frame.dpr) - half, sprite.size, sprite.size)
+				ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, corner.x, corner.y, sprite.size, sprite.size)
 			}
 		}
 	}
-	return cells
 }
 
 /** Navy, haze, then every layer with additive blending (starlight adds; overlapping glows never muddy). */
@@ -150,9 +221,10 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 		ctx.drawImage(assets.haze, 0, 0, frame.deviceWidth, frame.deviceHeight)
 		ctx.imageSmoothingEnabled = true
 	}
-	let cells = 0
-	for (const layer of SKY_LAYERS) cells += drawLayer(ctx, assets, field, frame, layer)
-	field.trim(cells)
+	quietIndex.update(frame.quiet, frame.width, frame.height, EDGE)
+	field.beginFrame()
+	for (const layer of SKY_LAYERS) drawLayer(ctx, assets, field, frame, layer)
+	field.trim()
 	ctx.globalAlpha = 1
 }
 

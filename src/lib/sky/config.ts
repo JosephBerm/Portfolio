@@ -257,8 +257,10 @@ export const SCENE = {
 	/** Viewport heights left to scroll where the end bookend starts and is complete. */
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
-	/** Transients launch over the hero only while no more than this many viewport heights are scrolled. */
+	/** Shooting stars and satellites launch over the hero only while no more than this many viewport heights are scrolled. */
 	heroLaunchMaxScroll: 0.4,
+	/** Farewell meteors launch at the end bookend once its level (0 to 1) reaches this. */
+	endLaunchLevel: 0.9,
 } as const
 
 /**
@@ -558,6 +560,17 @@ export const METEOR = {
 	/** A faint persistent train behind some fireballs and fast flights (SPEED_CLASSES' `train`). */
 	trainChance: 0.15,
 } as const
+
+/**
+ * Farewell meteors: up to `limit` shooting stars a visit around Contact and the footer, once the end bookend is complete
+ * enough (SCENE.endLaunchLevel), on their own clock: the first attempt `gap` after the reveal and the next after each
+ * flight (GapLaw, stretched on long visits: floor 8 s plus an exponential 14 s, at most 45 s, so 21 s on average). They
+ * fly only in the sky below the highest copy of the page's flow that is on screen, because the page above Contact has copy
+ * the sky knows nothing of (it carries no data-sky-quiet), and may glide on behind Contact and the footer like any
+ * shooting star (METEOR_VEIL). On a screen that leaves no room for a path there (it must end above METEOR.maxEndY), a
+ * launch holds until the page scrolls to one that does.
+ */
+export const FAREWELL = { gap: { floor: 8, mean: 14, cap: 45 }, limit: 2 } as const
 
 /**
  * Satellites: steady points lit by a Sun below the horizon (no twinkle, no wake, never blinking), gliding in a straight

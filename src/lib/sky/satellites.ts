@@ -123,4 +123,5 @@ export const SATELLITE_SPEC: TransientSpec<'satellite'> = {
 	nearCopy: () => false,
 	lease: false,
 	phones: false,
+	scene: 'hero',
 }

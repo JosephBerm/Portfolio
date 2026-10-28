@@ -7,6 +7,9 @@ export function smoothstep(edge0: number, edge1: number, x: number): number {
 	return t * t * (3 - 2 * t)
 }
 
+/** A place in the page's scroll where transients launch: over the hero, or at the end bookend. */
+export type LaunchScene = 'hero' | 'end'
+
 /** Scene multipliers for the current scroll position. */
 export interface SceneLevels {
 	/** Star alpha multiplier per layer. */
@@ -17,8 +20,13 @@ export interface SceneLevels {
 	drift: number
 	/** Share of the pointer lean: hero only. */
 	lean: number
-	/** Transients launch only over the hero; shooting stars ignite and peak in clear sky and may glide on behind its copy, dimmed to what that copy can take (METEOR_VEIL). */
-	launches: boolean
+	/**
+	 * Where transients may launch now, if anywhere: the hero, up to SCENE.heroLaunchMaxScroll viewport heights scrolled, or
+	 * the end bookend once its level reaches SCENE.endLaunchLevel; null while reading. Shooting stars ignite and peak in
+	 * clear sky and may glide on behind the copy, dimmed to what that copy can take (METEOR_VEIL). The two scenes never
+	 * meet: the bookend's level is 0 until the hero has begun to give way.
+	 */
+	launchScene: LaunchScene | null
 }
 
 /**
@@ -39,7 +47,7 @@ export function sceneAt(scrollY: number, viewportHeight: number, documentHeight:
 		twinkle: mix('twinkle'),
 		drift: mix('drift'),
 		lean: mix('lean'),
-		launches: scrolled <= SCENE.heroLaunchMaxScroll,
+		launchScene: scrolled <= SCENE.heroLaunchMaxScroll ? 'hero' : end >= SCENE.endLaunchLevel ? 'end' : null,
 	}
 }
 

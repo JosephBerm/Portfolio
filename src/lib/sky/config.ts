@@ -270,6 +270,31 @@ export const FRAME = {
 } as const
 
 /**
+ * Frame pacing for moving stars (FRAME keeps the timers for a sky that only changes brightness). A moving star steps at
+ * most `stepDevicePx` per drawn frame (two quarter-pixel phases, under a third of the smallest star's width) where the
+ * display's refresh rate allows it, and never draws below `minFps`. Motion draws on animation frames divided by a whole
+ * number, so every drawn frame stays up for the same number of display refreshes; a lower need must last
+ * `slowDownAfter` seconds before the clock slows down. The refresh interval is the median of the last `refreshSamples`
+ * frame intervals; a median within `unalignedToleranceMs` of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock,
+ * not the display, so motion draws every frame there. A requested animation frame that hasn't come `watchdogMs` after
+ * the request (while visible) is served by a timer; after `watchdogStrikes` misses in a row, frames come from a
+ * `fallbackFps` timer, which asks for one animation frame every `reprobeMs` and goes back to them when one arrives (a GPU
+ * restart or a restored context); the strikes also reset when the context is restored or the tab is shown.
+ */
+export const PACING = {
+	stepDevicePx: 0.5,
+	minFps: 20,
+	slowDownAfter: 0.5,
+	refreshSamples: 16,
+	unalignedIntervalMs: 15,
+	unalignedToleranceMs: 0.4,
+	watchdogMs: 250,
+	watchdogStrikes: 3,
+	fallbackFps: 60,
+	reprobeMs: 5000,
+} as const
+
+/**
  * Adaptive quality: after `slowFrames` more slow frames (JS over `slowFrameMs`) than fast ones, draw `thinning` of the
  * stars and twinkle slower; a second step drops to CSS resolution. A software-rasterized canvas, whose cost lands after
  * the draw calls return where frame timing can't see it, is found at start-up instead: one full frame rasterized off

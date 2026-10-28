@@ -9,7 +9,7 @@ import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, 
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { between } from '@/lib/sky/random'
-import { emergenceDone, hazeEmergence, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend } from '@/lib/sky/scene'
+import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend } from '@/lib/sky/scene'
 import { createStarField, drawMeteor, drawSky, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
@@ -87,14 +87,6 @@ function deviceSize(cssSize: number, ratio: number): number {
 /** The contrast preference's levels: stars, haze and the share of each copy's budget a shooting star may light. */
 function contrastLevels(): typeof CONTRAST_NORMAL | typeof CONTRAST_MORE {
 	return contrastMore ? CONTRAST_MORE : CONTRAST_NORMAL
-}
-
-/** True when two lists hold the same rects (a layout message may change only the document height). */
-function sameRects(a: readonly SkyRect[], b: readonly SkyRect[]): boolean {
-	return (
-		a.length === b.length &&
-		a.every((rect, i) => rect.x === b[i]?.x && rect.y === b[i]?.y && rect.width === b[i]?.width && rect.height === b[i]?.height && rect.headroom === b[i]?.headroom)
-	)
 }
 
 /** No scroll for FRAME.idleSleepMs: the visitor is probably not watching the sky. */

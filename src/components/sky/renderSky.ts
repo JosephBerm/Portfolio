@@ -17,7 +17,8 @@ import {
 } from '@/lib/sky/config'
 import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
-import { budgetKeeps, easedQuietFactor, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { createQuietIndex } from '@/lib/sky/quietIndex'
+import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import { starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, kept while they stay near the viewport. */
@@ -91,6 +92,9 @@ export interface SkyFrame {
 /** Stars this far beyond an edge are still drawn, so a halo never pops in at the border. */
 const EDGE = 24
 
+/** The quiet zones bucketed by screen tile over the viewport and EDGE, so each star reads only the zones that can reach it. */
+const quietIndex = createQuietIndex()
+
 /** Top-left device pixel of the sprite placePoint last picked (reused, so no garbage per star). */
 const corner = { x: 0, y: 0 }
 
@@ -133,7 +137,6 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 	const y1 = Math.floor((offsetY + frame.height + EDGE) / CELL_SIZE)
 	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
-	const quiet = frame.quiet.to.length > 0 || frame.quiet.from.length > 0
 	let cells = 0
 	for (let cy = y0; cy <= y1; cy++) {
 		for (let cx = x0; cx <= x1; cx++) {
@@ -146,7 +149,7 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 				let alpha = star.alpha * scale
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)
 				// A bright star beside the copy reads as punctuation or an accent
-				if (quiet) alpha *= easedQuietFactor(frame.quiet, x, y, config)
+				if (!quietIndex.empty) alpha *= quietIndex.factor(x, y, config)
 				if (star.twinkle && frame.twinkle > 0) {
 					const depth = y / frame.height
 					const sigma = star.twinkle.sigma * frame.twinkle * (1 + TWINKLE_HORIZON_GAIN * depth * depth)
@@ -177,6 +180,7 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 		ctx.drawImage(assets.haze, 0, 0, frame.deviceWidth, frame.deviceHeight)
 		ctx.imageSmoothingEnabled = true
 	}
+	quietIndex.update(frame.quiet, frame.width, frame.height, EDGE)
 	let cells = 0
 	for (const layer of SKY_LAYERS) cells += drawLayer(ctx, assets, field, frame, layer)
 	field.trim(cells)

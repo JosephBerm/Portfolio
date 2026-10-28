@@ -1,4 +1,4 @@
-import { METEOR, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type WakeColor } from './config'
+import { METEOR, METEOR_KINDS, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type WakeColor } from './config'
 import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
 import { budgetKeeps, inkAt, quietAt, quietFactor, smoothstep } from './scene'
@@ -87,12 +87,17 @@ export interface PlanOptions {
 	 * links change color on hover and focus, which their measured headroom misses until the next measurement. Default none.
 	 */
 	clearOf?: readonly SkyRect[]
+	/**
+	 * This launch is a fireball: its long flights are fireballs, in clear sky only, for METEOR_KINDS.fireball's duration
+	 * and at a peak of 1. The shorter fallback pass never flies one, so a caller that wants a fireball or none asks for
+	 * `flights: 'long'`.
+	 */
+	fireball?: boolean
 }
 
-/** What one pass of the planner adds to the caller's options: whether it is the shorter fallback (its durations and its shortest path scaled by METEOR.fallbackScale) and whether a fireball may fly. */
+/** What one pass of the planner adds to the caller's options: whether it is the shorter fallback (its durations and its shortest path scaled by METEOR.fallbackScale). */
 interface PassOptions extends PlanOptions {
 	fallback: boolean
-	fireballs: boolean
 }
 
 /** A shooting star at one moment. */
@@ -210,8 +215,8 @@ interface Fit {
 }
 
 /**
- * Up to METEOR.attempts candidate paths steered by `options.steer`, shorter on the fallback pass, fireballs only if
- * `options.fireballs`; the first that fits. A share of the launches (METEOR_PASS) then trade that flight for one that
+ * Up to METEOR.attempts candidate paths steered by `options.steer`, shorter on the fallback pass and every one a fireball
+ * if `options.fireball`; the first that fits. A share of the launches (METEOR_PASS) then trade that flight for one that
  * passes visibly behind copy, where one fits in as many more candidates. Fireballs, flares and trains need clear sky, so a
  * launch that came out as one keeps it: their rates don't depend on the aim.
  */
@@ -219,21 +224,20 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 	const { width, height } = field
 	const narrow = width <= NARROW_MAX_WIDTH
 	const longSide = Math.max(width, height)
-	const { steer, fallback, fireballs, clearOf = [], nearCopy: copyAllowed = true, ink = 1 } = options
+	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1 } = options
 	const minPath = (narrow ? METEOR.narrowMinPath : METEOR.path[0]) * (fallback ? METEOR.fallbackScale : 1)
 	const maxPath = narrow ? width * METEOR.narrowMaxPathShare : Math.min(METEOR.path[1], METEOR.pathShare * longSide)
 	const { x0, x1, y0, y1 } = startArea(field)
 	// The first of up to METEOR.attempts candidates that fits and whose head spends at least `minBehind` of the flight visibly on copy
 	const fit = (minBehind: number): Fit | null => {
 		for (let attempt = 0; attempt < METEOR.attempts; attempt++) {
-			const fireball = fireballs && random() < METEOR.fireballChance
 			const start = { x: between(random, x0, x1), y: Math.max(METEOR.top, between(random, y0, y1)) }
 			const course = steer(random, start, fallback)
 			if (course === null) continue
 
 			// A fireball flies the course's way, but slower and for longer than its class
 			const speed = course.speed * (fireball ? METEOR.fireballSpeedScale : 1)
-			const [minDuration, maxDuration] = fireball ? METEOR.fireballDuration : course.duration
+			const [minDuration, maxDuration] = fireball ? METEOR_KINDS.fireball.duration : course.duration
 			const duration = between(random, minDuration, maxDuration)
 			const length = Math.min(maxPath * course.pathShare, speed * duration)
 			if (length < (course.minPath ?? minPath)) continue
@@ -287,15 +291,14 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 /**
  * Plans a shooting star inside the viewport, below the navbar and clear of the copy in `clearOf`, that lights up and
  * peaks in clear sky and may glide on behind quiet copy (METEOR_VEIL). Long flights first; where none fits, shorter ones
- * rather than none, unless `options.flights` asks for one kind. Returns null when nothing fits, for example on a phone
- * held sideways.
+ * rather than none, unless `options.flights` asks for one kind. A fireball (`options.fireball`) is a long flight: the
+ * shorter ones are always ordinary. Returns null when nothing fits, for example on a phone held sideways.
  */
 export function planMeteor(random: Random, field: MeteorField, now: number, options: PlanOptions): Meteor | null {
-	const narrow = field.width <= NARROW_MAX_WIDTH
 	const { flights = 'both' } = options
 	return (
-		(flights === 'short' ? null : planFlight(random, field, now, { ...options, fallback: false, fireballs: !narrow })) ??
-		(flights === 'long' ? null : planFlight(random, field, now, { ...options, fallback: true, fireballs: false }))
+		(flights === 'short' ? null : planFlight(random, field, now, { ...options, fallback: false })) ??
+		(flights === 'long' ? null : planFlight(random, field, now, { ...options, fallback: true, fireball: false }))
 	)
 }
 

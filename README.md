@@ -72,7 +72,7 @@ src/
 ├── components/   UI components
 │   ├── icons/            SVG icon components
 │   ├── motion/           Animation wrappers
-│   ├── sky/              Home night sky: client island, controller and Web Worker renderer
+│   ├── sky/              Home night sky: client island, controller, pause store and control, and Web Worker renderer
 │   └── links/            /links components
 │       └── schedule/     /links/schedule components
 ├── hooks/        Client hooks

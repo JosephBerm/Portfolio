@@ -1,4 +1,5 @@
 import { FRAME, PACING } from './config'
+import { smoothstep } from './scene'
 
 /** What one part of the sky needs from the frame clock right now. */
 export interface FrameDemand {
@@ -16,7 +17,7 @@ export const NO_FRAMES: FrameDemand = { fps: 0, vsync: false, cap: Infinity }
 /** Every display refresh: a flying shooting star, scrolling under full motion. */
 export const EVERY_FRAME: FrameDemand = { fps: Infinity, vsync: true, cap: Infinity }
 
-/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion). */
+/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing). */
 export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap: Infinity }
 
 /**
@@ -61,7 +62,7 @@ export interface FrameState {
 	cameraSpeed: number
 	/** Most frames per second the camera's motion may draw; Infinity for none. */
 	cameraCap: number
-	/** A slow change runs: the dusk or the quiet ease. */
+	/** A slow change runs: the dusk, the quiet ease or the motion ease. */
 	fading: boolean
 	/** Twinkle's timer rate while it may change (full motion, the visitor not idle and a twinkling scene), else 0. */
 	twinkleFps: number
@@ -77,6 +78,28 @@ export function frameDemand(state: FrameState): FrameDemand {
 		state.fading ? FADE_FRAMES : NO_FRAMES,
 		state.twinkleFps > 0 ? { fps: state.twinkleFps, vsync: false, cap: Infinity } : NO_FRAMES
 	)
+}
+
+/** A level easing (smoothstep) from `from` to `to`, starting at `since` (s): the motion level. */
+export interface Ease {
+	from: number
+	to: number
+	since: number
+}
+
+/** The eased level at `t` (s), over `duration` s. */
+export function easeAt(ease: Ease, duration: number, t: number): number {
+	return ease.from + (ease.to - ease.from) * smoothstep(0, duration, t - ease.since)
+}
+
+/** True while an ease that started at `since` (s; null while it hasn't begun) runs: fade frames show it. */
+export function easing(since: number | null, duration: number, t: number): boolean {
+	return since !== null && t - since < duration
+}
+
+/** True once an ease has run out while the last drawn frame (`drawnAt`, s) still showed it part way: one more frame shows its end. */
+export function easeEnded(since: number | null, duration: number, t: number, drawnAt: number): boolean {
+	return since !== null && drawnAt - since < duration && t - since >= duration
 }
 
 /** Draw on every k-th refresh: the largest k that still gives `fps`, and at least the k that keeps under `cap`. */

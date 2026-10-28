@@ -260,7 +260,7 @@ export const FRAME = {
 	twinkleFps: 15,
 	/** Twinkle rate after the adaptive step-down. */
 	slowTwinkleFps: 10,
-	/** Fades (dusk, scrolling under reduced motion). */
+	/** Fades (dusk, scrolling under reduced motion, the motion level easing). */
 	fadeFps: 30,
 	/** Scrolling counts as active this long after the last scroll message. */
 	scrollSettleMs: 180,
@@ -270,6 +270,11 @@ export const FRAME = {
 	idleSleepMs: 90_000,
 	/** Twinkle fade out and back in around the idle sleep. */
 	idleFadeMs: 4000,
+	/**
+	 * Seconds over which the twinkle eases out or back in when motion stops or starts again (the pause control, a
+	 * reduced-motion switch), so no star changes brightness in one frame.
+	 */
+	motionEase: 0.3,
 } as const
 
 /**

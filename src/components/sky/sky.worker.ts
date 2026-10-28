@@ -13,6 +13,9 @@ import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, M
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
 import {
 	createRefreshEstimate,
+	easeAt,
+	easeEnded,
+	easing,
 	EVERY_FRAME,
 	FADE_FRAMES,
 	frameDemand,
@@ -21,6 +24,7 @@ import {
 	refreshDivisor,
 	stepDivisor,
 	type Divisor,
+	type Ease,
 	type FrameDemand,
 	type FrameState,
 } from '@/lib/sky/pacing'
@@ -97,6 +101,12 @@ const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow
 let cameraMoving = false
 /** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */
 let skyMoved = false
+/**
+ * How much of its motion the sky has: 1 under full motion, 0 otherwise. When the motion changes (the pause control, a
+ * reduced-motion switch) the level eases over FRAME.motionEase from where it was, so the twinkle never stops or starts
+ * in one frame. `since` is on the worker clock (s); a load starts at rest on its motion's level.
+ */
+let motionLevel: Ease = { from: 1, to: 1, since: -Infinity }
 
 let quality = 0
 let slowFrames = 0
@@ -142,9 +152,9 @@ function idleTwinkle(now: number): number {
 	return (1 - smoothstep(FRAME.idleSleepMs - FRAME.idleFadeMs, FRAME.idleSleepMs, now - lastInputAt)) * smoothstep(0, FRAME.idleFadeMs, now - wokeAt)
 }
 
-/** Twinkle strength right now: scene, idle fade and motion preference together. */
+/** Twinkle strength right now: scene, idle fade and the motion level together. */
 function twinkleLevel(now: number): number {
-	return motion === 'full' ? sceneAt(scrollY, height, documentHeight).twinkle * idleTwinkle(now) : 0
+	return sceneAt(scrollY, height, documentHeight).twinkle * idleTwinkle(now) * easeAt(motionLevel, FRAME.motionEase, now / 1000)
 }
 
 /** The next shooting star waits at least METEOR.afterReturn once the visitor is back (a tab, an idle stretch, full motion). */
@@ -194,8 +204,8 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	frameState.cameraActive = cameraMoving
 	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera) * dpr
 	frameState.cameraCap = Infinity
-	// The dusk and copy that has just appeared or moved change slowly
-	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t)
+	// The dusk, copy that has just appeared or moved and the motion level easing change slowly
+	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t) || easing(motionLevel.since, FRAME.motionEase, t)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
 	frameState.twinkleFps = motion === 'full' && !isIdle(now) && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	return frameDemand(frameState)
@@ -321,6 +331,9 @@ function recheckFrames(): void {
 function tick(now: number): void {
 	updateMeteor(now)
 	settleQuiet(now)
+	// Fade frames come 1/FRAME.fadeFps s apart, so the motion ease ends between two of them: the last frame shown still
+	// carries a trace of twinkle. One more frame shows the resting sky, which is what stays on screen.
+	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, lastDrawAt / 1000)) needsDraw = true
 	updateCamera(now)
 	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
@@ -625,6 +638,9 @@ scope.addEventListener('message', (event) => {
 			scrollY = parallaxScroll = message.scrollY
 			camera = createCamera(message.scrollY)
 			skyMoved = message.motion === 'full'
+			// A load rests on its motion's level, so nothing eases at start
+			const level = message.motion === 'full' ? 1 : 0
+			motionLevel = { from: level, to: level, since: -Infinity }
 			lastInputAt = now
 			if (message.emerging) emerge(now)
 			if (message.revealed) reveal(now)
@@ -641,9 +657,20 @@ scope.addEventListener('message', (event) => {
 		case 'reveal':
 			reveal(now)
 			break
-		case 'motion':
-			if (message.motion === 'full' && motion !== 'full') {
+		case 'motion': {
+			// Only a real change starts an ease, so a repeated message can't restart one
+			if (message.motion === motion) break
+			// Eases from the level on screen, so a change mid-ease never jumps. A hidden tab shows the level it had when it was
+			// hidden, not one an earlier ease has run out to unseen: a pause and a play that cancel out while it is hidden then
+			// leave nothing to ease when it is shown
+			const t = now / 1000
+			const shown = hiddenAt === null ? t : hiddenAt / 1000
+			motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, shown), to: message.motion === 'full' ? 1 : 0, since: t }
+			if (message.motion === 'full') {
 				skyMoved = true
+				// A switch to full motion in a shown tab means the visitor is here, whether they pressed Play on this page or in
+				// another tab or turned a setting off, even after a long idle stretch. A hidden tab notes it when it is shown.
+				if (visible) noteInput(now)
 				// Back to full motion: no shooting star straight away
 				holdMeteors(now)
 				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to
@@ -654,6 +681,7 @@ scope.addEventListener('message', (event) => {
 			if (motion !== 'full') meteor = null
 			needsDraw = true
 			break
+		}
 		case 'visible':
 			visible = message.visible
 			if (!visible) {
@@ -665,6 +693,9 @@ scope.addEventListener('message', (event) => {
 			}
 			// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
 			if (exitAt !== null && hiddenAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
+			// So does the motion ease: one that began while hidden starts now, instead of running out unseen and jumping every
+			// star's twinkle in the first frame back. An ease that never ran (since -Infinity) stays that way.
+			if (hiddenAt !== null) motionLevel.since = now / 1000 - Math.max(0, hiddenAt / 1000 - motionLevel.since)
 			hiddenAt = null
 			// Misses from before the tab was hidden say nothing about the display now
 			recheckFrames()

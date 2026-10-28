@@ -81,7 +81,8 @@ export function frameDemand(state: FrameState): FrameDemand {
 
 /** Draw on every k-th refresh: the largest k that still gives `fps`, and at least the k that keeps under `cap`. */
 export function refreshDivisor(refreshHz: number, fps: number, cap: number): number {
-	return Math.max(Math.floor(refreshHz / fps), Math.ceil(refreshHz / cap), 1)
+	// A hair of slack on both roundings: a measured refresh such as 59.999... Hz must divide like 60
+	return Math.max(Math.floor(refreshHz / fps + 1e-9), Math.ceil(refreshHz / cap - 1e-9), 1)
 }
 
 /** The divisor in use, and since when (worker-clock ms) a larger one has been enough. */
@@ -127,10 +128,21 @@ export interface RefreshEstimate {
 	pause(): void
 }
 
-/** The median of a short list (never empty where it is called). */
-function median(values: readonly number[]): number {
-	const sorted = [...values].sort((a, b) => a - b)
-	return sorted[sorted.length >> 1] ?? 0
+/**
+ * The median of a short list (never empty where it is called). The list is sorted into `buffer`, which holds at least as
+ * many values and is reused, so taking a median makes no garbage.
+ */
+function median(values: readonly number[], buffer: Float64Array): number {
+	for (let i = 0; i < values.length; i++) {
+		const value = values[i] ?? 0
+		let j = i
+		while (j > 0 && (buffer[j - 1] ?? 0) > value) {
+			buffer[j] = buffer[j - 1] ?? 0
+			j--
+		}
+		buffer[j] = value
+	}
+	return buffer[values.length >> 1] ?? 0
 }
 
 /** Appends `value` to `list`, keeping the last PACING.refreshSamples. */
@@ -147,6 +159,8 @@ function remember(list: number[], value: number): void {
 export function createRefreshEstimate(): RefreshEstimate {
 	const accepted: number[] = []
 	const rejected: number[] = []
+	// Room for either list, which never holds more than PACING.refreshSamples
+	const sorted = new Float64Array(PACING.refreshSamples)
 	let last: number | null = null
 	let interval = 1000 / 60
 	return {
@@ -163,7 +177,7 @@ export function createRefreshEstimate(): RefreshEstimate {
 			if (delta < interval * 1.5) {
 				rejected.length = 0
 				remember(accepted, delta)
-				interval = median(accepted)
+				interval = median(accepted, sorted)
 				return
 			}
 			// A run of long intervals is a slower display, not dropped frames
@@ -172,7 +186,7 @@ export function createRefreshEstimate(): RefreshEstimate {
 			accepted.length = 0
 			accepted.push(...rejected)
 			rejected.length = 0
-			interval = median(accepted)
+			interval = median(accepted, sorted)
 		},
 		pause() {
 			last = null

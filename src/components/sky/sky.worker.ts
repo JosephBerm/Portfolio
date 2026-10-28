@@ -230,9 +230,11 @@ function schedule(now: number): void {
 	timerId = undefined
 	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
 	if (demand.vsync) {
-		requestFrame(now)
+		requestFrame(now, demand)
 		return
 	}
+	// Nothing moves: a later stretch of motion starts its wait for a lower need afresh, not from this one's
+	divisor.slowerSince = null
 	if (demand.fps <= 0) {
 		// Asleep: the gap before the next animation frame is not a refresh interval
 		refresh.pause()
@@ -248,17 +250,19 @@ function schedule(now: number): void {
  * Asks for the next wake-up of a moving sky: an animation frame, and a watchdog that serves it from a timer if it never
  * comes. Where animation frames can't be relied on, a 60 Hz timer stands in for the display instead. That timer is armed
  * against the last drawn frame, not from now: schedule runs after every message, and a timer re-armed from each would be
- * pushed back for as long as messages keep coming. In that mode one animation frame is also asked for every
+ * pushed back for as long as messages keep coming. It waits the divisor in use, or fewer refreshes if `demand` now needs
+ * fewer (a scroll message since the last tick, say). In that mode one animation frame is also asked for every
  * PACING.reprobeMs, to find out whether the display's clock is back.
  */
-function requestFrame(now: number): void {
+function requestFrame(now: number, demand: FrameDemand): void {
 	if (rafWorks) {
 		clearTimeout(watchdogId)
 		rafId = scope.requestAnimationFrame?.(onFrame) ?? null
 		watchdogId = setTimeout(onStalled, PACING.watchdogMs)
 		return
 	}
-	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + (divisor.k * 1000) / PACING.fallbackFps - now))
+	const k = Math.min(divisor.k, refreshDivisor(PACING.fallbackFps, demand.fps, demand.cap))
+	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + (k * 1000) / PACING.fallbackFps - now))
 	if (now - probedAt < PACING.reprobeMs) return
 	probedAt = now
 	if (probeId !== null) scope.cancelAnimationFrame?.(probeId)
@@ -299,6 +303,15 @@ function onProbe(): void {
 	probeId = null
 	rafWorks = true
 	strikes = 0
+}
+
+/**
+ * The display's clock may be back (the tab was shown, the GPU context restored): count misses afresh, and where a timer
+ * stands in for the clock, ask for an animation frame at the next chance instead of at the next probe.
+ */
+function recheckFrames(): void {
+	strikes = 0
+	probedAt = -Infinity
 }
 
 /**
@@ -599,8 +612,8 @@ scope.addEventListener('message', (event) => {
 			canvas.addEventListener('contextrestored', () => {
 				rebuildAssets()
 				needsDraw = true
-				// A GPU restart may be what stalled the display's clock: give it a clean count of misses
-				strikes = 0
+				// A GPU restart may be what stalled the display's clock
+				recheckFrames()
 				schedule(performance.now())
 			})
 			tokens = message.tokens
@@ -654,7 +667,7 @@ scope.addEventListener('message', (event) => {
 			if (exitAt !== null && hiddenAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
 			hiddenAt = null
 			// Misses from before the tab was hidden say nothing about the display now
-			strikes = 0
+			recheckFrames()
 			noteInput(now)
 			holdMeteors(now)
 			needsDraw = true

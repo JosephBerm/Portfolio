@@ -9,25 +9,26 @@ import { nextGap } from './gaps'
 import { meteorLifetime, meteorMoving, planMeteor, startArea, type Meteor, type PlanOptions } from './meteors'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH } from './quietIndex'
-import { pickVisitSky, visitSteer, type VisitSky } from './radiants'
+import { pickVisitSky, pointNearRadiant, visitSteer, type VisitSky } from './radiants'
 import { between } from './random'
+import { quietAt } from './scene'
 import type { PlanContext, SkyField, TransientSpec } from './transients'
 
 /**
  * What the shooting stars remember between launches: the visit's sky, the shower and the sporadic sources they come
- * from, so a visit's flights share them, and how soon the next fireball may be decided. A launch allowed near copy that
- * finds no room clears the sky, and so does a resize, which changes the layout the flights fit; nothing clears the
- * fireballs' clock within a page view.
+ * from, so a visit's flights share them, and how soon each kind of shooting star apart from the ordinary may be decided
+ * again. A launch allowed near copy that finds no room clears the sky, and so does a resize, which changes the layout the
+ * flights fit; nothing clears the kinds' clocks within a page view.
  */
 export interface MeteorMemory {
 	sky: VisitSky | null
-	/** The earliest second (on the worker clock) the next fireball may be decided: when the last one launched plus the spacing drawn for it; -Infinity before the first. */
-	fireballFrom: number
+	/** Per kind in METEOR_KINDS, the earliest second (on the worker clock) the next may be decided: when the last one launched plus the spacing drawn for it; -Infinity before the first. */
+	from: Record<keyof typeof METEOR_KINDS, number>
 }
 
 /** The shooting stars' memory at the start of a visit: nothing remembered yet. */
 export function createMeteorMemory(): MeteorMemory {
-	return { sky: null, fireballFrom: -Infinity }
+	return { sky: null, from: { fireball: -Infinity, flash: -Infinity } }
 }
 
 /**
@@ -60,6 +61,51 @@ export function planMeteorTransient(context: PlanContext, options: Omit<PlanOpti
 	return null
 }
 
+/** Points tried near the radiant for a flash before the launch goes without one. */
+const FLASH_TRIES = 20
+
+/**
+ * A plan for a point flash: a meteor coming straight at the viewer, which shows as a point near the shower radiant with
+ * no length and no movement, and brightens and fades in METEOR_KINDS.flash.duration s. It needs the radiant on screen
+ * and a point within METEOR_KINDS.flash.radius degrees of it that lies inside the screen's guards (METEOR's edge margin
+ * and top, and the height under METEOR.maxEndY) and in clear sky, past the reach of every padded quiet rect, so it takes
+ * no ink lease and a layout that moves copy under it takes its light away (CLEAR_SKY_KEEPS). Returns null when the
+ * radiant is off screen or no point fits.
+ */
+export function planFlash(context: PlanContext): Meteor | null {
+	const { random, now, field, visit } = context
+	const { duration, peak, radius } = METEOR_KINDS.flash
+	const sky = visit.meteor.sky
+	if (sky === null) return null
+	for (let tries = 0; tries < FLASH_TRIES; tries++) {
+		const point = pointNearRadiant(random, sky, radius)
+		if (point === null) return null
+		if (point.x < METEOR.edgeMargin || point.x > field.width - METEOR.edgeMargin || point.y < METEOR.top || point.y > field.height * METEOR.maxEndY) continue
+		if (quietAt(field.quiet, point.x, point.y) > 0) continue
+		return {
+			startX: point.x,
+			startY: point.y,
+			// A point does not travel: the direction is only there to be a unit vector
+			dirX: 0,
+			dirY: 1,
+			length: 0,
+			drag: 0,
+			speed: 0,
+			duration: between(random, duration[0], duration[1]),
+			peak: between(random, peak[0], peak[1]),
+			wake: 0,
+			wakeColor: 'white',
+			fireball: false,
+			flare: false,
+			train: false,
+			nearCopy: false,
+			startedAt: now,
+			variant: 'flash',
+		}
+	}
+	return null
+}
+
 /**
  * A plan for one launch of the shooting stars: a fireball when one is decided and fits, else an ordinary shooting star.
  * On a wide screen, once METEOR_KINDS.fireball.after seconds have passed since the reveal and the spacing drawn after the
@@ -73,10 +119,10 @@ function planMeteorLaunch(context: PlanContext): Meteor | null {
 	const { random, now, narrow, sinceReveal, visit } = context
 	const { chance, spacing, after } = METEOR_KINDS.fireball
 	const memory = visit.meteor
-	if (!narrow && sinceReveal >= after && now >= memory.fireballFrom && random() < chance) {
+	if (!narrow && sinceReveal >= after && now >= memory.from.fireball && random() < chance) {
 		const fireball = planMeteorTransient({ ...context, nearCopy: false }, { fireball: true, flights: 'long' })
 		if (fireball) {
-			memory.fireballFrom = now + between(random, spacing[0], spacing[1])
+			memory.from.fireball = now + between(random, spacing[0], spacing[1])
 			return fireball
 		}
 	}
@@ -91,6 +137,7 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	lifetime: meteorLifetime,
 	moving: meteorMoving,
 	nearCopy: (meteor) => meteor.nearCopy,
+	clearSky: (meteor) => meteor.variant !== undefined,
 	lease: true,
 	phones: true,
 	scene: 'hero',

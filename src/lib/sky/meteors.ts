@@ -29,6 +29,9 @@ export interface MeteorPath {
 	drag: number
 }
 
+/** A kind of shooting star apart from the ordinary and the fireball (METEOR_KINDS): one that never takes the ink lease. */
+export type MeteorVariant = 'flash'
+
 /** One planned shooting star. Times are seconds on the worker clock. */
 export interface Meteor extends MeteorPath {
 	/** Nominal speed (px/s), path length / duration. */
@@ -46,6 +49,8 @@ export interface Meteor extends MeteorPath {
 	/** Part of the path lies within the veil of quiet copy and is drawn dimmed; a path in clear sky has none. */
 	nearCopy: boolean
 	startedAt: number
+	/** Which variant this is, if one: it flies in clear sky only, never takes the ink lease and is drawn with CLEAR_SKY_KEEPS. */
+	variant?: MeteorVariant
 }
 
 /** How a shooting star launched at a start point flies; the planner keeps start sampling, the layout guards and the checks against quiet copy (METEOR_VEIL). */

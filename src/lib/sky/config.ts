@@ -508,17 +508,30 @@ export const METEOR_RATE = {
 export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [0.6, 0.85], rangeFloor: 0.6 } as const
 
 /**
- * Kinds of shooting star apart from the ordinary: odds per launch, least seconds between two of a kind, and the earliest
- * second after the reveal. Fireballs (brighter than Venus) fly on wide screens only, stay in clear sky, last `duration` s
- * at METEOR.fireballSpeedScale of the normal speed, and with a 2.4 s train stay under 5 s; if no fireball path fits, an
- * ordinary shooting star flies instead. The real sky shows about one fireball per 100 to 200 meteors; this sky shows them
- * far more often by design, about one every 90 s over a visit's first 5 minutes and one every 110 s over the next 5. The
- * spacing is a range, drawn afresh after each fireball and kept in the visit's memory, so no two come closer than its low
- * end and the gaps vary; `chance` is high because launches come further apart as a visit goes on (TRANSIENTS.longVisit),
- * and with fewer launches to decide on, lower odds would leave more than 2 minutes between fireballs.
+ * Kinds of shooting star apart from the ordinary: odds per launch (`chance`), least seconds between two of a kind
+ * (`spacing`: a number, or a range drawn afresh after each one) and the earliest second after the reveal (`after`). A kind
+ * is open to a launch on wide screens only, once `after` has passed and its spacing has run out. A launch draws one number
+ * and gives it to the first open kind, in the order listed here, whose slice of the odds it falls in, so each kind's share
+ * of the launches is its own `chance`; where that kind finds no path, an ordinary shooting star flies instead.
  */
 export const METEOR_KINDS = {
+	/**
+	 * Fireballs (brighter than Venus) stay in clear sky, last `duration` s at METEOR.fireballSpeedScale of the normal speed,
+	 * and with a 2.4 s train stay under 5 s. The real sky shows about one fireball per 100 to 200 meteors; this sky shows
+	 * them far more often by design, about one every 90 s over a visit's first 5 minutes and one every 110 s over the next
+	 * 5. The spacing is a range, drawn afresh after each fireball and kept in the visit's memory, so no two come closer
+	 * than its low end and the gaps vary; `chance` is high because launches come further apart as a visit goes on
+	 * (TRANSIENTS.longVisit), and with fewer launches to decide on, lower odds would leave more than 2 minutes between
+	 * fireballs.
+	 */
 	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: [1.8, 2.5] },
+	/**
+	 * Point flashes: a meteor coming straight at the viewer shows as a point at the shower radiant, with no length and no
+	 * movement, that brightens and fades in `duration` s at a `peak` of at most 0.7. They need the radiant on screen (on
+	 * RADIANTS.onScreen of wide-screen visits) and fly within `radius` degrees of it, in clear sky, and never take the
+	 * ink lease.
+	 */
+	flash: { chance: 0.2, spacing: 60, after: 30, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
 } as const
 
 /**

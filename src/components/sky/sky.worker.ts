@@ -197,10 +197,15 @@ function twinkleLevel(scene: SceneLevels): number {
 	return scene.twinkle * driftGate.level
 }
 
-/** The lean the camera heads for: the pointer's place times the scene's lean level, so it is (0, 0) without a fine pointer and below the hero. */
+/**
+ * The lean the camera heads for: the pointer's place times the scene's lean level. It is (0, 0) without a fine pointer,
+ * below the hero and, as for the drift, on a software-rasterized canvas too slow for PACING.minFps, which keeps a still
+ * sky.
+ */
 function leanTarget(scene: SceneLevels): Vec {
-	leanGoal.x = pointerAt.x * scene.lean
-	leanGoal.y = pointerAt.y * scene.lean
+	const level = softwareFps >= PACING.minFps ? scene.lean : 0
+	leanGoal.x = pointerAt.x * level
+	leanGoal.y = pointerAt.y * level
 	return leanGoal
 }
 

@@ -128,8 +128,9 @@ export const DRIFT = {
  * Leaning toward the pointer (mice and pens on hover-capable screens, the hero, full motion): the camera moves up to
  * `reach` CSS px (at nearness 1) toward a pointer at the viewport's edge, through critically damped springs of `omega`
  * rad/s (95% in 1.2 s), so the stars slide away from it, the brightest farthest (19 px) and the faint majority about
- * 3.5 px: the same law as scrolling, so the depth order never changes. iOS's own motion effects use about ±10 points;
- * 7 is a calmer setting.
+ * 3.5 px: the same law as scrolling, so the depth order never changes. Like the drift, it keeps still on a
+ * software-rasterized canvas too slow for PACING.minFps. iOS's own motion effects use about ±10 points; 7 is a calmer
+ * setting.
  */
 export const LEAN = { reach: 12, omega: 4 } as const
 

@@ -1,0 +1,76 @@
+# Check round 7: physics and math
+
+Adversarial checker, lens "physics-math", round 7, 2026-10-27. Planning only: this file is the only repository file written.
+
+## Scope
+
+- **Role.** Recompute every formula, constant and derived number in `PLAN.md` (3,819 lines, read in full), above all the ones round 6 changed: AC-39's and H5's bounds and settle times, 6.1's turn-rate windows, AC-4, AC-20 and H9's counts, H13's new cases, and the new `leanWanted` and farewell-meteor text. Re-check the crossing bar and the cooldown table, `scrollKept`'s ramp, the per-rect budgets and the quiet reach against the confirmed interface. Confirm that round 6's PHY6-1 to PHY6-4 fixes landed, look for regressions from round 6's other fixes, then sweep the rest of the plan. Round 6 rejected nothing, so nothing is re-raised.
+- **Inputs.** `HANDOFF.md`, `research/00-shared-brief.md`, `COORDINATION.md` (all of it, "Confirmed veil interface (2026-10-27)" first; its "Answers to the planning session's questions" section, committed at 20:14 while this check ran, is read in its own section below), `research/01-planning-brief.md`, `PLAN.md`, `REVIEW-LOG.md`, my round-6 report, a word diff of `PLAN.md` against the round-6 snapshot (`check-r6-physics/PLAN.r6.md`), the worktree code at 246c0aa (`config.ts`, `scene.ts`, `catalog.ts`, `sky.worker.ts`), and the main checkout's uncommitted veil code, read only (`config.ts`, `scene.ts`; its sky files were last written at 19:29 to 19:43, before round 6's report, so nothing moved since).
+- **Output.** This report. Limits: no edit to `PLAN.md`, `REVIEW-LOG.md`, `src/` or any configuration, in either checkout; scripts only in the scratch folder.
+
+## Method
+
+Node 24.14 scripts in `C:/Users/josep/AppData/Local/Temp/claude/S--Documents-repos-Portfolio/a0e9de06-a28e-4f61-8721-ce75a333fee7/scratchpad/check-r7-physics/`. `port.mjs` is round 6's line-for-line port of 6.1's `stepSpring`, `settle` and `stepCamera` (scroll part), which round 6 showed equals the extracted `camera.ts` exactly.
+
+- `ac39sup.mjs`, `ac39dense.mjs`, `ac39int.mjs`, `ac39rates.mjs`: AC-39 and H5's one-step jumps from rest, the jump between frames at eight phases, refresh rates as the standard display set, as whole numbers from 30 to 144 Hz, as a 0.05 Hz continuum, and below 30 Hz; H from 900 to 3,840. `h5flings.mjs`: H5's flings and eased jumps over a 30 to 60 Hz continuum.
+- `turn25h.mjs`: the mean turn rate over 60 s and 600 s windows across the drift's whole 25 h period. `torus.mjs`: the turn rate and the relative speed change over every phase configuration of the three epicycles. `level30.mjs`: when the first-minute heading leaves 30° of level. The round-6 reviser's `turnmean.mjs`, `heading.mjs` and `ac39.mjs`, and round 6's `drift.ts`, re-run.
+- `ac20.mjs`, `ac20fail.mjs`: AC-20's first-minute counts under three fireball rules, and under clear-sky plan failures during the cooldown. `cooldown-reveal.mjs` (the veil reconciliation's) re-run for 6.9's bar and table.
+
+## Round 6's fixes: did they land?
+
+| Round 6 | Landed | Notes |
+|---|---|---|
+| PHY6-1 AC-39 figures and settle split | yes, at the rates checked | AC-39 gives 0.25, 0.40 and 0.72 px (2.8 × 10⁻⁴ × 900, 1,440 and 2,560 = 0.252, 0.403, 0.717) beside the computed worst 0.246, 0.393 and 0.699 (re-run 0.2458, 0.3932, 0.6991), settled by 1.2 s up to H = 2,560 and 1.3 s up to 3,840 (re-run: 1.200 s at 2,560 and 2,700, 1.233 s from 2,880, 1.267 s at 3,840); H5 says the same. These hold at the standard display rates the reviser sampled, not across the range AC-39 and H5 state: PHY7-1. |
+| PHY6-2 AC-4 window and units | yes | 6.1's row re-runs over the whole 25 h period: 1.389 to 2.347°/s over any minute, 1.933 to 2.053 over any 10 minutes, 2.00000 over the period. The asin(0.42) = 24.83° swing is reached (the torus scan), so any 10-minute mean lies within 2 ± 49.7/600 = 2 ± 0.083, inside AC-4's ± 0.2, and the 6 h mean within ± 0.0023, inside H5's 0.01. The first real minute from the dusk turns 1.373° per drift-clock second (1.338 per real second): "about 1.4". |
+| PHY6-3 `scrollQuiet` units | yes | `settled: now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000` compares worker ms on both sides. H13's case 7 is consistent with step 2.2: a star due 0.5 s after a scroll is held, rechecked 1 s later, and launches at 1.5 s, after the 1.2 s the case asks. |
+| PHY6-4 AC-20 | yes | Re-run (`ac20.mjs`, 400,000 visits): median 5, 3 to 6 in 90.1%, 90.8% and 90.3% with no fireballs, P9's inherited 8% and P10's rule; the 10-run browser test passes 93.2% to 94.2%; the 10-run median is exactly 5 in 55%. AC-20 matches. |
+
+**Regressions from round 6's other fixes.** None in this lens.
+
+- `leanWanted(camera, lean, follow)` is the same boolean as round 5's inline test, in `stepCamera` and in `demandNow`.
+- Farewell meteors (SOC6-2): "T7 holds, since the two scenes never meet" is exact. At 0.4 viewport heights or less the hero level is 1 − smoothstep(0.5, 1.3, ·) = 1, so the end level is 0 (`scene.ts:27-28`); an end level of 0.9 needs at least 1.14 viewport heights scrolled; and `scrollKept` retires a hero transient within 24 px of scroll.
+- The comet's pause fade (CA6-2) through `cancelLevel` reaches 0 at `cancelFade`, so "0.2 s after a pause" holds.
+- C54: under a pause the motion ease's fade frames (30 fps) draw about 9 frames in 0.3 s, H13 case 3's "several drawn frames".
+- SOC6-1 (`frameAt` gathers first) changes no rate, clock or spring.
+
+## Findings
+
+No blocking or major findings. One minor, cheap and clearly right.
+
+### PHY7-1 (minor). AC-39's and H5's 0.7 s bound and 1.2 s settle hold at the standard display rates only, not "at any frame rate" or across "30 to 144 Hz"
+
+- **Section.** AC-39 (`PLAN.md:3625`: "at any frame rate ... computed worst 0.246, 0.393 and 0.699 ... The worst case is a one-step jump just under `maxLag` × H from a camera at rest at 30 Hz"); H5 (`:2940`: "at H ∈ {700, 852, 900, 1440} and 30 to 144 Hz ... settled by 1.2 s up to H = 2,560 ... one-step jumps of 0.1, 0.2 and 0.245 H ... landing just after a frame of every rate").
+- **Problem.** After a rest the camera's first step has dt 0 (C5), so the glide runs from the first frame after the jump, up to one period late, and what shows at 0.7 s is the last frame at or before it, up to one more period early. The effective glide time is floor(0.7f − φ)/f, at least 0.7 − 2/f. At 30 Hz and 48 Hz (and every other standard rate) it is at least 0.667 s, which gives the plan's 2.731 × 10⁻⁴ × H. At rates whose last frame before 0.7 s falls almost a period early it is shorter: down to 0.636 s just below 31.43 Hz. So a correct sky fails both criteria at whole-number rates inside H5's stated range, and further below 30 Hz. A harness that sweeps "30 to 144 Hz" in 1 Hz (or 5 Hz) steps, as H5's wording invites, reports a failure on correct code. Flings and eased jumps are unaffected.
+- **Evidence.**
+  - Standard rates (30, 48, 50, 60, 66.7, 72, 75, 90, 100, 120, 144 Hz), eight jump phases (`ac39sup.mjs`): worst 2.731 × 10⁻⁴ × H at 30 and 48 Hz; latest settle 1.100, 1.133, 1.200, 1.200 and 1.267 s at H = 900, 1,440, 2,560, 2,700 and 3,840. The plan's figures, exactly.
+  - 30 to 144 Hz in 0.05 Hz steps: worst 3.534 × 10⁻⁴ × H at 31.40 Hz (0.318, 0.509 and 0.905 px at H = 900, 1,440 and 2,560); latest settle 1.109, 1.163, 1.225, 1.231 and 1.268 s.
+  - Whole-number rates with H5's own jump sizes (0.1, 0.2, 0.245 H), landing just after a frame (`ac39int.mjs`): over 2.8 × 10⁻⁴ × H at 31 (3.23), 32 (2.93), 34 (3.17), 35 (2.91), 37 (3.13), 38 (2.89), 41 (2.87), 44 (2.86) and 47 Hz (2.85 × 10⁻⁴ × H); settling after 1.2 s at H = 2,560 at 32 (1.219 s), 33 (1.212), 34 (1.206) and 39 Hz (1.205).
+  - Below 30 Hz (`ac39rates.mjs`): 3.92 × 10⁻⁴ × H at 24 Hz and 3.16 × 10⁻⁴ × H at 20 Hz; at 20 Hz, H = 2,560 settles at 1.250 s.
+  - Flings and eased jumps (H5's other cases) over 30 to 60 Hz in 0.25 Hz steps, stops on and between frames: worst 2.42 × 10⁻⁴ × H, settled by 1.09 s (`h5flings.mjs`).
+  - Real displays and WebKit's worker clock run at the standard rates, so AC-39's browser method (S) passes on correct code; the failure is in H5 as worded, and in AC-39's "at any frame rate".
+- **Fix.** In AC-39 and H5, replace "at any frame rate" and, for these two criteria, "30 to 144 Hz" and "every rate" by the rates browsers run: "at 30, 48, 50, 60, 66.7 (WebKit's worker clock), 72, 75, 90, 100, 120 and 144 Hz". Change "The worst case is ... at 30 Hz" to "at 30 and 48 Hz", and add one clause: "At other rates, or when the first frame after a jump comes late, the glide starts later (up to 3.6 × 10⁻⁴ × H at 0.7 s between 30 and 48 Hz, and settled by 1.25 s up to H = 2,700)." Alternatively keep the continuum and state those numbers as the bound: 3.6 × 10⁻⁴ × H at 0.7 s (0.32, 0.52 and 0.92 px at H = 900, 1,440 and 2,560), settled by 1.25 s up to H = 2,700 and 1.3 s up to 3,840.
+
+## Recomputed and confirmed
+
+These need no change.
+
+- **Camera.** 95% of the glide at 0.474 s and 99% at 0.664 s for ω = 10, 1.186 s for the lean's ω = 4; Motion's visualDuration 2π/(1.2ω) = 0.524 s. SP1's reversal bound 25.2 / (e(2 − ω/2f)) = 5.06, 4.84 and 4.72 px at 30, 60 and 144 Hz, 4.64 continuous. C4's snap above 27,000 px/s at 30 Hz on H = 900. The capped glide's start step, 4.2 device px at 60 Hz (H = 900, DPR 2), stays above 0.5 for 0.365 s (AC-10's 0.37 s). After a 1,000 px/s scroll the need stays over 30 fps for 0.44 s and the spring settles at about 0.97 s (P3's "about 0.4 s", the hysteresis holding to about 0.94 s). The lean's 27 px reach, the key-range figures (33,554,432 × 0.112 = 3.76 million px, cell 14,680; about 3,700 pause cycles on a 20,000 px page) and the 4.66 × 10⁻¹⁰ px spacing under 4 million px.
+- **Drift.** Phases (0.70, 0, 2.09) start at 28.4° up-right and 0.85 v₀; R1's start at 61.3°. Wander 205.23 px (|E(0)| = 99.08 plus ΣR = 106.15), R1's phases 190.89, any phases 212.30 (70.77 s × v₀). Over every phase configuration the turn rate runs 0.381 to 4.329°/s, so the heading only ever turns clockwise and 4.33 is the true maximum; the speed changes at most 3.78% a second. The 25 h windows above. The first-minute headings and speeds (the reviser's `heading.mjs`), and the milestones at 69.4, 121.0 and 151.3 s and the 24.3 px return at 180 s (round 6's `drift.ts`), re-run. The heading leaves 30° of level 53.2 s after the dusk (`level30.mjs`), so 6.1's "52.7 s" reads 53.2 (deviation 2 and the `DRIFT` doc say 53); AC-4's 50 s holds either way, so this is no finding.
+- **Depth.** q(6) = 0.2398, q(4.5) = 0.3889, q(2.5) = 0.7411, capped from m = 0.112; scroll shares 0.0168 to 0.112; DEPTH's 12.5% (0.035 against 0.04). Lean per band 19.2, 12.3, 6.0 and 3.5 px; R4's 2, 4 and 7 px at reach 7. Wander per band 328, 210, 103 and 60 px.
+- **Pacing.** Every cell of 6.2's table, the WebKit column included (narrow k = 3, 22.2 fps), and 10.1's CPU shares (0.4 to 1.2%, 1.6 to 3.4%, 0.8 to 2%, 1.3 to 2.7%, 6.6 to 7.8%); the software-raster budget floor(80 / 3.9) = 20 to floor(80 / 3.3) = 24 fps and 2 fps at 29 ms. 10.2's extra frames: 6.35 s a minute of meteors gives 190 to 254, satellites 3.23 s a minute give 97 to 130, today about 95.
+- **Transients.** Gap means 11.69, 21.00 and 84.46 s, today's 41.72 s; 4.74 against 1.40 launches a minute (3.39 times). Satellites: 21.77 px/° at the centre, 26.1 to 54.4 px/s, 125 to 261 px a pass, 89.26 s apart, a first attempt within 60 s on 39.3% of visits, 32.7 px in a 0.6 s ease (58 px at 2,560), alpha 0.25 to 0.5 at magnitude 5.4 to 3.6, under the brightest mid star's 0.62. The cooldown model reproduces 6.9 exactly: bars 0.303, 0.399 and 0.464; 0.295 to 0.460 a minute at 55 s; settings 55 to 95, 40 to 75 and 30 to 55 s. AC-20 is robust to clear-sky plan failures during the cooldown: with 0 to 30% of those plans failing, 3 to 6 in the first minute stays at 90 to 94% (the median falls to 4 from 20%). H8's 99% within 4.5° of the shower radiant is the 1-D 3σ (99.73%). Earthgrazers: 0.3 W spans 19.7° at the centre, 6°/s × 3.5 s = 21°, R2's 0.45 W 29.1°, the 0.54 s wake.
+- **Contrast and limits.** The main checkout's `scrollKept` is clamp(fade) × (1 − smoothstep(12, 24, |Δ|)) (`scene.ts:187-188`), `QUIET_REACH` 72 and 40 from a padded zone (`config.ts:153`), and `inkBudget` (`scene.ts:163`) gives slate body text 0.0495, the tagline and the rails 0.1485, and the name and green text the 0.2 ceiling, as `INK_BUDGET`'s doc says; PF's flat veil adds 0.0593 × peak (0.053 at 0.9, 0.059 at 1, against 0.064). The warmest drawable tint is index 7, R / (R + G + B) = 0.423; the warmest wake 0.372. AC-16 (b)'s 0.78 × 1.5 / 0.6 = 1.95 a second; AC-15's 0.497, 0.468 and 0.795 v₀; AC-2's 0.85, 2.82, 1.21, 4.01 and 6.82 px/s and the 3.52 v₀ ceiling; AC-27's 6.82 × 0.15 = 1.02 px; G176's 2,000 px² against 21,824.
+
+## The veil session's answers (committed during this check)
+
+`COORDINATION.md` gained "Answers to the planning session's questions (2026-10-27)" at 20:14 (commit 4606c23), after this check had read it. Re-read for this lens, none of them changes a number in `PLAN.md`:
+
+- **Answer 3a's 32 px radius.** A never-lease kind drawn through `transientQuietFactor` with keeps of 0, sampled at its centre, needs a drawn radius of at most `QUIET.padding` (32 px). Satellites (shape 2, a core of 0.5 CSS px, about 2 px of sprite radius) meet it. The clear-sky meteor variants meet it per point, since `drawMeteor` samples the factor at every point it draws (main checkout `renderSky.ts:208`, `:230`): the head glow reaches 9 px (3σ of `METEOR_LOOK.glow`, 3 px; `fireballGlow` scales its alpha, not its size, main checkout `renderSky.ts:219`, `skyAssets.ts:89`). The comet's tails are longer, but its whole box stays clear of every zone's reach on every drawn frame, which is stronger; that test should name `blend.next` as well as the applied zones (answer 3a), a coordination point rather than a number.
+- **Answer 4 (the comet).** The plan already keeps `scrollKept`. On the shortest viewport the answer names (a phone held sideways, 852 × 393, which counts as wide), the placement guard leaves about 20 px for the comet's box between `METEOR.top` and About's row less `ZONE_REACH`, after growing it by 65.7 px of drift and lean each way, so the comet simply finds no place there.
+- **Answer 5 (`QuietBlend.next`).** Stars read `easedQuietFactor`, which ignores `next`, so Q1 and H3 stay exact; the transients' "waits up to `QUIET.ease`" wording in T3 and 6.11 becomes conservative, not wrong.
+- Answer 1's hands-off list adds `frameMode` and `tick`, which P3 replaces before V. That is a coordination and code-grounding matter, raised by this round's CA7-1 and CG7-1.
+
+## Summary
+
+- **Verdict: pass.** No blocking or major findings. Round 6's four fixes landed and re-run within rounding, and round 6's other fixes changed no physics.
+- **One minor finding.** AC-39's and H5's 2.8 × 10⁻⁴ × H at 0.7 s and "settled by 1.2 s up to H = 2,560" hold at the standard display rates (worst 2.731 × 10⁻⁴ × H at 30 and 48 Hz), but not "at any frame rate" or across "30 to 144 Hz" as both say: at 31.4 Hz a one-step jump from rest leaves 3.53 × 10⁻⁴ × H, nine whole-number rates from 31 to 47 Hz fail with H5's own jump sizes, and H = 2,560 settles at up to 1.225 s. Name the standard rates, or state 3.6 × 10⁻⁴ × H and 1.25 s.

@@ -106,6 +106,35 @@ Four checkers (`drafts/check-r6-*.md`) raised 12 findings on round 5's revision:
 | C53 | completeness | minor | Fixed with CA6-1. |
 | C54 | completeness | minor | Fixed: P5 and 6.6 say `twinkleLevel` drops its `motion === 'full'` guard for the motion level; H13 case 3 checks the twinkle eases over several frames. |
 
+### Round 7
+
+Four checkers (`drafts/check-r7-*.md`) raised 18 findings on round 6's revision: 3 blocking, 3 major and 12 minor after the skeptics (CA7-2 calibrated from major to minor; CA7-3 confirmed in part). The blocking findings, with CG7-2, NJ7-1 and SOC7-1, are one gap: the veil session's answer 1 replaced "Changed shape" with a longer hands-off list (`frameMode`, `tick`, `SkyFrame`, `mountSky`, the import lines) that `PLAN.md` still called ours. All held and were fixed; none was rejected. The reviser re-ran AC-39's rate sweeps (`check-r7-physics/ac39sup.mjs`, `ac39int.mjs`), the halo half-side (`reviser-r7/edge.mjs`) and the cooldown on the landed numbers (`reviser-r7/cooldown-landed.mjs`, `cooldown-phone.mjs`). `PLAN.md` stays at 63,815 words.
+
+| ID | Lens | Severity | Disposition |
+|---|---|---|---|
+| PHY7-1 | physics-math | minor | Fixed: AC-39 and H5's one-step jumps hold at the display rates browsers run (30, 48, 50, 60, 66.7, 72, 75, 90, 100, 120, 144 Hz), the worst at 30 and 48 Hz; AC-39 gives 3.6 × 10⁻⁴ × H and 1.25 s for other rates (re-run: 3.53 × 10⁻⁴ × H at 31.4 Hz, 1.231 s at H = 2,700). |
+| CG7-1 | code-grounding | blocking | Fixed with CA7-1, C55 and SOC7-1: 4.4 adopts answer 1's list; `frameMode` and `tick` become a requested overlap (8.6, CP-0) whose resolution makes their `quietEasing(t)` `demandNow`'s quiet-ease term (6.2's sketch and table); 8.5 step 2 rechecks `quietEasing`; a decline holds P2 onward (4.4, 7.2, D10, CP-4). |
+| CG7-2 | code-grounding | major | Fixed with NJ7-1: the same request covers `mountSky` (the same function, separate lines), `SkyFrame` (theirs only the `meteorInk` doc, per the skeptic) and the import lines; 8.6 lists each with what stays theirs; a decline holds the phases 4.4 names; P2's files add `tick`'s `updateCamera` call. |
+| CG7-3 | code-grounding | minor | Fixed: 6.10 writes the whole train line, `dimFrom === 1 && (course.train \|\| fireball) && random() < METEOR.trainChance`. |
+| CG7-4 | code-grounding | minor | Fixed: the comet's box test runs against `frame.quiet.to` and, while a layout waits, `next` (up to 128 rects): 6.12, AC-25, P12. |
+| CG7-5 | code-grounding | minor | Fixed with SOC7-4: `allowed` keeps "a launch scene" (`scene !== null`), and 6.9 arms the sleeping timer only while `launchGate(now).allowed`. |
+| CA7-1 | coordination-a11y | blocking | Fixed with CG7-1 and CG7-2: 8.1 edits listed symbols only as 8.6's overlaps; 8.6's intro and its `frameMode`, `SkyFrame` and `mountSky` rows rewritten; the worker's import lines join the request; 8.5 step 2 follows "their lines win"; CP-0 asks whether `tick` gains a line. |
+| CA7-2 | coordination-a11y | minor (partly) | Fixed with C57 to C59: the answers recorded as settled; 8.6's `frameAt` row names answer 2's kept lines and P6's `gather`; P9 reports the rerun crossings to the user. Its `sameRects` point was already recorded; the row gains a clause. |
+| CA7-3 | coordination-a11y | major (partly) | Fixed with C56: D12 (two at once is a look choice; default, keep the hold); T2, T3, 6.9 steps 2.2 and 2.3, 6.11, P11, H7, AC-24 and 8.7 follow; I9 answered. Per the skeptic, bursts and earthgrazers don't meet condition a by construction; being meteors, T7 already keeps them from a lease holder, so D12's alternative names satellites, and the comet keeps the hold. |
+| CA7-4 | coordination-a11y | minor | Fixed: under PF the parallax keys and sentence go once both PF and P2 have landed (5.1, 6.1, P2, PF, 8.7 item 1). |
+| CA7-5 | coordination-a11y | minor | Fixed: P12's comet files and 5.1's worker row add the comet's state, its pause time in the `motion` handler and its hand-off in `draw`. |
+| C55 | completeness | blocking | Fixed with CG7-1; the decline branch includes P2, and one request covers every listed symbol (the skeptic's two gaps). |
+| C56 | completeness | major | Fixed with CA7-3; D12 names satellites and the comet. |
+| C57 | completeness | minor | Fixed: the file-by-file and declined `frameAt` or `sameRects` branches are deleted (section 1, 4.4, 7.0, 7.2, P0, P1, P5, P13, V, CP-0, CP-4, 8.5 step 4, 8.7, D10, R-1); CP-0 keeps the new request and the landing notice. P1 still waits for CP-0's answer, since it edits listed import lines and `SkyFrame`. |
+| C58 | completeness | minor | Fixed: 6.12 and D4 record answer 4 (`scrollKept`; a scroll fade of its own only if it ends before unmarked copy at 852 × 393); CP-0's request 3 dropped; the comet's flag stays for D12 as `bodyShowing`. |
+| C59 | completeness | minor | Fixed: T3, 6.11, H7, AC-24 and P11 test `to` and `next` from the frame a layout arrives (6.11's 33 px sentence dropped); 6.4 says the index ignores `next`, and H3 adds a `next` case; stale "observed" labels and handler-cancel hedges dropped; P9 reports to the user. |
+| C60 | completeness | minor | Fixed: `EDGE`'s doc and AC-8 give 12 CSS px at DPR 0.25 and under 9.4 from DPR 1 (re-run: 12.000 and 9.333); SF2 and the guard read −32,768 to 32,767 (`-0x8000 <= cx, cy < 0x8000`). |
+| C61 | completeness | minor | Fixed: `softwareFps` moves to P6 (P3's files and step 4), `cameraSpeed`'s `rate` to P6 and `updateCamera`'s `scene` to P7 (6.1, 6.2's table). |
+| Answers fold | coordination | none | `COORDINATION.md`'s "Answers to the planning session's questions" folded in: the file rule settled (section 1, 4.4); the two overlaps agreed on their terms (8.6); answer 3 as D12 and T3; answer 4 in 6.12 and D4; `QuietBlend.next` final (T3, 6.4, H3); I9 answered (8.3); CP-0, D10, CP-4 and the Blocked-on lines updated. |
+| Landed fold | coordination | none | "Landed in the working tree" folded in: the bar re-based on the `nearCopy` shares 60.6, 56.1 and 35.1% (0.97, 0.90 and 0.56 a minute), with GPU-canvas streak and glimmer shares for what visitors see; 6.9's table, deviation 11, H9, AC-38, R-10 and 8.5 step 5 recomputed (55 s meets every bar for P9 shares up to 0.6, the phone's included; a first-crossing start needs 1.5 to 2 times the length); I8 answered but for the SHA; H8, H9 and 8.5 step 5 use `harness/`; P9 reports to Joseph; the phone correction (2.2, the fallback doc, H9's clear-sky room); the one-frame dim at a layout change, noted once in 6.9; the launch hold as 12.2's question 2. Observed after the fold and not recorded in `PLAN.md`: a commit cf4d7b8 on the main checkout's local master (20:55, not pushed), whose diff from 246c0aa matches the archived `results/wt-final.diff` line for line; it awaits the landing notice. |
+
+Refuted by the skeptics this round: none.
+
 ## Audit log
 
 Four auditors (`audit/*.md`) checked the plan against the Next.js 16.4.2 docs, the codebase conventions, DRY and separation of concerns; a skeptic verified each finding. 40 findings, 5 major, 35 minor. For a "partly" verdict only the part that held was applied.
@@ -210,3 +239,23 @@ The four auditors re-checked round 5's revision (`audit/*-gate-r6.md`): 10 findi
 | SOC6-2 | separation of concerns | minor | gate, verified | Fixed the first way: farewell meteors get their own registry entry; the gate reports the scene (`LaunchGate.scene`), each spec names its own (`TransientSpec.scene`), and step 2.2 holds a kind outside it (6.12, P12, 5.1, T6). |
 | SOC6-3 | separation of concerns | minor | gate, verified | Fixed: `CameraInput.scroll`'s doc and 6.1's law say the followed scroll. |
 | SOC6-4 | separation of concerns | minor | gate, verified | Fixed the first way, with PHY6-3: H13's case 7 runs the worker's launch gate in P8 (the scroll quiet, idle, past the hero, reduced motion). |
+
+### Gate round 7
+
+The four auditors re-checked round 6's revision (`audit/*-gate-r7.md`): 13 findings. SOC7-1 (blocking) and NJ7-1 (major) were confirmed by their skeptics; the 11 minor ones came to the reviser as gate findings to verify, and all held. The conventions audit passed with minor findings only. None was rejected, and the skeptics refuted none.
+
+| ID | Audit | Severity | Skeptic | Disposition |
+|---|---|---|---|---|
+| NJ7-1 | Next.js docs | major | confirmed | Fixed with CG7-2: `mountSky` joins the CP-0 request and 8.6 ("the same function, separate lines"); 4.4's "Ours" moves the wiring into the overlaps; a decline holds P4, P5 (its store, control, icons and `Navbar.tsx` prepared), P7, P13 and, through 7.0's gate, P6. |
+| CONV7-1 | conventions | minor | gate, verified | Fixed: 6.2's row reads "`transientDemand(transients, t)` in the transient line". |
+| CONV7-2 | conventions | minor | gate, verified | Fixed the alternative way: a P12 kind that ships without P11 adds `CLEAR_SKY_KEEPS` itself (7.0); 7.2's P12 row and P11's rollback say so. |
+| CONV7-3 | conventions | minor | gate, verified | Fixed with SOC7-4: P12's farewell files add `scene.ts` (`SceneLevels.launchScene` in place of `launches`), `SCENE.endLaunchLevel` and both specs' `scene`; 5.1's and 8.6's `scene.ts` rows add P12. |
+| CONV7-4 | conventions | minor | gate, verified | Fixed with SOC7-2: `gather` in 8.6's `frameAt` row and CP-0's list. |
+| CONV7-5 | conventions | minor | gate, verified | Fixed: "center" and "centered" in the ten sketch comments. |
+| DRY-R7-1 | DRY | minor | gate, verified | Fixed: (a) with CONV7-4; (b) with CONV7-3, T6 naming the exception and H7 and AC-20 gaining it with the kind; (c) 8.1 names P6; (d) 1.1 cites `REVIEW-LOG.md`. |
+| DRY-R7-2 | DRY | minor | gate, verified | Fixed with C57: the file-by-file copies are gone; 4.4 alone states the decline rule, and the rest cite it. |
+| DRY-R7-3 | DRY | minor | gate, verified | Fixed the alternative way: `fadeOutAt(since, duration, t)` in `pacing.ts` (P6) is the one one-way fade (the thin fade, `transientFade`'s pause fade, the comet's box and pause fades), and `cancelLevel` goes; 6.9 says `cancelFade` is the pause's fade and the comet's box fade. |
+| SOC7-1 | separation of concerns | blocking | confirmed | Fixed with CG7-1, CA7-1 and C55: one request with one reading covers every listed symbol (caveat a); 8.5 step 2's wording (b); `demandNow` takes their `quietEasing(t)` at V (d). |
+| SOC7-2 | separation of concerns | minor | gate, verified | Fixed with CONV7-4. |
+| SOC7-3 | separation of concerns | minor | gate, verified | Fixed in part: I9 answered; T3 states the never-lease contract (`to` and `next`, the radius bound); `LaunchGate.cometShowing` becomes the kind-agnostic `bodyShowing`. Dropping the hold is superseded by D12 (C56, CA7-3), which keeps it as the default look choice. |
+| SOC7-4 | separation of concerns | minor | gate, verified | Fixed with CONV7-3 and CG7-5: `SATELLITE_SPEC.scene`, `SCENE.endLaunchLevel` beside `heroLaunchMaxScroll`, and the sleeping timer's guard named in 6.9. |

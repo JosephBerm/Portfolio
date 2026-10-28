@@ -287,6 +287,90 @@ Checkpoint V still means the commit. Phases blocked on V stay blocked, but these
 - its result summaries and the exact working-tree diff (`results/wt-final.diff`);
 - the nine captured layouts (`code-logic/zones/*.json`) that I8 asked for.
 
+## Phase merges (CP-2)
+
+### CP-2, 2026-10-28: P1 to P6
+
+P1 to P6 are merged into master by merge commits, at Joseph's request:
+
+| PR | Phase | Merge commit |
+|---|---|---|
+| #16 | P1, render core | 71d8041 |
+| #17 | P2, camera seam | 5827f6b |
+| #18 | P3, frame pacing | 19d69ab |
+| #19 | P5, pause control | 57b4df9 |
+| #20 | P4, presence | b317b73 |
+| #21 | P6, ambient drift | 725a239 |
+
+Each phase followed the same process:
+- Sonnet 5.5 implemented it strictly to `PLAN.md`;
+- Opus 5.5 audited it, and the fixes were applied;
+- independent scratch harnesses and headless-Chromium checks verified it.
+
+Details are in each PR. This entry is the implementing session's report (`local_173b1826-7839-4b4e-a7c8-ad3fe4af9577`). The planning session checked the merges on GitHub, and checked that `git diff cf4d7b8 725a239` leaves `meteors.ts` and every veil function listed under "Unchanged" byte-identical.
+
+**Files and functions changed:**
+- **P1.**
+  - config: `STAR_PHASES`.
+  - skyAssets: `profile`, `pointSpread`, a phase-aware `paintSprite`, 4x4 blocks and `starSpriteIndex`.
+  - `quietIndex.ts` (new): `ZONE_REACH`, `zoneReaches`, `QuietIndex` and `createQuietIndex`, wrapping the veil's `easedQuietFactor`.
+  - scene: `sameRects`, moved from the worker with its body and doc unchanged (it still compares `headroom`).
+  - renderSky:
+    - `placePoint`, `corner` and `SkyFrame.snap`;
+    - the quiet index, a frame-stamped `StarField`, the key guard and the `EDGE` doc;
+    - the unread `easedQuietFactor` and `STAR_SHAPES` imports are dropped.
+  - worker: imports `sameRects`, and `frameAt` sets `snap`.
+- **P2.**
+  - config: `DEPTH` and `CAMERA`. `LayerConfig.parallax` and the parallax values are removed; the veil's ink sentences in the `LAYERS` doc are kept.
+  - catalog: `Star.q`, `nearness` and `LAYER_NEARNESS`.
+  - `camera.ts` (new): the scroll part.
+  - renderSky: `SkyFrame.offset`, the per-star offset and two-axis culling.
+  - worker: `camera`, `offset`, `updateCamera`, `cameraMoving` and `skyMoved`, plus the init, motion and visible wiring. `frameAt`'s veil lines are unchanged.
+- **P3.**
+  - config: `PACING` and the `FRAME` doc.
+  - `pacing.ts` (new).
+  - worker:
+    - removed: `frameMode`, `frameInterval`, `schedule`, `onTimer`, `onFrame`, `tick` and `cancelFrames`;
+    - added: `demandNow`, `requestFrame`, `onStalled`, the watchdog, strikes, the probe, `rafWorks`, the refresh estimate and the divisor;
+    - the veil's `quietEasing(t)` sits in `fading`, and `tick` still calls `settleQuiet` before the frame decision.
+  - `refreshDivisor` got a 1e-9 float slack, found by the independent H4.
+- **P5.**
+  - new: `skyPause.ts` and `SkyPauseButton.tsx`, with the icons `PauseSVG` and `PlaySVG`.
+  - `Navbar`: the control, the stagger, `inert` and the header focus.
+  - mountSky: `motion()` from the store, `syncMotion`, the worker-message switch and `destroy`. The rect measurement is unchanged.
+  - protocol: the `SkyMotion` doc.
+  - config: `FRAME.motionEase`.
+  - pacing: the ease helpers.
+  - worker: `motionLevel`.
+  - docs: the AGENTS.md pause line, right after the `data-sky-quiet` line, and the README line.
+- **P4.**
+  - `presence.ts` (new).
+  - protocol: `activity`.
+  - mountSky: the activity listeners (`ACTIVITY_INTERVAL_MS`, `ACTIVITY_EVENTS`).
+  - worker: presence, the `activity` case, `twinkleTime` and `hiddenTotal`.
+  - renderSky: `SkyFrame.twinkleTime`.
+  - Hidden time no longer counts toward the 90 s idle clock (AC-32).
+- **P6.**
+  - config: `DRIFT`, the `PACING` drift caps, `SCENE.*.drift` and `ADAPT.thinFade`.
+  - pacing: `driftCap` and `fadeOutAt`.
+  - scene: `SceneLevels.drift`.
+  - camera: the drift parts.
+  - protocol: a doc.
+  - renderSky: `thinFrom` and `thinLevel`.
+  - worker: `gather`, `driftGate`, `narrowScreen`, `softwareFps` and the thin fade.
+  - The README sky lines.
+  - The veil's `settleQuiet` doc is left unchanged (8.4).
+
+**Unchanged by P1 to P6 (the veil's):** `veiledFrom` and the veil's planner, the ink budgets, `scrollKept`, `transientQuietFactor`, `drawMeteor`, `quietBlend`, `applyLayout`, `settleQuiet`, the layout branch and `copyReader`.
+
+**Pending, for Joseph on real devices:**
+- AC-13, equal frame holds on a real display;
+- P6's by-eye pass on a DPR-2 laptop, a DPR-1 monitor and a phone (`DRIFT.speed` 2.5 to 3);
+- iPhone Safari tests (WebKit judder, Low Power Mode);
+- budgets B-1 to B-7, and B-10's 30-minute heap check.
+
+**In progress:** P7 (the pointer lean, under audit) and P8 (the transient core). After P9, the crossing measurement is rerun and reported to Joseph next to the veil's numbers.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -302,3 +386,4 @@ Checkpoint V still means the commit. Phases blocked on V stay blocked, but these
 - 2026-10-27: we asked five questions and told it about P9. It answered the same day; the answers are in "Answers to the planning session's questions" above. Gate round 7 folds them into PLAN.md. Next from it: the "landed" message with the SHA, the touched-symbol list from `git diff`, the crossing numbers and the harness path.
 - 2026-10-27: its "landed" message arrived: final in the working tree, uncommitted, with the final crossing numbers and the harness path (see "Landed in the working tree" above). We archived the harness and the captured layouts in `harness/`. Still to come: the SHA once Joseph commits; then checkpoint V runs.
 - 2026-10-27: committed as cf4d7b8 on master and pushed (`origin/master` at 20:56), identical to the confirmed diff (patch-id checked), every recommended setting kept, no launch hold. `PLAN.md` is restructured to build on cf4d7b8 directly.
+- 2026-10-28: CP-2 for P1 to P6 (PRs #16 to #21, master at 725a239), recorded from the implementing session's report under "Phase merges (CP-2)". The veil session is idle, and its work is committed.

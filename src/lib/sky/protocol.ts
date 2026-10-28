@@ -73,6 +73,8 @@ export type SkyMainMessage =
 	  }
 	/** The visitor is still here without scrolling (pointer, keys, focus); at most one a second. */
 	| { type: 'activity' }
+	/** A fine pointer's position for the lean, -1 to 1 from the viewport center (x right, y down); null once it leaves. At most one per animation frame. */
+	| { type: 'pointer'; at: { x: number; y: number } | null }
 
 /** Sky worker to main thread: the first frame is on the canvas, or the sky can't run. */
 export type SkyWorkerMessage = { type: 'ready' } | { type: 'error'; message: string }

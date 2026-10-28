@@ -2,10 +2,11 @@
  * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while something
  * changes. A sky that only changes brightness draws from timers: 15 fps for twinkle, 30 fps for fades (the dusk, a
  * lingering train). Anything that moves draws on animation frames: every one while a shooting star flies or the page
- * scrolls, and every k-th one (PACING; every one while a glide is fast) while the stars drift or glide to rest after
- * the page stops. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
- * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
- * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there.
+ * scrolls, and every k-th one (PACING; every one while a glide or a lean is fast) while the stars drift, lean away from
+ * the pointer or glide to rest after the page stops. A missing or stalled animation-frame clock is answered by a
+ * watchdog and then a 60 Hz timer. Hidden tabs, paused or reduced motion, and visits with no input for a while sleep,
+ * the last once the drift and twinkle have eased out. While reading the stars still drift, slowly, so the worker keeps
+ * drawing there.
  */
 
 import {
@@ -16,6 +17,7 @@ import {
 	driftTarget,
 	driftWanted,
 	forgetStep,
+	leanWanted,
 	resumeCamera,
 	stepCamera,
 	type CameraInput,
@@ -115,10 +117,12 @@ let presence = createPresence(0)
 let camera = createCamera(0)
 /** The camera's offset for the frame being drawn (reused). */
 const offset: Vec = { x: 0, y: 0 }
-/** No lean, the target the camera is given until the pointer feeds it (shared, never written). */
-const noLean: Vec = { x: 0, y: 0 }
+/** Where a fine pointer is, -1 to 1 from the viewport's center (x right, y down): the middle until one has been seen, and once it leaves. */
+const pointerAt: Vec = { x: 0, y: 0 }
+/** The lean the camera heads for (reused): the pointer's place times the scene's lean level. */
+const leanGoal: Vec = { x: 0, y: 0 }
 /** What the camera follows on its next step (reused, so a step makes no garbage). */
-const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0, lean: noLean }
+const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0, lean: leanGoal }
 /** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
 let cameraMoving = false
 /** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */
@@ -193,6 +197,13 @@ function twinkleLevel(scene: SceneLevels): number {
 	return scene.twinkle * driftGate.level
 }
 
+/** The lean the camera heads for: the pointer's place times the scene's lean level, so it is (0, 0) without a fine pointer and below the hero. */
+function leanTarget(scene: SceneLevels): Vec {
+	leanGoal.x = pointerAt.x * scene.lean
+	leanGoal.y = pointerAt.y * scene.lean
+	return leanGoal
+}
+
 /** The next shooting star waits at least METEOR.afterReturn once the visitor is back (a tab, an idle stretch, full motion). */
 function holdMeteors(now: number): void {
 	if (revealAt !== null) nextMeteorAt = Math.max(nextMeteorAt, now / 1000 + METEOR.afterReturn)
@@ -223,22 +234,26 @@ const frameState: FrameState = {
 
 /**
  * The strictest demand of every part of the sky right now. It gathers the gates and reads the worker's state afresh at
- * every frame decision, so a message that wakes a sleeping worker is judged on this moment, not on what the last frame
- * saw.
+ * every frame decision, so a message that wakes a sleeping worker (an activity or pointer ping, say) is judged on this
+ * moment, not on what the last frame saw.
  */
 function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	const t = now / 1000
 	gather(now, scene)
 	const wanted = driftWanted(driftGate)
+	// The test the camera's step makes: under full motion, a lean spring away from the pointer's target. A pause holds the
+	// springs where they are, often short of it, and would otherwise draw identical frames until Play.
+	const leaning = leanWanted(camera, leanTarget(scene), motion === 'full')
 	frameState.live = ctx !== null && visible && motion !== 'off' && exitAt !== null
 	frameState.scrolling = now - lastScrollAt < FRAME.scrollSettleMs
 	frameState.full = motion === 'full'
 	frameState.transientDemand = meteor ? (meteorMoving(meteor, t) ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES
-	// The stars keep gliding to rest after the page stops scrolling, and the drift asks for frames from the moment it
-	// heads up, when its eased rate is still 0: a sleeping worker would never wake for it
-	frameState.cameraActive = cameraMoving || wanted
+	// The stars keep gliding to rest after the page stops scrolling, the drift asks for frames from the moment it heads
+	// up, when its eased rate is still 0, and a pointer that has moved asks for them before the lean has moved a pixel: a
+	// sleeping worker would never wake for any of them
+	frameState.cameraActive = cameraMoving || wanted || leaning
 	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera, wanted ? driftTarget(driftGate) : 0) * dpr
-	frameState.cameraCap = wanted ? driftCap(narrowScreen, quality > 0, softwareFps) : Infinity
+	frameState.cameraCap = wanted || leaning ? driftCap(narrowScreen, quality > 0, softwareFps) : Infinity
 	// The dusk, copy that has just appeared or moved, the motion level easing and the thinned stars fading change slowly
 	frameState.fading =
 		(exitAt !== null && !emergenceDone(t - exitAt)) ||
@@ -267,11 +282,11 @@ function meteorsAllowed(now: number): boolean {
 }
 
 /**
- * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star, scrolling, the
- * drift, the stars gliding to rest) wake on animation frames, in step with the display, and tick draws on every k-th of
- * them. Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames.
- * With nothing to draw, one timer is left for a change a message has just made or the next shooting star. A frame
- * already pending is left alone.
+ * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star, scrolling,
+ * the drift, the lean, the stars gliding to rest) wake on animation frames, in step with the display, and tick draws on
+ * every k-th of them. Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps
+ * between frames. With nothing to draw, one timer is left for a change a message has just made or the next shooting
+ * star. A frame already pending is left alone.
  */
 function schedule(now: number): void {
 	if (rafId !== null || !ctx || !visible) return
@@ -324,7 +339,7 @@ function onTimer(): void {
 	tick(performance.now())
 }
 
-/** Animation-frame-driven frame (a flying shooting star, scrolling, the drift, the stars gliding to rest): the display's own clock, so it also times the refresh. */
+/** Animation-frame-driven frame (a flying shooting star, scrolling, the drift, the lean, the stars gliding to rest): the display's own clock, so it also times the refresh. */
 function onFrame(time: number): void {
 	clearTimeout(watchdogId)
 	watchdogId = undefined
@@ -377,7 +392,7 @@ function tick(now: number): void {
 	// what stays on screen.
 	const drawnAt = lastDrawAt / 1000
 	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, drawnAt) || easeEnded(thinnedAt, ADAPT.thinFade, now / 1000, drawnAt)) needsDraw = true
-	updateCamera(now)
+	updateCamera(now, scene)
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
 	// display: each of its ticks is a frame, divided only by a demand's cap
@@ -481,14 +496,15 @@ function settleQuiet(now: number): void {
 	} else if (lastDrawAt / 1000 - layoutAt < QUIET.ease) needsDraw = true
 }
 
-/** Steps the camera while the tab is visible, the drift at the rate gather found; when it comes to rest, one more frame draws the resting sky. */
-function updateCamera(now: number): void {
+/** Steps the camera while the tab is visible, the drift at the rate gather found and the lean toward the pointer; when it comes to rest, one more frame draws the resting sky. */
+function updateCamera(now: number, scene: SceneLevels): void {
 	if (!visible) return
 	cameraInput.time = now / 1000
 	cameraInput.scroll = parallaxScroll
 	cameraInput.viewportHeight = height
 	cameraInput.follow = motion === 'full'
 	cameraInput.drift = driftRate(driftGate)
+	cameraInput.lean = leanTarget(scene)
 	const moving = stepCamera(camera, cameraInput)
 	if (cameraMoving && !moving) needsDraw = true
 	cameraMoving = moving
@@ -811,6 +827,19 @@ scope.addEventListener('message', (event) => {
 		}
 		case 'activity':
 			// The schedule below judges this moment's presence, so a sky that slept restarts its frames at once
+			noteInput(now)
+			break
+		case 'pointer':
+			// A position that isn't finite is ignored, so no message can make the camera's target not finite
+			if (message.at === null) {
+				pointerAt.x = 0
+				pointerAt.y = 0
+			} else if (Number.isFinite(message.at.x) && Number.isFinite(message.at.y)) {
+				pointerAt.x = message.at.x
+				pointerAt.y = message.at.y
+			}
+			// Someone moving the pointer is here. No needsDraw: the schedule below asks for the lean's frames at the pace its
+			// speed needs, where a draw per message would follow the mouse's rate and bypass the divisor
 			noteInput(now)
 			break
 	}

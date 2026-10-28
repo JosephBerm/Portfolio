@@ -91,7 +91,6 @@ let motion: SkyMotion = 'full'
 let visible = true
 let contrastMore = false
 let scrollY = 0
-let parallaxScroll = 0
 let documentHeight = 0
 let quiet: readonly SkyRect[] = []
 let pinned: readonly SkyRect[] = []
@@ -477,7 +476,7 @@ function settleQuiet(now: number): void {
 function updateCamera(now: number, scene: SceneLevels): void {
 	if (!visible) return
 	cameraInput.time = now / 1000
-	cameraInput.scroll = parallaxScroll
+	cameraInput.scroll = scrollY
 	cameraInput.viewportHeight = height
 	cameraInput.follow = motion === 'full'
 	cameraInput.drift = driftRate(driftGate)
@@ -689,7 +688,7 @@ scope.addEventListener('message', (event) => {
 			// A page opened in a background tab keeps its dusk until it is shown
 			if (!visible) hiddenAt = now
 			contrastMore = message.contrastMore
-			scrollY = parallaxScroll = message.scrollY
+			scrollY = message.scrollY
 			camera = createCamera(message.scrollY)
 			skyMoved = message.motion === 'full'
 			// A load rests on its motion's level, so nothing eases at start
@@ -728,7 +727,6 @@ scope.addEventListener('message', (event) => {
 				// Back to full motion: no launch straight away
 				holdTransients(transients, t)
 				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to
-				parallaxScroll = scrollY
 				resumeCamera(camera, scrollY)
 			}
 			motion = message.motion
@@ -777,7 +775,6 @@ scope.addEventListener('message', (event) => {
 			break
 		case 'scroll':
 			scrollY = message.y
-			if (motion === 'full') parallaxScroll = message.y
 			lastScrollAt = now
 			noteInput(now)
 			// A running loop paces scroll redraws itself; a sleeping worker draws one now

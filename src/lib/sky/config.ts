@@ -52,11 +52,36 @@ export const STAR_ALPHA = { peak: 0.78, drop: 0.8, power: 1.75 } as const
 /** Below this alpha a star isn't drawn this frame. */
 export const MIN_STAR_ALPHA = 0.004
 
+/**
+ * Depth: every star hangs at its own distance, read from its magnitude as if stars were identical lamps, so brighter
+ * means nearer. Nearness q = Z_ref / Z is the share of the camera's motion a star shows on screen (CAMERA): 1 at
+ * magnitude `reference`, the near band's mean. Identical lamps would give q = 10^(-0.2 (m - reference)), the
+ * inverse-square law; `compression` keeps about 70% of that depth range, as STAR_ALPHA keeps a 400:1 flux range as 5:1,
+ * so the faintest stars still move (q 0.24) and the brightest never race (at most `maxNearness`, from magnitude 0.11
+ * up). The bands' mean shares of the scroll come out at 0.0205, 0.0350 and 0.0717 (far, mid, near), within 12.5% of the
+ * reviewed 0.02, 0.04 and 0.07. No random draw depends on it, so retuning it never moves a star while the camera rests.
+ */
+export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as const
+
+/**
+ * The one camera the sky is seen through, in CSS px for a star of nearness 1: every star appears at its place on the
+ * sky minus its nearness (DEPTH) times the camera, so nearer stars always move more and the depth cues never disagree.
+ * Scrolling moves the camera `scrollParallax` of the scroll, the near band's reviewed parallax, through a critically
+ * damped spring of `scrollOmega` rad/s: when the page stops, the stars glide on and settle (95% in 0.47 s, 99% in
+ * 0.66 s, never overshooting after a scroll that moves one way; Motion's spring with bounce 0 and visualDuration
+ * 0.52 s). Scrolling at 1000 px/s, the near stars trail by about 14 px. The spring never trails the scroll by more
+ * than `maxLag` viewport heights, held there as a spring trailing steadily at that distance, so a fling or a
+ * smooth-scrolled jump (the navbar's section links, and Home and End in most desktop browsers) leaves the brightest
+ * stars at most about 25 px to glide on a 900 px screen. A jump of more than `snapViewports` viewport heights in one
+ * step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always snaps, which follows the scroll exactly.
+ * A spring with less than `restPx` CSS px of motion left (at nearness 1) settles on its target and stops asking for
+ * frames.
+ */
+export const CAMERA = { scrollParallax: 0.07, scrollOmega: 10, maxLag: 0.25, snapViewports: 1, restPx: 0.01 } as const
+
 interface LayerConfig {
 	/** Magnitude band [brightest, faintest). */
 	magnitude: readonly [number, number]
-	/** Share of the page scroll the layer follows, upward with the content; nearer layers follow more. */
-	parallax: number
 	/** Share of the layer's stars that twinkle. */
 	twinkleShare: number
 	/** Log-normal twinkle strength (sigma) range. */
@@ -70,14 +95,14 @@ interface LayerConfig {
 }
 
 /**
- * The three depth layers: magnitude bands, scroll parallax, twinkle and how much light each keeps behind quiet copy.
- * No layer keeps light on the copy itself (`inkKeep` 0), so no star adds to the white a shooting star may put there
- * (INK_BUDGET). Mid and near must keep none: STAR_INK_PEAK covers far stars only.
+ * The three depth layers: magnitude bands, twinkle and how much light each keeps behind quiet copy. How far each star
+ * moves comes from its magnitude (DEPTH). No layer keeps light on the copy itself (`inkKeep` 0), so no star adds to the
+ * white a shooting star may put there (INK_BUDGET). Mid and near must keep none: STAR_INK_PEAK covers far stars only.
  */
 export const LAYERS = {
-	far: { magnitude: [4.5, 6], parallax: 0.02, twinkleShare: 0.1, twinkleSigma: [0.06, 0.12], twinkleHz: [0.08, 0.2], quietKeep: 1, inkKeep: 0 },
-	mid: { magnitude: [2.5, 4.5], parallax: 0.04, twinkleShare: 0.35, twinkleSigma: [0.08, 0.16], twinkleHz: [0.1, 0.26], quietKeep: 0.6, inkKeep: 0 },
-	near: { magnitude: [-0.5, 2.5], parallax: 0.07, twinkleShare: 1, twinkleSigma: [0.12, 0.22], twinkleHz: [0.12, 0.32], quietKeep: 0, inkKeep: 0 },
+	far: { magnitude: [4.5, 6], twinkleShare: 0.1, twinkleSigma: [0.06, 0.12], twinkleHz: [0.08, 0.2], quietKeep: 1, inkKeep: 0 },
+	mid: { magnitude: [2.5, 4.5], twinkleShare: 0.35, twinkleSigma: [0.08, 0.16], twinkleHz: [0.1, 0.26], quietKeep: 0.6, inkKeep: 0 },
+	near: { magnitude: [-0.5, 2.5], twinkleShare: 1, twinkleSigma: [0.12, 0.22], twinkleHz: [0.12, 0.32], quietKeep: 0, inkKeep: 0 },
 } as const satisfies Record<SkyLayer, LayerConfig>
 
 /**

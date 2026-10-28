@@ -1,4 +1,5 @@
-import { cellStars, twinkleNoise, type Star } from '@/lib/sky/catalog'
+import type { Vec } from '@/lib/sky/camera'
+import { cellStars, LAYER_NEARNESS, twinkleNoise, type Star } from '@/lib/sky/catalog'
 import { mixRgb, rgba } from '@/lib/sky/color'
 import {
 	CELL_SIZE,
@@ -107,8 +108,8 @@ export interface SkyFrame {
 	dpr: number
 	deviceWidth: number
 	deviceHeight: number
-	/** Scroll offset that drives parallax (frozen under reduced motion). */
-	parallaxScroll: number
+	/** The camera's offset (CSS px at nearness 1): each star is drawn its nearness times this far from its place on the sky. */
+	offset: Vec
 	/** Share of the catalog to draw at this size and quality. */
 	keep: number
 	/** Alpha multiplier per layer: scene × contrast. */
@@ -123,7 +124,7 @@ export interface SkyFrame {
 	quiet: QuietBlend
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (contrast). */
 	meteorInk: number
-	/** Every star at a whole device pixel, as a sky at rest draws them; false places each at its nearest sub-pixel phase (placePoint). */
+	/** Every star at a whole device pixel, as a sky that hasn't moved in this page view draws them; false places each at its nearest sub-pixel phase (placePoint). */
 	snap: boolean
 }
 
@@ -143,7 +144,7 @@ const corner = { x: 0, y: 0 }
 /**
  * The sprite for a point of light centered at (px, py) device px, with its top-left whole pixel in `corner`. A moving
  * point uses the sprite pre-rendered at its nearest sub-pixel phase, so it glides without blurring or pulsing; `snap`
- * rounds to whole pixels (sprites have odd sides), so resting stars stay crisp points.
+ * rounds to whole pixels (sprites have odd sides), so a sky that hasn't moved in this page view draws crisp points.
  */
 function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, py: number, snap: boolean): Sprite | undefined {
 	let ix = snap ? Math.round(px) : Math.floor(px)
@@ -167,16 +168,18 @@ function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, p
 	return sprite
 }
 
-/** Draws one depth layer. */
+/** Draws one depth layer: each star at its place on the sky less its nearness times the camera's offset. */
 function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): void {
 	const scale = frame.layers[layer]
 	if (scale <= MIN_STAR_ALPHA) return
 	const config = LAYERS[layer]
-	const offsetY = frame.parallaxScroll * config.parallax
-	const x0 = Math.floor(-EDGE / CELL_SIZE)
-	const x1 = Math.floor((frame.width + EDGE) / CELL_SIZE)
-	const y0 = Math.floor((offsetY - EDGE) / CELL_SIZE)
-	const y1 = Math.floor((offsetY + frame.height + EDGE) / CELL_SIZE)
+	const { offset } = frame
+	const [qFar, qNear] = LAYER_NEARNESS[layer]
+	// The cells this layer's stars can come from, for every nearness in its band
+	const x0 = Math.floor((Math.min(offset.x * qFar, offset.x * qNear) - EDGE) / CELL_SIZE)
+	const x1 = Math.floor((Math.max(offset.x * qFar, offset.x * qNear) + frame.width + EDGE) / CELL_SIZE)
+	const y0 = Math.floor((Math.min(offset.y * qFar, offset.y * qNear) - EDGE) / CELL_SIZE)
+	const y1 = Math.floor((Math.max(offset.y * qFar, offset.y * qNear) + frame.height + EDGE) / CELL_SIZE)
 	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
 	// Whether any quiet zone is on screen: fixed for the whole frame, so read once per layer
@@ -185,8 +188,9 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 		for (let cx = x0; cx <= x1; cx++) {
 			for (const star of field.cell(layer, cx, cy)) {
 				if (star.keep >= frame.keep) continue
-				const x = star.x
-				const y = star.y - offsetY
+				// Subtract in doubles before anything reaches the canvas, whose coordinates are float32
+				const x = star.x - offset.x * star.q
+				const y = star.y - offset.y * star.q
 				if (x < -EDGE || y < -EDGE || x > frame.width + EDGE || y > frame.height + EDGE) continue
 				let alpha = star.alpha * scale
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)

@@ -231,14 +231,15 @@ export const QUIET = { padding: 32, feather: 40, ease: 0.6 } as const
 export const QUIET_REACH = QUIET.padding + QUIET.feather
 
 /**
- * Scroll narrative: the full sky in the hero, a dimmer and still sky while reading, and a bookend near the end of
- * the page. Levels blend continuously with scroll, so the narrative needs no clock of its own. Star levels are per
- * layer: while reading the brighter layers dim most, so no star behind body copy reads as punctuation.
+ * Scroll narrative: the full sky in the hero, a dimmer and calmer sky while reading (no twinkle, the drift at about a
+ * third), and a bookend near the end of the page. Levels blend continuously with scroll, so the narrative needs no
+ * clock of its own. Star levels are per layer: while reading the brighter layers dim most, so no star behind body copy
+ * reads as punctuation. `drift` scales the drift clock's rate (DRIFT).
  */
 export const SCENE = {
-	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1 },
-	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.4, twinkle: 0 },
-	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.7, twinkle: 0.8 },
+	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1, drift: 1 },
+	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.4, twinkle: 0, drift: 0.35 },
+	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.7, twinkle: 0.8, drift: 0.8 },
 	/** Viewport heights scrolled where the hero starts and finishes giving way to reading. */
 	heroFadeFrom: 0.5,
 	heroFadeTo: 1.3,

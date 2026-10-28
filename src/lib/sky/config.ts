@@ -65,19 +65,64 @@ export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as
 
 /**
  * The one camera the sky is seen through, in CSS px for a star of nearness 1: every star appears at its place on the
- * sky minus its nearness (DEPTH) times the camera, so nearer stars always move more and the depth cues never disagree.
- * Scrolling moves the camera `scrollParallax` of the scroll, the near band's reviewed parallax, through a critically
- * damped spring of `scrollOmega` rad/s: when the page stops, the stars glide on and settle (95% in 0.47 s, 99% in
- * 0.66 s, never overshooting after a scroll that moves one way; Motion's spring with bounce 0 and visualDuration
- * 0.52 s). Scrolling at 1000 px/s, the near stars trail by about 14 px. The spring never trails the scroll by more
- * than `maxLag` viewport heights, held there as a spring trailing steadily at that distance, so a fling or a
- * smooth-scrolled jump (the navbar's section links, and Home and End in most desktop browsers) leaves the brightest
- * stars at most about 25 px to glide on a 900 px screen. A jump of more than `snapViewports` viewport heights in one
- * step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always snaps, which follows the scroll exactly.
- * A spring with less than `restPx` CSS px of motion left (at nearness 1) settles on its target and stops asking for
- * frames.
+ * sky minus its nearness (DEPTH) times the camera, whatever moves it (the scroll, the drift), so nearer stars always
+ * move more and the depth cues never disagree. Scrolling moves the camera `scrollParallax` of the scroll, the near
+ * band's reviewed parallax, through a critically damped spring of `scrollOmega` rad/s: when the page stops, the stars
+ * glide on and settle (95% in 0.47 s, 99% in 0.66 s, never overshooting after a scroll that moves one way; Motion's
+ * spring with bounce 0 and visualDuration 0.52 s). Scrolling at 1000 px/s, the near stars trail by about 14 px. The
+ * spring never trails the scroll by more than `maxLag` viewport heights, held there as a spring trailing steadily at
+ * that distance, so a fling or a smooth-scrolled jump (the navbar's section links, and Home and End in most desktop
+ * browsers) leaves the brightest stars at most about 25 px to glide on a 900 px screen. A jump of more than
+ * `snapViewports` viewport heights in one step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always
+ * snaps, which follows the scroll exactly. A spring with less than `restPx` CSS px of motion left (at nearness 1)
+ * settles on its target and stops asking for frames.
  */
 export const CAMERA = { scrollParallax: 0.07, scrollOmega: 10, maxLag: 0.25, snapViewports: 1, restPx: 0.01 } as const
+
+/** One circle of the drift. */
+interface Epicycle {
+	/** Frequency as a multiple of the main circle's; negative turns the other way. */
+	ratio: number
+	/** Speed as a share of DRIFT.speed. */
+	share: number
+	/** Starting angle (radians). */
+	phase: number
+}
+
+interface DriftConfig {
+	speed: number
+	period: number
+	epicycles: readonly Epicycle[]
+	narrowRate: number
+	ease: number
+	maxStep: number
+}
+
+/**
+ * The floating drift, in CSS px for a star of nearness 1: epicycles, a main circle turning once every `period` seconds
+ * with smaller circles riding on it at irrational frequency ratios (the golden ratio and 1 + √2, to three decimals). Each
+ * circle moves at share × `speed`, so the speed stays within `speed` × 0.58 to 1.42 (never stops, never races), the
+ * heading turns 2° a second on average and at most 4.3°, and the path repeats only after 25 hours. On a laptop (about 1.3
+ * arcmin per CSS px) the near stars float at about 4 arcmin/s and the faint ones at about 1, three times and once the
+ * slowest motion people notice, so the faint majority reads as still. These phases start the first minute drifting
+ * right, within 30° of level for 53 of its 60 seconds; the path stays within 68.4 s × `speed` of its start (205 px at
+ * nearness 1), so offsets stay small and nothing wraps. The path is a pure function of a drift clock that runs at the
+ * scene's drift × presence × the motion level, `narrowRate` on narrow screens (their CSS px look about 1.35 times
+ * bigger), easing in over `ease` seconds from the dusk, so the stars come out already moving; one step advances the clock
+ * by at most `maxStep` seconds, so a stalled frame or a returning tab never jumps the sky.
+ */
+export const DRIFT = {
+	speed: 3,
+	period: 180,
+	epicycles: [
+		{ ratio: 1, share: 1, phase: 0.7 },
+		{ ratio: -1.618, share: 0.3, phase: 0 },
+		{ ratio: 2.414, share: 0.12, phase: 2.09 },
+	],
+	narrowRate: 0.6,
+	ease: 3,
+	maxStep: 0.1,
+} as const satisfies DriftConfig
 
 interface LayerConfig {
 	/** Magnitude band [brightest, faintest). */
@@ -186,14 +231,15 @@ export const QUIET = { padding: 32, feather: 40, ease: 0.6 } as const
 export const QUIET_REACH = QUIET.padding + QUIET.feather
 
 /**
- * Scroll narrative: the full sky in the hero, a dimmer and still sky while reading, and a bookend near the end of
- * the page. Levels blend continuously with scroll, so the narrative needs no clock of its own. Star levels are per
- * layer: while reading the brighter layers dim most, so no star behind body copy reads as punctuation.
+ * Scroll narrative: the full sky in the hero, a dimmer and calmer sky while reading (no twinkle, the drift at about a
+ * third), and a bookend near the end of the page. Levels blend continuously with scroll, so the narrative needs no
+ * clock of its own. Star levels are per layer: while reading the brighter layers dim most, so no star behind body copy
+ * reads as punctuation. `drift` scales the drift clock's rate (DRIFT).
  */
 export const SCENE = {
-	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1 },
-	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.4, twinkle: 0 },
-	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.7, twinkle: 0.8 },
+	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1, drift: 1 },
+	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.4, twinkle: 0, drift: 0.35 },
+	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.7, twinkle: 0.8, drift: 0.8 },
 	/** Viewport heights scrolled where the hero starts and finishes giving way to reading. */
 	heroFadeFrom: 0.5,
 	heroFadeTo: 1.3,
@@ -260,7 +306,7 @@ export const FRAME = {
 	twinkleFps: 15,
 	/** Twinkle rate after the adaptive step-down. */
 	slowTwinkleFps: 10,
-	/** Fades (dusk, scrolling under reduced motion, the motion level easing). */
+	/** Fades (dusk, scrolling under reduced motion, the motion level easing, the stars a quality step thins out). */
 	fadeFps: 30,
 	/** Scrolling counts as active this long after the last scroll message. */
 	scrollSettleMs: 180,
@@ -274,8 +320,9 @@ export const FRAME = {
 	/** Ambient motion fades out and back in around the idle sleep. */
 	idleFadeMs: 4000,
 	/**
-	 * Seconds over which the twinkle eases out or back in when motion stops or starts again (the pause control, a
-	 * reduced-motion switch), so no star changes brightness in one frame.
+	 * Seconds over which motion stops or starts again (the pause control, a reduced-motion switch): ambient motion eases
+	 * out or in, so nothing stops or starts in one frame, and even the brightest star at its peak speed moves only about
+	 * 1 px after a pause.
 	 */
 	motionEase: 0.3,
 } as const
@@ -285,17 +332,23 @@ export const FRAME = {
  * most `stepDevicePx` per drawn frame (two quarter-pixel phases, under a third of the smallest star's width) where the
  * display's refresh rate allows it, and never draws below `minFps`. Motion draws on animation frames divided by a whole
  * number, so every drawn frame stays up for the same number of display refreshes; a lower need must last
- * `slowDownAfter` seconds before the clock slows down. The refresh interval is the median of the last `refreshSamples`
- * frame intervals; a median within `unalignedToleranceMs` of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock,
- * not the display, so motion draws every frame there. A requested animation frame that hasn't come `watchdogMs` after
- * the request (while visible) is served by a timer; after `watchdogStrikes` misses in a row, frames come from a
- * `fallbackFps` timer, which asks for one animation frame every `reprobeMs` and goes back to them when one arrives (a GPU
- * restart or a restored context); the strikes also reset when the context is restored or the tab is shown.
+ * `slowDownAfter` seconds before the clock slows down. The drift draws at most `narrowMaxFps` on narrow screens (phone
+ * GPUs pay most for a full-screen frame) and `slowMaxFps` after the first adaptive step; a software-rasterized canvas
+ * may spend `softwareShare` of a core on it and keeps a still sky below `minFps`. The refresh interval is the median of
+ * the last `refreshSamples` frame intervals; a median within `unalignedToleranceMs` of `unalignedIntervalMs` is
+ * WebKit's fixed 15 ms worker clock, not the display, so uncapped motion draws every frame there and capped drift every
+ * few. A requested animation frame that hasn't come `watchdogMs` after the request (while visible) is served by a
+ * timer; after `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which asks for one animation
+ * frame every `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored context); the strikes
+ * also reset when the context is restored or the tab is shown.
  */
 export const PACING = {
 	stepDevicePx: 0.5,
 	minFps: 20,
 	slowDownAfter: 0.5,
+	narrowMaxFps: 30,
+	slowMaxFps: 30,
+	softwareShare: 0.08,
 	refreshSamples: 16,
 	unalignedIntervalMs: 15,
 	unalignedToleranceMs: 0.4,
@@ -307,11 +360,13 @@ export const PACING = {
 
 /**
  * Adaptive quality: after `slowFrames` more slow frames (JS over `slowFrameMs`) than fast ones, draw `thinning` of the
- * stars and twinkle slower; a second step drops to CSS resolution. A software-rasterized canvas, whose cost lands after
- * the draw calls return where frame timing can't see it, is found at start-up instead: one full frame rasterized off
- * screen in more than `rasterMsPerMp` per device megapixel (and more than `rasterMinMs`) starts at the second step.
+ * stars, twinkle slower and cap the drift at PACING.slowMaxFps; the stars step 1 thins out fade over `thinFade`
+ * seconds, since a moving sky that lost a fifth of its stars in one frame would read as a glitch. A second step drops
+ * to CSS resolution. A software-rasterized canvas, whose cost lands after the draw calls return where frame timing
+ * can't see it, is found at start-up instead: one full frame rasterized off screen in more than `rasterMsPerMp` per
+ * device megapixel (and more than `rasterMinMs`) starts at the second step.
  */
-export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, rasterMsPerMp: 1, rasterMinMs: 4 } as const
+export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
  * Shooting stars: rare and small, falling from one radiant beyond the top-right corner. Each lights up and peaks in

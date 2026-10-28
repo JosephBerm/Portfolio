@@ -7,7 +7,7 @@ export interface FrameDemand {
 	fps: number
 	/** Something moves: frames must be animation frames, so each one lands on a display refresh. */
 	vsync: boolean
-	/** At most this many frames per second while this is the strictest demand; Infinity for none. */
+	/** At most this many frames per second while this is the strictest demand (the drift's caps); Infinity for none. */
 	cap: number
 }
 
@@ -17,12 +17,14 @@ export const NO_FRAMES: FrameDemand = { fps: 0, vsync: false, cap: Infinity }
 /** Every display refresh: a flying shooting star, scrolling under full motion. */
 export const EVERY_FRAME: FrameDemand = { fps: Infinity, vsync: true, cap: Infinity }
 
-/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing). */
+/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing, the stars a quality step thins out). */
 export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap: Infinity }
 
 /**
  * The strictest of several demands: the most frames, on animation frames if any of them moves, within the tightest cap
- * unless one asks for every refresh (a flying shooting star, scrolling). A demand with no cap never lifts another's.
+ * unless one asks for every refresh (a flying shooting star, scrolling). A demand with no cap never lifts another's: a
+ * fade never lifts the drift's cap, which matters on WebKit's unaligned clock, where tick asks for every tick and only
+ * the cap divides it.
  */
 export function combineDemands(...demands: FrameDemand[]): FrameDemand {
 	let fps = 0
@@ -56,13 +58,13 @@ export interface FrameState {
 	full: boolean
 	/** Every frame while a shooting star flies, fade frames while its train lingers. */
 	transientDemand: FrameDemand
-	/** The camera moves: the stars follow the page or glide to rest after it stops. */
+	/** The camera moves, or the drift heads up: the stars follow the page, glide to rest after it stops or float. Decided by where the drift heads, not by its eased rate, which starts from 0. */
 	cameraActive: boolean
-	/** Device px/s of the nearest star at the camera's speed. */
+	/** Device px/s of the nearest star at the camera's speed, with the drift at the speed it heads to. */
 	cameraSpeed: number
-	/** Most frames per second the camera's motion may draw; Infinity for none. */
+	/** Most frames per second the camera's motion may draw: the drift's cap (driftCap) while the drift is wanted, else Infinity, so a scroll glide alone is never cut to a crawl. */
 	cameraCap: number
-	/** A slow change runs: the dusk, the quiet ease or the motion ease. */
+	/** A slow change runs: the dusk, the quiet ease, the motion ease or the thin fade. */
 	fading: boolean
 	/** Twinkle's timer rate while it may change (full motion, the visitor not idle and a twinkling scene), else 0. */
 	twinkleFps: number
@@ -78,6 +80,11 @@ export function frameDemand(state: FrameState): FrameDemand {
 		state.fading ? FADE_FRAMES : NO_FRAMES,
 		state.twinkleFps > 0 ? { fps: state.twinkleFps, vsync: false, cap: Infinity } : NO_FRAMES
 	)
+}
+
+/** Most drift frames per second: PACING.narrowMaxFps on narrow screens, PACING.slowMaxFps after the first adaptive step, within the software-raster budget. */
+export function driftCap(narrow: boolean, slowed: boolean, softwareFps: number): number {
+	return Math.min(narrow ? PACING.narrowMaxFps : slowed ? PACING.slowMaxFps : Infinity, softwareFps)
 }
 
 /** A level easing (smoothstep) from `from` to `to`, starting at `since` (s): the motion level. */
@@ -100,6 +107,11 @@ export function easing(since: number | null, duration: number, t: number): boole
 /** True once an ease has run out while the last drawn frame (`drawnAt`, s) still showed it part way: one more frame shows its end. */
 export function easeEnded(since: number | null, duration: number, t: number, drawnAt: number): boolean {
 	return since !== null && drawnAt - since < duration && t - since >= duration
+}
+
+/** A one-way fade: 1 until `since` (s; null while it hasn't begun), then down to 0 over `duration` s. */
+export function fadeOutAt(since: number | null, duration: number, t: number): number {
+	return since === null ? 1 : 1 - smoothstep(since, since + duration, t)
 }
 
 /** Draw on every k-th refresh: the largest k that still gives `fps`, and at least the k that keeps under `cap`. */

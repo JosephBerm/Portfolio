@@ -1,4 +1,5 @@
-import { CAMERA } from './config'
+import { CAMERA, DRIFT } from './config'
+import { smoothstep } from './scene'
 
 /** A 2D offset (CSS px) or velocity (CSS px/s). */
 export interface Vec {
@@ -14,8 +15,8 @@ export interface Spring {
 
 /**
  * The one camera the sky is seen through. Every star appears at its place on its layer's plane minus q times the
- * camera's offset (cameraOffset): the page scroll moves it through a spring. Mutated in place, so a frame makes no
- * garbage.
+ * camera's offset (cameraOffset), whatever moves it: the page scroll through a spring, and the drift as a closed-form
+ * path of its own clock. Mutated in place, so a frame makes no garbage.
  */
 export interface Camera {
 	/** Page scroll the stars follow (page px), smoothed by a critically damped spring. */
@@ -24,6 +25,8 @@ export interface Camera {
 	shift: number
 	/** Scroll goal at the last step (page px): one step that moves it more than CAMERA.snapViewports viewports is a jump. */
 	lastGoal: number
+	/** Drift clock (s): the drift path's own time. */
+	clock: number
 	/** Worker-clock seconds of the last step; null after a rest, a sleep or a hidden tab, so the next step has dt 0. */
 	steppedAt: number | null
 }
@@ -38,11 +41,22 @@ export interface CameraInput {
 	viewportHeight: number
 	/** Full motion: the scroll spring follows its target; otherwise it holds where it is. */
 	follow: boolean
+	/** Drift-clock rate, 0 to 1. */
+	drift: number
 }
+
+/** Each epicycle as angular frequency (rad per drift-clock second), radius (CSS px at nearness 1) and phase (rad). */
+const EPICYCLES = DRIFT.epicycles.map(({ ratio, share, phase }) => {
+	const omega = ((2 * Math.PI) / DRIFT.period) * ratio
+	return { omega, radius: (share * DRIFT.speed) / Math.abs(omega), phase }
+})
+
+/** Farthest the drift carries the camera from its start on either axis (CSS px at nearness 1): twice the radii's sum, a bound for any phases. */
+export const DRIFT_REACH = 2 * EPICYCLES.reduce((sum, { radius }) => sum + radius, 0)
 
 /** A camera at rest on the restored scroll position: the first frame neither glides nor jumps. */
 export function createCamera(scrollY: number): Camera {
-	return { scroll: { value: scrollY, velocity: 0 }, shift: 0, lastGoal: scrollY, steppedAt: null }
+	return { scroll: { value: scrollY, velocity: 0 }, shift: 0, lastGoal: scrollY, clock: 0, steppedAt: null }
 }
 
 /**
@@ -66,8 +80,8 @@ function settle(spring: Spring, target: number, omega: number, scale: number): v
 }
 
 /**
- * Advances the camera to `input.time` by the true elapsed time. Returns true while the camera still moves, so the worker
- * keeps asking for frames.
+ * Advances the camera to `input.time`: the spring by the true elapsed time, the drift clock by at most DRIFT.maxStep of
+ * it. Returns true while anything still moves, so the worker keeps asking for frames.
  */
 export function stepCamera(camera: Camera, input: CameraInput): boolean {
 	const dt = camera.steppedAt === null ? 0 : Math.max(0, input.time - camera.steppedAt)
@@ -98,7 +112,10 @@ export function stepCamera(camera: Camera, input: CameraInput): boolean {
 		// Motion isn't full: the spring holds where it is
 		camera.scroll.velocity = 0
 	}
-	const moving = input.follow && camera.scroll.value !== goal
+	// The clock runs forward at the drift rate and a step advances it by DRIFT.maxStep at most, so a stalled frame never
+	// jumps the sky
+	if (input.drift > 0) camera.clock += input.drift * Math.min(dt, DRIFT.maxStep)
+	const moving = input.drift > 0 || (input.follow && camera.scroll.value !== goal)
 	// At rest the camera forgets its step clock: when the target next changes, the first step has dt 0, instead of treating
 	// the whole rest as time spent chasing the new target and jumping onto it
 	if (!moving) camera.steppedAt = null
@@ -118,14 +135,72 @@ export function forgetStep(camera: Camera): void {
 	camera.steppedAt = null
 }
 
-/** The camera's offset (CSS px at nearness 1): the scroll's parallax. Writes `out`. */
-export function cameraOffset(camera: Camera, out: Vec): Vec {
+/** Where the drift has carried the camera at drift-clock time `clock` (s), CSS px at nearness 1; zero at 0. Writes `out`. */
+export function driftAt(clock: number, out: Vec): Vec {
 	out.x = 0
-	out.y = CAMERA.scrollParallax * camera.scroll.value
+	out.y = 0
+	for (const { omega, radius, phase } of EPICYCLES) {
+		out.x += radius * (Math.cos(omega * clock + phase) - Math.cos(phase))
+		out.y += radius * (Math.sin(omega * clock + phase) - Math.sin(phase))
+	}
 	return out
 }
 
-/** How fast the camera moves (CSS px/s at nearness 1): a star of nearness q moves q times as fast on screen. */
-export function cameraSpeed(camera: Camera): number {
-	return CAMERA.scrollParallax * Math.abs(camera.scroll.velocity)
+/** The drift's velocity at `clock`: CSS px per second of drift clock at nearness 1 (times the rate for real time). Writes `out`. */
+export function driftVelocity(clock: number, out: Vec): Vec {
+	out.x = 0
+	out.y = 0
+	for (const { omega, radius, phase } of EPICYCLES) {
+		out.x -= radius * omega * Math.sin(omega * clock + phase)
+		out.y += radius * omega * Math.cos(omega * clock + phase)
+	}
+	return out
+}
+
+/** Scratch vector for the drift (no garbage per frame). */
+const drift: Vec = { x: 0, y: 0 }
+
+/** The camera's offset (CSS px at nearness 1): the scroll's parallax and the drift added. Writes `out`. */
+export function cameraOffset(camera: Camera, out: Vec): Vec {
+	driftAt(camera.clock, drift)
+	out.x = drift.x
+	out.y = CAMERA.scrollParallax * camera.scroll.value + drift.y
+	return out
+}
+
+/** How fast the camera moves with the drift at `rate` (CSS px/s at nearness 1): what the frame clock paces. A star of nearness q moves q times as fast on screen. */
+export function cameraSpeed(camera: Camera, rate: number): number {
+	driftVelocity(camera.clock, drift)
+	return rate * Math.hypot(drift.x, drift.y) + CAMERA.scrollParallax * Math.abs(camera.scroll.velocity)
+}
+
+/** What the drift depends on right now; the worker gathers it before every read (reused) and the twinkle reads `on` and `level` too. */
+export interface DriftGate {
+	/** The dusk has begun and the software-raster budget allows drift frames (PACING.minFps). */
+	allowed: boolean
+	/** Seconds since the dusk began (0 before it). */
+	dusk: number
+	/** Ambient motion runs or is heading up: full motion and the visitor here. */
+	on: boolean
+	/** Ambient level, 0 to 1: presence times the motion level. */
+	level: number
+	/** The scene's drift level (SceneLevels.drift). */
+	scene: number
+	/** A narrow screen (NARROW_MAX_WIDTH): the drift runs at DRIFT.narrowRate. */
+	narrow: boolean
+}
+
+/** Whether the drift runs or is heading up: frames follow this, not the eased rate, which starts from exactly 0, so a sleeping worker never misses its own wake-up. */
+export function driftWanted(gate: DriftGate): boolean {
+	return gate.allowed && gate.on && gate.scene > 0
+}
+
+/** The drift-clock rate the scene asks for before the eases: what the frame clock paces for. */
+export function driftTarget(gate: DriftGate): number {
+	return gate.scene * (gate.narrow ? DRIFT.narrowRate : 1)
+}
+
+/** The drift-clock rate now: the target times the ambient level and the ease from the dusk, each smooth. */
+export function driftRate(gate: DriftGate): number {
+	return gate.allowed ? driftTarget(gate) * gate.level * smoothstep(0, DRIFT.ease, gate.dusk) : 0
 }

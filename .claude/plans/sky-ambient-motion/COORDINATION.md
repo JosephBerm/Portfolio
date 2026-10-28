@@ -440,6 +440,88 @@ P8 (the transient core) is merged into master as #23 (merge c9e7841), and both V
 
 **Behavior:** launches match the old `updateMeteor`/`planLaunch` exactly. The evidence is an independent oracle harness over 100,000 sequences, plus 523,637 identical worker frames. The one visible change: a pause fades a flying meteor out over 0.2 s.
 
+### CP-2, 2026-10-28: P9 and P10
+
+P9 (meteor population and rates) is merged as #24 (merge 7afdaf9), and P10 (the fireball retune) right after it as #25 (merge 942ebcb). Both had green Vercel checks.
+- Sonnet 5.5 (max) implemented them, and Opus 5.5 (max) audited them.
+- Separate Sonnet 5.5 (max) fixers applied the fixes, set the measured cooldown and replayed P10.
+
+This entry is the implementing session's report. The planning session checked, at 942ebcb against cf4d7b8:
+- #24 and #25 are merged;
+- byte-identical: `veiledFrom`, `segmentTouches`, `headGain`, `drawTrain`, the scene's quiet and ink functions (`inkBudget`, `budgetKeeps`, `fitKeep`, `scrollKept`, `quietFactor`, `easedQuietFactor`, `transientQuietFactor`), the worker's quiet ease (`quietBlend`, `quietEasing`, `applyLayout`, `settleQuiet`), `copyReader` and `quietRects`;
+- `planFlight` and `planMeteor` change only as I2 allows:
+  - the veil's lines are kept: the `veiledFrom` call, `CLEAR_SKY`, `dimFrom`, `nearCopy` as `dimFrom < 1`, and the `METEOR_PASS` behind-copy pass;
+  - additions: the `clearOf` skip, `steer` in place of the `radiant` parameter, the `fallback` flag in place of `timing`, and the `fireball` option;
+  - `planMeteor` keeps the `flights` option;
+- `drawMeteor` changes only its wake-tint line, which now calls our `wakeTint` (I7).
+
+**P9 files and functions:**
+- `radiants.ts` (new): `skyWindow`, `pickVisitSky`, `visitSteer`, `radiantMotion`, `elevationAt` and `meteorRange`.
+- `gaps.ts` (new): `nextGap`.
+- `random.ts`: `gaussian`.
+- `config.ts`:
+  - added: `GapLaw`, `WakeColor`, `SKY_WINDOW`, `RADIANTS`, `SPEED_CLASSES`, `METEOR_RATE`, `METEOR_BRIGHTNESS`, `METEOR.fallbackScale` and `TRANSIENTS.longVisit`;
+  - `narrowLimit` is set to 6, and `crossingCooldown` to 40, the measured value;
+  - the old radiant, angle, speed, duration, peak and gap keys are removed.
+- `meteors.ts`:
+  - `Course` and `Steer`;
+  - the `steer` option in place of the `radiant` parameter, and `PassOptions.fallback` in place of `timing`;
+  - `startArea`, the end guards, `clearOf` and `Meteor.wakeColor`;
+  - the `planFlight`/`planMeteor` docs.
+- `meteorKind.ts`: `MeteorMemory { sky }`, and `planMeteorTransient` steers. It keeps the old order and stickiness (the veil's first ask):
+  - long flights on every steer before any short one;
+  - a resize clears the sky, and a layout keeps it.
+- `transients.ts` and the worker: `SkyField.pinned`.
+- `mountSky.ts`: `copyReader`'s caveat names `clearOf`.
+- `renderSky.ts`: the wake tint.
+- README.
+
+**P10 files and functions:**
+- `config.ts`: `METEOR_KINDS`. Its fireball entry: chance 0.04, spacing 120, after 20, duration 1.8 to 2.5, desktop only. `METEOR.fireballChance` and `fireballDuration` are removed.
+- `meteors.ts`: the `fireball` option replaces `PassOptions.fireballs`.
+- `meteorKind.ts`: the decision step (`planMeteorLaunch`), with `MeteorMemory.lastFireballAt`.
+- `transients.ts`: `PlanContext.sinceReveal`.
+
+**The crossing measurement rerun (the veil's third ask).** The implementing session used the archived harness, adapted as `PLAN.md` 7.3 says. Rerun on cf4d7b8, the adapted pipeline reproduces the veil's published numbers exactly.
+
+On P9, as P9 [veil commit], in percent:
+
+| Size | `nearCopy` share | Pass at 0.12 | Pass at 0.04 | GPU streaks | GPU glimmers |
+|---|---|---|---|---|---|
+| 1440x900 | 21.8 [60.6] | 8.0 [30.4] | 11.7 [33.1] | 2.0 [18.3] | 12.2 [32.6] |
+| 1280x800 | 35.4 [56.1] | 8.3 [19.0] | 14.1 [24.1] | 2.2 [12.8] | 16.0 [26.2] |
+| 1920x1080 | 19.1 [35.1] | 11.1 [23.7] | 14.2 [24.5] | 6.8 [19.3] | 14.0 [26.8] |
+
+Other sizes, as `nearCopy` share / pass at 0.12, in percent:
+
+| Size | P9 | Veil commit |
+|---|---|---|
+| 1366x768 | 28.1 / 8.7 | 68.3 / 35.9 |
+| 1536x864@1.25 | 21.0 / 9.3 | 48.0 / 25.5 |
+| 2560x1440 | 17.5 / 12.2 | 25.8 / 20.3 |
+| 1280x720 | 41.3 / 10.0 | 59.3 / 21.6 |
+| 1024x768 | 20.5 / 0.1 | 85.1 / 10.8 |
+| 390x844 | 56.9 / 0 | 67.3 / 0 |
+
+Crossings a minute over a visit's first 2 minutes, at the 40 s cooldown:
+
+| Size | P9 | Veil commit |
+|---|---|---|
+| 1440x900 | 0.438 | 0.954 |
+| 1280x800 | 0.609 | 0.918 |
+| 1920x1080 | 0.399 | 0.554 |
+| 1366x768 | 0.538 | 1.112 |
+| 1536x864 | 0.423 | 0.775 |
+| 1280x720 | 0.661 | 0.992 |
+| 1024x768 | 0.384 | 1.418 |
+| 2560x1440 | 0.389 | 0.421 |
+| 390x844 | 0.676 | 0.964 |
+
+- **Choosing 40 s:** at 35 s, 2560x1440 goes over its bar by 0.0026, so the rule gives 40 s.
+- **Over five minutes:** only 2560x1440 is above the veil commit's rate: 0.420 against 0.350.
+- **With P10:** the rule still gives 40 s (0.396 at 2560x1440).
+- **The veil's edge-fade rule** stays on every viewport.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -458,3 +540,4 @@ P8 (the transient core) is merged into master as #23 (merge c9e7841), and both V
 - 2026-10-28: CP-2 for P1 to P6 (PRs #16 to #21, master at 725a239), recorded from the implementing session's report under "Phase merges (CP-2)". The veil session is idle, and its work is committed.
 - 2026-10-28: CP-2 for P7 (#22, master at eda7acc), recorded from the implementing session's report under "Phase merges (CP-2)".
 - 2026-10-28: CP-2 for P8 (#23, master at c9e7841), recorded the same way.
+- 2026-10-28: CP-2 for P9 and P10 (#24 and #25, master at 942ebcb), with the crossing rerun the veil asked for, reported to Joseph next to the veil's numbers.

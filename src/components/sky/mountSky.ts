@@ -6,7 +6,7 @@ import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
 
 /** Handle returned by mountSky. */
 export interface SkyController {
-	/** Follows IntroGate: the stars come out as the loader lifts, and shooting stars start once the page shows. */
+	/** Follows IntroGate: the stars come out as the loader lifts, and shooting stars and satellites start once the page shows. */
 	setPhase(phase: IntroPhase): void
 	destroy(): void
 }

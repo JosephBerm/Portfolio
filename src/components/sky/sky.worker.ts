@@ -1,12 +1,12 @@
 /**
  * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while something
  * changes. A sky that only changes brightness draws from timers: 15 fps for twinkle, 30 fps for fades (the dusk, a
- * lingering train). Anything that moves draws on animation frames: every one while a shooting star flies or the page
- * scrolls, and every k-th one (PACING; every one while a glide or a lean is fast) while the stars drift, lean away from
- * the pointer or glide to rest after the page stops. A missing or stalled animation-frame clock is answered by a
- * watchdog and then a 60 Hz timer. Hidden tabs, paused or reduced motion, and visits with no input for a while sleep,
- * the last once the drift and twinkle have eased out. While reading the stars still drift, slowly, so the worker keeps
- * drawing there.
+ * lingering train). Anything that moves draws on animation frames: every one while a shooting star or a satellite flies
+ * or the page scrolls, and every k-th one (PACING; every one while a glide or a lean is fast) while the stars drift,
+ * lean away from the pointer or glide to rest after the page stops. A missing or stalled animation-frame clock is
+ * answered by a watchdog and then a 60 Hz timer. Hidden tabs, paused or reduced motion, and visits with no input for a
+ * while sleep, the last once the drift and twinkle have eased out. While reading the stars still drift, slowly, so the
+ * worker keeps drawing there.
  */
 
 import {
@@ -76,7 +76,7 @@ type LayoutMessage = Extract<SkyMainMessage, { type: 'layout' }>
 
 const scope = self as unknown as SkyWorkerScope
 const field = createStarField()
-/** Shooting stars vary per visit; the star catalog itself is seeded and fixed. */
+/** Shooting stars and satellites vary per visit; the star catalog itself is seeded and fixed. */
 const random = Math.random
 
 let canvas: OffscreenCanvas | null = null
@@ -111,7 +111,7 @@ let layoutAt: number | null = null
 /** Seconds the tab has spent hidden, each stretch added when it is shown again: the twinkle's clock leaves them out. */
 let hiddenTotal = 0
 
-/** The short-lived events in the sky (shooting stars) and when each kind launches next. */
+/** The short-lived events in the sky (shooting stars and satellites) and when each kind launches next. */
 const transients = createTransientSchedule()
 /** Whether and where transients may launch, refilled by launchGate every tick (reused, so a tick makes no garbage). */
 const gate: LaunchGate = {
@@ -165,7 +165,7 @@ let slowFrames = 0
 let thinnedAt: number | null = null
 /** The pending animation frame request; null when there is none (a request id can be 0). */
 let rafId: number | null = null
-/** The pending frame timer: a fade or twinkle frame, the next shooting star, or where animation frames fail, any frame. */
+/** The pending frame timer: a fade or twinkle frame, the next launch, or where animation frames fail, any frame. */
 let timerId: ReturnType<typeof setTimeout> | undefined
 let hazeTimer: ReturnType<typeof setTimeout> | undefined
 let needsDraw = false
@@ -313,11 +313,11 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 }
 
 /**
- * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star, scrolling,
- * the drift, the lean, the stars gliding to rest) wake on animation frames, in step with the display, and tick draws on
- * every k-th of them. Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps
- * between frames. With nothing to draw, one timer is left for a change a message has just made or the next shooting
- * star. A frame already pending is left alone.
+ * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star or a
+ * satellite, scrolling, the drift, the lean, the stars gliding to rest) wake on animation frames, in step with the
+ * display, and tick draws on every k-th of them. Slow changes (twinkle, fades) draw from a timer: no vsync
+ * subscription, so the worker sleeps between frames. With nothing to draw, one timer is left for a change a message has
+ * just made or the next launch. A frame already pending is left alone.
  */
 function schedule(now: number): void {
 	if (rafId !== null || !ctx || !visible) return
@@ -336,7 +336,7 @@ function schedule(now: number): void {
 		refresh.pause()
 		const launchAt = nextLaunchAt(transients)
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
-		// Asleep in the hero (an idle twinkle, say): wake only for the next shooting star
+		// Asleep in the hero (an idle twinkle, say): wake only for the next launch
 		else if (Number.isFinite(launchAt) && launchesAllowed(now, scene)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
 		return
 	}
@@ -366,13 +366,13 @@ function requestFrame(now: number, demand: FrameDemand): void {
 	probeId = scope.requestAnimationFrame?.(onProbe) ?? null
 }
 
-/** Timer-driven frame (fades, twinkle, a due shooting star, or any frame where animation frames can't be relied on). */
+/** Timer-driven frame (fades, twinkle, a launch coming due, or any frame where animation frames can't be relied on). */
 function onTimer(): void {
 	timerId = undefined
 	tick(performance.now())
 }
 
-/** Animation-frame-driven frame (a flying shooting star, scrolling, the drift, the lean, the stars gliding to rest): the display's own clock, so it also times the refresh. */
+/** Animation-frame-driven frame (a shooting star or a satellite in flight, scrolling, the drift, the lean, the stars gliding to rest): the display's own clock, so it also times the refresh. */
 function onFrame(time: number): void {
 	clearTimeout(watchdogId)
 	watchdogId = undefined
@@ -552,8 +552,8 @@ function adapt(milliseconds: number, now: number): void {
 
 /**
  * One quality step down, never back up: step 1 draws fewer stars (the thinned ones fade out), twinkles slower and caps
- * the drift's frames, step 2 also draws at CSS resolution. The layout is unchanged, so the shooting star, the visit's
- * sky and the haze stay.
+ * the drift's frames, step 2 also draws at CSS resolution. The layout is unchanged, so a shooting star or a satellite
+ * in flight, the visit's sky and the haze stay.
  */
 function stepDown(now: number): void {
 	if (quality >= 2) return
@@ -736,7 +736,7 @@ scope.addEventListener('message', (event) => {
 				resumeCamera(camera, scrollY)
 			}
 			motion = message.motion
-			// A flying shooting star fades out over TRANSIENTS.cancelFade instead of vanishing
+			// A shooting star or a satellite in flight fades out over TRANSIENTS.cancelFade instead of vanishing
 			if (motion !== 'full') cancelTransients(transients, t)
 			needsDraw = true
 			break

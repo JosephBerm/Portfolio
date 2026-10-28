@@ -378,7 +378,7 @@ export const PACING = {
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
- * Every short-lived sky event (so far, shooting stars): at most `maxLife` seconds from first light to last, wake, train
+ * Every short-lived sky event (shooting stars, satellites): at most `maxLife` seconds from first light to last, wake, train
  * and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least `minOnsetGap` seconds apart, since a motion onset
  * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
  * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
@@ -588,6 +588,14 @@ export const SATELLITE = {
 	minTilt: 20,
 	attempts: 40,
 } as const
+
+/**
+ * Quiet keeps for transients that never take the ink lease: a point of light drawn with them, sampled at its center and
+ * at most QUIET.padding in radius, keeps none inside a padded quiet rect, even mid-ease or when a layout changes under
+ * it, so it never shares a contrast budget with the one that holds the lease. Not a look setting: both stay 0 whatever
+ * the star layers' keeps become.
+ */
+export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
 
 /**
  * White light (0-1 of --color-white, added over navy) the sky may put on the copy itself, per quiet rect. WCAG 2.2 AA

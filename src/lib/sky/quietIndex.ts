@@ -1,16 +1,20 @@
 import { QUIET, QUIET_REACH } from './config'
+import type { Point } from './meteors'
 import type { SkyRect } from './protocol'
-import { easedQuietFactor, sameRects, type QuietBlend, type QuietKeeps } from './scene'
+import { easedQuietFactor, quietAt, sameRects, type QuietBlend, type QuietKeeps } from './scene'
 
 /**
  * Farthest from a padded quiet zone that the quiet math looks (CSS px): a zone more than this away on either axis adds
  * nothing to any quiet factor, and the ink term only reaches inside it. QUIET_REACH is measured from a text rect, before
- * the padding.
+ * the padding. A path that must stay in clear sky keeps this far from every padded zone (segmentClear).
  */
 export const ZONE_REACH = QUIET_REACH - QUIET.padding
 
 /** Side of the square screen tiles the zones are bucketed into (CSS px). */
 const TILE = 64
+
+/** Spacing of segmentClear's samples along a segment (CSS px). */
+const SEGMENT_STEP = 8
 
 /**
  * The quiet zones bucketed by screen tile, so a star looks only at the zones that can reach it. Exact: each tile keeps, in
@@ -29,6 +33,20 @@ export interface QuietIndex {
 /** True when the box [x0, x1] × [y0, y1] touches `zone` grown by ZONE_REACH: only then can the zone dim or veil anything in it. */
 export function zoneReaches(zone: SkyRect, x0: number, y0: number, x1: number, y1: number): boolean {
 	return zone.x - ZONE_REACH <= x1 && zone.x + zone.width + ZONE_REACH >= x0 && zone.y - ZONE_REACH <= y1 && zone.y + zone.height + ZONE_REACH >= y0
+}
+
+/**
+ * True when the segment from `a` to `b` stays clear of every zone's reach: quietAt is 0 at points at most SEGMENT_STEP
+ * apart along it. This is the clear-sky test of the paths planned outside the shooting-star planner, which has its own. A
+ * graze under 0.2 px deep into a feather's rounded corner can slip between two samples, where the drawing's
+ * transientQuietFactor dims it anyway.
+ */
+export function segmentClear(zones: readonly SkyRect[], a: Point, b: Point): boolean {
+	const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / SEGMENT_STEP))
+	for (let i = 0; i <= steps; i++) {
+		if (quietAt(zones, a.x + ((b.x - a.x) * i) / steps, a.y + ((b.y - a.y) * i) / steps) > 0) return false
+	}
+	return true
 }
 
 /**

@@ -1,10 +1,20 @@
 /**
- * Satellites: steady points lit by a Sun below the horizon, gliding across clear sky. A pass is a point on a straight
- * line at constant speed, with no tail and no twinkle, and at most one fade: out into Earth's shadow, warming as it goes,
- * or in as it leaves the shadow.
+ * Satellites: steady points lit by a Sun below the horizon, gliding across clear sky, as a kind of transient. A pass is a
+ * point on a straight line at constant speed, with no tail and no twinkle, and at most one fade: out into Earth's shadow,
+ * warming as it goes, or in as it leaves the shadow. This module imports only types from transients.ts, which reads its
+ * spec when it loads.
  */
 
+import { METEOR, SATELLITE } from './config'
+import { nextGap } from './gaps'
+import { segmentClear } from './quietIndex'
+import { skyWindow } from './radiants'
+import { between } from './random'
 import { smoothstep } from './scene'
+import type { PlanContext, TransientSpec } from './transients'
+
+/** Radians per degree. */
+const DEG = Math.PI / 180
 
 /** One satellite pass: a straight line at constant speed in screen CSS px, with its fades. */
 export interface SatellitePass {
@@ -35,6 +45,54 @@ export interface SatelliteFrame {
 	warmth: number
 }
 
+/**
+ * Plans a pass in clear sky for this moment, or null when none fits in SATELLITE.attempts tries. Each try draws the kind
+ * of pass (at dusk with SATELLITE.shadowShare, else at dawn), its speed and a heading at least SATELLITE.minTilt degrees
+ * from vertical, and puts one end of the line just beyond a side (METEOR.edgeMargin outside it), at a height below the
+ * navbar and above the bottom corners. A dusk pass starts there, heading in, and fades into the shadow where its life
+ * ends; a dawn pass ends there, and fades in where its life starts. The other end, where the fade happens, must lie in
+ * that band of height and at least METEOR.edgeMargin inside both sides, so the fade is seen in open sky. The first pass
+ * whose line is clear of every padded quiet rect's reach (segmentClear) is the plan.
+ */
+export function planSatellite(context: PlanContext): SatellitePass | null {
+	const { random, now, field } = context
+	const { width, height, quiet } = field
+	const { focal } = skyWindow(width, height)
+	const top = METEOR.top
+	const bottom = METEOR.maxEndY * height
+	const steepest = (90 - SATELLITE.minTilt) * DEG
+	for (let attempt = 0; attempt < SATELLITE.attempts; attempt++) {
+		const dusk = random() < SATELLITE.shadowShare
+		const left = random() < 0.5
+		const speed = between(random, SATELLITE.angular[0], SATELLITE.angular[1]) * DEG * focal
+		const angle = between(random, -steepest, steepest)
+		// A dusk pass heads in from its side, a dawn pass out through it
+		const dirX = (left === dusk ? 1 : -1) * Math.cos(angle)
+		const dirY = Math.sin(angle)
+		const length = speed * SATELLITE.life
+		const beyond = { x: left ? -METEOR.edgeMargin : width + METEOR.edgeMargin, y: between(random, top, bottom) }
+		const midSky = { x: beyond.x + (dusk ? dirX : -dirX) * length, y: beyond.y + (dusk ? dirY : -dirY) * length }
+		if (midSky.y < top || midSky.y > bottom || midSky.x < METEOR.edgeMargin || midSky.x > width - METEOR.edgeMargin) continue
+		// The line as the satellite flies it: in from beyond its side at dusk, out through it at dawn
+		const start = dusk ? beyond : midSky
+		const end = dusk ? midSky : beyond
+		if (!segmentClear(quiet, start, end)) continue
+		return {
+			startX: start.x,
+			startY: start.y,
+			dirX,
+			dirY,
+			speed,
+			life: SATELLITE.life,
+			fadeIn: dusk ? 0 : SATELLITE.fadeIn,
+			fadeOut: dusk ? between(random, SATELLITE.fadeOut[0], SATELLITE.fadeOut[1]) : 0,
+			alpha: between(random, SATELLITE.alpha[0], SATELLITE.alpha[1]),
+			startedAt: now,
+		}
+	}
+	return null
+}
+
 /** True while the pass lasts: its point glides, so it needs every animation frame. */
 export function satelliteMoving(pass: SatellitePass, now: number): boolean {
 	return now - pass.startedAt < pass.life
@@ -53,4 +111,16 @@ export function satelliteAt(pass: SatellitePass, now: number): SatelliteFrame {
 	const risen = pass.fadeIn > 0 ? smoothstep(0, pass.fadeIn, elapsed) : 1
 	const unshadowed = pass.fadeOut > 0 ? smoothstep(pass.life, pass.life - pass.fadeOut, elapsed) : 1
 	return { x: pass.startX + pass.dirX * distance, y: pass.startY + pass.dirY * distance, alpha: pass.alpha * risen * unshadowed, warmth: 1 - unshadowed }
+}
+
+/** The satellite kind: its own clock, clear sky only (it never takes the ink lease), wide screens only. */
+export const SATELLITE_SPEC: TransientSpec<'satellite'> = {
+	firstDelay: (random) => nextGap(random, SATELLITE.first, 0),
+	nextAfter: (pass, random, sinceReveal) => pass.life + nextGap(random, SATELLITE.gap, sinceReveal),
+	plan: planSatellite,
+	lifetime: (pass) => pass.life,
+	moving: satelliteMoving,
+	nearCopy: () => false,
+	lease: false,
+	phones: false,
 }

@@ -1,6 +1,6 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-28, `PLAN.md` rebuilt on the veil commit `cf4d7b8` and through gate round 10; gate rounds continue until one comes back clean.
+Last updated: 2026-10-28. Planning is done: `PLAN.md` is built on the veil commit `cf4d7b8`, and it converged in gate round 12. Next comes Joseph's decisions (section 3 of `PLAN.md`, all with defaults), then an implementing session.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 
@@ -34,7 +34,11 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - 68 findings, 11 of them blocking or major.
   - The skeptics refuted none (see each report's "## Verification" section).
   - The reviser fixed all 68.
-- [ ] Fold the check and audit findings into `PLAN.md`, run gate rounds until no blocking or major findings remain, then commit and push to `claude/quirky-carson-btv2u4`.
+- [x] Fold the check and audit findings into `PLAN.md`, run gate rounds until no blocking or major findings remain, then commit and push to `claude/quirky-carson-btv2u4`. **Converged on 2026-10-28 in round 12** (`wf_05510e91-63b`):
+  - round 11: 16 findings, 1 major;
+  - round 12: 11 findings, all minor. All eight reviewers ran, and none raised a blocking or major finding.
+  - A fold checker then diffed round 12's edits and found one minor issue, which was fixed (FC12-1).
+  - `PLAN.md` is about 60,200 words.
   - Gate rounds 5 and 6 each ran all eight reviewers (four checkers, four auditors):
     - Round 5: 32 findings, 8 blocking or major.
     - Round 6: 22 findings, 1 major.
@@ -44,8 +48,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
     - Then a restructure rebuilt the plan on the veil commit `cf4d7b8`: one tree, no fallback or file-rule branches, 63.8k down to 58.0k words.
     - Rounds 8, 9 and 10: 25, 20 and 19 findings, of which 3, 3 and 2 were major.
   - Every finding is fixed. The plan is about 59,700 words.
-  - Round 10's fixes are not re-checked yet. The next gate round (11 onward) does that.
-  - The plan counts as converged when a round raises no blocking or major finding that survives its skeptic, and a fold checker finds the final minor edits clean.
+  - The convergence rule: a round raises no blocking or major finding that survives its skeptic, and a fold checker finds the final minor edits clean.
 
 ## Key facts
 
@@ -65,7 +68,16 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - Its harness and captured layouts are archived in `harness/` (see `harness/README.md`).
   - `PLAN.md` now starts from `cf4d7b8`: the implementing branch is cut from `origin/master` at `cf4d7b8` or later.
 
-## Copy-and-paste prompt for a new session
+## Copy-and-paste prompt for an implementing session
+
+```
+Implement the sky ambient-motion plan in JosephBerm/Portfolio.
+The plan is .claude/plans/sky-ambient-motion/PLAN.md on branch claude/quirky-carson-btv2u4: read HANDOFF.md, PLAN.md section 1, section 3's decisions (use the defaults unless Joseph chose otherwise), section 7.0 and 7.2, and COORDINATION.md first.
+Cut a new branch from origin/master (cf4d7b8 or later) in its own worktree, run P0, then one phase per pull request in 7.2's order, verifying each as the phase says (npm run lint, npm run type-check, the named harness checks).
+The veil-owned symbols in PLAN.md 8.4 are used and extended through options only; veiledFrom never changes.
+```
+
+## Copy-and-paste prompt to reopen planning
 
 ```
 Continue the planning task in JosephBerm/Portfolio on branch claude/quirky-carson-btv2u4.

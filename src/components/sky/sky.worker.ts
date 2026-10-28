@@ -4,7 +4,7 @@
  * while a shooting star flies or the page scrolls. Hidden tabs, reduced motion, reading and idle visits sleep.
  */
 
-import { cameraOffset, createCamera, forgetStep, resumeCamera, stepCamera, type Vec } from '@/lib/sky/camera'
+import { cameraOffset, createCamera, forgetStep, resumeCamera, stepCamera, type CameraInput, type Vec } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
 import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
@@ -76,9 +76,11 @@ let failedPlans = 0
 let camera = createCamera(0)
 /** The camera's offset for the frame being drawn (reused). */
 const offset: Vec = { x: 0, y: 0 }
+/** What the camera follows on its next step (reused, so a step makes no garbage). */
+const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false }
 /** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
 let cameraMoving = false
-/** Motion has been full at some point in this page view: until then stars snap to whole device pixels, as a sky at rest draws them. */
+/** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */
 let skyMoved = false
 
 let quality = 0
@@ -308,12 +310,11 @@ function settleQuiet(now: number): void {
 /** Steps the camera while the tab is visible; when it comes to rest, one more frame draws the resting sky. */
 function updateCamera(now: number): void {
 	if (!visible) return
-	const moving = stepCamera(camera, {
-		time: now / 1000,
-		scroll: parallaxScroll,
-		viewportHeight: height,
-		follow: motion === 'full',
-	})
+	cameraInput.time = now / 1000
+	cameraInput.scroll = parallaxScroll
+	cameraInput.viewportHeight = height
+	cameraInput.follow = motion === 'full'
+	const moving = stepCamera(camera, cameraInput)
 	if (cameraMoving && !moving) needsDraw = true
 	cameraMoving = moving
 }

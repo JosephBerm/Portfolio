@@ -124,7 +124,7 @@ export interface SkyFrame {
 	quiet: QuietBlend
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (contrast). */
 	meteorInk: number
-	/** Every star at a whole device pixel, as a sky at rest draws them; false places each at its nearest sub-pixel phase (placePoint). */
+	/** Every star at a whole device pixel, as a sky that hasn't moved in this page view draws them; false places each at its nearest sub-pixel phase (placePoint). */
 	snap: boolean
 }
 
@@ -144,7 +144,7 @@ const corner = { x: 0, y: 0 }
 /**
  * The sprite for a point of light centered at (px, py) device px, with its top-left whole pixel in `corner`. A moving
  * point uses the sprite pre-rendered at its nearest sub-pixel phase, so it glides without blurring or pulsing; `snap`
- * rounds to whole pixels (sprites have odd sides), so resting stars stay crisp points.
+ * rounds to whole pixels (sprites have odd sides), so a sky that hasn't moved in this page view draws crisp points.
  */
 function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, py: number, snap: boolean): Sprite | undefined {
 	let ix = snap ? Math.round(px) : Math.floor(px)

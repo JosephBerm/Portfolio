@@ -371,6 +371,35 @@ Details are in each PR. This entry is the implementing session's report (`local_
 
 **In progress:** P7 (the pointer lean, under audit) and P8 (the transient core). After P9, the crossing measurement is rerun and reported to Joseph next to the veil's numbers.
 
+### CP-2, 2026-10-28: P7
+
+P7 (the pointer lean) is merged into master as #22 (merge eda7acc), with green checks.
+- Sonnet 5.5 (max) implemented it to `PLAN.md`.
+- Opus 5.5 (max) audited it, and a separate Sonnet 5.5 (max) fixer applied the audit's fixes in its own worktree.
+- This entry is the implementing session's report. The planning session checked:
+  - #22 is merged;
+  - `meteors.ts` is unchanged since cf4d7b8;
+  - every veil function listed under P1 to P6's "Unchanged" is byte-identical at eda7acc, as are `quietRects` and `copyReader`.
+
+**Files and functions changed:**
+- `config.ts`: `LEAN`, `SCENE.*.lean`, and the `PACING` and `ADAPT` docs naming the lean.
+- `scene.ts`: `SceneLevels.lean`.
+- `camera.ts`: the lean springs (`leanX`, `leanY`), `leanWanted`, and the lean terms of `stepCamera`, `cameraOffset` and `cameraSpeed`.
+- `pacing.ts`: the docs of `driftCap`, `FrameState.cameraActive` and `FrameState.cameraCap` name the lean (doc only).
+- `protocol.ts`: `pointer`, plus the lean in `SkyMotion`'s doc.
+- `mountSky.ts`:
+  - `LEAN_POINTER_QUERY`;
+  - a passive `pointermove`, coalesced to one per frame, with its size guard and clamp;
+  - `pointerout` and `blur` sending null;
+  - `cancelAnimationFrame` in `destroy`.
+
+  The rect measurement is unchanged.
+- `sky.worker.ts`: the `pointer` case, `leanTarget(scene)`, and `leanWanted` in the frame state.
+
+**Audit fix:** on a software canvas too slow for the drift (`softwareFps < PACING.minFps`), the lean stays still too. This was a gap in the plan, not a deviation from it.
+
+**Veil code:** untouched.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -387,3 +416,4 @@ Details are in each PR. This entry is the implementing session's report (`local_
 - 2026-10-27: its "landed" message arrived: final in the working tree, uncommitted, with the final crossing numbers and the harness path (see "Landed in the working tree" above). We archived the harness and the captured layouts in `harness/`. Still to come: the SHA once Joseph commits; then checkpoint V runs.
 - 2026-10-27: committed as cf4d7b8 on master and pushed (`origin/master` at 20:56), identical to the confirmed diff (patch-id checked), every recommended setting kept, no launch hold. `PLAN.md` is restructured to build on cf4d7b8 directly.
 - 2026-10-28: CP-2 for P1 to P6 (PRs #16 to #21, master at 725a239), recorded from the implementing session's report under "Phase merges (CP-2)". The veil session is idle, and its work is committed.
+- 2026-10-28: CP-2 for P7 (#22, master at eda7acc), recorded from the implementing session's report under "Phase merges (CP-2)".

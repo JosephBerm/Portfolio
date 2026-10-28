@@ -28,6 +28,7 @@ import {
 	type FrameDemand,
 	type FrameState,
 } from '@/lib/sky/pacing'
+import { createPresence, isIdle, notePresence, presenceLevel } from '@/lib/sky/presence'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { between } from '@/lib/sky/random'
 import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
@@ -74,8 +75,6 @@ let pendingLayout: LayoutMessage | null = null
 
 // Milliseconds on the worker clock
 let lastScrollAt = -Infinity
-let lastInputAt = 0
-let wokeAt = -Infinity
 let lastDrawAt = -Infinity
 let hiddenAt: number | null = null
 // Seconds on the worker clock
@@ -90,6 +89,9 @@ let launchScrollY = 0
 let radiant: Point | null = null
 let launched = 0
 let failedPlans = 0
+
+/** Whether the visitor seems to be here. Scroll and visibility messages can reach it before init, so it exists from the start; init begins it afresh. */
+let presence = createPresence(0)
 
 /** The camera every star is drawn through; init puts it on the restored scroll. */
 let camera = createCamera(0)
@@ -142,19 +144,9 @@ function contrastLevels(): typeof CONTRAST_NORMAL | typeof CONTRAST_MORE {
 	return contrastMore ? CONTRAST_MORE : CONTRAST_NORMAL
 }
 
-/** No scroll for FRAME.idleSleepMs: the visitor is probably not watching the sky. */
-function isIdle(now: number): boolean {
-	return now - lastInputAt > FRAME.idleSleepMs
-}
-
-/** Twinkle eases out after a long time without scrolling and back in when the visitor returns. */
-function idleTwinkle(now: number): number {
-	return (1 - smoothstep(FRAME.idleSleepMs - FRAME.idleFadeMs, FRAME.idleSleepMs, now - lastInputAt)) * smoothstep(0, FRAME.idleFadeMs, now - wokeAt)
-}
-
 /** Twinkle strength right now: scene, idle fade and the motion level together. */
 function twinkleLevel(now: number): number {
-	return sceneAt(scrollY, height, documentHeight).twinkle * idleTwinkle(now) * easeAt(motionLevel, FRAME.motionEase, now / 1000)
+	return sceneAt(scrollY, height, documentHeight).twinkle * presenceLevel(presence, now) * easeAt(motionLevel, FRAME.motionEase, now / 1000)
 }
 
 /** The next shooting star waits at least METEOR.afterReturn once the visitor is back (a tab, an idle stretch, full motion). */
@@ -162,14 +154,9 @@ function holdMeteors(now: number): void {
 	if (revealAt !== null) nextMeteorAt = Math.max(nextMeteorAt, now / 1000 + METEOR.afterReturn)
 }
 
-/** Records a scroll or a return to the tab, waking the twinkle (with a fade) after an idle stretch. */
+/** Records input of any kind; back from an idle stretch, no shooting star straight away. */
 function noteInput(now: number): void {
-	const sinceInput = now - lastInputAt
-	// Back during the idle fade-out, the twinkle eases back in from where it was; after a full idle stretch, from nothing
-	if (sinceInput > FRAME.idleSleepMs - FRAME.idleFadeMs) wokeAt = now - Math.max(0, FRAME.idleSleepMs - sinceInput)
-	// Back from an idle stretch: no shooting star straight away
-	if (isIdle(now)) holdMeteors(now)
-	lastInputAt = now
+	if (notePresence(presence, now)) holdMeteors(now)
 }
 
 /** True at time t (s) while the quiet zones still ease toward the layout applied at `layoutAt` (QUIET.ease long). */
@@ -207,7 +194,7 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	// The dusk, copy that has just appeared or moved and the motion level easing change slowly
 	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t) || easing(motionLevel.since, FRAME.motionEase, t)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
-	frameState.twinkleFps = motion === 'full' && !isIdle(now) && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
+	frameState.twinkleFps = motion === 'full' && !isIdle(presence, now) && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	return frameDemand(frameState)
 }
 
@@ -224,7 +211,7 @@ function cancelFrames(): void {
 
 /** True when a shooting star may launch at all right now (its own timing aside). */
 function meteorsAllowed(now: number): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(now) && sceneAt(scrollY, height, documentHeight).meteors
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && sceneAt(scrollY, height, documentHeight).meteors
 }
 
 /**
@@ -641,7 +628,7 @@ scope.addEventListener('message', (event) => {
 			// A load rests on its motion's level, so nothing eases at start
 			const level = message.motion === 'full' ? 1 : 0
 			motionLevel = { from: level, to: level, since: -Infinity }
-			lastInputAt = now
+			presence = createPresence(now)
 			if (message.emerging) emerge(now)
 			if (message.revealed) reveal(now)
 			resize(message.width, message.height, message.dpr, now)
@@ -728,6 +715,10 @@ scope.addEventListener('message', (event) => {
 			needsDraw = true
 			break
 		}
+		case 'activity':
+			// The schedule below judges this moment's presence, so a sky that slept restarts its frames at once
+			noteInput(now)
+			break
 	}
 	schedule(now)
 })

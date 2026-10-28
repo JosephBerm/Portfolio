@@ -71,6 +71,8 @@ export type SkyMainMessage =
 			/** Quiet rects of copy in fixed elements, in screen coordinates. */
 			pinned: readonly SkyRect[]
 	  }
+	/** The visitor is still here without scrolling (pointer, keys, focus); at most one a second. */
+	| { type: 'activity' }
 
 /** Sky worker to main thread: the first frame is on the canvas, or the sky can't run. */
 export type SkyWorkerMessage = { type: 'ready' } | { type: 'error'; message: string }

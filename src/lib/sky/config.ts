@@ -82,8 +82,6 @@ export const CAMERA = { scrollParallax: 0.07, scrollOmega: 10, maxLag: 0.25, sna
 interface LayerConfig {
 	/** Magnitude band [brightest, faintest). */
 	magnitude: readonly [number, number]
-	/** Share of the page scroll the layer follows, upward with the content; nearer layers follow more. */
-	parallax: number
 	/** Share of the layer's stars that twinkle. */
 	twinkleShare: number
 	/** Log-normal twinkle strength (sigma) range. */
@@ -97,14 +95,14 @@ interface LayerConfig {
 }
 
 /**
- * The three depth layers: magnitude bands, scroll parallax, twinkle and how much light each keeps behind quiet copy.
- * No layer keeps light on the copy itself (`inkKeep` 0), so no star adds to the white a shooting star may put there
- * (INK_BUDGET). Mid and near must keep none: STAR_INK_PEAK covers far stars only.
+ * The three depth layers: magnitude bands, twinkle and how much light each keeps behind quiet copy. How far each star
+ * moves comes from its magnitude (DEPTH). No layer keeps light on the copy itself (`inkKeep` 0), so no star adds to the
+ * white a shooting star may put there (INK_BUDGET). Mid and near must keep none: STAR_INK_PEAK covers far stars only.
  */
 export const LAYERS = {
-	far: { magnitude: [4.5, 6], parallax: 0.02, twinkleShare: 0.1, twinkleSigma: [0.06, 0.12], twinkleHz: [0.08, 0.2], quietKeep: 1, inkKeep: 0 },
-	mid: { magnitude: [2.5, 4.5], parallax: 0.04, twinkleShare: 0.35, twinkleSigma: [0.08, 0.16], twinkleHz: [0.1, 0.26], quietKeep: 0.6, inkKeep: 0 },
-	near: { magnitude: [-0.5, 2.5], parallax: 0.07, twinkleShare: 1, twinkleSigma: [0.12, 0.22], twinkleHz: [0.12, 0.32], quietKeep: 0, inkKeep: 0 },
+	far: { magnitude: [4.5, 6], twinkleShare: 0.1, twinkleSigma: [0.06, 0.12], twinkleHz: [0.08, 0.2], quietKeep: 1, inkKeep: 0 },
+	mid: { magnitude: [2.5, 4.5], twinkleShare: 0.35, twinkleSigma: [0.08, 0.16], twinkleHz: [0.1, 0.26], quietKeep: 0.6, inkKeep: 0 },
+	near: { magnitude: [-0.5, 2.5], twinkleShare: 1, twinkleSigma: [0.12, 0.22], twinkleHz: [0.12, 0.32], quietKeep: 0, inkKeep: 0 },
 } as const satisfies Record<SkyLayer, LayerConfig>
 
 /**

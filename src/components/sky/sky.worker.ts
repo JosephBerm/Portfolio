@@ -5,7 +5,7 @@
  */
 
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
+import { ADAPT, CAMERA, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { between } from '@/lib/sky/random'
@@ -306,7 +306,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		dpr,
 		deviceWidth: target.width,
 		deviceHeight: target.height,
-		parallaxScroll,
+		offset: { x: 0, y: CAMERA.scrollParallax * parallaxScroll },
 		keep: densityKeep(width, height) * (quality > 0 ? ADAPT.thinning : 1),
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,

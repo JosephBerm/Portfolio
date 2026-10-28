@@ -559,6 +559,37 @@ export const METEOR = {
 } as const
 
 /**
+ * Satellites: steady points lit by a Sun below the horizon (no twinkle, no wake, never blinking), gliding in a straight
+ * line at constant speed, as NASA describes the space station. Real low orbits cross about 1°/s overhead, about 0.5°/s
+ * at the window's 40° center and 0.1 to 0.3°/s low in the sky; these run `angular` °/s of the sky window (SKY_WINDOW),
+ * 2 to 5 times faster at the center, so a whole pass stays within `life` seconds (WCAG 2.2.2's 5 s). A pass crosses the
+ * edge of Earth's shadow at most once, as a real one does: at dusk (`shadowShare` of passes) it slides in lit from
+ * beyond a side and fades into the shadow over `fadeOut` s while warming from palette index `tint` toward `shadowTint`,
+ * as real ones redden; at dawn it fades in over `fadeIn` s as it leaves the shadow and glides out through a side. Alpha
+ * `alpha`, about magnitude 3.5 to 5.5: never brighter than the brightest mid-layer star; drawn with star shape `shape`.
+ * Clear sky only (every point clear of every padded quiet rect's reach, ZONE_REACH), never within `minTilt` degrees of
+ * vertical (a vertical glide reads as scrolling), one at a time, wide screens only, on their own clock: the first
+ * attempt `first` after the reveal and then `gap` after each pass (GapLaw, stretched on long visits), so 39% of visits
+ * get a first attempt within their first minute and passes come about 89 s apart. Up to `attempts` candidate passes per
+ * launch.
+ */
+export const SATELLITE = {
+	first: { floor: 30, mean: 60, cap: 150 },
+	gap: { floor: 40, mean: 50, cap: 150 },
+	angular: [1.2, 2.5],
+	alpha: [0.25, 0.5],
+	life: 4.8,
+	fadeIn: 0.8,
+	fadeOut: [1.2, 1.5],
+	shadowShare: 0.6,
+	tint: 4,
+	shadowTint: 6,
+	shape: 2,
+	minTilt: 20,
+	attempts: 40,
+} as const
+
+/**
  * White light (0-1 of --color-white, added over navy) the sky may put on the copy itself, per quiet rect. WCAG 2.2 AA
  * (1.4.3) asks 4.5:1 of text and 3:1 of large text, and the main thread measures what each rect's own color and size can
  * take: its `headroom` (slate body text 0.08, the 75 px tagline 0.19, the name 0.40, green text 0.33, the rails 0.19). The

@@ -17,7 +17,7 @@ export const NO_FRAMES: FrameDemand = { fps: 0, vsync: false, cap: Infinity }
 /** Every display refresh: a flying shooting star, scrolling under full motion. */
 export const EVERY_FRAME: FrameDemand = { fps: Infinity, vsync: true, cap: Infinity }
 
-/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing). */
+/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing, the stars a quality step thins out). */
 export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap: Infinity }
 
 /**
@@ -64,7 +64,7 @@ export interface FrameState {
 	cameraSpeed: number
 	/** Most frames per second the camera's motion may draw: the drift's cap (driftCap) while the drift is wanted, else Infinity, so a scroll glide alone is never cut to a crawl. */
 	cameraCap: number
-	/** A slow change runs: the dusk, the quiet ease or the motion ease. */
+	/** A slow change runs: the dusk, the quiet ease, the motion ease or the thin fade. */
 	fading: boolean
 	/** Twinkle's timer rate while it may change (full motion, the visitor not idle and a twinkling scene), else 0. */
 	twinkleFps: number
@@ -107,6 +107,11 @@ export function easing(since: number | null, duration: number, t: number): boole
 /** True once an ease has run out while the last drawn frame (`drawnAt`, s) still showed it part way: one more frame shows its end. */
 export function easeEnded(since: number | null, duration: number, t: number, drawnAt: number): boolean {
 	return since !== null && drawnAt - since < duration && t - since >= duration
+}
+
+/** A one-way fade: 1 until `since` (s; null while it hasn't begun), then down to 0 over `duration` s. */
+export function fadeOutAt(since: number | null, duration: number, t: number): number {
+	return since === null ? 1 : 1 - smoothstep(since, since + duration, t)
 }
 
 /** Draw on every k-th refresh: the largest k that still gives `fps`, and at least the k that keeps under `cap`. */

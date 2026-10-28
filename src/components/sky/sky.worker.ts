@@ -33,6 +33,7 @@ import {
 	easing,
 	EVERY_FRAME,
 	FADE_FRAMES,
+	fadeOutAt,
 	frameDemand,
 	frameDue,
 	NO_FRAMES,
@@ -135,6 +136,8 @@ const driftGate: DriftGate = { allowed: false, dusk: 0, on: false, level: 0, sce
 
 let quality = 0
 let slowFrames = 0
+/** When (s on the worker clock) the first quality step began thinning the stars out, which then fade over ADAPT.thinFade; null before it. */
+let thinnedAt: number | null = null
 /** The pending animation frame request; null when there is none (a request id can be 0). */
 let rafId: number | null = null
 /** The pending frame timer: a fade or twinkle frame, the next shooting star, or where animation frames fail, any frame. */
@@ -234,8 +237,12 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	frameState.cameraActive = cameraMoving || wanted
 	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera, wanted ? driftTarget(driftGate) : 0) * dpr
 	frameState.cameraCap = wanted ? driftCap(narrowScreen, quality > 0, softwareFps) : Infinity
-	// The dusk, copy that has just appeared or moved and the motion level easing change slowly
-	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t) || easing(motionLevel.since, FRAME.motionEase, t)
+	// The dusk, copy that has just appeared or moved, the motion level easing and the thinned stars fading change slowly
+	frameState.fading =
+		(exitAt !== null && !emergenceDone(t - exitAt)) ||
+		quietEasing(t) ||
+		easing(motionLevel.since, FRAME.motionEase, t) ||
+		easing(thinnedAt, ADAPT.thinFade, t)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
 	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	return frameDemand(frameState)
@@ -363,9 +370,11 @@ function tick(now: number): void {
 	settleQuiet(now)
 	const scene = sceneAt(scrollY, height, documentHeight)
 	gather(now, scene)
-	// Fade frames come 1/FRAME.fadeFps s apart, so the motion ease ends between two of them: the last frame shown still
-	// carries a trace of twinkle. One more frame shows the resting sky, which is what stays on screen.
-	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, lastDrawAt / 1000)) needsDraw = true
+	// Fade frames come 1/FRAME.fadeFps s apart, so the motion ease and the thin fade end between two of them: the last
+	// frame shown still carries a trace of twinkle or of the thinned stars. One more frame shows the resting sky, which is
+	// what stays on screen.
+	const drawnAt = lastDrawAt / 1000
+	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, drawnAt) || easeEnded(thinnedAt, ADAPT.thinFade, now / 1000, drawnAt)) needsDraw = true
 	updateCamera(now)
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
@@ -494,6 +503,8 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	gather(now, scene)
 	const dusk = exitAt === null ? -1 : t - exitAt
 	const contrast = contrastLevels()
+	const density = densityKeep(width, height)
+	const thinLevel = fadeOutAt(thinnedAt, ADAPT.thinFade, t)
 	return {
 		time: t,
 		twinkleTime: t - hiddenTotal,
@@ -503,7 +514,10 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		deviceWidth: target.width,
 		deviceHeight: target.height,
 		offset: cameraOffset(camera, offset),
-		keep: densityKeep(width, height) * (quality > 0 ? ADAPT.thinning : 1),
+		// The stars a quality step thins out stay in the draw until they have faded away
+		keep: quality > 0 && thinLevel <= 0 ? density * ADAPT.thinning : density,
+		thinFrom: quality > 0 ? density * ADAPT.thinning : Infinity,
+		thinLevel,
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
 		twinkle: twinkleLevel(scene),
@@ -537,13 +551,15 @@ function adapt(milliseconds: number, now: number): void {
 }
 
 /**
- * One quality step down, never back up: step 1 draws fewer stars and twinkles slower, step 2 also draws at CSS
- * resolution. The layout is unchanged, so the shooting star, the radiant and the haze stay.
+ * One quality step down, never back up: step 1 draws fewer stars (the thinned ones fade out), twinkles slower and caps
+ * the drift's frames, step 2 also draws at CSS resolution. The layout is unchanged, so the shooting star, the radiant
+ * and the haze stay.
  */
 function stepDown(now: number): void {
 	if (quality >= 2) return
 	quality++
 	slowFrames = 0
+	if (quality === 1) thinnedAt = now / 1000
 	if (quality < 2 || dpr <= 1) return
 	sizeCanvas(1)
 	// Resizing cleared the canvas: redraw in this task so no blank frame reaches the screen

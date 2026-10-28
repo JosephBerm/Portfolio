@@ -306,7 +306,7 @@ export const FRAME = {
 	twinkleFps: 15,
 	/** Twinkle rate after the adaptive step-down. */
 	slowTwinkleFps: 10,
-	/** Fades (dusk, scrolling under reduced motion, the motion level easing). */
+	/** Fades (dusk, scrolling under reduced motion, the motion level easing, the stars a quality step thins out). */
 	fadeFps: 30,
 	/** Scrolling counts as active this long after the last scroll message. */
 	scrollSettleMs: 180,
@@ -360,12 +360,13 @@ export const PACING = {
 
 /**
  * Adaptive quality: after `slowFrames` more slow frames (JS over `slowFrameMs`) than fast ones, draw `thinning` of the
- * stars, twinkle slower and cap the drift at PACING.slowMaxFps; a second step drops to CSS resolution. A
- * software-rasterized canvas, whose cost lands after the draw calls return where frame timing can't see it, is found at
- * start-up instead: one full frame rasterized off screen in more than `rasterMsPerMp` per device megapixel (and more
- * than `rasterMinMs`) starts at the second step.
+ * stars, twinkle slower and cap the drift at PACING.slowMaxFps; the stars step 1 thins out fade over `thinFade`
+ * seconds, since a moving sky that lost a fifth of its stars in one frame would read as a glitch. A second step drops
+ * to CSS resolution. A software-rasterized canvas, whose cost lands after the draw calls return where frame timing
+ * can't see it, is found at start-up instead: one full frame rasterized off screen in more than `rasterMsPerMp` per
+ * device megapixel (and more than `rasterMinMs`) starts at the second step.
  */
-export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, rasterMsPerMp: 1, rasterMinMs: 4 } as const
+export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
  * Shooting stars: rare and small, falling from one radiant beyond the top-right corner. Each lights up and peaks in

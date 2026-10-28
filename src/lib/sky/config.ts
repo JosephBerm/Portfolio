@@ -380,6 +380,31 @@ export const PACING = {
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
+ * Every short-lived sky event (so far, shooting stars): at most `maxLife` seconds from first light to last, wake, train
+ * and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least `minOnsetGap` seconds apart, since a motion onset
+ * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
+ * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
+ * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
+ * crossings stay rare (0 for now: shooting stars are already at least 30 s apart). A pause fades every transient out over
+ * `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls from its launch (SCROLL_CANCEL).
+ * A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the kind waits for a new layout. A held
+ * launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds after scrolling stops, and after a
+ * return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
+ */
+export const TRANSIENTS = {
+	maxLife: 5,
+	minOnsetGap: 3,
+	narrowLimit: 2,
+	crossingCooldown: 0,
+	cancelFade: 0.2,
+	retry: [5, 9],
+	maxFailedPlans: 3,
+	recheck: 1,
+	scrollQuiet: 1.2,
+	afterReturn: 3,
+} as const
+
+/**
  * Shooting stars: rare and small, falling from one radiant beyond the top-right corner. Each lights up and peaks in
  * clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET).
  */

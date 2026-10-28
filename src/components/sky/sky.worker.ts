@@ -115,8 +115,10 @@ let presence = createPresence(0)
 let camera = createCamera(0)
 /** The camera's offset for the frame being drawn (reused). */
 const offset: Vec = { x: 0, y: 0 }
+/** No lean, the target the camera is given until the pointer feeds it (shared, never written). */
+const noLean: Vec = { x: 0, y: 0 }
 /** What the camera follows on its next step (reused, so a step makes no garbage). */
-const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0 }
+const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0, lean: noLean }
 /** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
 let cameraMoving = false
 /** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */

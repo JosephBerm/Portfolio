@@ -1,16 +1,32 @@
 /**
- * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while
- * something changes: 15 fps for twinkle, 30 fps for fades (the dusk, a lingering train), every animation frame
- * while a shooting star flies or the page scrolls. Hidden tabs, reduced motion, reading and idle visits sleep.
+ * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while something
+ * changes. A sky that only changes brightness draws from timers: 15 fps for twinkle, 30 fps for fades (the dusk, a
+ * lingering train). Anything that moves draws on animation frames: every one while a shooting star flies or the page
+ * scrolls, and while the stars glide to rest after it stops, every k-th one (PACING; every one while the glide is fast).
+ * A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden tabs, reduced
+ * motion, reading and idle visits sleep.
  */
 
-import { cameraOffset, createCamera, forgetStep, resumeCamera, stepCamera, type CameraInput, type Vec } from '@/lib/sky/camera'
+import { cameraOffset, cameraSpeed, createCamera, forgetStep, resumeCamera, stepCamera, type CameraInput, type Vec } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, PACING, QUIET } from '@/lib/sky/config'
 import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
+import {
+	createRefreshEstimate,
+	EVERY_FRAME,
+	FADE_FRAMES,
+	frameDemand,
+	frameDue,
+	NO_FRAMES,
+	refreshDivisor,
+	stepDivisor,
+	type Divisor,
+	type FrameDemand,
+	type FrameState,
+} from '@/lib/sky/pacing'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { between } from '@/lib/sky/random'
-import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend } from '@/lib/sky/scene'
+import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
 import { createStarField, drawMeteor, drawSky, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
@@ -18,11 +34,10 @@ import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 interface SkyWorkerScope {
 	postMessage(message: SkyWorkerMessage): void
 	addEventListener(type: 'message', listener: (event: MessageEvent<SkyMainMessage>) => void): void
-	requestAnimationFrame(callback: (time: number) => void): number
-	cancelAnimationFrame(handle: number): void
+	/** Not every worker has the animation-frame pair: where it is missing, a timer stands in for the display. */
+	requestAnimationFrame?(callback: (time: number) => void): number
+	cancelAnimationFrame?(handle: number): void
 }
-
-type FrameMode = 'active' | 'fade' | 'twinkle' | 'sleep'
 
 type LayoutMessage = Extract<SkyMainMessage, { type: 'layout' }>
 
@@ -85,11 +100,27 @@ let skyMoved = false
 
 let quality = 0
 let slowFrames = 0
-let rafId = 0
+/** The pending animation frame request; null when there is none (a request id can be 0). */
+let rafId: number | null = null
+/** The pending frame timer: a fade or twinkle frame, the next shooting star, or where animation frames fail, any frame. */
 let timerId: ReturnType<typeof setTimeout> | undefined
 let hazeTimer: ReturnType<typeof setTimeout> | undefined
 let needsDraw = false
 let ready = false
+
+/** Whether animation frames can be relied on. False where the worker has none and after repeated stalls: a 60 Hz timer then stands in for the display. */
+let rafWorks = typeof scope.requestAnimationFrame === 'function'
+/** Requested animation frames in a row that didn't come in time. */
+let strikes = 0
+/** Serves a requested animation frame that doesn't come. */
+let watchdogId: ReturnType<typeof setTimeout> | undefined
+/** The animation frame asked for to find out whether the display's clock is back, and when (ms) one was last asked for. */
+let probeId: number | null = null
+let probedAt = -Infinity
+/** The display's refresh interval, measured from the animation frames' timestamps. */
+const refresh = createRefreshEstimate()
+/** How many display refreshes pass per drawn frame while something moves. */
+const divisor: Divisor = { k: 1, slowerSince: null }
 
 /** Backing-store pixels for a CSS length (never zero). */
 function deviceSize(cssSize: number, ratio: number): number {
@@ -136,32 +167,49 @@ function quietEasing(t: number): boolean {
 	return layoutAt !== null && t - layoutAt < QUIET.ease
 }
 
-/** How often to draw right now, from the most to the least demanding reason to draw. */
-function frameMode(now: number): FrameMode {
-	if (!ctx || !visible || motion === 'off' || exitAt === null) return 'sleep'
+/** What the frame clock sees now (reused). */
+const frameState: FrameState = {
+	live: false,
+	scrolling: false,
+	full: false,
+	transientDemand: NO_FRAMES,
+	cameraActive: false,
+	cameraSpeed: 0,
+	cameraCap: Infinity,
+	fading: false,
+	twinkleFps: 0,
+}
+
+/**
+ * The strictest demand of every part of the sky right now. It reads the worker's state afresh at every frame decision,
+ * so a message that wakes a sleeping worker is judged on this moment, not on what the last frame saw.
+ */
+function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	const t = now / 1000
-	const scrolling = now - lastScrollAt < FRAME.scrollSettleMs
+	frameState.live = ctx !== null && visible && motion !== 'off' && exitAt !== null
+	frameState.scrolling = now - lastScrollAt < FRAME.scrollSettleMs
+	frameState.full = motion === 'full'
+	frameState.transientDemand = meteor ? (meteorMoving(meteor, t) ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES
 	// The stars keep gliding to rest after the page stops scrolling
-	if ((meteor && meteorMoving(meteor, t)) || (scrolling && motion === 'full') || cameraMoving) return 'active'
-	// A lingering train, scrolling under reduced motion, the dusk and copy that has just appeared or moved change slowly
-	if (meteor || scrolling || !emergenceDone(t - exitAt) || quietEasing(t)) return 'fade'
+	frameState.cameraActive = cameraMoving
+	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera) * dpr
+	frameState.cameraCap = Infinity
+	// The dusk and copy that has just appeared or moved change slowly
+	frameState.fading = (exitAt !== null && !emergenceDone(t - exitAt)) || quietEasing(t)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
-	if (motion === 'full' && !isIdle(now) && sceneAt(scrollY, height, documentHeight).twinkle > 0) return 'twinkle'
-	return 'sleep'
+	frameState.twinkleFps = motion === 'full' && !isIdle(now) && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
+	return frameDemand(frameState)
 }
 
-/** Milliseconds between timer-driven frames. */
-function frameInterval(mode: 'fade' | 'twinkle'): number {
-	if (mode === 'fade') return 1000 / FRAME.fadeFps
-	return 1000 / (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps)
-}
-
-/** Drops any pending animation frame or timer. */
+/** Drops any pending animation frame, watchdog or timer, and forgets the last refresh, so the gap before the next one isn't taken for a refresh interval. */
 function cancelFrames(): void {
-	if (rafId) scope.cancelAnimationFrame(rafId)
+	if (rafId !== null) scope.cancelAnimationFrame?.(rafId)
 	clearTimeout(timerId)
-	rafId = 0
+	clearTimeout(watchdogId)
+	rafId = null
 	timerId = undefined
+	watchdogId = undefined
+	refresh.pause()
 }
 
 /** True when a shooting star may launch at all right now (its own timing aside). */
@@ -170,47 +218,117 @@ function meteorsAllowed(now: number): boolean {
 }
 
 /**
- * Moving things (a shooting star, scroll parallax) draw on animation frames, in step with the display.
- * Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames.
+ * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star, scrolling, the
+ * stars gliding to rest) wake on animation frames, in step with the display, and tick draws on every k-th of them.
+ * Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames. With
+ * nothing to draw, one timer is left for a change a message has just made or the next shooting star. A frame already
+ * pending is left alone.
  */
 function schedule(now: number): void {
-	if (rafId || !ctx || !visible) return
+	if (rafId !== null || !ctx || !visible) return
 	clearTimeout(timerId)
 	timerId = undefined
-	const mode = frameMode(now)
-	if (mode === 'active') {
-		rafId = scope.requestAnimationFrame(onFrame)
+	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
+	if (demand.vsync) {
+		requestFrame(now, demand)
 		return
 	}
-	if (mode === 'sleep') {
+	// Nothing moves: a later stretch of motion starts its wait for a lower need afresh, not from this one's
+	divisor.slowerSince = null
+	if (demand.fps <= 0) {
+		// Asleep: the gap before the next animation frame is not a refresh interval
+		refresh.pause()
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
 		// Asleep in the hero (an idle twinkle, say): wake only for the next shooting star
 		else if (Number.isFinite(nextMeteorAt) && meteorsAllowed(now)) timerId = setTimeout(onTimer, Math.max(0, nextMeteorAt * 1000 - now))
 		return
 	}
-	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + frameInterval(mode) - now))
+	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + 1000 / demand.fps - now))
 }
 
-/** Timer-driven frame (fades, twinkle, a due shooting star). */
+/**
+ * Asks for the next wake-up of a moving sky: an animation frame, and a watchdog that serves it from a timer if it never
+ * comes. Where animation frames can't be relied on, a 60 Hz timer stands in for the display instead. That timer is armed
+ * against the last drawn frame, not from now: schedule runs after every message, and a timer re-armed from each would be
+ * pushed back for as long as messages keep coming. It waits the divisor in use, or fewer refreshes if `demand` now needs
+ * fewer (a scroll message since the last tick, say). In that mode one animation frame is also asked for every
+ * PACING.reprobeMs, to find out whether the display's clock is back.
+ */
+function requestFrame(now: number, demand: FrameDemand): void {
+	if (rafWorks) {
+		clearTimeout(watchdogId)
+		rafId = scope.requestAnimationFrame?.(onFrame) ?? null
+		watchdogId = setTimeout(onStalled, PACING.watchdogMs)
+		return
+	}
+	const k = Math.min(divisor.k, refreshDivisor(PACING.fallbackFps, demand.fps, demand.cap))
+	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + (k * 1000) / PACING.fallbackFps - now))
+	if (now - probedAt < PACING.reprobeMs) return
+	probedAt = now
+	if (probeId !== null) scope.cancelAnimationFrame?.(probeId)
+	probeId = scope.requestAnimationFrame?.(onProbe) ?? null
+}
+
+/** Timer-driven frame (fades, twinkle, a due shooting star, or any frame where animation frames can't be relied on). */
 function onTimer(): void {
 	timerId = undefined
 	tick(performance.now())
 }
 
-/** Animation-frame-driven frame (a flying shooting star, scrolling). */
-function onFrame(now: number): void {
-	rafId = 0
-	tick(now)
+/** Animation-frame-driven frame (a flying shooting star, scrolling, the stars gliding to rest): the display's own clock, so it also times the refresh. */
+function onFrame(time: number): void {
+	clearTimeout(watchdogId)
+	watchdogId = undefined
+	rafId = null
+	strikes = 0
+	refresh.sample(time)
+	tick(time)
 }
 
-/** One wake-up: update the shooting star, draw if due, then schedule the next wake-up. */
+/**
+ * A requested animation frame didn't come in time: a timer serves this frame instead. After PACING.watchdogStrikes misses
+ * in a row animation frames are no longer relied on, until a probe finds the display's clock back.
+ */
+function onStalled(): void {
+	watchdogId = undefined
+	if (rafId !== null) scope.cancelAnimationFrame?.(rafId)
+	rafId = null
+	strikes++
+	if (strikes >= PACING.watchdogStrikes) rafWorks = false
+	tick(performance.now())
+}
+
+/** The probe's animation frame came: the display's clock works again. */
+function onProbe(): void {
+	probeId = null
+	rafWorks = true
+	strikes = 0
+}
+
+/**
+ * The display's clock may be back (the tab was shown, the GPU context restored): count misses afresh, and where a timer
+ * stands in for the clock, ask for an animation frame at the next chance instead of at the next probe.
+ */
+function recheckFrames(): void {
+	strikes = 0
+	probedAt = -Infinity
+}
+
+/**
+ * One wake-up: update the shooting star and the camera, draw if due, then schedule the next wake-up. Moving things draw
+ * on every k-th display refresh, so each drawn frame stays up for the same time.
+ */
 function tick(now: number): void {
 	updateMeteor(now)
 	settleQuiet(now)
 	updateCamera(now)
-	const mode = frameMode(now)
-	// Timers fire a little early or late; 4ms of slack keeps the cadence even
-	if (needsDraw || mode === 'active' || (mode !== 'sleep' && now - lastDrawAt >= frameInterval(mode) - 4)) draw(now)
+	const demand = demandNow(now, sceneAt(scrollY, height, documentHeight))
+	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
+	// display: each of its ticks is a frame, divided only by a demand's cap
+	const interval = rafWorks ? refresh.interval : 1000 / PACING.fallbackFps
+	const fps = rafWorks && refresh.unaligned ? Infinity : demand.fps
+	const k = demand.vsync ? stepDivisor(divisor, refreshDivisor(1000 / interval, fps, demand.cap), now) : 1
+	if (needsDraw || frameDue(demand, now, lastDrawAt, k, interval)) draw(now)
 	schedule(now)
 }
 
@@ -494,6 +612,8 @@ scope.addEventListener('message', (event) => {
 			canvas.addEventListener('contextrestored', () => {
 				rebuildAssets()
 				needsDraw = true
+				// A GPU restart may be what stalled the display's clock
+				recheckFrames()
 				schedule(performance.now())
 			})
 			tokens = message.tokens
@@ -546,6 +666,8 @@ scope.addEventListener('message', (event) => {
 			// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
 			if (exitAt !== null && hiddenAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
 			hiddenAt = null
+			// Misses from before the tab was hidden say nothing about the display now
+			recheckFrames()
 			noteInput(now)
 			holdMeteors(now)
 			needsDraw = true

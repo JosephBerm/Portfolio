@@ -252,7 +252,10 @@ export const CONTRAST_NORMAL = { stars: 1, haze: 1, meteorInk: 1 } as const
 /** prefers-contrast: more drops the haze, dims the stars and leaves no shooting-star light on the copy itself. */
 export const CONTRAST_MORE = { stars: 0.7, haze: 0, meteorInk: 0 } as const
 
-/** Frame pacing. Twinkle is slow, so 15 fps reads smooth; shooting stars and scrolling draw on every animation frame. */
+/**
+ * Frame pacing. Twinkle is slow, so 15 fps reads smooth. Anything that moves draws on animation frames paced by PACING;
+ * these timers serve a sky that only changes brightness.
+ */
 export const FRAME = {
 	twinkleFps: 15,
 	/** Twinkle rate after the adaptive step-down. */
@@ -267,6 +270,31 @@ export const FRAME = {
 	idleSleepMs: 90_000,
 	/** Twinkle fade out and back in around the idle sleep. */
 	idleFadeMs: 4000,
+} as const
+
+/**
+ * Frame pacing for moving stars (FRAME keeps the timers for a sky that only changes brightness). A moving star steps at
+ * most `stepDevicePx` per drawn frame (two quarter-pixel phases, under a third of the smallest star's width) where the
+ * display's refresh rate allows it, and never draws below `minFps`. Motion draws on animation frames divided by a whole
+ * number, so every drawn frame stays up for the same number of display refreshes; a lower need must last
+ * `slowDownAfter` seconds before the clock slows down. The refresh interval is the median of the last `refreshSamples`
+ * frame intervals; a median within `unalignedToleranceMs` of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock,
+ * not the display, so motion draws every frame there. A requested animation frame that hasn't come `watchdogMs` after
+ * the request (while visible) is served by a timer; after `watchdogStrikes` misses in a row, frames come from a
+ * `fallbackFps` timer, which asks for one animation frame every `reprobeMs` and goes back to them when one arrives (a GPU
+ * restart or a restored context); the strikes also reset when the context is restored or the tab is shown.
+ */
+export const PACING = {
+	stepDevicePx: 0.5,
+	minFps: 20,
+	slowDownAfter: 0.5,
+	refreshSamples: 16,
+	unalignedIntervalMs: 15,
+	unalignedToleranceMs: 0.4,
+	watchdogMs: 250,
+	watchdogStrikes: 3,
+	fallbackFps: 60,
+	reprobeMs: 5000,
 } as const
 
 /**

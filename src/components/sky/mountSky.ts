@@ -1,7 +1,7 @@
 import { scroll } from 'motion/react'
 import type { IntroPhase } from '@/hooks/useIntroPhase'
 import { REDUCED_MOTION_QUERY } from '@/lib/utils'
-import { parseHexColor } from '@/lib/sky/color'
+import { lightHeadroom, minimumContrast, parseHexColor, parseRgbColor } from '@/lib/sky/color'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 
 /** Handle returned by mountSky. */
@@ -27,9 +27,10 @@ const LOW_MEMORY_GB = 4
 const MAX_BACKING_PIXELS = 3840 * 2160
 
 /**
- * Copy the sky stays quiet behind: no bright stars beside it, and a shooting star only fades out behind it. The hero,
- * Contact, the footer and the side rails opt in with data-sky-quiet. Copy in fixed elements (the rails) stays put on
- * screen, so its rects travel in screen coordinates.
+ * Copy the sky stays quiet behind: no bright stars beside it, and a shooting star behind it dims to what the copy can
+ * take. The hero, Contact, the footer and the side rails opt in with data-sky-quiet. Copy in fixed elements (the rails)
+ * stays put on screen, so its rects travel in screen coordinates. The copy and its ancestors keep the preconditions of
+ * copyReader: no static transform translation and no opacity below 1 at rest.
  */
 const QUIET_SELECTOR = '[data-sky-quiet]'
 
@@ -39,10 +40,14 @@ const QUIET_CONTROLS = 'a, button'
 /** Most quiet rects sent to the worker: one per line of copy, about 31 on desktop and 35-37 on phones. */
 const MAX_QUIET_RECTS = 64
 
+/** CSS font-weight of normal text, assumed when an element's computed weight is not a number. */
+const NORMAL_FONT_WEIGHT = 400
+
 /**
  * Entrances move copy without resizing anything: the hero slides its copy up to 40px and settles by about 1.2s after
- * the reveal, and Contact fades up as it scrolls into view. Measure again this long after the reveal and after
- * scrolling stops (ms).
+ * the reveal, and Contact fades up as it scrolls into view. Measurement takes their translation out (see copyReader), so
+ * the rects are the settled ones from the first; measure again this long after the reveal and after scrolling stops
+ * anyway, in case an entrance moves copy another way (ms).
  */
 const ENTRANCE_SETTLE_MS = 1500
 
@@ -92,31 +97,91 @@ function canvasDpr(width: number, height: number): number {
 	return Math.min(window.devicePixelRatio || 1, Math.max(1, Math.min(cap, byArea)))
 }
 
-/** A box moved down by `offsetY` (the scroll offset, for document coordinates), or null when it has no area. */
-function quietRect(left: number, top: number, right: number, bottom: number, offsetY: number): SkyRect | null {
-	return right > left && bottom > top ? { x: left, y: top + offsetY, width: right - left, height: bottom - top } : null
+/** A translation in CSS px. */
+interface Shift {
+	x: number
+	y: number
+}
+
+/** What a measurement reads of the copy's elements, each once. */
+interface CopyReader {
+	/** The translation (px) the entrances of this element and its ancestors still add to its box: where the copy is minus where it settles. */
+	shift(element: Element): Shift
+	/** SkyRect.headroom of text in this element, from its computed color, size and weight. */
+	headroom(element: Element): number
+}
+
+/**
+ * A reader for one measurement. Entrances are Motion translations (a `matrix()` with its offsets in the 5th and 6th terms),
+ * so measuring net of them gives the rects the copy settles to. Headroom depends only on color, size and weight, so
+ * `headrooms` keeps the scans across measurements.
+ *
+ * Preconditions, kept by the copy under data-sky-quiet: no static transform translation on the copy or its ancestors
+ * (every measurement takes all translations out, so a lasting one, a translate(-50%) centering say, would put the zones
+ * beside the copy for good) and no opacity below 1 at rest (headroom reads `color` alone, so a translucent element would
+ * be dimmer than its headroom says). The color is the one at measurement time: a link that changes color on hover or
+ * focus (the rails' links, light slate at rest and green then) keeps the headroom of the state it was measured in until
+ * the next measurement, which is harmless only while no flight reaches the rails (METEOR.maxEndY).
+ */
+function copyReader(tokens: SkyTokens, headrooms: Map<string, number>): CopyReader {
+	const shifts = new Map<Element, Shift>()
+	const shift = (element: Element): Shift => {
+		let known = shifts.get(element)
+		if (!known) {
+			const outer = element.parentElement ? shift(element.parentElement) : { x: 0, y: 0 }
+			const { transform } = getComputedStyle(element)
+			const matrix = transform === 'none' ? null : new DOMMatrixReadOnly(transform)
+			known = { x: outer.x + (matrix?.m41 ?? 0), y: outer.y + (matrix?.m42 ?? 0) }
+			shifts.set(element, known)
+		}
+		return known
+	}
+	const headroom = (element: Element): number => {
+		const { color, fontSize, fontWeight } = getComputedStyle(element)
+		const key = `${color}|${fontSize}|${fontWeight}`
+		let known = headrooms.get(key)
+		if (known === undefined) {
+			const text = parseRgbColor(color, tokens.navy)
+			// A color that can't be read gets no headroom: nothing but navy behind it
+			known = text ? lightHeadroom(text, tokens.navy, tokens.white, minimumContrast(Number.parseFloat(fontSize), Number.parseInt(fontWeight, 10) || NORMAL_FONT_WEIGHT)) : 0
+			headrooms.set(key, known)
+		}
+		return known
+	}
+	return { shift, headroom }
+}
+
+/** A box moved by its entrance `shift` and down by `offsetY` (the scroll offset, for document coordinates), or null when it has no area. */
+function quietRect(box: DOMRectReadOnly, shift: Shift, offsetY: number, headroom: number): SkyRect | null {
+	const left = box.left - shift.x
+	const top = box.top - shift.y
+	const right = box.right - shift.x
+	const bottom = box.bottom - shift.y
+	return right > left && bottom > top ? { x: left, y: top + offsetY, width: right - left, height: bottom - top, headroom } : null
 }
 
 /**
  * The quiet rects inside `root`, moved down by `offsetY`: the ink of each line of text (not the layout boxes, which
  * span the whole column even where the words stop, nor one box per run, which spans the empty sky beside a short
- * line) and the full box of each link or button.
+ * line) and the full box of each link or button, each with the headroom of its own text.
  */
-function quietRects(root: Element, offsetY: number): SkyRect[] {
+function quietRects(root: Element, offsetY: number, reader: CopyReader): SkyRect[] {
 	const rects: SkyRect[] = []
 	const range = document.createRange()
 	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
 	for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-		if (!node.textContent?.trim()) continue
+		const element = node.parentElement
+		if (!element || !node.textContent?.trim()) continue
 		range.selectNodeContents(node)
+		const shift = reader.shift(element)
+		const headroom = reader.headroom(element)
 		for (const line of range.getClientRects()) {
-			const rect = quietRect(line.left, line.top, line.right, line.bottom, offsetY)
+			const rect = quietRect(line, shift, offsetY, headroom)
 			if (rect) rects.push(rect)
 		}
 	}
 	for (const control of root.querySelectorAll(QUIET_CONTROLS)) {
-		const box = control.getBoundingClientRect()
-		const rect = quietRect(box.left, box.top, box.right, box.bottom, offsetY)
+		const rect = quietRect(control.getBoundingClientRect(), reader.shift(control), offsetY, reader.headroom(control))
 		if (rect) rects.push(rect)
 	}
 	return rects
@@ -153,6 +218,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	let flowRoots: Element[] = []
 	let pinnedRoots: Element[] = []
 	let lastLayout = ''
+	const headrooms = new Map<string, number>()
 	let lastScrollY = window.scrollY
 	let settleTimer: ReturnType<typeof setTimeout> | undefined
 	let destroyed = false
@@ -160,8 +226,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	// Document height and quiet rects; runs after layout (observer callbacks, timers) and posts only when they changed
 	const measureLayout = () => {
 		if (offscreen || destroyed) return
-		const pinned = pinnedRoots.flatMap((root) => quietRects(root, 0)).slice(0, MAX_QUIET_RECTS)
-		const quiet = flowRoots.flatMap((root) => quietRects(root, window.scrollY)).slice(0, MAX_QUIET_RECTS - pinned.length)
+		const reader = copyReader(tokens, headrooms)
+		const pinned = pinnedRoots.flatMap((root) => quietRects(root, 0, reader)).slice(0, MAX_QUIET_RECTS)
+		const quiet = flowRoots.flatMap((root) => quietRects(root, window.scrollY, reader)).slice(0, MAX_QUIET_RECTS - pinned.length)
 		const documentHeight = document.documentElement.scrollHeight
 		const layout = JSON.stringify([documentHeight, quiet, pinned])
 		if (layout === lastLayout) return

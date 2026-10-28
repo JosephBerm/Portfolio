@@ -21,6 +21,12 @@ export interface SkyRect {
 	y: number
 	width: number
 	height: number
+	/**
+	 * What the copy in this rect can take behind it: the most white (0-1 of --color-white, added over navy) before its
+	 * own color and size fall under their WCAG 2 AA contrast (4.5:1, or 3:1 for large text). Measured per element on
+	 * the main thread (`lightHeadroom`), so the worker mirrors no theme color and no text size.
+	 */
+	headroom: number
 }
 
 /**

@@ -10,9 +10,9 @@ const { name, email } = myPortfolio.userProfile
 
 export default function Introduction() {
 	return (
-		// data-sky-quiet: the home sky keeps bright stars clear of this copy, and shooting stars only fade out behind it
+		// data-sky-quiet: the home sky keeps bright stars clear of this copy, and a shooting star behind it dims to what the copy can take
 		<section data-sky-quiet className="flex flex-col justify-center items-start min-h-screen h-auto p-0 pt-[100px]">
-			{/* The home sky measures this copy again 1.5s after the reveal (ENTRANCE_SETTLE_MS in src/components/sky/mountSky.ts): the entrance must settle by then */}
+			{/* The home sky measures this copy net of every transform translation, and again 1.5s after the reveal (ENTRANCE_SETTLE_MS in src/components/sky/mountSky.ts): entrances may translate and fade, but this copy and its ancestors keep no static transform translation and no opacity below 1 at rest */}
 			<StaggerContainer staggerDelay={0.1}>
 				<StaggerItem index={0} distance={HERO_DISTANCE.greeting} dur={duration.slow}>
 					<p className="text-green font-mono text-[clamp(var(--text-sm),5vw,var(--text-base))] font-normal leading-[1.1] m-0 mb-[20px] ml-[2px] sm:mb-[30px] sm:ml-[4px]">

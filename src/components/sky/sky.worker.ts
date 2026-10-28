@@ -6,10 +6,10 @@
 
 import { densityKeep } from '@/lib/sky/catalog'
 import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
-import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type Point } from '@/lib/sky/meteors'
+import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { between } from '@/lib/sky/random'
-import { emergenceDone, hazeEmergence, sceneAt, screenQuietZones, smoothstep, type QuietBlend } from '@/lib/sky/scene'
+import { emergenceDone, hazeEmergence, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend } from '@/lib/sky/scene'
 import { createStarField, drawMeteor, drawSky, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
@@ -22,6 +22,8 @@ interface SkyWorkerScope {
 }
 
 type FrameMode = 'active' | 'fade' | 'twinkle' | 'sleep'
+
+type LayoutMessage = Extract<SkyMainMessage, { type: 'layout' }>
 
 const scope = self as unknown as SkyWorkerScope
 const field = createStarField()
@@ -47,6 +49,8 @@ let pinned: readonly SkyRect[] = []
 // The rects a new layout eases in from (none before the first)
 let quietBefore: readonly SkyRect[] = []
 let pinnedBefore: readonly SkyRect[] = []
+// The newest layout that arrived while an ease was running, applied when it ends
+let pendingLayout: LayoutMessage | null = null
 
 // Milliseconds on the worker clock
 let lastScrollAt = -Infinity
@@ -61,6 +65,8 @@ let layoutAt: number | null = null
 let nextMeteorAt = Infinity
 
 let meteor: Meteor | null = null
+// The scroll offset the shooting star launched at (SCROLL_CANCEL)
+let launchScrollY = 0
 let radiant: Point | null = null
 let launched = 0
 let failedPlans = 0
@@ -78,9 +84,17 @@ function deviceSize(cssSize: number, ratio: number): number {
 	return Math.max(1, Math.round(cssSize * ratio))
 }
 
+/** The contrast preference's levels: stars, haze and the share of each copy's budget a shooting star may light. */
+function contrastLevels(): typeof CONTRAST_NORMAL | typeof CONTRAST_MORE {
+	return contrastMore ? CONTRAST_MORE : CONTRAST_NORMAL
+}
+
 /** True when two lists hold the same rects (a layout message may change only the document height). */
 function sameRects(a: readonly SkyRect[], b: readonly SkyRect[]): boolean {
-	return a.length === b.length && a.every((rect, i) => rect.x === b[i]?.x && rect.y === b[i]?.y && rect.width === b[i]?.width && rect.height === b[i]?.height)
+	return (
+		a.length === b.length &&
+		a.every((rect, i) => rect.x === b[i]?.x && rect.y === b[i]?.y && rect.width === b[i]?.width && rect.height === b[i]?.height && rect.headroom === b[i]?.headroom)
+	)
 }
 
 /** No scroll for FRAME.idleSleepMs: the visitor is probably not watching the sky. */
@@ -113,6 +127,11 @@ function noteInput(now: number): void {
 	lastInputAt = now
 }
 
+/** True at time t (s) while the quiet zones still ease toward the layout applied at `layoutAt` (QUIET.ease long). */
+function quietEasing(t: number): boolean {
+	return layoutAt !== null && t - layoutAt < QUIET.ease
+}
+
 /** How often to draw right now, from the most to the least demanding reason to draw. */
 function frameMode(now: number): FrameMode {
 	if (!ctx || !visible || motion === 'off' || exitAt === null) return 'sleep'
@@ -120,7 +139,7 @@ function frameMode(now: number): FrameMode {
 	const scrolling = now - lastScrollAt < FRAME.scrollSettleMs
 	if ((meteor && meteorMoving(meteor, t)) || (scrolling && motion === 'full')) return 'active'
 	// A lingering train, scrolling under reduced motion, the dusk and copy that has just appeared or moved change slowly
-	if (meteor || scrolling || !emergenceDone(t - exitAt) || (layoutAt !== null && t - layoutAt < QUIET.ease)) return 'fade'
+	if (meteor || scrolling || !emergenceDone(t - exitAt) || quietEasing(t)) return 'fade'
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
 	if (motion === 'full' && !isIdle(now) && sceneAt(scrollY, height, documentHeight).twinkle > 0) return 'twinkle'
 	return 'sleep'
@@ -189,11 +208,12 @@ function tick(now: number): void {
 	schedule(now)
 }
 
-/** Retires a finished shooting star and launches the next one when it is due and the moment allows. */
+/** Retires a finished or canceled shooting star and launches the next one when it is due and the moment allows. */
 function updateMeteor(now: number): void {
 	const t = now / 1000
 	if (meteor) {
-		if (t - meteor.startedAt <= meteorLifetime(meteor)) return
+		// Scrolling away from where it launched takes it away: it would pass over copy the veil doesn't know (SCROLL_CANCEL)
+		if (t - meteor.startedAt <= meteorLifetime(meteor) && scrollKept(launchScrollY, scrollY) > 0) return
 		meteor = null
 		needsDraw = true
 	}
@@ -203,15 +223,8 @@ function updateMeteor(now: number): void {
 		nextMeteorAt = t + METEOR.recheck
 		return
 	}
-	const meteorField = { width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }
-	// Keep the radiant while it yields paths, so shooting stars share a direction; when it doesn't, try fresh ones
-	let plan = radiant ? planMeteor(random, meteorField, radiant, t) : null
-	for (let tries = 0; !plan && tries < (narrow ? 1 : METEOR.radiantTries); tries++) {
-		radiant = pickRadiant(random, width, height)
-		plan = planMeteor(random, meteorField, radiant, t)
-	}
+	const plan = planLaunch({ width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }, narrow, t)
 	if (!plan) {
-		radiant = null
 		failedPlans++
 		// No room around the copy (a phone held sideways, say): stop trying until the layout changes
 		nextMeteorAt = failedPlans >= METEOR.maxFailedPlans ? Infinity : t + between(random, METEOR.retry[0], METEOR.retry[1])
@@ -219,27 +232,73 @@ function updateMeteor(now: number): void {
 	}
 	failedPlans = 0
 	meteor = plan
+	launchScrollY = scrollY
 	launched++
 	nextMeteorAt = t + plan.duration + nextMeteorGap(random, t - revealAt)
 }
 
-/** The quiet zones on screen at time t (s): the previous layout's easing into the current one's over QUIET.ease. */
+/**
+ * A plan for one launch. The radiant in hand is kept while it yields long flights, so shooting stars share a direction;
+ * when it doesn't, fresh ones are tried. Long flights come first on every radiant, and a shorter fallback only when none
+ * has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on copy.
+ * Returns null (and drops the radiant) when nothing fits.
+ */
+function planLaunch(meteorField: MeteorField, narrow: boolean, t: number): Meteor | null {
+	const radiants = radiant ? [radiant] : []
+	while (radiants.length < (radiant ? 1 : 0) + (narrow ? 1 : METEOR.radiantTries)) radiants.push(pickRadiant(random, meteorField.width, meteorField.height))
+	const { meteorInk: ink } = contrastLevels()
+	for (const flights of ['long', 'short'] as const) {
+		for (const candidate of radiants) {
+			const plan = planMeteor(random, meteorField, candidate, t, { flights, ink })
+			if (plan) {
+				radiant = candidate
+				return plan
+			}
+		}
+	}
+	radiant = null
+	return null
+}
+
+/** The quiet zones on screen at time t (s): the previous layout's easing into the current one's over QUIET.ease, and the waiting layout's, if one is. */
 function quietBlend(t: number): QuietBlend {
 	const level = layoutAt === null ? 1 : smoothstep(0, QUIET.ease, t - layoutAt)
 	return {
 		from: level < 1 ? screenQuietZones(quietBefore, scrollY, pinnedBefore) : [],
 		to: screenQuietZones(quiet, scrollY, pinned),
 		level,
+		next: pendingLayout ? screenQuietZones(pendingLayout.quiet, scrollY, pendingLayout.pinned) : undefined,
 	}
 }
 
 /**
- * Asks for one more frame once the quiet ease has run out, if the last one drawn still showed it part way. Fade frames
- * come 1/FRAME.fadeFps s apart, so the ease ends between two of them, and a worker about to sleep (reduced motion,
- * reading) would keep the older state.
+ * Starts easing toward new rects: the ones on screen now become `from`, so a layout never changes the zones in one
+ * frame. A layout that arrives mid-ease waits for it to end (the newest wins), because starting from the previous target
+ * would jump every star by what the running ease had not yet shown; a shooting star keeps clear of the waiting one
+ * meanwhile (QuietBlend.next). Any layout still waiting is older than this one, so it is dropped here: applied later, it
+ * would put the zones back on a stale layout for good.
+ */
+function applyLayout(message: LayoutMessage, now: number): void {
+	quietBefore = quiet
+	pinnedBefore = pinned
+	quiet = message.quiet
+	pinned = message.pinned
+	layoutAt = now / 1000
+	pendingLayout = null
+}
+
+/**
+ * Applies a waiting layout once the running ease is over, and asks for one more frame once the quiet ease has run out,
+ * if the last one drawn still showed it part way. Fade frames come 1/FRAME.fadeFps s apart, so the ease ends between two
+ * of them, and a worker about to sleep (reduced motion, reading) would keep the older state.
  */
 function settleQuiet(now: number): void {
-	if (layoutAt !== null && lastDrawAt / 1000 - layoutAt < QUIET.ease && now / 1000 - layoutAt >= QUIET.ease) needsDraw = true
+	const t = now / 1000
+	if (layoutAt === null || quietEasing(t)) return
+	if (pendingLayout) {
+		applyLayout(pendingLayout, now)
+		needsDraw = true
+	} else if (lastDrawAt / 1000 - layoutAt < QUIET.ease) needsDraw = true
 }
 
 /** Everything drawSky and drawMeteor need to draw the sky at time `now` (ms) onto `target`. */
@@ -247,7 +306,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const t = now / 1000
 	const scene = sceneAt(scrollY, height, documentHeight)
 	const dusk = exitAt === null ? -1 : t - exitAt
-	const contrast = contrastMore ? CONTRAST_MORE : CONTRAST_NORMAL
+	const contrast = contrastLevels()
 	return {
 		time: t,
 		width,
@@ -272,7 +331,7 @@ function draw(now: number): void {
 	const started = performance.now()
 	const frame = frameAt(now, canvas)
 	drawSky(ctx, assets, field, frame)
-	if (meteor) drawMeteor(ctx, assets, meteor, frame)
+	if (meteor) drawMeteor(ctx, assets, meteor, frame, scrollKept(launchScrollY, scrollY))
 	lastDrawAt = now
 	needsDraw = false
 	if (!ready) {
@@ -327,8 +386,15 @@ function rebuildAssets(): void {
 	assets = { atlas: buildStarAtlas(dpr, tokens), haze: buildHaze(width, height, tokens), palette: starPalette(tokens), tokens }
 }
 
-/** Rebuilds the haze for the settled size and redraws. */
+/**
+ * Rebuilds the haze for the settled size and redraws. It stalls the worker for more than a frame, so it waits for the
+ * quiet zones to stop easing: a gap in the middle of that ease would show as a step in the stars near the copy.
+ */
 function rebuildHaze(): void {
+	if (quietEasing(performance.now() / 1000)) {
+		hazeTimer = setTimeout(rebuildHaze, HAZE_REBUILD_MS)
+		return
+	}
 	hazeTimer = undefined
 	if (assets && tokens) {
 		assets.haze?.close()
@@ -468,20 +534,19 @@ scope.addEventListener('message', (event) => {
 			// A running loop paces scroll redraws itself; a sleeping worker draws one now
 			if (!rafId && timerId === undefined) needsDraw = true
 			break
-		case 'layout':
+		case 'layout': {
 			documentHeight = message.documentHeight
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
-			// near it fade instead of changing in one frame. A change mid-ease eases on from the previous target.
-			if (!sameRects(message.quiet, quiet) || !sameRects(message.pinned, pinned)) {
-				quietBefore = quiet
-				pinnedBefore = pinned
-				quiet = message.quiet
-				pinned = message.pinned
-				layoutAt = now / 1000
+			// near it fade instead of changing in one frame. A change mid-ease waits for the ease to end.
+			const latest = pendingLayout ?? { quiet, pinned }
+			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned)) {
+				if (quietEasing(now / 1000)) pendingLayout = message
+				else applyLayout(message, now)
 			}
 			retryMeteors(now)
 			needsDraw = true
 			break
+		}
 	}
 	schedule(now)
 })

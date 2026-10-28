@@ -1,8 +1,8 @@
 /**
  * Tunables for the home page night sky, read by the sky worker. Lengths are CSS px unless a name says device px,
  * times are seconds unless a name ends in Ms or _MS, frequencies are Hz and alphas run 0-1.
- * Main-thread values (pixel-ratio caps, quiet selectors, the settle delay) live in src/components/sky/mountSky.ts,
- * so the page bundle never pulls in this module.
+ * Main-thread values (pixel-ratio caps, quiet selectors, the settle delay) live in src/components/sky/mountSky.ts, and
+ * the WCAG thresholds in src/lib/sky/color.ts, so the page bundle never pulls in this module.
  */
 
 import type { Rgb } from './protocol'
@@ -71,14 +71,23 @@ interface LayerConfig {
 
 /**
  * The three depth layers: magnitude bands, scroll parallax, twinkle and how much light each keeps behind quiet copy.
- * On the copy itself the brightest far star, at a twinkle peak, adds at most 0.39 × 1.54 × 0.1 = 0.06 of white, so slate
- * body text keeps 4.5:1 there.
+ * No layer keeps light on the copy itself (`inkKeep` 0), so no star adds to the white a shooting star may put there
+ * (INK_BUDGET). Mid and near must keep none: STAR_INK_PEAK covers far stars only.
  */
 export const LAYERS = {
-	far: { magnitude: [4.5, 6], parallax: 0.02, twinkleShare: 0.1, twinkleSigma: [0.06, 0.12], twinkleHz: [0.08, 0.2], quietKeep: 1, inkKeep: 0.1 },
+	far: { magnitude: [4.5, 6], parallax: 0.02, twinkleShare: 0.1, twinkleSigma: [0.06, 0.12], twinkleHz: [0.08, 0.2], quietKeep: 1, inkKeep: 0 },
 	mid: { magnitude: [2.5, 4.5], parallax: 0.04, twinkleShare: 0.35, twinkleSigma: [0.08, 0.16], twinkleHz: [0.1, 0.26], quietKeep: 0.6, inkKeep: 0 },
 	near: { magnitude: [-0.5, 2.5], parallax: 0.07, twinkleShare: 1, twinkleSigma: [0.12, 0.22], twinkleHz: [0.12, 0.32], quietKeep: 0, inkKeep: 0 },
 } as const satisfies Record<SkyLayer, LayerConfig>
+
+/**
+ * The most white the brightest far star adds on the copy itself, at a twinkle peak: its alpha (0.386) times the most
+ * twinkle lifts it (1.538), 0.593 rounded up to 0.6, times `LAYERS.far.inkKeep`. It is 0 while far stars keep nothing
+ * on the copy. INK_BUDGET leaves room for it, because a far star and a shooting star can share one pixel: at an
+ * `inkKeep` of 0.1 it is 0.06 and takes about 0.054 off every budget under the ceiling (all of body text's, about a
+ * third of the tagline's and the rails').
+ */
+export const STAR_INK_PEAK = 0.6 * LAYERS.far.inkKeep
 
 /** Twinkle harmonics: incommensurate ratios and weights, so no star repeats a pattern or pulses in step with another. `norm` makes the sum unit-variance. */
 export const TWINKLE_HARMONICS = { ratio2: 1.618, ratio3: 2.414, weight2: 0.7, weight3: 0.45, norm: 0.92 } as const
@@ -132,10 +141,16 @@ export const MIN_CORE_SIGMA_DEVICE_PX = 0.7
 
 /**
  * Behind quiet copy: padding around each rect, the distance over which the effect fades out, and the seconds a new
- * measurement takes to take effect (the copy appearing, an entrance settling, a resize), so stars and shooting stars
- * near the copy fade instead of changing in one frame.
+ * measurement takes to take effect (the copy appearing, an entrance settling, a resize), so stars near the copy fade
+ * instead of changing in one frame (a shooting star follows transientQuietFactor, in scene.ts).
  */
 export const QUIET = { padding: 32, feather: 40, ease: 0.6 } as const
+
+/**
+ * How far quiet copy dims things: padding plus feather from a measured text rect (px). Past it every quiet factor is 1.
+ * From a padded zone, which is what the zone helpers in scene.ts take, it is QUIET.feather alone.
+ */
+export const QUIET_REACH = QUIET.padding + QUIET.feather
 
 /**
  * Scroll narrative: the full sky in the hero, a dimmer and still sky while reading, and a bookend near the end of
@@ -177,7 +192,8 @@ interface HazePool {
 /**
  * Haze: soft light in the card-2 and card-3 hues (the gradient cards and the /links orbs), in the empty upper right
  * with a fainter counter-pool at the lower left. Behind the hero copy it stays well under --color-light-navy, so
- * slate body text keeps more than 5:1.
+ * slate body text keeps more than 5:1. INK_BUDGET.hazeReserve holds back what it adds under the copy: re-measure that
+ * and raise the reserve before brightening a pool, HAZE_NARROW_SCALE or HAZE_TOP_FADE.
  */
 export const HAZE_POOLS = [
 	{ x: 0.8, y: 0.2, radius: 0.42, color: 'card2', peak: 0.05 },
@@ -194,10 +210,10 @@ export const HAZE_NARROW_SCALE = 0.6
 /** Largest haze buffer (px); the haze is smooth, so it is computed at CSS resolution or less and scaled up. */
 export const HAZE_MAX_PIXELS = 2_100_000
 
-/** Delay after the last resize before the haze is rebuilt (ms); until then the old one is stretched. */
+/** Delay after the last resize before the haze is rebuilt, and between checks while the quiet zones still ease (ms); until then the old one is stretched. */
 export const HAZE_REBUILD_MS = 200
 
-/** No contrast preference: stars, haze and shooting stars as designed. `meteorInk` scales METEOR_VEIL.inkKeep. */
+/** No contrast preference: stars, haze and shooting stars as designed. `meteorInk` scales the INK_BUDGET of every rect. */
 export const CONTRAST_NORMAL = { stars: 1, haze: 1, meteorInk: 1 } as const
 
 /** prefers-contrast: more drops the haze, dims the stars and leaves no shooting-star light on the copy itself. */
@@ -230,7 +246,7 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, rasterMsPe
 
 /**
  * Shooting stars: rare and small, falling from one radiant beyond the top-right corner. Each lights up and peaks in
- * clear sky and may burn out behind quiet copy, veiled (METEOR_VEIL).
+ * clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL, INK_BUDGET).
  */
 export const METEOR = {
 	/** Seconds after the page reveal before the first one, once the hero entrance and side rails have settled. */
@@ -247,9 +263,9 @@ export const METEOR = {
 	maxFailedPlans: 3,
 	/** Seconds until the next check when a due shooting star is held back (scrolling, idle, past the hero, the narrow-screen limit). */
 	recheck: 1,
-	/** Candidate paths tried per radiant for long flights, and again for the fallback. */
+	/** Candidate paths tried per radiant for long flights, and again for the fallback; an aimed launch (METEOR_PASS) tries up to as many again. */
 	attempts: 160,
-	/** Fresh radiants tried per launch when the current one leaves no path; narrow screens try one, so theirs stay rare. */
+	/** Fresh radiants tried per launch when the current one yields no long flight, before any shorter one; narrow screens try one, so theirs stay rare. */
 	radiantTries: 3,
 	/** Earliest launch after the tab becomes visible again (s). */
 	afterReturn: 3,
@@ -308,15 +324,47 @@ export const METEOR = {
 } as const
 
 /**
- * A shooting star passing behind quiet copy, which it may do only while burning out. Within QUIET's padding and
- * feather it keeps `quietKeep` of its light at the padded edge and `inkKeep` on the copy itself, measured at every
- * point it draws; its glow and soft pass are halos and keep the square, so no light spills onto the letters. A path is
- * planned only if the head stays in clear sky through `clearUntil` of the flight (so at least 77% of its light is drawn
- * there), reaches the copy itself no earlier than `inkFrom` and never brightens again once dimmed (`rise` of slack, in
- * light-curve units), checked at `samples` points; fireballs, flares and trains stay in clear sky. On the copy it then
- * adds at most 0.9 × 0.585 × (2 × 0.05 + 0.52 × 0.05²) ≈ 0.053 of white, so slate body text keeps 4.5:1.
+ * White light (0-1 of --color-white, added over navy) the sky may put on the copy itself, per quiet rect. WCAG 2.2 AA
+ * (1.4.3) asks 4.5:1 of text and 3:1 of large text, and the main thread measures what each rect's own color and size can
+ * take: its `headroom` (slate body text 0.08, the 75 px tagline 0.19, the name 0.40, green text 0.33, the rails 0.19). The
+ * budget is that headroom less what may already be added there (`hazeReserve` for the haze, up to 0.023 of white under the
+ * tagline at 1366x768, and STAR_INK_PEAK for the brightest far star on the same pixel), times `safety` for rounding and
+ * resampling, and at most `ceiling`, so a shooting star is a glimmer behind any copy, never a streak that competes with
+ * it. That leaves slate body text about 0.05, the tagline and the rails about 0.15 and the name and green text the ceiling.
  */
-export const METEOR_VEIL = { quietKeep: 0.3, inkKeep: 0.05, clearUntil: 0.65, inkFrom: 0.75, rise: 0.01, samples: 64 } as const
+export const INK_BUDGET = { ceiling: 0.2, safety: 0.9, hazeReserve: 0.025 } as const
+
+/**
+ * A shooting star near quiet copy. A path is planned so that the head stays in clear sky through `clearUntil` of the
+ * flight (the light peaks at 0.45, so it lights up and peaks there) and never brightens again once dimmed (`rise` of
+ * slack, in light-curve units), checked at `samples` points; fireballs, flares and trains stay in clear sky. It does not
+ * fade out at the edge of the copy: where the veil dims a head that adds `edgeBright` or more of white (0-1 of
+ * --color-white, unveiled) to `edgeKept` (0-1) or less of its light, the head must then show on the copy (METEOR_PASS
+ * `glimmer` for `dwell`), or the path is dropped, so a bright star never dissolves just short of the text. Within QUIET's
+ * padding and feather it keeps `quietKeep` of its light at the padded edge and, on the copy itself, the share that fits
+ * the copy's INK_BUDGET, measured at every point it draws and the same for all of it, so it dims as a whole, keeps its
+ * shape and glides on behind the copy at a steady, faint level until its own light dies. Copy with no budget left, or
+ * prefers-contrast: more (which scales every budget by 0), gets nothing on it, so a bright head stays clear of it.
+ */
+export const METEOR_VEIL = { quietKeep: 0.3, clearUntil: 0.47, rise: 0.01, samples: 64, edgeBright: 0.3, edgeKept: 0.5 } as const
+
+/**
+ * Passes behind copy: `share` of the launches whose first fit is a plain flight (not a fireball, flare or train, which
+ * need clear sky, so the aim never thins them) are traded for a flight whose head spends at least `dwell` of the flight
+ * (progress units, about 0.1 s) inside a text rect adding at least `visible` of white there; where no such flight fits,
+ * the first fit flies. `visible` 0.12 (R+G+B 87 of 726, +28 levels a channel) is where a streak starts to read on a dark
+ * sky: the budgets of the tagline, the name and green text allow it and slate body text's does not (INK_BUDGET), so the
+ * aim never counts a pass behind a paragraph. `glimmer` 0.041 of white (R+G+B 30 of 726, +10 levels a channel) is the
+ * faintest light that still shows on the copy; METEOR_VEIL uses it.
+ */
+export const METEOR_PASS = { share: 0.4, visible: 0.12, dwell: 0.1, glimmer: 0.041 } as const
+
+/**
+ * A moving transient launched with the page at one scroll offset is dimmed once the page has scrolled `from` px from
+ * there and gone at `to` px: the copy under it is no longer the copy it was planned around (the veil knows only quiet
+ * copy). Position-driven, so even a jump of a screen takes it away at once (see scrollKept).
+ */
+export const SCROLL_CANCEL = { from: 12, to: 24 } as const
 
 /**
  * Light curve over flight progress p: sin(π × p^skew)^sharpness peaks near 45% (a quick ignition, a gentle burn-out); a

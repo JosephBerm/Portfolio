@@ -539,7 +539,7 @@ export const METEOR_KINDS = {
 	 * later is left out, and fewer than the least `members` is no burst. Every member flies in clear sky, so a burst never
 	 * takes the ink lease, and none has a flare or a train.
 	 */
-	burst: { chance: 0, spacing: 90, after: 45, members: [2, 4], stagger: [0.35, 1.2] },
+	burst: { chance: 0.05, spacing: 90, after: 45, members: [2, 4], stagger: [0.35, 1.2] },
 } as const
 
 /**

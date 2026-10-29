@@ -93,6 +93,8 @@ export interface TransientSpec<K extends TransientKind> {
 	nearCopy(body: TransientBodies[K]): boolean
 	/** This body never takes the ink lease although its kind may (a shooting star variant): it is planned in clear sky and drawn with CLEAR_SKY_KEEPS, as a kind with `lease` false is. Absent for a kind whose bodies may all take it. */
 	clearSky?(body: TransientBodies[K]): boolean
+	/** Seconds from the launch to the body's last onset, for a body whose light starts more than once (a burst's later members), so other launches keep TRANSIENTS.minOnsetGap from that onset too. Absent: 0. */
+	lastOnset?(body: TransientBodies[K]): number
 	/** This kind may take the ink lease; false (satellites) plans in clear sky only and draws with CLEAR_SKY_KEEPS. */
 	lease: boolean
 	/** It may launch on narrow screens (phones). */
@@ -141,7 +143,7 @@ export interface TransientSchedule {
 	launched: number
 	/** Launches this visit per kind: a kind with a `limit` stops there. */
 	kindLaunches: Record<TransientKind, number>
-	/** Last onset of any kind (s): onsets stay TRANSIENTS.minOnsetGap apart. */
+	/** Last onset of any kind (s), a body's later onsets included (TransientSpec.lastOnset), so it can lie ahead of now: onsets stay TRANSIENTS.minOnsetGap apart. */
 	lastOnsetAt: number
 	/** Before this (s) every plan stays in clear sky: the crossing cooldown after the reveal and after the last lease began. */
 	crossingAfter: number
@@ -270,7 +272,7 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 	}
 	// The one cast: the envelope is of the kind it was planned for, and the union of envelopes is what the schedule holds
 	schedule.active.push(envelope as Transient)
-	schedule.lastOnsetAt = now
+	schedule.lastOnsetAt = now + (spec.lastOnset?.(body) ?? 0)
 	schedule.failedPlans[kind] = 0
 	schedule.launched++
 	schedule.kindLaunches[kind]++

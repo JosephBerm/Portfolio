@@ -216,7 +216,7 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	plan: planMeteorLaunch,
 	lifetime: meteorLifetime,
 	moving: meteorMoving,
-	nearCopy: (meteor) => meteor.nearCopy,
+	nearCopy: (meteor) => meteor.nearCopy || (meteor.followers?.some((follower) => follower.nearCopy) ?? false),
 	clearSky: (meteor) => meteor.variant !== undefined,
 	lastOnset: (meteor) => (meteor.followers?.at(-1)?.startedAt ?? meteor.startedAt) - meteor.startedAt,
 	lease: true,

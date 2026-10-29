@@ -199,9 +199,9 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader): SkyRect
 
 /**
  * Starts the night sky inside `host`: creates the canvas, hands it to the sky worker and forwards size, scroll, the
- * pointer's place for the lean, activity (pointer, keys and focus), visibility, preference and layout changes. Returns a
- * no-op controller where OffscreenCanvas or workers are missing or the theme tokens can't be read, which leaves the
- * plain navy background.
+ * pointer's place for the lean, activity (pointer, keys and focus), visibility, preference and layout changes, and the
+ * page's animation frames while the worker asks for them. Returns a no-op controller where OffscreenCanvas or workers
+ * are missing or the theme tokens can't be read, which leaves the plain navy background.
  */
 export function mountSky(host: HTMLElement, canvasClassName: string): SkyController {
 	if (!supported()) return NOOP
@@ -376,6 +376,23 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	)
 	window.addEventListener('blur', () => queuePointer(null), { signal })
 
+	// WebKit's worker draws on a fixed 15 ms timer, not the display, so while the worker asks for it the page's own animation
+	// frames stand in: one tick per frame, nothing read from the layout. The worker stops it when it has no use for it.
+	let relayFrame = 0
+	const sendTick = () => {
+		relayFrame = requestAnimationFrame(sendTick)
+		post({ type: 'tick' })
+	}
+	const setRelay = (on: boolean) => {
+		if (on) {
+			// A sky that was destroyed starts nothing
+			if (!relayFrame && !destroyed) relayFrame = requestAnimationFrame(sendTick)
+			return
+		}
+		cancelAnimationFrame(relayFrame)
+		relayFrame = 0
+	}
+
 	document.addEventListener('visibilitychange', () => post({ type: 'visible', visible: document.visibilityState === 'visible' }), { signal })
 	forcedColors.addEventListener('change', syncMotion, { signal })
 	moreContrast.addEventListener('change', () => post({ type: 'contrast', more: moreContrast.matches }), { signal })
@@ -384,8 +401,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		if (destroyed) return
 		destroyed = true
 		clearTimeout(settleTimer)
-		// The pending pointer message would go to a worker that is gone
+		// The pending pointer message and tick would go to a worker that is gone, which can no longer turn the relay off
 		cancelAnimationFrame(pointerFrame)
+		setRelay(false)
 		listeners.abort()
 		stopScroll()
 		stopPlayback()
@@ -409,6 +427,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 					break
 				case 'error':
 					destroy()
+					break
+				case 'relay':
+					setRelay(message.on)
 					break
 				default: {
 					// Every message type is handled above: a new one fails to compile here, rather than being taken for an error

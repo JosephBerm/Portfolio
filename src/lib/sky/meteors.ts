@@ -84,9 +84,16 @@ export interface PlanOptions {
 	steer: Steer
 	/**
 	 * Padded zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose
-	 * links change color on hover and focus, which their measured headroom misses until the next measurement. Default none.
+	 * links change color on hover and focus, which their measured headroom misses until the next measurement; for farewell
+	 * meteors, also the sky above the highest quiet copy on screen at the foot of the page, where copy the sky has no rect
+	 * for shows. Default none.
 	 */
 	clearOf?: readonly SkyRect[]
+	/**
+	 * The box start points are drawn from, in place of startArea(field); a start above METEOR.top moves down to it.
+	 * Farewell meteors start only below the top of the highest copy of the page's flow on screen.
+	 */
+	starts?: StartArea
 	/**
 	 * This launch is a fireball: its long flights are fireballs, in clear sky only, for METEOR_KINDS.fireball's duration
 	 * and at a peak of 1. The shorter fallback pass never flies one, so a caller that wants a fireball or none asks for
@@ -123,11 +130,20 @@ export function headGain(boost = 1): number {
 /** White a unit of light adds on the wake's centerline: its core and its soft pass. */
 export const WAKE_GAIN = 1 + METEOR_LOOK.softAlpha
 
+/** A box start points are drawn from (CSS px). */
+export interface StartArea {
+	x0: number
+	x1: number
+	y0: number
+	y1: number
+}
+
 /**
- * The box planFlight draws start points from (CSS px): width × METEOR.spawnX by height × spawnY. The box itself is not
- * clamped: a start drawn above METEOR.top, where the navbar is, moves down to it.
+ * The box planFlight draws start points from unless the caller gives its own (PlanOptions.starts), in CSS px: width ×
+ * METEOR.spawnX by height × spawnY. The box itself is not clamped: a start drawn above METEOR.top, where the navbar is,
+ * moves down to it.
  */
-export function startArea(field: MeteorField): { x0: number; x1: number; y0: number; y1: number } {
+export function startArea(field: MeteorField): StartArea {
 	const { width, height } = field
 	return { x0: width * METEOR.spawnX[0], x1: width * METEOR.spawnX[1], y0: height * METEOR.spawnY[0], y1: height * METEOR.spawnY[1] }
 }
@@ -215,10 +231,11 @@ interface Fit {
 }
 
 /**
- * Up to METEOR.attempts candidate paths steered by `options.steer`, shorter on the fallback pass and every one a fireball
- * if `options.fireball`; the first that fits. A share of the launches (METEOR_PASS) then trade that flight for one that
- * passes visibly behind copy, where one fits in as many more candidates. Fireballs, flares and trains need clear sky, so a
- * launch that came out as one keeps it: their rates don't depend on the aim.
+ * Up to METEOR.attempts candidate paths from start points in `options.starts` (startArea by default), steered by
+ * `options.steer`, shorter on the fallback pass and every one a fireball if `options.fireball`; the first that fits. A
+ * share of the launches (METEOR_PASS) then trade that flight for one that passes visibly behind copy, where one fits in as
+ * many more candidates. Fireballs, flares and trains need clear sky, so a launch that came out as one keeps it: their
+ * rates don't depend on the aim.
  */
 function planFlight(random: Random, field: MeteorField, now: number, options: PassOptions): Meteor | null {
 	const { width, height } = field
@@ -227,7 +244,7 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1 } = options
 	const minPath = (narrow ? METEOR.narrowMinPath : METEOR.path[0]) * (fallback ? METEOR.fallbackScale : 1)
 	const maxPath = narrow ? width * METEOR.narrowMaxPathShare : Math.min(METEOR.path[1], METEOR.pathShare * longSide)
-	const { x0, x1, y0, y1 } = startArea(field)
+	const { x0, x1, y0, y1 } = options.starts ?? startArea(field)
 	// The first of up to METEOR.attempts candidates that fits and whose head spends at least `minBehind` of the flight visibly on copy
 	const fit = (minBehind: number): Fit | null => {
 		for (let attempt = 0; attempt < METEOR.attempts; attempt++) {

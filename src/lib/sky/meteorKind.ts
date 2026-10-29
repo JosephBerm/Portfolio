@@ -1,14 +1,17 @@
 /**
- * The shooting stars as a kind of transient: what they remember between launches, how a launch is planned and how they
- * are timed. This module imports only types from transients.ts, which reads its spec when it loads.
+ * The shooting stars as kinds of transient, over the hero and as farewell meteors at the foot of the page: what they
+ * remember between launches, how a launch is planned and how they are timed. This module imports only types from
+ * transients.ts, which reads their specs when it loads.
  */
 
-import { METEOR, METEOR_KINDS, METEOR_RATE } from './config'
+import { FAREWELL, METEOR, METEOR_KINDS, METEOR_RATE } from './config'
 import { nextGap } from './gaps'
-import { meteorLifetime, meteorMoving, planMeteor, type Meteor, type PlanOptions } from './meteors'
+import { meteorLifetime, meteorMoving, planMeteor, startArea, type Meteor, type PlanOptions } from './meteors'
+import type { SkyRect } from './protocol'
+import { ZONE_REACH } from './quietIndex'
 import { pickVisitSky, visitSteer, type VisitSky } from './radiants'
 import { between } from './random'
-import type { PlanContext, TransientSpec } from './transients'
+import type { PlanContext, SkyField, TransientSpec } from './transients'
 
 /**
  * What the shooting stars remember between launches: the visit's sky, the shower and the sporadic sources they come
@@ -89,7 +92,67 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	nearCopy: (meteor) => meteor.nearCopy,
 	lease: true,
 	phones: true,
+	scene: 'hero',
 	forget: (visit) => {
 		visit.meteor.sky = null
 	},
+}
+
+/**
+ * The top of the highest padded zone of the page's flow that is on screen (CSS px; above the screen where that zone is cut
+ * off by it), or null while none is. The field's `pinned` zones are the very objects `quiet` holds for the side rails, so
+ * every other zone in `quiet` is copy in the page's flow.
+ */
+function flowEdge(field: SkyField): number | null {
+	let edge: number | null = null
+	for (const zone of field.quiet) {
+		if (zone.y >= field.height || zone.y + zone.height <= 0 || field.pinned.includes(zone)) continue
+		edge = edge === null ? zone.y : Math.min(edge, zone.y)
+	}
+	return edge
+}
+
+/**
+ * Whether the screen leaves room for a farewell meteor: some copy of the page's flow is on screen, and its top lies above the
+ * line paths must end above (METEOR.maxEndY). A farewell meteor flies below that top, so with the top at or below the line
+ * none could end above it. On a tall screen Contact sits low even at the foot of the page, and there is no room.
+ */
+export function farewellRoom(field: SkyField): boolean {
+	const edge = flowEdge(field)
+	return edge !== null && edge < METEOR.maxEndY * field.height
+}
+
+/**
+ * A plan for one farewell meteor: a shooting star planned like any other (planMeteorTransient), but only in the sky below
+ * the top of the highest copy of the page's flow on screen (flowEdge). The page above Contact has copy that carries no
+ * quiet rect, which the veil knows nothing of: the starts are drawn from that edge down to the bottom of the screen, and
+ * the sky above it is kept clear, so no path rises above the edge. Null when no copy of the flow is on screen.
+ */
+export function planFarewell(context: PlanContext): Meteor | null {
+	const { field } = context
+	const edge = flowEdge(field)
+	if (edge === null) return null
+	// The planner keeps every path QUIET.feather (ZONE_REACH) away from a rect, so one ending that far above the edge leaves the paths at the edge or below it;
+	// a screen high, it covers all the sky above the edge that is on screen, whatever the edge
+	const above: SkyRect = { x: 0, y: edge - ZONE_REACH - field.height, width: field.width, height: field.height, headroom: 0 }
+	return planMeteorTransient(context, { clearOf: [above], starts: { ...startArea(field), y0: edge, y1: field.height } })
+}
+
+/**
+ * The farewell meteors' timing and planning: shooting stars at the foot of the page, around Contact and the footer. They keep
+ * a clock of their own, from the reveal and after each flight (FAREWELL.gap), at most FAREWELL.limit a visit, and wait for a
+ * screen that leaves room.
+ */
+export const FAREWELL_SPEC: TransientSpec<'farewell'> = {
+	firstDelay: (random) => nextGap(random, FAREWELL.gap, 0),
+	nextAfter: (meteor, random, sinceReveal) => meteor.duration + nextGap(random, FAREWELL.gap, sinceReveal),
+	plan: planFarewell,
+	lifetime: meteorLifetime,
+	moving: meteorMoving,
+	nearCopy: (meteor) => meteor.nearCopy,
+	lease: true,
+	phones: true,
+	scene: 'end',
+	room: farewellRoom,
+	limit: FAREWELL.limit,
 }

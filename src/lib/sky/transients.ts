@@ -5,25 +5,26 @@
  */
 
 import { TRANSIENTS } from './config'
-import { METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
+import { FAREWELL_SPEC, METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
 import type { Meteor, MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
 import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
 import { SATELLITE_SPEC, type SatellitePass } from './satellites'
-import { scrollKept } from './scene'
+import { scrollKept, type LaunchScene } from './scene'
 
 /** The model behind each kind: what its planner returns and its drawing reads. */
 export interface TransientBodies {
 	meteor: Meteor
 	satellite: SatellitePass
+	farewell: Meteor
 }
 
 /** One kind of transient. */
 export type TransientKind = keyof TransientBodies
 
 /** Every kind, in the order the scheduler checks them for a launch (shooting stars first: they are the most frequent). */
-export const TRANSIENT_KINDS = ['meteor', 'satellite'] as const satisfies readonly TransientKind[]
+export const TRANSIENT_KINDS = ['meteor', 'satellite', 'farewell'] as const satisfies readonly TransientKind[]
 
 /** Where transients may fly: the viewport and the padded quiet rects on screen (CSS px), the field every kind plans in. */
 export interface SkyField extends MeteorField {
@@ -94,17 +95,25 @@ export interface TransientSpec<K extends TransientKind> {
 	lease: boolean
 	/** It may launch on narrow screens (phones). */
 	phones: boolean
+	/** The launch scene it flies in (SceneLevels.launchScene): over the hero or at the end bookend. */
+	scene: LaunchScene
+	/** Whether the field leaves room for this kind to fly. False holds a launch and never fails a plan, because the room moves with the scroll. Absent: always room. */
+	room?(field: SkyField): boolean
+	/** Most launches of this kind in a visit. Absent: no limit. */
+	limit?: number
 	/** The viewport changed: forget this kind's part of the visit's memory. */
 	forget?(visit: VisitMemory): void
 }
 
 /** Every kind's spec: a kind without one fails to compile. */
-const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC, satellite: SATELLITE_SPEC }
+const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC, satellite: SATELLITE_SPEC, farewell: FAREWELL_SPEC }
 
 /** Whether and where transients may launch now; the worker refills one reused gate every tick. */
 export interface LaunchGate {
-	/** Full motion, visible, revealed, the visitor present and the hero scene (SceneLevels.launches). */
+	/** Full motion, visible, revealed, the visitor present and in a launch scene (SceneLevels.launchScene). */
 	allowed: boolean
+	/** The launch scene now (SceneLevels.launchScene), which each kind's own `scene` must match. */
+	scene: LaunchScene | null
 	/** No scroll for TRANSIENTS.scrollQuiet seconds. */
 	settled: boolean
 	/** A narrow screen (the worker's narrowScreen): phones keep their own limit, TRANSIENTS.narrowLimit, and their own gaps. */
@@ -128,6 +137,8 @@ export interface TransientSchedule {
 	failedPlans: Record<TransientKind, number>
 	/** Launches this visit (narrow screens stop at TRANSIENTS.narrowLimit). */
 	launched: number
+	/** Launches this visit per kind: a kind with a `limit` stops there. */
+	kindLaunches: Record<TransientKind, number>
 	/** Last onset of any kind (s): onsets stay TRANSIENTS.minOnsetGap apart. */
 	lastOnsetAt: number
 	/** Before this (s) every plan stays in clear sky: the crossing cooldown after the reveal and after the last lease began. */
@@ -139,9 +150,10 @@ export interface TransientSchedule {
 export function createTransientSchedule(): TransientSchedule {
 	return {
 		active: [],
-		nextAt: { meteor: Infinity, satellite: Infinity },
-		failedPlans: { meteor: 0, satellite: 0 },
+		nextAt: { meteor: Infinity, satellite: Infinity, farewell: Infinity },
+		failedPlans: { meteor: 0, satellite: 0, farewell: 0 },
 		launched: 0,
+		kindLaunches: { meteor: 0, satellite: 0, farewell: 0 },
 		lastOnsetAt: -Infinity,
 		crossingAfter: Infinity,
 		visit: { meteor: createMeteorMemory() },
@@ -198,30 +210,37 @@ function retire(schedule: TransientSchedule, now: number, scrollY: number): bool
 /**
  * Whether this tick's launch of `kind` is held back: the moment doesn't allow it, or a rule of the kind or the visit keeps
  * it. One rule keeps the sky's bright moment single: a kind that never takes the ink lease (a satellite) waits while a
- * transient that holds it flies, and launchKind plans a transient that may take it in clear sky while any other flies.
+ * transient that holds it flies, and launchKind plans a transient that may take it in clear sky while any other flies. A
+ * kind flies only in its own launch scene and up to its own limit a visit. Whether the field leaves it room is asked after
+ * these, by updateTransients, because that needs the field.
  */
 function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number, gate: LaunchGate): boolean {
+	const spec = SPECS[kind]
 	return (
 		!gate.allowed ||
 		!gate.settled ||
-		(gate.narrow && (!SPECS[kind].phones || schedule.launched >= TRANSIENTS.narrowLimit)) ||
+		(gate.narrow && (!spec.phones || schedule.launched >= TRANSIENTS.narrowLimit)) ||
 		now - schedule.lastOnsetAt < TRANSIENTS.minOnsetGap ||
 		schedule.active.some((transient) => transient.kind === kind) ||
-		(!SPECS[kind].lease && leaseHeld(schedule))
+		(!spec.lease && leaseHeld(schedule)) ||
+		gate.scene !== spec.scene ||
+		(spec.limit !== undefined && schedule.kindLaunches[kind] >= spec.limit)
 	)
 }
 
 /**
- * Plans one launch of `kind` and, when it fits, puts it in the sky. A call into a spec goes through a function generic in
- * the kind, because TypeScript can't relate a union of transients to a union of specs. Returns true when one launched.
+ * Plans one launch of `kind` in `field` and, when it fits, puts it in the sky. A call into a spec goes through a function
+ * generic in the kind, because TypeScript can't relate a union of transients to a union of specs. Returns true when one
+ * launched.
  */
-function launchKind<K extends TransientKind>(schedule: TransientSchedule, random: Random, now: number, kind: K, gate: LaunchGate): boolean {
+function launchKind<K extends TransientKind>(schedule: TransientSchedule, random: Random, now: number, kind: K, gate: LaunchGate, field: SkyField): boolean {
 	const spec: TransientSpec<K> = SPECS[kind]
 	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over and nothing else is in the sky, so a satellite and a shooting star near the copy are never up together
 	const nearCopy = spec.lease && inkLeaseFree(schedule, now) && schedule.active.length === 0
-	const body = spec.plan({ random, now, field: gate.field(), visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
-	if (body === null && !nearCopy) {
-		// Clear sky alone failing shows no lack of room, and on a phone counting it could stop shooting stars for the visit
+	const body = spec.plan({ random, now, field, visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
+	if (body === null && (!nearCopy || spec.room !== undefined)) {
+		// Clear sky alone failing shows no lack of room, and on a phone counting it could stop shooting stars for the visit; nor does a plan
+		// of a kind whose room moves with the scroll, which posts no layout to try again on
 		schedule.nextAt[kind] = now + between(random, ...TRANSIENTS.retry)
 		return false
 	}
@@ -250,6 +269,7 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 	schedule.lastOnsetAt = now
 	schedule.failedPlans[kind] = 0
 	schedule.launched++
+	schedule.kindLaunches[kind]++
 	if (reachesCopy) schedule.crossingAfter = now + TRANSIENTS.crossingCooldown
 	// Gaps count from the end of the body's own time, so a kind never overlaps itself
 	schedule.nextAt[kind] = now + spec.nextAfter(body, random, gate.sinceReveal, gate.narrow)
@@ -264,11 +284,13 @@ export function updateTransients(schedule: TransientSchedule, random: Random, no
 	let changed = retire(schedule, now, gate.scrollY)
 	for (const kind of TRANSIENT_KINDS) {
 		if (now < schedule.nextAt[kind]) continue
-		if (heldBack(schedule, kind, now, gate)) {
+		// The field is built once, for a kind that gets past the other holds, and goes on to its plan
+		const field = heldBack(schedule, kind, now, gate) ? null : gate.field()
+		if (field === null || SPECS[kind].room?.(field) === false) {
 			schedule.nextAt[kind] = now + TRANSIENTS.recheck
 			continue
 		}
-		if (launchKind(schedule, random, now, kind, gate)) changed = true
+		if (launchKind(schedule, random, now, kind, gate, field)) changed = true
 	}
 	return changed
 }

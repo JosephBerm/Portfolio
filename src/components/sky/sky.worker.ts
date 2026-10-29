@@ -116,6 +116,7 @@ const transients = createTransientSchedule()
 /** Whether and where transients may launch, refilled by launchGate every tick (reused, so a tick makes no garbage). */
 const gate: LaunchGate = {
 	allowed: false,
+	scene: null,
 	settled: false,
 	narrow: false,
 	sinceReveal: 0,
@@ -295,14 +296,15 @@ function cancelFrames(): void {
 	refresh.pause()
 }
 
-/** True when transients may launch at all right now (each kind's own timing aside). */
+/** True when transients may launch at all right now, in a launch scene (each kind's own timing and scene aside). */
 function launchesAllowed(now: number, scene: SceneLevels): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launches
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launchScene !== null
 }
 
 /** Refills the launch gate for `now` (ms) in the tick's scene: whether and where transients may launch this tick. */
 function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.allowed = launchesAllowed(now, scene)
+	gate.scene = scene.launchScene
 	// Worker milliseconds against the key's seconds
 	gate.settled = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
 	gate.narrow = narrowScreen
@@ -336,7 +338,7 @@ function schedule(now: number): void {
 		refresh.pause()
 		const launchAt = nextLaunchAt(transients)
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
-		// Asleep in the hero (an idle twinkle, say): wake only for the next launch
+		// Asleep in a launch scene (an idle twinkle, say): wake only for the next launch
 		else if (Number.isFinite(launchAt) && launchesAllowed(now, scene)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
 		return
 	}

@@ -10,6 +10,7 @@
  * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there.
  */
 
+import { bodyFading, bodyShowing, bodyView, cancelBody, createSkyBody, dropBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
 import {
 	cameraOffset,
 	cameraSpeed,
@@ -53,6 +54,7 @@ import {
 	dropTransients,
 	forgetVisitSky,
 	holdTransients,
+	leaseHeld,
 	nextLaunchAt,
 	retryTransients,
 	revealTransients,
@@ -61,7 +63,7 @@ import {
 	updateTransients,
 	type LaunchGate,
 } from '@/lib/sky/transients'
-import { createStarField, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
+import { createStarField, drawComet, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
 /** The parts of DedicatedWorkerGlobalScope the sky uses (the project's TypeScript lib is DOM only). */
@@ -145,6 +147,10 @@ const pointerAt: Vec = { x: 0, y: 0 }
 const leanGoal: Vec = { x: 0, y: 0 }
 /** What the camera follows on its next step (reused, so a step makes no garbage). */
 const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0, lean: leanGoal }
+/** The static comet, the sky's one long-lived body: the reveal draws whether this visit hangs one, and its start rule decides when it shows. */
+const comet = createSkyBody()
+/** What the comet's step reads at each tick (reused, so a tick makes no garbage). */
+const bodyStep: BodyStep = { gate, leaseHeld: false, time: 0, twinkleTime: 0, drawnAt: 0, twinkleDrawnAt: 0, offset }
 /** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
 let cameraMoving = false
 /** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */
@@ -286,12 +292,13 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	frameState.cameraActive = cameraMoving || wanted || leaning
 	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera, wanted ? driftTarget(driftGate) : 0) * dpr
 	frameState.cameraCap = wanted || leaning ? driftCap(narrowScreen, quality > 0, softwareFps) : Infinity
-	// The dusk, copy that has just appeared or moved, the motion level easing and the thinned stars fading change slowly
+	// The dusk, copy that has just appeared or moved, the motion level easing, the thinned stars and the comet fading change slowly
 	frameState.fading =
 		(exitAt !== null && !emergenceDone(t - exitAt)) ||
 		quietEasing(t) ||
 		easing(motionLevel.since, FRAME.motionEase, t) ||
-		easing(thinnedAt, ADAPT.thinFade, t)
+		easing(thinnedAt, ADAPT.thinFade, t) ||
+		bodyFading(comet, t, t - hiddenTotal)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
 	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	return frameDemand(frameState)
@@ -342,6 +349,7 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
 	gate.scrollY = scrollY
 	gate.ink = contrastLevels().meteorInk
+	gate.bodyShowing = bodyShowing(comet)
 	return gate
 }
 
@@ -491,6 +499,7 @@ function tick(now: number): void {
 	const drawnAt = lastDrawAt / 1000
 	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, drawnAt) || easeEnded(thinnedAt, ADAPT.thinFade, now / 1000, drawnAt)) needsDraw = true
 	updateCamera(now, scene)
+	updateComet(now)
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
 	// display: until the relay starts, each of its frames is drawn, divided only by a demand's cap. The page's relayed
@@ -559,6 +568,24 @@ function updateCamera(now: number, scene: SceneLevels): void {
 }
 
 /**
+ * Steps the comet after the launch step and the camera: it starts when its rule allows (never while a shooting star holds
+ * the ink lease), is gone once it keeps no light, and a fade of it that has just run out draws one more frame, so no trace
+ * of it stays on screen. The launch gate it reads is the one this tick's launch step filled.
+ */
+function updateComet(now: number): void {
+	// A visit that draws no comet, and one whose comet has gone, have nothing to step
+	if (!comet.planned || comet.status === 'gone') return
+	const t = now / 1000
+	bodyStep.leaseHeld = leaseHeld(transients)
+	bodyStep.time = t
+	bodyStep.twinkleTime = t - hiddenTotal
+	bodyStep.drawnAt = lastDrawAt / 1000
+	bodyStep.twinkleDrawnAt = lastDrawAt / 1000 - hiddenTotal
+	cameraOffset(camera, offset)
+	if (updateBody(comet, bodyStep)) needsDraw = true
+}
+
+/**
  * Everything drawSky and drawTransient need to draw the sky at time `now` (ms) onto `target`. It gathers the gates first:
  * the twinkle reads the ambient level, and frames are also drawn outside a frame decision (a resize, a quality step),
  * where a sky that slept would otherwise show a stale twinkle.
@@ -601,6 +628,9 @@ function draw(now: number): void {
 	const frame = frameAt(now, canvas)
 	drawSky(ctx, assets, field, frame)
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
+	// The comet's view tests its box against the zones this frame draws, and may find it gone
+	const view = bodyShowing(comet) ? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, quiet: frame.quiet }) : null
+	if (view) drawComet(ctx, assets, view, frame)
 	lastDrawAt = now
 	needsDraw = false
 	if (!ready) {
@@ -706,9 +736,10 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	width = nextWidth
 	height = nextHeight
 	narrowScreen = nextWidth <= NARROW_MAX_WIDTH
-	// The old path was planned for the old layout
+	// The old path was planned for the old layout, and so was the comet's place
 	forgetVisitSky(transients)
 	dropTransients(transients)
+	dropBody(comet)
 	retryTransients(transients, random, now / 1000)
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
@@ -727,12 +758,13 @@ function emerge(now: number): void {
 	needsDraw = true
 }
 
-/** The page is showing: start the transients' clocks (the first launch waits for the hero entrance to settle). */
+/** The page is showing: start the transients' clocks (the first launch waits for the hero entrance to settle) and draw whether this visit hangs the comet. */
 function reveal(now: number): void {
 	emerge(now)
 	if (revealAt !== null) return
 	revealAt = now / 1000
 	revealTransients(transients, random, revealAt)
+	revealBody(comet, random)
 }
 
 scope.addEventListener('message', (event) => {
@@ -802,8 +834,11 @@ scope.addEventListener('message', (event) => {
 				resumeCamera(camera, scrollY)
 			}
 			motion = message.motion
-			// A shooting star or a satellite in flight fades out over TRANSIENTS.cancelFade instead of vanishing
-			if (motion !== 'full') cancelTransients(transients, t)
+			// A shooting star or a satellite in flight fades out over TRANSIENTS.cancelFade instead of vanishing, and so does the comet
+			if (motion !== 'full') {
+				cancelTransients(transients, t)
+				cancelBody(comet, t)
+			}
 			needsDraw = true
 			break
 		}

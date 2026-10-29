@@ -319,7 +319,7 @@ export const FRAME = {
 	twinkleFps: 15,
 	/** Twinkle rate after the adaptive step-down. */
 	slowTwinkleFps: 10,
-	/** Fades (dusk, scrolling under reduced motion, the motion level easing, the stars a quality step thins out). */
+	/** Fades (dusk, scrolling under reduced motion, the motion level easing, the stars a quality step thins out, the comet fading in or out). */
 	fadeFps: 30,
 	/** Scrolling counts as active this long after the last scroll message. */
 	scrollSettleMs: 180,
@@ -657,19 +657,20 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * faint majority of stars, so the camera moves it as it moves them (DEPTH) and it never moves on its own. It is
  * pictured to scale with the sky window (SKY_WINDOW): the coma radius, the tails' lengths and widths are degrees of it,
  * and the tails point `angle` degrees clockwise from the right (up is -90), the dust tail starting `dust.start` degrees
- * further round and bending `dust.curve` degrees over its length (negative is anticlockwise). The alphas are the peaks
- * at the nucleus, falling to 0 at the tails' tips; the nucleus stays under 0.6. `tint` picks a star palette color. The
- * coma is --color-green mixed `coma.mint` toward --color-white. It is drawn on `chance` of wide-screen visits, from
- * `firstDelay` seconds after the reveal (the hero's entrance, the rails and the copy's measurement have settled),
- * fading in over `fadeIn` seconds so nothing starts. Where it hangs is the nearest place to `anchor`, the nucleus as
- * shares of the width and height, on a grid of `step` px where its box, grown by as far as the camera can carry it (the
- * drift and the lean, times its nearness), keeps clear of every quiet zone's reach, stays inside the screen and lies
- * below the navbar (METEOR.top) and above About's header row, copy the zones know nothing of; a window with no such
- * place has no comet. About's header row lies below the hero by the offset of the last `aboutRow` entry whose width the
- * screen reaches (SECTION_SHELL's top padding plus .section-header's 10 px top margin, at Tailwind's md and lg
- * breakpoints), and the box must stay clear of it when the page has scrolled as far as a comet can still show. Where no
- * place fits it looks again after `retry` seconds. It is gone for the page view when the page scrolls from where it
- * began to show (SCROLL_CANCEL), when the sky is paused or resized, or when copy comes within reach of its box.
+ * further round and bending `dust.curve` degrees over its length (negative is anticlockwise). The alphas are each
+ * part's peak light, all at the nucleus, where they add: together they stay at most 0.6, under the brightest stars, and
+ * fall to 0 at the tails' tips. `tint` picks a star palette color. The coma is --color-green mixed `coma.mint`
+ * toward --color-white. It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the
+ * hero's entrance, the rails and the copy's measurement have settled), fading in over `fadeIn` seconds so nothing
+ * starts. Where it hangs is the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of
+ * `step` px where its box, grown by as far as the camera can carry it (the drift and the lean, times its nearness),
+ * keeps clear of every quiet zone's reach, stays inside the screen and lies below the navbar (METEOR.top) and above
+ * About's header row, copy the zones know nothing of; a window with no such place has no comet. About's header row lies
+ * below the hero by the offset of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding
+ * plus .section-header's 10 px top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when
+ * the page has scrolled as far as a comet can still show. Where no place fits it looks again after `retry` seconds. It
+ * is gone for the page view when the page scrolls from where it began to show (SCROLL_CANCEL), when the sky is paused
+ * or resized, or when copy comes within reach of its box.
  */
 export const COMET = {
 	chance: 0.11,
@@ -684,7 +685,7 @@ export const COMET = {
 		[1024, 110],
 	],
 	angle: -68,
-	nucleus: { alpha: 0.55, tint: 4, shape: 4 },
+	nucleus: { alpha: 0.25, tint: 4, shape: 4 },
 	coma: { radius: 0.5, alpha: 0.16, mint: 0.3 },
 	ion: { length: 6.5, width: [0.11, 0.04], alpha: 0.08, tint: 2 },
 	dust: { length: 4.2, start: -8, curve: -52, width: [0.15, 1], alpha: 0.11, tint: 4 },

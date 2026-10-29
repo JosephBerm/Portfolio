@@ -193,6 +193,8 @@ const refresh = createRefreshEstimate()
 let relayOn = false
 /** The display's refresh interval while relayed, measured from when the ticks arrive. */
 const relayRefresh = createRefreshEstimate()
+/** When (ms) the worker was last done with a relayed tick. */
+let relayTickDoneAt = -Infinity
 /** How many display refreshes pass per drawn frame while something moves. */
 const divisor: Divisor = { k: 1, slowerSince: null }
 
@@ -425,15 +427,22 @@ function onFrame(time: number): void {
 
 /**
  * A relayed frame, one of the page's animation frames sent as a tick: the display's own clock, so it also times the
- * refresh, from when it arrives. A tick the worker hasn't asked for, or has just stopped asking for, is ignored.
+ * refresh, from when it arrives. A tick the worker hasn't asked for, or has just stopped asking for, is ignored, and so is
+ * one handled the moment the last one was done with: it waited in the queue while that one's frame ran over a refresh,
+ * and drawing it too would let the ticks, and every message behind them (a scroll, a pause), pile up for as long as
+ * frames run that long.
  */
 function onRelayTick(now: number): void {
 	if (!relayOn) return
+	const queued = now - relayTickDoneAt <= PACING.relayQueuedMs
+	relayTickDoneAt = now
+	if (queued) return
 	clearTimeout(watchdogId)
 	watchdogId = undefined
 	strikes = 0
 	relayRefresh.sample(now)
 	tick(now)
+	relayTickDoneAt = performance.now()
 }
 
 /**

@@ -353,7 +353,8 @@ export const FRAME = {
  * `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which asks for one animation frame every
  * `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored context); the strikes also reset when
  * the context is restored or the tab is shown. Relayed frames fall back the same way and go back to the next one that
- * comes.
+ * comes. A relayed frame handled within `relayQueuedMs` of the worker finishing the last one waited in its queue while
+ * that one ran over a refresh, and draws nothing, so a worker slower than the page never falls behind it.
  */
 export const PACING = {
 	stepDevicePx: 0.5,
@@ -369,6 +370,7 @@ export const PACING = {
 	watchdogStrikes: 3,
 	fallbackFps: 60,
 	reprobeMs: 5000,
+	relayQueuedMs: 1,
 } as const
 
 /**

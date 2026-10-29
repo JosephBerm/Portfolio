@@ -1,6 +1,7 @@
 /**
- * The shooting stars as a kind of transient: what they remember between launches, how a launch is planned and how they
- * are timed. This module imports only types from transients.ts, which reads its spec when it loads.
+ * The shooting stars as kinds of transient, over the hero and as farewell meteors at the foot of the page: what they
+ * remember between launches, how a launch is planned and how they are timed. This module imports only types from
+ * transients.ts, which reads their specs when it loads.
  */
 
 import { FAREWELL, METEOR, METEOR_KINDS, METEOR_RATE } from './config'
@@ -123,9 +124,9 @@ export function farewellRoom(field: SkyField): boolean {
 
 /**
  * A plan for one farewell meteor: a shooting star planned like any other (planMeteorTransient), but only in the sky below
- * the highest copy of the page's flow on screen. The page above Contact has copy that carries no quiet rect, which the veil
- * knows nothing of: the starts are drawn from that edge down to the bottom of the screen, and the sky above it is kept
- * clear, so no path rises above the edge. Null when no copy of the flow is on screen.
+ * the top of the highest copy of the page's flow on screen (flowEdge). The page above Contact has copy that carries no
+ * quiet rect, which the veil knows nothing of: the starts are drawn from that edge down to the bottom of the screen, and
+ * the sky above it is kept clear, so no path rises above the edge. Null when no copy of the flow is on screen.
  */
 export function planFarewell(context: PlanContext): Meteor | null {
 	const { field } = context

@@ -565,10 +565,10 @@ export const METEOR = {
  * Farewell meteors: up to `limit` shooting stars a visit around Contact and the footer, once the end bookend is complete
  * enough (SCENE.endLaunchLevel), on their own clock: the first attempt `gap` after the reveal and the next after each
  * flight (GapLaw, stretched on long visits: floor 8 s plus an exponential 14 s, at most 45 s, so 21 s on average). They
- * fly only in the sky below the highest copy of the page's flow that is on screen, because the page above Contact has copy
- * the sky knows nothing of (it carries no data-sky-quiet), and may glide on behind Contact and the footer like any
- * shooting star (METEOR_VEIL). On a screen that leaves no room for a path there (it must end above METEOR.maxEndY), a
- * launch holds until the page scrolls to one that does.
+ * fly only in the sky below the top of the highest copy of the page's flow that is on screen, because the page above
+ * Contact has copy the sky knows nothing of (it carries no data-sky-quiet), and may glide on behind Contact and the
+ * footer like any shooting star (METEOR_VEIL). On a screen that leaves no room for a path there (it must end above
+ * METEOR.maxEndY), a launch holds until the page scrolls to one that does.
  */
 export const FAREWELL = { gap: { floor: 8, mean: 14, cap: 45 }, limit: 2 } as const
 

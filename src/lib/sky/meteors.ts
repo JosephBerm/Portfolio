@@ -85,12 +85,13 @@ export interface PlanOptions {
 	/**
 	 * Padded zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose
 	 * links change color on hover and focus, which their measured headroom misses until the next measurement; for farewell
-	 * meteors, also the sky above the end of the page's quiet copy, where copy the sky has no rect for shows. Default none.
+	 * meteors, also the sky above the highest quiet copy on screen at the foot of the page, where copy the sky has no rect
+	 * for shows. Default none.
 	 */
 	clearOf?: readonly SkyRect[]
 	/**
 	 * The box start points are drawn from, in place of startArea(field); a start above METEOR.top moves down to it.
-	 * Farewell meteors start only below the highest copy on screen.
+	 * Farewell meteors start only below the top of the highest copy of the page's flow on screen.
 	 */
 	starts?: StartArea
 	/**

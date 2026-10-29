@@ -182,7 +182,7 @@ let watchdogId: ReturnType<typeof setTimeout> | undefined
 /** The animation frame asked for to find out whether the display's clock is back, and when (ms) one was last asked for. */
 let probeId: number | null = null
 let probedAt = -Infinity
-/** The display's refresh interval, measured from the worker's own animation frames' timestamps. */
+/** How often the worker's own animation frames come, from their timestamps: the display's refresh, or a fixed timer's where they don't follow the display (`unaligned`). */
 const refresh = createRefreshEstimate()
 /**
  * Whether the main thread has been asked to relay the page's animation frames, which reach the worker as ticks in place
@@ -493,8 +493,8 @@ function tick(now: number): void {
 	updateCamera(now, scene)
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
-	// display: each of its ticks is a frame, divided only by a demand's cap. The page's relayed frames are the display's,
-	// and divide like any other
+	// display: until the relay starts, each of its frames is drawn, divided only by a demand's cap. The page's relayed
+	// frames are the display's, and divide like any other
 	const works = clockWorks()
 	const interval = !works ? 1000 / PACING.fallbackFps : relayOn ? relayRefresh.interval : refresh.interval
 	const fps = works && !relayOn && refresh.unaligned ? Infinity : demand.fps

@@ -30,7 +30,7 @@ export interface MeteorPath {
 }
 
 /** A kind of shooting star apart from the ordinary and the fireball (METEOR_KINDS): one that never takes the ink lease. */
-export type MeteorVariant = 'flash' | 'burst'
+export type MeteorVariant = 'flash' | 'burst' | 'grazer'
 
 /** One planned shooting star. Times are seconds on the worker clock. */
 export interface Meteor extends MeteorPath {

@@ -299,9 +299,7 @@ function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
  * bright, and on the copy it keeps its shape at a faint level. While a layout eases in it follows transientQuietFactor.
  * `fade` (0-1) multiplies the light of all of it, train, wake, glow and core: the caller's own fade, such as the scroll
  * cancel (scrollKept). `keeps` replaces the veil's budgets for a variant that never takes the ink lease (CLEAR_SKY_KEEPS),
- * which keeps none of its light inside a padded quiet rect. A shooting star of no length, a point flash, has no wake to
- * draw. A burst draws its first member and then each later one (`followers`) the same way; a member that has not started
- * yet adds no light.
+ * which keeps none of its light inside a padded quiet rect. A shooting star of no length, a point flash, has no wake to draw.
  */
 export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1, keeps?: QuietKeeps): void {
 	const { dpr } = frame
@@ -359,7 +357,6 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 		ctx.drawImage(image, core.x, core.y, core.size, core.size, hx - core.size / 2, hy - core.size / 2, core.size, core.size)
 	}
 	ctx.globalAlpha = 1
-	for (const follower of meteor.followers ?? []) drawMeteor(ctx, assets, follower, frame, fade, keeps)
 }
 
 /**
@@ -388,15 +385,19 @@ function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets
 /**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
  * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst), draw with
- * CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile.
+ * CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A burst draws its first member
+ * and then each later one the same way; a member that has not started yet adds no light.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
 	const { kind, body } = transient
 	switch (kind) {
-		case 'meteor':
-			drawMeteor(ctx, assets, body, frame, fade, transient.clearSky ? CLEAR_SKY_KEEPS : undefined)
+		case 'meteor': {
+			const keeps = transient.clearSky ? CLEAR_SKY_KEEPS : undefined
+			drawMeteor(ctx, assets, body, frame, fade, keeps)
+			if (body.followers) for (const follower of body.followers) drawMeteor(ctx, assets, follower, frame, fade, keeps)
 			return
+		}
 		case 'satellite':
 			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)
 			return

@@ -136,16 +136,16 @@ function drawSpacing(random: Random, spacing: number | readonly [number, number]
  * A plan for one launch of the shooting stars: a kind of METEOR_KINDS when one is decided and fits, else an ordinary
  * shooting star. A kind is open to the launch on a wide screen, once its `after` seconds have passed since the reveal and
  * the spacing drawn after the last of its kind has run out, and when it has what it needs (a flash, the radiant on
- * screen). The launch draws one number and gives it to the first open kind, in METEOR_KINDS' order, whose slice of the
- * odds it falls in, each slice as wide as the kind's `chance`; a launch with no open kind draws none. A try that finds no
- * path keeps the visit's sky and starts no spacing. When none was decided or none fits, the launch plans an ordinary
- * shooting star, long flights on every steer before any short one. A kind that flies draws the spacing until the next of
- * its kind may be decided.
+ * screen); a kind whose `chance` is 0 is never open. The launch draws one number and gives it to the first open kind, in
+ * METEOR_KINDS' order, whose slice of the odds it falls in, each slice as wide as the kind's `chance`; a launch with no
+ * open kind draws none. A try that finds no path keeps the visit's sky and starts no spacing. When none was decided or
+ * none fits, the launch plans an ordinary shooting star, long flights on every steer before any short one. A kind that
+ * flies draws the spacing until the next of its kind may be decided.
  */
 function planMeteorLaunch(context: PlanContext): Meteor | null {
 	const { random, now, narrow, sinceReveal, visit } = context
 	const memory = visit.meteor
-	const open = narrow ? [] : KIND_ORDER.filter((name) => sinceReveal >= METEOR_KINDS[name].after && now >= memory.from[name] && NEEDS[name](context))
+	const open = narrow ? [] : KIND_ORDER.filter((name) => METEOR_KINDS[name].chance > 0 && sinceReveal >= METEOR_KINDS[name].after && now >= memory.from[name] && NEEDS[name](context))
 	if (open.length > 0) {
 		let roll = random()
 		for (const name of open) {

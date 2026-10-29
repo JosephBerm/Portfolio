@@ -391,11 +391,12 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
  * crossings stay rare: the cooldown is set to the shortest multiple of 5 s that keeps the crossings a minute over a
  * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout,
- * measured without satellites, which only make crossings fewer, so it holds whether or not they fly. A pause
- * fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls
- * from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the
- * kind waits for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds
- * after scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds. From
+ * measured with fireballs at their odds (each flies in clear sky in place of an ordinary launch, so fewer launches cross
+ * the copy) and without satellites, which only make crossings fewer, so it holds whether or not they fly. A pause fades
+ * every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls from its
+ * launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the kind waits
+ * for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds after
+ * scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds. From
  * `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
  * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
  */
@@ -403,7 +404,7 @@ export const TRANSIENTS = {
 	maxLife: 5,
 	minOnsetGap: 3,
 	narrowLimit: 6,
-	crossingCooldown: 40,
+	crossingCooldown: 35,
 	cancelFade: 0.2,
 	retry: [5, 9],
 	maxFailedPlans: 3,

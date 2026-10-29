@@ -5,7 +5,7 @@
  */
 
 import { TRANSIENTS } from './config'
-import { METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
+import { FAREWELL_SPEC, METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
 import type { Meteor, MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
 import type { SkyRect } from './protocol'
@@ -17,13 +17,14 @@ import { scrollKept, type LaunchScene } from './scene'
 export interface TransientBodies {
 	meteor: Meteor
 	satellite: SatellitePass
+	farewell: Meteor
 }
 
 /** One kind of transient. */
 export type TransientKind = keyof TransientBodies
 
 /** Every kind, in the order the scheduler checks them for a launch (shooting stars first: they are the most frequent). */
-export const TRANSIENT_KINDS = ['meteor', 'satellite'] as const satisfies readonly TransientKind[]
+export const TRANSIENT_KINDS = ['meteor', 'satellite', 'farewell'] as const satisfies readonly TransientKind[]
 
 /** Where transients may fly: the viewport and the padded quiet rects on screen (CSS px), the field every kind plans in. */
 export interface SkyField extends MeteorField {
@@ -105,7 +106,7 @@ export interface TransientSpec<K extends TransientKind> {
 }
 
 /** Every kind's spec: a kind without one fails to compile. */
-const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC, satellite: SATELLITE_SPEC }
+const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC, satellite: SATELLITE_SPEC, farewell: FAREWELL_SPEC }
 
 /** Whether and where transients may launch now; the worker refills one reused gate every tick. */
 export interface LaunchGate {
@@ -149,10 +150,10 @@ export interface TransientSchedule {
 export function createTransientSchedule(): TransientSchedule {
 	return {
 		active: [],
-		nextAt: { meteor: Infinity, satellite: Infinity },
-		failedPlans: { meteor: 0, satellite: 0 },
+		nextAt: { meteor: Infinity, satellite: Infinity, farewell: Infinity },
+		failedPlans: { meteor: 0, satellite: 0, farewell: 0 },
 		launched: 0,
-		kindLaunches: { meteor: 0, satellite: 0 },
+		kindLaunches: { meteor: 0, satellite: 0, farewell: 0 },
 		lastOnsetAt: -Infinity,
 		crossingAfter: Infinity,
 		visit: { meteor: createMeteorMemory() },

@@ -3,7 +3,7 @@
  * are timed. This module imports only types from transients.ts, which reads its spec when it loads.
  */
 
-import { METEOR, METEOR_KINDS, METEOR_RATE } from './config'
+import { FAREWELL, METEOR, METEOR_KINDS, METEOR_RATE } from './config'
 import { nextGap } from './gaps'
 import { meteorLifetime, meteorMoving, planMeteor, startArea, type Meteor, type PlanOptions } from './meteors'
 import type { SkyRect } from './protocol'
@@ -135,4 +135,23 @@ export function planFarewell(context: PlanContext): Meteor | null {
 	// a screen high, it covers all the sky above the edge that is on screen, whatever the edge
 	const above: SkyRect = { x: 0, y: edge - ZONE_REACH - field.height, width: field.width, height: field.height, headroom: 0 }
 	return planMeteorTransient(context, { clearOf: [above], starts: { ...startArea(field), y0: edge, y1: field.height } })
+}
+
+/**
+ * The farewell meteors' timing and planning: shooting stars at the foot of the page, around Contact and the footer. They keep
+ * a clock of their own, from the reveal and after each flight (FAREWELL.gap), at most FAREWELL.limit a visit, and wait for a
+ * screen that leaves room.
+ */
+export const FAREWELL_SPEC: TransientSpec<'farewell'> = {
+	firstDelay: (random) => nextGap(random, FAREWELL.gap, 0),
+	nextAfter: (meteor, random, sinceReveal) => meteor.duration + nextGap(random, FAREWELL.gap, sinceReveal),
+	plan: planFarewell,
+	lifetime: meteorLifetime,
+	moving: meteorMoving,
+	nearCopy: (meteor) => meteor.nearCopy,
+	lease: true,
+	phones: true,
+	scene: 'end',
+	room: farewellRoom,
+	limit: FAREWELL.limit,
 }

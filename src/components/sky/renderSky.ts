@@ -396,6 +396,9 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 		case 'satellite':
 			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)
 			return
+		case 'farewell':
+			drawMeteor(ctx, assets, body, frame, fade)
+			return
 		default: {
 			const unhandled: never = kind
 			return unhandled

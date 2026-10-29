@@ -346,7 +346,7 @@ export function meteorLight(progress: number, flare: boolean): number {
 	return flare ? curve + METEOR_LIGHT.flare * Math.exp(-(((progress - flareAt) / flareWidth) ** 2)) : curve
 }
 
-/** True while the head flies or its wake still glows, in any member of a burst; after that only a slow-fading train may remain. */
+/** True while the head flies or its wake still glows; in a burst, also while a later member has yet to start or still flies or glows. After that only a slow-fading train may remain. */
 export function meteorMoving(meteor: Meteor, now: number): boolean {
 	return now - meteor.startedAt < meteor.duration + METEOR.wakeSpan * meteor.wake || (meteor.followers?.some((follower) => meteorMoving(follower, now)) ?? false)
 }
@@ -357,7 +357,7 @@ export function meteorLifetime(meteor: Meteor): number {
 	return (meteor.followers ?? []).reduce((longest, follower) => Math.max(longest, follower.startedAt - meteor.startedAt + meteorLifetime(follower)), own)
 }
 
-/** Seconds a launch's heads keep flying: a shooting star's flight, a burst's from its first member's start to its last member's burn-out. */
+/** Seconds a launch's heads keep flying: a shooting star's flight, a burst's from its first member's start to the latest burn-out of its members. */
 export function meteorSpan(meteor: Meteor): number {
 	return (meteor.followers ?? []).reduce((longest, follower) => Math.max(longest, follower.startedAt - meteor.startedAt + follower.duration), meteor.duration)
 }

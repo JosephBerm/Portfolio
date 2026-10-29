@@ -549,7 +549,7 @@ export const METEOR_KINDS = {
 	 * never takes the ink lease, and is skipped silently where no band of clear sky is long enough. Screens narrower than
 	 * `minWidth` px have none.
 	 */
-	grazer: { chance: 0, spacing: 180, after: 60, minWidth: 1280, widthShare: 0.3, tilt: 12, angular: [4, 6], duration: [2.5, 3.5] },
+	grazer: { chance: 0.025, spacing: 180, after: 60, minWidth: 1280, widthShare: 0.3, tilt: 12, angular: [4, 6], duration: [2.5, 3.5] },
 } as const
 
 /**

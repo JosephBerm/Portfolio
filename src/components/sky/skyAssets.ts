@@ -8,6 +8,7 @@ import {
 	METEOR_LOOK,
 	MIN_CORE_SIGMA_DEVICE_PX,
 	NARROW_MAX_WIDTH,
+	PLANET,
 	STAR_PHASES,
 	STAR_SHAPES,
 	STAR_TINTS,
@@ -27,13 +28,13 @@ export interface Sprite {
 
 /**
  * Pre-rendered point-spread sprites at device scale: one per (palette tint, shape, sub-pixel phase), plus the shooting
- * star's head and glow and the comet's coma.
+ * star's head and glow and the comet's coma. The planet's shape (PLANET) has sprites in the planet's own tint alone.
  */
 export interface StarAtlas {
 	/** An ImageBitmap, not a canvas: drawing from a canvas snapshots it on every drawImage call. */
 	image: ImageBitmap
-	/** Index with starSpriteIndex(tint, shape, phaseX, phaseY). */
-	stars: readonly Sprite[]
+	/** Index with starSpriteIndex(tint, shape, phaseX, phaseY); the planet's shape in any other tint has none. */
+	stars: readonly (Sprite | undefined)[]
 	meteorCore: Sprite
 	meteorGlow: Sprite
 	/** A mint Gaussian of COMA_SIGMA CSS px, to scale to the coma's radius. */
@@ -128,40 +129,61 @@ function paintSprite(pixels: ImageData, sprite: Sprite, color: Rgb, spread: Poin
 /** Builds the sprite atlas for a device pixel ratio. Rebuilt only when the ratio changes (a few ms). */
 export function buildStarAtlas(dpr: number, tokens: SkyTokens): StarAtlas {
 	const palette = starPalette(tokens)
-	const shapes = STAR_SHAPES.map((shape) => pointSpread(Math.max(MIN_CORE_SIGMA_DEVICE_PX, shape.core * dpr), shape.halo * dpr, shape.haloPeak))
+	const spreadOf = (shape: (typeof STAR_SHAPES)[number]) => pointSpread(Math.max(MIN_CORE_SIGMA_DEVICE_PX, shape.core * dpr), shape.halo * dpr, shape.haloPeak)
+	const shapes = STAR_SHAPES.map(spreadOf)
+	const planet = spreadOf(STAR_SHAPES[PLANET.shape])
 	const core = pointSpread(Math.max(MIN_CORE_SIGMA_DEVICE_PX, METEOR_LOOK.core * dpr), 0, 0)
 	const glow = pointSpread(METEOR_LOOK.glow * dpr, 0, 0)
 	const coma = pointSpread(COMA_SIGMA * dpr, 0, 0)
 
-	// One row per tint; one STAR_PHASES x STAR_PHASES block of phases per shape, each sprite with a 1px gutter. The
-	// meteor and comet sprites take an extra row.
-	const row = STAR_PHASES * (Math.max(...shapes.map((shape) => shape.size)) + 1)
+	// One row per tint; one STAR_PHASES x STAR_PHASES block of phases per shape but the planet's, each sprite with a 1px
+	// gutter. The meteor and comet sprites take an extra row: the meteor's head over its glow in one column, the comet's
+	// coma beside them, and the planet's sprites, which exist in its tint alone, after that, as many to a line as the atlas
+	// is already wide. At DPR 2 they fit beside the coma, so the planet adds nothing to the atlas, where a block of its
+	// shape in every tint's row would add a whole column.
+	const row = STAR_PHASES * (Math.max(...shapes.filter((_, s) => s !== PLANET.shape).map((shape) => shape.size)) + 1)
 	const columns: number[] = []
 	let width = 0
-	for (const shape of shapes) {
+	for (const [s, shape] of shapes.entries()) {
 		columns.push(width)
-		width += STAR_PHASES * (shape.size + 1)
+		if (s !== PLANET.shape) width += STAR_PHASES * (shape.size + 1)
 	}
-	width = Math.max(width, core.size + glow.size + coma.size + 3)
-	const height = row * palette.length + Math.max(core.size, glow.size, coma.size) + 1
+	const leadColumn = Math.max(core.size, glow.size) + 1
+	const leadWidth = leadColumn + coma.size + 1
+	const leadHeight = Math.max(core.size + glow.size + 2, coma.size + 1)
+	const cell = planet.size + 1
+	const phases = STAR_PHASES * STAR_PHASES
+	const perLine = Math.max(1, Math.min(phases, Math.floor((width - leadWidth) / cell)))
+	const lines = Math.ceil(phases / perLine)
+	width = Math.max(width, leadWidth + perLine * cell)
+	const meteorY = row * palette.length
+	const height = meteorY + Math.max(leadHeight, lines * cell)
 
 	const pixels = new ImageData(width, height)
-	const stars: Sprite[] = []
+	const stars = Array.from({ length: palette.length * shapes.length * STAR_PHASES * STAR_PHASES }, (): Sprite | undefined => undefined)
 	palette.forEach((tint, t) => {
 		shapes.forEach((shape, s) => {
+			if (s === PLANET.shape) return
 			for (let phaseY = 0; phaseY < STAR_PHASES; phaseY++) {
 				for (let phaseX = 0; phaseX < STAR_PHASES; phaseX++) {
 					const sprite = { x: (columns[s] ?? 0) + phaseX * (shape.size + 1), y: t * row + phaseY * (shape.size + 1), size: shape.size }
 					paintSprite(pixels, sprite, tint, shape, phaseX / STAR_PHASES, phaseY / STAR_PHASES)
-					stars.push(sprite)
+					stars[starSpriteIndex(t, s, phaseX, phaseY)] = sprite
 				}
 			}
 		})
 	})
-	const meteorY = row * palette.length
+	for (let phaseY = 0; phaseY < STAR_PHASES; phaseY++) {
+		for (let phaseX = 0; phaseX < STAR_PHASES; phaseX++) {
+			const k = phaseY * STAR_PHASES + phaseX
+			const sprite = { x: leadWidth + (k % perLine) * cell, y: meteorY + Math.floor(k / perLine) * cell, size: planet.size }
+			paintSprite(pixels, sprite, palette[PLANET.tint] ?? tokens.white, planet, phaseX / STAR_PHASES, phaseY / STAR_PHASES)
+			stars[starSpriteIndex(PLANET.tint, PLANET.shape, phaseX, phaseY)] = sprite
+		}
+	}
 	const meteorCore = { x: 0, y: meteorY, size: core.size }
-	const meteorGlow = { x: core.size + 1, y: meteorY, size: glow.size }
-	const cometComa = { x: core.size + glow.size + 2, y: meteorY, size: coma.size }
+	const meteorGlow = { x: 0, y: meteorY + core.size + 1, size: glow.size }
+	const cometComa = { x: leadColumn, y: meteorY, size: coma.size }
 	paintSprite(pixels, meteorCore, tokens.white, core)
 	paintSprite(pixels, meteorGlow, tokens.white, glow)
 	paintSprite(pixels, cometComa, mixRgb(tokens.green, tokens.white, COMET.coma.mint), coma)

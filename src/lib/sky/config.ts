@@ -15,7 +15,7 @@ export type SkyLayer = (typeof SKY_LAYERS)[number]
 
 /**
  * Catalog seed: every visitor sees the same reviewed sky. Changing it, or any value that shapes the catalog
- * (density, magnitudes, layers, cell size), recomposes the sky, so review it again.
+ * (density, magnitudes, layers, cell size, the planet), recomposes the sky, so review it again.
  */
 export const SKY_SEED = 0x5ca1ab1e
 
@@ -203,7 +203,11 @@ export const COLOR_GROUPS = [
 /** A star uses its group's mid tint below magnitude `mid` and its bright tint below `bright`. */
 export const TINT_BREAKS = { mid: 3.5, bright: 1.5 } as const
 
-/** Point-spread shapes, faintest first: Gaussian core sigma and an optional faint halo (sigma, peak relative to the core). */
+/**
+ * Point-spread shapes, faintest first: Gaussian core sigma and an optional faint halo (sigma, peak relative to the core).
+ * A star's magnitude picks one of the first six (SHAPE_BREAKS); the last, with a core a little wider than any star's, is
+ * the planet's.
+ */
 export const STAR_SHAPES = [
 	{ core: 0.36, halo: 0, haloPeak: 0 },
 	{ core: 0.42, halo: 0, haloPeak: 0 },
@@ -211,10 +215,28 @@ export const STAR_SHAPES = [
 	{ core: 0.6, halo: 0, haloPeak: 0 },
 	{ core: 0.72, halo: 2.2, haloPeak: 0.07 },
 	{ core: 0.85, halo: 2.8, haloPeak: 0.12 },
+	{ core: 1.05, halo: 2.8, haloPeak: 0.12 },
 ] as const
 
 /** Magnitudes where the next, brighter shape starts. */
 export const SHAPE_BREAKS = [4.5, 3.5, 2.5, 1.5, 0.5] as const
+
+/**
+ * The planet: one steady, warm point in the near layer, as bright as a star can be (the alpha and the nearness of
+ * magnitude `magnitude`), with no twinkle and a core a little wider than any star's (`shape`) in a pale yellow (`tint`).
+ * In every other way it is a star of the catalog: it sits at one place (`x`, `y`: CSS px on the near layer's plane, the
+ * viewport's top-left at scroll 0, so the same on every screen), moves with the camera by its nearness like the
+ * brightest stars, comes out first with the dusk, is never thinned, is drawn under reduced motion and gives way to quiet
+ * copy through the near layer's keeps. The place is empty sky: the hero's upper right on laptop windows, above its copy
+ * on wider ones. At rest it lies 86 px (a 1280 x 720 window) to 298 px (2560 x 1440) clear of every quiet zone's reach,
+ * and through the first minute, carried by the drift with the lean at its edge, it stays clear of that reach on every
+ * window from 1280 px wide up and on screen on those from 1366 px (on a 1280 px one it slips past the right edge just
+ * after the minute for about 12 s, or from about 55 s for about half a minute with the pointer at the far left). Later
+ * the drift can carry it near the copy, where it fades out and back like any near star. On a 1024 px window it lies
+ * near the right edge and the drift soon carries it off the screen; a phone's copy fills the screen and the planet lies
+ * beyond its edge.
+ */
+export const PLANET = { x: 1000, y: 170, magnitude: MAGNITUDE.brightest, tint: 5, shape: 6 } as const
 
 /** Smallest core sigma in device px: smaller points alias into squares and shimmer when they move. */
 export const MIN_CORE_SIGMA_DEVICE_PX = 0.7

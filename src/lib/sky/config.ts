@@ -391,11 +391,12 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
  * crossings stay rare: the cooldown is set to the shortest multiple of 5 s that keeps the crossings a minute over a
  * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout,
- * measured without satellites, which only make crossings fewer, so it holds whether or not they fly. A pause
- * fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls
- * from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the
- * kind waits for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds
- * after scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds. From
+ * measured with fireballs at their odds (each flies in clear sky in place of an ordinary launch, so fewer launches cross
+ * the copy) and without satellites, which only make crossings fewer, so it holds whether or not they fly. A pause fades
+ * every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as the page scrolls from its
+ * launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans` in a row the kind waits
+ * for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds after
+ * scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds. From
  * `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
  * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
  */
@@ -403,7 +404,7 @@ export const TRANSIENTS = {
 	maxLife: 5,
 	minOnsetGap: 3,
 	narrowLimit: 6,
-	crossingCooldown: 40,
+	crossingCooldown: 35,
 	cancelFade: 0.2,
 	retry: [5, 9],
 	maxFailedPlans: 3,
@@ -507,13 +508,17 @@ export const METEOR_RATE = {
 export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [0.6, 0.85], rangeFloor: 0.6 } as const
 
 /**
- * Rare kinds of shooting star: odds per launch, least seconds between two of a kind, and the earliest second after the
- * reveal. Fireballs (brighter than Venus; about one per 100 to 200 meteors in the real sky) fly on wide screens only,
- * stay in clear sky, last `duration` s at METEOR.fireballSpeedScale of the normal speed, and with a 2.4 s train stay
- * under 5 s; if no fireball path fits, an ordinary shooting star flies instead.
+ * Kinds of shooting star apart from the ordinary: odds per launch, least seconds between two of a kind, and the earliest
+ * second after the reveal. Fireballs (brighter than Venus) fly on wide screens only, stay in clear sky, last `duration` s
+ * at METEOR.fireballSpeedScale of the normal speed, and with a 2.4 s train stay under 5 s; if no fireball path fits, an
+ * ordinary shooting star flies instead. The real sky shows about one fireball per 100 to 200 meteors; this sky shows them
+ * far more often by design, about one every 90 s over a visit's first 5 minutes and one every 110 s over the next 5. The
+ * spacing is a range, drawn afresh after each fireball and kept in the visit's memory, so no two come closer than its low
+ * end and the gaps vary; `chance` is high because launches come further apart as a visit goes on (TRANSIENTS.longVisit),
+ * and with fewer launches to decide on, lower odds would leave more than 2 minutes between fireballs.
  */
 export const METEOR_KINDS = {
-	fireball: { chance: 0.04, spacing: 120, after: 20, duration: [1.8, 2.5] },
+	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: [1.8, 2.5] },
 } as const
 
 /**
@@ -555,7 +560,7 @@ export const METEOR = {
 	/** Wake afterglow (s): each point of the path dims to 1/e this long after the head passes; drawn for `wakeSpan` of these. */
 	wake: 0.13,
 	wakeSpan: 3,
-	/** Fireballs (rare, long flights only; METEOR_KINDS.fireball has their odds and timing): longer, slower and brighter, with more drag and a longer wake, warm unless fast (mint). */
+	/** Fireballs (long flights only; METEOR_KINDS.fireball has their odds and timing): longer, slower and brighter, with more drag and a longer wake, warm unless fast (mint). */
 	fireballSpeedScale: 0.6,
 	fireballDrag: 0.15,
 	fireballWake: 0.18,

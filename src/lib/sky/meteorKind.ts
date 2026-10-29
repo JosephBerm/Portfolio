@@ -15,19 +15,19 @@ import type { PlanContext, SkyField, TransientSpec } from './transients'
 
 /**
  * What the shooting stars remember between launches: the visit's sky, the shower and the sporadic sources they come
- * from, so a visit's flights share them, and when the last fireball flew. A launch allowed near copy that finds no room
- * clears the sky, and so does a resize, which changes the layout the flights fit; nothing clears the last fireball's
- * time within a page view.
+ * from, so a visit's flights share them, and how soon the next fireball may be decided. A launch allowed near copy that
+ * finds no room clears the sky, and so does a resize, which changes the layout the flights fit; nothing clears the
+ * fireballs' clock within a page view.
  */
 export interface MeteorMemory {
 	sky: VisitSky | null
-	/** When the last fireball launched (s on the worker clock); -Infinity before the first. */
-	lastFireballAt: number
+	/** The earliest second (on the worker clock) the next fireball may be decided: when the last one launched plus the spacing drawn for it; -Infinity before the first. */
+	fireballFrom: number
 }
 
 /** The shooting stars' memory at the start of a visit: nothing remembered yet. */
 export function createMeteorMemory(): MeteorMemory {
-	return { sky: null, lastFireballAt: -Infinity }
+	return { sky: null, fireballFrom: -Infinity }
 }
 
 /**
@@ -62,20 +62,21 @@ export function planMeteorTransient(context: PlanContext, options: Omit<PlanOpti
 
 /**
  * A plan for one launch of the shooting stars: a fireball when one is decided and fits, else an ordinary shooting star.
- * On a wide screen, once METEOR_KINDS.fireball.after seconds have passed since the reveal and `spacing` since the last
- * fireball, each launch decides on one at `chance` odds; no other launch draws them. A decided fireball is tried in
- * clear sky and on long flights only, because a shorter pass would fly an ordinary flight in its place, and a try that
- * finds no path keeps the visit's sky. When none was decided or none fits, the launch plans an ordinary shooting star,
- * long flights on every steer before any short one.
+ * On a wide screen, once METEOR_KINDS.fireball.after seconds have passed since the reveal and the spacing drawn after the
+ * last fireball has run out, each launch decides on one at `chance` odds; no other launch draws them. A decided fireball
+ * is tried in clear sky and on long flights only, because a shorter pass would fly an ordinary flight in its place, and a
+ * try that finds no path keeps the visit's sky and starts no spacing. When none was decided or none fits, the launch plans
+ * an ordinary shooting star, long flights on every steer before any short one. A fireball that flies draws the spacing
+ * until the next one may be decided from METEOR_KINDS.fireball.spacing.
  */
 function planMeteorLaunch(context: PlanContext): Meteor | null {
 	const { random, now, narrow, sinceReveal, visit } = context
 	const { chance, spacing, after } = METEOR_KINDS.fireball
 	const memory = visit.meteor
-	if (!narrow && sinceReveal >= after && now - memory.lastFireballAt >= spacing && random() < chance) {
+	if (!narrow && sinceReveal >= after && now >= memory.fireballFrom && random() < chance) {
 		const fireball = planMeteorTransient({ ...context, nearCopy: false }, { fireball: true, flights: 'long' })
 		if (fireball) {
-			memory.lastFireballAt = now
+			memory.fireballFrom = now + between(random, spacing[0], spacing[1])
 			return fireball
 		}
 	}

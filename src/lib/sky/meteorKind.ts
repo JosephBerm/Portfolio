@@ -69,8 +69,8 @@ const FLASH_TRIES = 20
  * no length and no movement, and brightens and fades in METEOR_KINDS.flash.duration s. It needs the radiant on screen
  * and a point within METEOR_KINDS.flash.radius degrees of it that lies inside the screen's guards (METEOR's edge margin
  * and top, and the height under METEOR.maxEndY) and in clear sky, past the reach of every padded quiet rect, so it takes
- * no ink lease and a layout that moves copy under it takes its light away (CLEAR_SKY_KEEPS). Returns null when the
- * radiant is off screen or no point fits.
+ * no ink lease and a layout that moves copy under it takes its light away (CLEAR_SKY_KEEPS). It has the shower's
+ * spectrum, as it is a meteor of the stream. Returns null when the radiant is off screen or no point fits.
  */
 export function planFlash(context: PlanContext): Meteor | null {
 	const { random, now, field, visit } = context
@@ -94,7 +94,7 @@ export function planFlash(context: PlanContext): Meteor | null {
 			duration: between(random, duration[0], duration[1]),
 			peak: between(random, peak[0], peak[1]),
 			wake: 0,
-			wakeColor: 'white',
+			spectrum: sky.showerSpectrum,
 			fireball: false,
 			flare: false,
 			train: false,
@@ -160,7 +160,8 @@ const DEG = Math.PI / 180
  * enough up to the longest. The planner flies it in clear sky (`nearCopy` false) and clear of the side rails, on long
  * flights only, and the earthgrazer has no flare or train and the wake of a fireball. The planner's longest path for ordinary
  * flights does not bind it: its length is its speed times its duration, and that is wider than 640 px on the widest
- * screens. Returns null when no band of clear sky is long enough, and then leaves the visit's sky as it was.
+ * screens. It takes the sodium-enhanced spectrum, as slow meteors do. Returns null when no band of clear sky is long
+ * enough, and then leaves the visit's sky as it was.
  */
 export function planGrazer(context: PlanContext): Meteor | null {
 	const { random, now, field, ink } = context
@@ -184,7 +185,7 @@ export function planGrazer(context: PlanContext): Meteor | null {
 			pathShare: Infinity,
 			minPath,
 			peak: between(random, METEOR_BRIGHTNESS.normal[0], METEOR_BRIGHTNESS.normal[1]),
-			wakeColor: 'warm',
+			spectrum: 'naEnhanced',
 			train: false,
 		}
 	}

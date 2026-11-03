@@ -5,6 +5,7 @@
  * the WCAG thresholds in src/lib/sky/color.ts, so the page bundle never pulls in this module.
  */
 
+import type { ColorStops } from './color'
 import type { Rgb } from './protocol'
 
 /** Depth layers, faintest first (also the drawing order). Each is a magnitude band of one star population. */
@@ -458,11 +459,15 @@ export const SKY_WINDOW = { fov: 60, elevation: 40, meteorHeightKm: 100, earthRa
  * under the navbar. On `onScreen` of wide-screen visits the shower radiant sits on screen, in clear sky in the top
  * `onScreenTop` of the height (on no other visit, and never on narrow screens, where only stubs would fit around it);
  * within `nearRadiant` degrees of it a shower path may be as short as `nearRadiantPath` px, since meteors there are short
- * and slow.
+ * and slow. A stream shares a parent body and a speed, so its meteors look alike: a shower flight takes the visit's
+ * shower spectrum (VisitSky.showerSpectrum) with odds `showerKeeps` and otherwise draws its spectrum from its speed
+ * class like any other flight, which stands for the spread inside one stream; a burst's members and a point flash always
+ * take it.
  */
 export const RADIANTS = {
 	showerShare: 0.4,
 	showerScatter: 1.5,
+	showerKeeps: 0.8,
 	sporadicSources: 3,
 	sporadicScatter: 15,
 	climbDegrees: 15,
@@ -473,30 +478,60 @@ export const RADIANTS = {
 	nearRadiantPath: 40,
 } as const
 
-/** The color a shooting star's wake cools to: warm (sodium, iron), white, or mint (magnesium, oxygen 557.7 nm). */
-export type WakeColor = 'warm' | 'white' | 'mint'
+/** The odds of each spectrum (METEOR_SPECTRA) in a draw: shares that add up to 1. */
+export type SpectrumOdds = { readonly [K in SpectrumName]?: number }
 
 interface SpeedClass {
 	/** Angular speed 90° from the radiant at the window's center (°/s). */
 	angular: number
 	/** Flight duration range (s). */
 	duration: readonly [number, number]
-	/** Wake color the head cools to (named apart from Meteor.wake, the afterglow time constant). */
-	wakeColor: WakeColor
+	/** The odds of each spectrum for a flight of this class. */
+	spectra: SpectrumOdds
+	/** The odds of each spectrum for the visit's shower, when the shower is of this class (VisitSky.showerSpectrum). */
+	showerSpectra: SpectrumOdds
 	/** Whether a persistent train is possible. */
 	train: boolean
 }
 
 /**
  * Speed classes by entry speed (IMO: 11 km/s very slow, 40 medium, 72 very fast). The sporadic sources map onto them:
- * helion and antihelion about 30 km/s, toroidal 35 to 40, apex about 60. Fast meteors cool to mint (magnesium 517 nm,
- * oxygen 557.7 nm) and alone may leave a train; slow ones glow warm (sodium 589 nm, iron); medium ones stay white.
+ * helion and antihelion about 30 km/s, toroidal 35 to 40, apex about 60. A flight draws its spectrum (METEOR_SPECTRA)
+ * from its class's `spectra`. Sodium's line takes less energy to excite than magnesium's, so the slower a meteor, the
+ * more of its light is sodium's: the odds run from the teal and green spectra of the fast class through the
+ * yellow-green and amber ones to the orange of sodium-rich meteors, which a fast flight never draws, since the effect
+ * stops above about 40 km/s. Every class keeps some white flights (`plain`) and some blue ones (iron). The odds are design
+ * values, anchored on the shares of the spectral classes, not on any published share of the colors people report. The
+ * visit's shower draws its one spectrum from its class's `showerSpectra` (VisitSky.showerSpectrum), as a stream takes
+ * its look from its parent body: slow showers are Taurid-like, medium ones Geminid-like and fast ones Perseid-like. Fast
+ * meteors alone may leave a train.
  */
 export const SPEED_CLASSES = {
-	slow: { angular: 9, duration: [1.1, 1.4], wakeColor: 'warm', train: false },
-	medium: { angular: 14, duration: [0.8, 1.1], wakeColor: 'white', train: false },
-	fast: { angular: 22, duration: [0.55, 0.8], wakeColor: 'mint', train: true },
+	slow: {
+		angular: 9,
+		duration: [1.1, 1.4],
+		spectra: { normalSlow: 0.35, naEnhanced: 0.3, naRich: 0.15, plain: 0.1, blue: 0.05, normal: 0.05 },
+		showerSpectra: { normalSlow: 0.5, naEnhanced: 0.5 },
+		train: false,
+	},
+	medium: {
+		angular: 14,
+		duration: [0.8, 1.1],
+		spectra: { normal: 0.4, naPoor: 0.2, normalSlow: 0.15, plain: 0.15, blue: 0.1 },
+		showerSpectra: { naPoor: 0.5, normal: 0.5 },
+		train: false,
+	},
+	fast: {
+		angular: 22,
+		duration: [0.55, 0.8],
+		spectra: { normal: 0.4, naPoor: 0.3, plain: 0.15, blue: 0.15 },
+		showerSpectra: { normal: 0.65, naPoor: 0.35 },
+		train: true,
+	},
 } as const satisfies Record<string, SpeedClass>
+
+/** The name of a speed class. */
+export type SpeedClassName = keyof typeof SPEED_CLASSES
 
 /** Poisson arrivals with a refractory floor and a cap: floor + Exp(mean), at most cap. */
 export interface GapLaw {
@@ -615,7 +650,7 @@ export const METEOR = {
 	/** Wake afterglow (s): each point of the path dims to 1/e this long after the head passes; drawn for `wakeSpan` of these. */
 	wake: 0.13,
 	wakeSpan: 3,
-	/** Fireballs (long flights only; METEOR_KINDS.fireball has their odds and timing): longer, slower and brighter, with more drag and a longer wake, warm unless fast (mint). */
+	/** Fireballs (long flights only; METEOR_KINDS.fireball has their odds and timing): longer, slower and brighter, with more drag and a longer wake. */
 	fireballSpeedScale: 0.6,
 	fireballDrag: 0.15,
 	fireballWake: 0.18,
@@ -778,9 +813,9 @@ export const METEOR_LIGHT = { skew: 0.868, sharpness: 1.2, flare: 0.55, flareAt:
  * the head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. An ordinary meteor is thin,
  * as it looks to the eye: a point with a halo too faint to read as a disc, trailing a hair of wake, and the soft pass is
  * what lets a tint read on a line that fine. From the head the wake cools from white to its tint over `coolBy` of its
- * length, and its far half thins to `tailKeep` at the end. Each wake takes its speed class's color: fast ones cool to
- * --color-green mixed `mintToWhite` toward --color-white, medium ones stay white, and slow ones warm to palette index
- * `fireballTint` (pale yellow), as fireballs do unless they are fast.
+ * length, so the first fifth stays white-hot and the rest carries the color, and its far half thins to `tailKeep` at the
+ * end. The tint is the wake color of the flight's spectrum (METEOR_SPECTRA), as much of it as the meteor's brightness
+ * shows (METEOR_CHROMA).
  */
 export const METEOR_LOOK = {
 	core: 0.62,
@@ -791,16 +826,128 @@ export const METEOR_LOOK = {
 	softWidth: 2.8,
 	softAlpha: 0.22,
 	wakeStops: 9,
-	coolBy: 0.625,
+	coolBy: 0.2,
 	tailKeep: 0.7,
-	mintToWhite: 0.55,
-	fireballTint: 5,
+} as const
+
+/** The train of a spectrum with no sodium to the fore: oxygen's green first, then sodium and iron oxide (`plain` and `normal` share it). */
+const OXYGEN_TRAIN = [
+	[0, [150, 245, 130]],
+	[0.6, [195, 215, 120]],
+	[1, [225, 195, 125]],
+] as const
+
+/** What the light of one spectrum looks like. */
+interface MeteorSpectrum {
+	/** The color the wake cools to, mixed from the theme's white by METEOR_CHROMA; null leaves it white. */
+	wake: Rgb | null
+	/** The color of the glow round the head (METEOR_SHEATH), mixed the same way; null draws none. */
+	sheath: Rgb | null
+	/** The persistent train's color by share of TRAIN.life since the flight ended. */
+	train: ColorStops
+}
+
+/**
+ * The colors a shooting star's light takes, by what it is made of and how fast it flies. Meteor light is a few hundred
+ * emission lines, not a glowing body with a temperature: sodium (589 nm, orange-yellow), magnesium (518 nm, teal-green),
+ * iron (526 to 545 nm, green) and, high up, oxygen (557.7 nm, green). Sodium's line takes 2.1 eV to excite and
+ * magnesium's 5.1 eV, so a slow meteor of ordinary composition glows sodium-yellow and a fast one green; composition adds
+ * teal where a stream has lost its sodium, amber where it is rich in it and blue for iron. The keys name a mix of lines
+ * and speed, not a claim about one meteor: broadband color cannot tell the spectral classes apart, iron aside. Each has
+ * the color its wake cools to (`wake`), the color of the glow round the head (`sheath`) and the color of its persistent
+ * train as it ages (`train`: oxygen first where the flight was fast and high, sodium and iron oxide after). `plain` is
+ * the eye's white, where the lines blend: a wake that stays white and no sheath.
+ */
+export const METEOR_SPECTRA = {
+	/** The eye's white. */
+	plain: { wake: null, sheath: null, train: OXYGEN_TRAIN },
+	/** Sodium-poor or sodium-free, or fast with a strong second spectrum: magnesium's teal. */
+	naPoor: {
+		wake: [85, 250, 195],
+		sheath: [40, 250, 180],
+		train: [
+			[0, [140, 250, 125]],
+			[0.6, [150, 220, 125]],
+			[1, [190, 205, 120]],
+		],
+	},
+	/** Chondritic, medium to fast (about 35 km/s): green. */
+	normal: { wake: [150, 250, 150], sheath: [110, 250, 125], train: OXYGEN_TRAIN },
+	/** Chondritic and slower (25 to 30 km/s): sodium turns the green yellow. */
+	normalSlow: {
+		wake: [235, 240, 105],
+		sheath: [225, 240, 80],
+		train: [
+			[0, [235, 225, 110]],
+			[1, [230, 165, 100]],
+		],
+	},
+	/** Slow (15 to 25 km/s) or sodium-enhanced: amber. */
+	naEnhanced: {
+		wake: [255, 195, 65],
+		sheath: [255, 190, 50],
+		train: [
+			[0, [255, 180, 90]],
+			[1, [225, 135, 90]],
+		],
+	},
+	/** Very slow (under 15 km/s) or sodium-rich: orange. */
+	naRich: {
+		wake: [255, 145, 40],
+		sheath: [255, 135, 30],
+		train: [
+			[0, [255, 160, 80]],
+			[1, [210, 120, 85]],
+		],
+	},
+	/** Iron's lines alone, or fast and hot: blue. */
+	blue: {
+		wake: [110, 205, 255],
+		sheath: [80, 185, 255],
+		train: [
+			[0, [170, 230, 190]],
+			[1, [210, 175, 130]],
+		],
+	},
+} as const satisfies Record<string, MeteorSpectrum>
+
+/** A key of METEOR_SPECTRA. */
+export type SpectrumName = keyof typeof METEOR_SPECTRA
+
+/**
+ * How much of its spectrum's color a shooting star shows, by its peak brightness: the eye sees color only in bright
+ * light and reads a faint meteor as white. The share runs from `floor` at a peak of `from` and below to `ceiling` at
+ * `to` and above, along a smoothstep (meteorChroma), and mixes the wake's tint and the sheath's color from the theme's
+ * white.
+ */
+export const METEOR_CHROMA = { floor: 0.3, ceiling: 0.95, from: 0.22, to: 0.6 } as const
+
+/**
+ * The sheath: a glow in the spectrum's color round a shooting star's head. A bright head saturates the eye's cones, so
+ * the head's own sprite stays white and the color shows in the light around it. A radial gradient of `radius` CSS px at
+ * `alpha` times the meteor's chroma and its light now, whose `stops` are [share of the radius, share of that alpha]. It
+ * is drawn with CLEAR_SKY_KEEPS at the head's center, so it fades out as the head nears copy and is gone once the head
+ * is inside a padded quiet rect: its radius is under QUIET.padding, so none of it reaches the copy itself, and the
+ * veil's budgets don't count it.
+ */
+export const METEOR_SHEATH = {
+	radius: 11,
+	alpha: 0.6,
+	stops: [
+		[0, 1],
+		[0.18, 0.72],
+		[0.38, 0.36],
+		[0.6, 0.13],
+		[0.8, 0.035],
+		[1, 0],
+	],
 } as const
 
 /**
- * Persistent train: a faint mint line along the path that starts to brighten `onset` of the way through the flight
- * (time constant `rise`), lingers and fades (`decay`), widening from `width[0]` to `width[1]` over `widen` seconds after
- * the flight. Gone `life` seconds after the flight, easing out over the last `fadeOut` seconds, so a fireball and its
- * train last under 5 s (WCAG 2.2.2).
+ * Persistent train: a faint line along the path, in the colors of its spectrum (METEOR_SPECTRA), that starts to brighten
+ * `onset` of the way through the flight (time constant `rise`), lingers and fades (`decay`), widening from `width[0]`
+ * to `width[1]` over `widen` seconds after the flight. At its `peak` a hue reads on navy (a train at 0.12 reads gray
+ * whatever its color). Gone `life` seconds after the flight, easing out over the last `fadeOut` seconds, so a fireball
+ * and its train last under 5 s (WCAG 2.2.2).
  */
-export const TRAIN = { peak: 0.12, onset: 0.3, rise: 0.15, decay: 1.3, life: 2.4, fadeOut: 0.8, width: [1, 3], widen: 2, mintToWhite: 0.45 } as const
+export const TRAIN = { peak: 0.18, onset: 0.3, rise: 0.15, decay: 1.3, life: 2.4, fadeOut: 0.8, width: [1, 3], widen: 2 } as const

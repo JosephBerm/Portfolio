@@ -1,4 +1,4 @@
-import { METEOR, METEOR_KINDS, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type WakeColor } from './config'
+import { METEOR, METEOR_CHROMA, METEOR_KINDS, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type SpectrumName } from './config'
 import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
 import { budgetKeeps, inkAt, quietAt, quietFactor, smoothstep } from './scene'
@@ -41,8 +41,8 @@ export interface Meteor extends MeteorPath {
 	peak: number
 	/** Wake afterglow time constant (s). */
 	wake: number
-	/** The color the wake cools to (SPEED_CLASSES). */
-	wakeColor: WakeColor
+	/** The spectrum of its light (METEOR_SPECTRA): the tint of the wake, the color of the head's sheath and of the train. */
+	spectrum: SpectrumName
 	fireball: boolean
 	flare: boolean
 	train: boolean
@@ -70,8 +70,8 @@ export interface Course {
 	minPath: number | null
 	/** Peak brightness (fireballs peak at 1 regardless): veiledFrom and drawMeteor fit it to each copy's INK_BUDGET. */
 	peak: number
-	/** The color the wake cools to (SPEED_CLASSES). */
-	wakeColor: WakeColor
+	/** The spectrum of its light (METEOR_SPECTRA). */
+	spectrum: SpectrumName
 	/** A persistent train is possible here. */
 	train: boolean
 }
@@ -132,6 +132,15 @@ export interface MeteorFrame {
  */
 export function headGain(boost = 1): number {
 	return 2 + METEOR_LOOK.softAlpha + METEOR_LOOK.glowAlpha * boost
+}
+
+/**
+ * How much of its spectrum's color a shooting star of this peak brightness shows, 0-1 (METEOR_CHROMA): a faint one
+ * reads nearly white and a bright one clearly colored, as the eye sees them.
+ */
+export function meteorChroma(peak: number): number {
+	const { floor, ceiling, from, to } = METEOR_CHROMA
+	return floor + (ceiling - floor) * smoothstep(from, to, peak)
 }
 
 /** White a unit of light adds on the wake's centerline: its core and its soft pass. */
@@ -291,7 +300,8 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 					duration,
 					peak,
 					wake: fireball ? METEOR.fireballWake : METEOR.wake,
-					wakeColor: course.wakeColor,
+					// A fireball is bright enough to show a color, so one that drew the eye's white takes the usual green
+					spectrum: fireball && course.spectrum === 'plain' ? 'normal' : course.spectrum,
 					fireball,
 					flare,
 					train,

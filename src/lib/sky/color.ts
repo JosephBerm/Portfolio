@@ -14,6 +14,25 @@ export function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
 	return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 }
 
+/** A color at a position along an axis, such as a share of a train's life. */
+type ColorStop = readonly [at: number, color: Rgb]
+
+/** Colors at positions along an axis, the positions rising; at least one. */
+export type ColorStops = readonly [ColorStop, ...ColorStop[]]
+
+/** The color at `at` along `stops`: a linear mix between the two stops it falls between, and the first or last stop's color beyond them. */
+export function colorAlong(stops: ColorStops, at: number): Rgb {
+	let before = stops[0]
+	for (const stop of stops) {
+		if (at <= stop[0]) {
+			const span = stop[0] - before[0]
+			return mixRgb(before[1], stop[1], span > 0 ? (at - before[0]) / span : 1)
+		}
+		before = stop
+	}
+	return before[1]
+}
+
 /** CSS color string for canvas styles; alpha is clamped to 0-1 and written in fixed notation. */
 export function rgba(color: Rgb, alpha: number): string {
 	const a = Math.min(1, Math.max(0, alpha)).toFixed(4)

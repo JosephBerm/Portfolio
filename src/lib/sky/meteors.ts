@@ -30,7 +30,7 @@ export interface MeteorPath {
 }
 
 /** A kind of shooting star apart from the ordinary and the fireball (METEOR_KINDS): one that never takes the ink lease. */
-export type MeteorVariant = 'flash' | 'burst'
+export type MeteorVariant = 'flash' | 'burst' | 'grazer'
 
 /** One planned shooting star. Times are seconds on the worker clock. */
 export interface Meteor extends MeteorPath {
@@ -64,7 +64,7 @@ export interface Course {
 	speed: number
 	/** Flight time range (s). */
 	duration: readonly [number, number]
-	/** Longest path as a share of the planner's maximum (RADIANTS.climbShare for climbs, else 1). */
+	/** Longest path as a share of the planner's maximum (RADIANTS.climbShare for climbs, Infinity for an earthgrazer, whose own speed and duration bound its length, else 1). */
 	pathShare: number
 	/** Shortest path allowed from this start (px), or null for the planner's own minimum. */
 	minPath: number | null

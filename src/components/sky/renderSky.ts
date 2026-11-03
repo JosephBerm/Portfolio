@@ -384,9 +384,9 @@ function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets
 
 /**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
- * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst), draw with
- * CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A burst draws its first member
- * and then each later one the same way; a member that has not started yet adds no light.
+ * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst, an
+ * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A burst
+ * draws its first member and then each later one the same way; a member that has not started yet adds no light.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many

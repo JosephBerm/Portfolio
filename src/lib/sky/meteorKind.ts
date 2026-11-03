@@ -4,12 +4,12 @@
  * transients.ts, which reads their specs when it loads.
  */
 
-import { FAREWELL, METEOR, METEOR_KINDS, METEOR_RATE, TRANSIENTS } from './config'
+import { FAREWELL, METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, TRANSIENTS } from './config'
 import { nextGap } from './gaps'
-import { meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions } from './meteors'
+import { meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions, type Steer } from './meteors'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH } from './quietIndex'
-import { pickVisitSky, pointNearRadiant, visitSteer, type VisitSky } from './radiants'
+import { pickVisitSky, pointNearRadiant, skyWindow, visitSteer, type VisitSky } from './radiants'
 import { between, type Random } from './random'
 import { quietAt } from './scene'
 import type { PlanContext, SkyField, TransientSpec } from './transients'
@@ -28,7 +28,7 @@ export interface MeteorMemory {
 
 /** The shooting stars' memory at the start of a visit: nothing remembered yet. */
 export function createMeteorMemory(): MeteorMemory {
-	return { sky: null, from: { fireball: -Infinity, flash: -Infinity, burst: -Infinity } }
+	return { sky: null, from: { fireball: -Infinity, flash: -Infinity, burst: -Infinity, grazer: -Infinity } }
 }
 
 /**
@@ -149,17 +149,61 @@ function planMember(random: Random, context: PlanContext, sky: VisitSky): Meteor
 	return null
 }
 
+/** Radians per degree. */
+const DEG = Math.PI / 180
+
+/**
+ * A plan for an earthgrazer: a long, slow, warm shooting star within METEOR_KINDS.grazer.tilt degrees of horizontal that
+ * crosses at least `widthShare` of the screen's width. Each start the planner draws gets a heading to the left or the
+ * right, whichever leaves room for the least path (either, if both do), a speed in `angular` °/s of the sky window drawn
+ * fast enough for the least path to fit in the longest `duration`, and a duration from the least that makes the path long
+ * enough up to the longest. The planner flies it in clear sky (`nearCopy` false) and clear of the side rails, on long
+ * flights only, and the earthgrazer has no flare or train and the wake of a fireball. The planner's longest path for ordinary
+ * flights does not bind it: its length is its speed times its duration, and that is wider than 640 px on the widest
+ * screens. Returns null when no band of clear sky is long enough, and then leaves the visit's sky as it was.
+ */
+export function planGrazer(context: PlanContext): Meteor | null {
+	const { random, now, field, ink } = context
+	const { widthShare, tilt, angular, duration } = METEOR_KINDS.grazer
+	const { focal } = skyWindow(field.width, field.height)
+	const minPath = widthShare * field.width
+	const slowest = Math.max(angular[0] * DEG * focal, minPath / duration[1])
+	const fastest = angular[1] * DEG * focal
+	if (slowest > fastest) return null
+	const steer: Steer = (random, start) => {
+		const left = start.x - minPath >= METEOR.edgeMargin
+		const right = start.x + minPath <= field.width - METEOR.edgeMargin
+		if (!left && !right) return null
+		const heading = between(random, -tilt, tilt) * DEG
+		const speed = between(random, slowest, fastest)
+		return {
+			dirX: (left && (!right || random() < 0.5) ? -1 : 1) * Math.cos(heading),
+			dirY: Math.sin(heading),
+			speed,
+			duration: [Math.max(duration[0], minPath / speed), duration[1]],
+			pathShare: Infinity,
+			minPath,
+			peak: between(random, METEOR_BRIGHTNESS.normal[0], METEOR_BRIGHTNESS.normal[1]),
+			wakeColor: 'warm',
+			train: false,
+		}
+	}
+	const plan = planMeteor(random, field, now, { steer, flights: 'long', ink, nearCopy: false, clearOf: field.pinned })
+	return plan && { ...plan, wake: METEOR.fireballWake, flare: false, train: false, variant: 'grazer' }
+}
+
 /** A kind of shooting star apart from the ordinary: a key of METEOR_KINDS. */
 type KindName = keyof typeof METEOR_KINDS
 
 /** The kinds in the order the decision step walks them: METEOR_KINDS lists them so, fireballs first. */
 const KIND_ORDER = Object.keys(METEOR_KINDS) as KindName[]
 
-/** What a launch needs for a kind to be open to it, beyond METEOR_KINDS: a flash needs the shower radiant on screen. */
+/** What a launch needs for a kind to be open to it, beyond METEOR_KINDS: a flash needs the shower radiant on screen, an earthgrazer a screen wide enough. */
 const NEEDS: Record<KindName, (context: PlanContext) => boolean> = {
 	fireball: () => true,
 	flash: (context) => (context.visit.meteor.sky?.showerOnScreen ?? null) !== null,
 	burst: () => true,
+	grazer: (context) => context.field.width >= METEOR_KINDS.grazer.minWidth,
 }
 
 /**
@@ -170,6 +214,7 @@ const TRY: Record<KindName, (context: PlanContext) => Meteor | null> = {
 	fireball: (context) => planMeteorTransient({ ...context, nearCopy: false }, { fireball: true, flights: 'long' }),
 	flash: planFlash,
 	burst: planBurst,
+	grazer: planGrazer,
 }
 
 /** The seconds a kind keeps off the launches after one of its own: its spacing, drawn from the range if it is one. */
@@ -181,11 +226,12 @@ function drawSpacing(random: Random, spacing: number | readonly [number, number]
  * A plan for one launch of the shooting stars: a kind of METEOR_KINDS when one is decided and fits, else an ordinary
  * shooting star. A kind is open to the launch on a wide screen, once its `after` seconds have passed since the reveal and
  * the spacing drawn after the last of its kind has run out, and when it has what it needs (a flash, the radiant on
- * screen); a kind whose `chance` is 0 is never open. The launch draws one number and gives it to the first open kind, in
- * METEOR_KINDS' order, whose slice of the odds it falls in, each slice as wide as the kind's `chance`; a launch with no
- * open kind draws none. A try that finds no path keeps the visit's sky and starts no spacing. When none was decided or
- * none fits, the launch plans an ordinary shooting star, long flights on every steer before any short one. A kind that
- * flies draws the spacing until the next of its kind may be decided.
+ * screen; an earthgrazer, a screen at least METEOR_KINDS.grazer.minWidth px wide); a kind whose `chance` is 0 is never
+ * open. The launch draws one number and gives it to the first open kind, in METEOR_KINDS' order, whose slice of the odds
+ * it falls in, each slice as wide as the kind's `chance`; a launch with no open kind draws none. A try that finds no path
+ * keeps the visit's sky and starts no spacing. When none was decided or none fits, the launch plans an ordinary shooting
+ * star, long flights on every steer before any short one. A kind that flies draws the spacing until the next of its kind
+ * may be decided.
  */
 function planMeteorLaunch(context: PlanContext): Meteor | null {
 	const { random, now, narrow, sinceReveal, visit } = context

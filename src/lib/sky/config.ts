@@ -513,8 +513,8 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
  * is open to a launch on wide screens only, once `after` has passed and its spacing has run out. A launch draws one number
  * and gives it to the first open kind, in the order listed here, whose slice of the odds it falls in, so each kind's share
  * of the launches is its own `chance`; where that kind finds no path, an ordinary shooting star flies instead. They are
- * listed by their odds, the highest first: fireballs, flashes, bursts; the odds add up to less than 1, so the order
- * changes no kind's share.
+ * listed by their odds, the highest first: fireballs, flashes, bursts, earthgrazers; the odds add up to less than 1, so
+ * the order changes no kind's share.
  */
 export const METEOR_KINDS = {
 	/**
@@ -541,6 +541,15 @@ export const METEOR_KINDS = {
 	 * takes the ink lease, and none has a flare or a train.
 	 */
 	burst: { chance: 0.05, spacing: 90, after: 45, members: [2, 4], stagger: [0.35, 1.2] },
+	/**
+	 * Earthgrazers: a long, slow, warm shooting star skimming the sky within `tilt` degrees of horizontal, as a meteor
+	 * entering at a shallow angle does. It runs at `angular` °/s of the sky window (SKY_WINDOW) for `duration` s, with the
+	 * wake of a fireball (about 4 s in all), across at least `widthShare` of the screen's width: about 20° of the window,
+	 * since 4 to 6°/s for 2.5 to 3.5 s spans 21° at most, so a larger share could never fit. It flies in clear sky, so it
+	 * never takes the ink lease, and is skipped silently where no band of clear sky is long enough. Screens narrower than
+	 * `minWidth` px have none.
+	 */
+	grazer: { chance: 0.025, spacing: 180, after: 60, minWidth: 1280, widthShare: 0.3, tilt: 12, angular: [4, 6], duration: [2.5, 3.5] },
 } as const
 
 /**

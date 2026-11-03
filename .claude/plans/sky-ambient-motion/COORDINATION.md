@@ -652,6 +652,21 @@ This entry is the implementing session's report. The planning session checked:
 - B-3 is exceeded while the pointer moves in reading, since the lean now runs on the whole page.
 - B-5 (no work on the main thread each frame) no longer holds on WebKit, by the relay's design.
 
+### CP-2 addendum, 2026-11-03: the comet and the planet
+
+Joseph approved the comet and the planet as they are, conjunction included.
+- **Merged:**
+  - #35, the comet (P12), as 8404eb6 (commits 6c28c84 and e3e2f4a);
+  - #36, the planet (P12), as a7d65a4 (commit 2be42a9).
+- **Master:** a7d65a4. #27 to #36 are all merged, and no PRs are open.
+- **Files and functions:** as listed for #35 and #36 in the second round's entry above.
+
+The planning session checked:
+- both merges on GitHub, and that no PR is open;
+- master's tree equals the stack's top (2be42a9);
+- between 8424a00 and a7d65a4, these are byte-identical: `veiledFrom`, `segmentTouches`, `planFlight`, `planMeteor`, `scrollKept`, `transientQuietFactor`, `budgetKeeps`, `drawMeteor`, `drawTrain`, `quietBlend`, `applyLayout`, `settleQuiet` and `copyReader`;
+- `meteors.ts`, `scene.ts`, `mountSky.ts` and `protocol.ts` aren't in that diff at all.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -673,3 +688,4 @@ This entry is the implementing session's report. The planning session checked:
 - 2026-10-28: CP-2 for P9 and P10 (#24 and #25, master at 942ebcb), with the crossing rerun the veil asked for, reported to Joseph next to the veil's numbers.
 - 2026-10-28: CP-2 for P11 (#26, master at ecfbf1a). P1 to P11 are done; P12 and P13 are skipped per D4 and D7.
 - 2026-11-03: CP-2 for the second round Joseph asked for. #27 to #34 are merged (master at 8424a00); the comet (#35) and planet (#36) are open for his look.
+- 2026-11-03: Joseph approved the comet and the planet. #35 and #36 are merged (master at a7d65a4), so the round is complete.

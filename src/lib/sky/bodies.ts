@@ -9,7 +9,7 @@
  * and feeds them what it knows, and renderSky draws what they return. It imports only types from transients.ts.
  */
 
-import { DRIFT_REACH, type Vec } from './camera'
+import { driftAt, type Vec } from './camera'
 import { nearness } from './catalog'
 import { COMET, LAYERS, LEAN, MAGNITUDE, METEOR, SCENE, SCROLL_CANCEL, TRANSIENTS } from './config'
 import type { Point } from './meteors'
@@ -46,12 +46,11 @@ function farBandNearness(): number {
 }
 
 /**
- * How far the camera can carry something of BODY_NEARNESS from where it starts to show (CSS px, on either axis): the
- * drift as far as it reaches from any start (DRIFT_REACH) and the pointer's lean from one edge of the window to the
- * other (twice LEAN.reach), times how much of the camera's motion the body shows. The comet's box grown by it, on every
- * side, is the room the camera can take it through, which must hold nothing it may not meet.
+ * How far the pointer's lean carries something of BODY_NEARNESS either way (CSS px, on either axis): LEAN.reach times how
+ * much of the camera's motion the body shows. The pointer is not known when a comet's path is swept, so the sweep allows
+ * for this much and COMET.clearance covers what a swing of the pointer across the window adds.
  */
-export const BODY_REACH = BODY_NEARNESS * (DRIFT_REACH + 2 * LEAN.reach)
+const LEAN_REACH = BODY_NEARNESS * LEAN.reach
 
 /** A box in CSS px. */
 interface Box {
@@ -239,7 +238,7 @@ export interface CometShape {
 	/** Where each tail shows farthest from the nucleus: with the nucleus, the places that copy coming near dims all of the comet from. */
 	dustTip: Point
 	ionTip: Point
-	/** How far its own drift carries it in a second of drift clock (CSS px). */
+	/** How far its own drift carries it in a second of drift clock (CSS px): the sky window's pace, which does not shrink with the comet. */
 	driftX: number
 	driftY: number
 }
@@ -318,13 +317,16 @@ export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean
 
 /**
  * The comet laid out for a screen of this size: its parts scale with the sky window (SKY_WINDOW), so it looks the same
- * size on the sky at any screen size. The box is rounded out to whole CSS px, so the pixels of the comet's art line up
- * with the screen's and fall the same way about the nucleus in every window, which is what its brightest pixel depends on.
+ * size on the sky at any screen size, times `size`, the share of its full size a window with too little room for all of it
+ * gives it. Its own drift keeps the window's pace, whatever its size. The box is rounded out to whole CSS px, so the
+ * pixels of the comet's art line up with the screen's and fall the same way about the nucleus in every window, which is
+ * what its brightest pixel depends on.
  */
-export function cometShape(width: number, height: number): CometShape {
-	const unit = (skyWindow(width, height).focal * Math.PI) / 180
+export function cometShape(width: number, height: number, size = 1): CometShape {
+	const windowUnit = (skyWindow(width, height).focal * Math.PI) / 180
+	const unit = windowUnit * size
 	const { box, dustTip, ionTip } = cometExtent()
-	const pace = COMET.drift.speed * unit
+	const pace = COMET.drift.speed * windowUnit
 	const heading = COMET.drift.heading * DEG
 	return {
 		unit,
@@ -336,7 +338,7 @@ export function cometShape(width: number, height: number): CometShape {
 	}
 }
 
-/** The line a zone's reach above About's header row (CSS px from the top of the screen) once the page has scrolled as far as a comet can still show; findPlace keeps the comet's box BODY_REACH above it. */
+/** The line a zone's reach above About's header row (CSS px from the top of the screen) once the page has scrolled as far as a comet can still show; findPlace keeps the comet's box above it along its whole path. */
 function lowestBox(width: number, height: number): number {
 	let below = 0
 	for (const [from, offset] of COMET.aboutRow) if (width >= from) below = offset
@@ -349,39 +351,85 @@ function clearOfZones(zones: readonly SkyRect[], x0: number, y0: number, x1: num
 	return true
 }
 
+/** Seconds of drift clock between the samples of a comet's path: in that time it moves a few px, far less than COMET.clearance. */
+const PATH_STEP = 2
+
 /**
- * Where the comet's nucleus goes on screen, or null when no place fits. The comet's box grown by BODY_REACH on every
- * side is everywhere the camera's drift and lean can carry it, so that grown box must keep clear of the reach of every
- * zone of the field (the padded hero, Contact and footer copy and the side rails), stay inside the screen
- * (METEOR.edgeMargin), and lie below the navbar (METEOR.top) and above About's header row, copy the zones know nothing
- * of. The camera alone then never brings the comet to copy; only its own drift, a new layout or the page's scroll can. A
- * window with no such place has no comet. Of the places on a COMET.step grid that fit, it takes the one nearest COMET.anchor.
+ * Where the comet's nucleus is, relative to where it started, every PATH_STEP seconds of drift clock from `clock` for
+ * `life` seconds (the first sample is the start): the camera law, BODY_NEARNESS times the drift's change, the other way,
+ * plus its own drift. Both are functions of the drift clock, so the whole path is known when the comet starts.
  */
-export function findPlace(field: SkyField, shape: CometShape): Point | null {
+function cometPath(shape: CometShape, clock: number, life: number): Point[] {
+	const from = driftAt(clock, { x: 0, y: 0 })
+	const now: Vec = { x: 0, y: 0 }
+	const path: Point[] = []
+	for (let t = 0; t <= life; t += PATH_STEP) {
+		driftAt(clock + t, now)
+		path.push({ x: shape.driftX * t - BODY_NEARNESS * (now.x - from.x), y: shape.driftY * t - BODY_NEARNESS * (now.y - from.y) })
+	}
+	return path
+}
+
+/**
+ * Where the comet's nucleus goes on screen, or null when no place fits, for a comet that starts at drift clock `clock`
+ * and keeps clear for `life` seconds of it. Its path is known (cometPath), so its box is swept along it, grown by
+ * COMET.clearance and the pointer's lean (LEAN_REACH, either way), and at every sample must keep clear of the reach of
+ * every zone of the field (the padded hero, Contact and footer copy and the side rails), lie below the navbar
+ * (METEOR.top) and above About's header row, copy the zones know nothing of, and keep its head inside the screen
+ * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how the comet leaves. Of the
+ * places on a COMET.step grid that fit, it takes the one nearest COMET.anchor.
+ */
+export function findPlace(field: SkyField, shape: CometShape, clock: number, life: number): Point | null {
 	const { width, height } = field
 	const { left, top, right, bottom } = shape.box
-	const y0 = METEOR.top + BODY_REACH - top
-	const y1 = lowestBox(width, height) - BODY_REACH - bottom
+	const margin = COMET.clearance + LEAN_REACH
+	const lowest = lowestBox(width, height)
+	const y0 = METEOR.top + margin - top
+	const y1 = lowest - margin - bottom
 	if (y1 < y0) return null
-	// Only the zones that can reach a box anywhere in the search area matter
-	const zones = field.quiet.filter((zone) => zoneReaches(zone, -BODY_REACH, y0 + top - BODY_REACH, width + BODY_REACH, y1 + bottom + BODY_REACH))
+	const path = cometPath(shape, clock, life)
+	// A zone below the line of About's row reaches no box above it
+	const zones = field.quiet.filter((zone) => zone.y - ZONE_REACH <= lowest)
 	const anchorX = COMET.anchor[0] * width
 	const anchorY = COMET.anchor[1] * height
-	const x0 = METEOR.edgeMargin + BODY_REACH - left
-	const x1 = width - METEOR.edgeMargin - BODY_REACH - right
+	const x0 = METEOR.edgeMargin - left
+	const x1 = width - METEOR.edgeMargin
+	const staysClear = (x: number, y: number) =>
+		path.every((step) => {
+			const px = x + step.x
+			const py = y + step.y
+			if (px > x1 || py + top - margin < METEOR.top || py + bottom + margin > lowest) return false
+			return clearOfZones(zones, px + left - margin, py + top - margin, px + right + margin, py + bottom + margin)
+		})
 	let best: Point | null = null
 	let nearest = Infinity
 	for (let y = y0; y <= y1; y += COMET.step) {
 		for (let x = x0; x <= x1; x += COMET.step) {
 			const distance = Math.hypot(x - anchorX, y - anchorY)
 			if (distance >= nearest) continue
-			if (clearOfZones(zones, x + left - BODY_REACH, y + top - BODY_REACH, x + right + BODY_REACH, y + bottom + BODY_REACH)) {
+			if (staysClear(x, y)) {
 				best = { x, y }
 				nearest = distance
 			}
 		}
 	}
 	return best
+}
+
+/**
+ * The size and place of a comet that starts at drift clock `clock`, or null when none fits. It takes the largest of
+ * COMET.sizes whose path stays clear for COMET.life[0] seconds and, only where none does, the largest that stays clear for
+ * COMET.life[1], so a comet that is seen for a while is never traded for a larger one that is soon gone.
+ */
+function placeComet(field: SkyField, clock: number): { shape: CometShape; place: Point } | null {
+	for (const life of COMET.life) {
+		for (const size of COMET.sizes) {
+			const shape = cometShape(field.width, field.height, size)
+			const place = findPlace(field, shape, clock, life)
+			if (place) return { shape, place }
+		}
+	}
+	return null
 }
 
 /** The share of its light the page's scroll and the fades of the box and the pause leave a showing body (scrollKept); 0 means it is gone. */
@@ -418,9 +466,10 @@ function fadeEnded(body: SkyBody, step: BodyStep): boolean {
 
 /**
  * One tick. A showing body that has kept no light is gone for good. A waiting one starts if its rule allows and a place
- * fits: it takes the scroll where it starts as the page's scroll cancel measures from it, and hangs where the camera's
- * offset puts that place on screen now; if none fits it waits COMET.retry seconds. Returns whether the sky changed or a
- * fade has just run out, so the worker draws a frame.
+ * fits for the drift clock now: it takes the scroll where it starts as the page's scroll cancel measures from it, and
+ * hangs where the camera's offset puts that place on screen now; if none fits it waits COMET.retry seconds, and then
+ * tries from a new drift clock, so along a new path. Returns whether the sky changed or a fade has just run out, so the
+ * worker draws a frame.
  */
 export function updateBody(body: SkyBody, step: BodyStep): boolean {
 	const { gate } = step
@@ -430,17 +479,15 @@ export function updateBody(body: SkyBody, step: BodyStep): boolean {
 		return true
 	}
 	if (!bodyMayStart(body, gate, step.leaseHeld)) return false
-	const field = gate.field()
-	const shape = cometShape(field.width, field.height)
-	const place = findPlace(field, shape)
-	if (!place) {
+	const placed = placeComet(gate.field(), step.clock)
+	if (!placed) {
 		body.nextAt = gate.sinceReveal + COMET.retry
 		return false
 	}
 	body.status = 'showing'
-	body.shape = shape
-	body.x = place.x + BODY_NEARNESS * step.offset.x
-	body.y = place.y + BODY_NEARNESS * step.offset.y
+	body.shape = placed.shape
+	body.x = placed.place.x + BODY_NEARNESS * step.offset.x
+	body.y = placed.place.y + BODY_NEARNESS * step.offset.y
 	body.startedAt = step.twinkleTime
 	body.startClock = step.clock
 	body.launchScrollY = gate.scrollY

@@ -780,8 +780,8 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * as the faint majority of stars, so the camera moves it as it moves them (DEPTH). It is pictured to scale with the
  * sky window (SKY_WINDOW): its lengths are degrees of it, and the ion tail lies `angle` degrees clockwise from the
  * right (up is -90), pointing away from the Sun, with the dust tail bending away from it. All of it is light added over
- * the sky, `tint` picks a star palette color for a part, and at the head the parts add to about 0.6 of white (0.58 at
- * 1366 px wide to 0.62 at 3840), under the brightest stars' 0.78.
+ * the sky, `tint` picks a star palette color for a part, and at the head the parts add to about 0.6 of white (0.55 for
+ * the smallest size at 1366 px wide to 0.62 at 3840), under the brightest stars' 0.78.
  *
  * The head is a star sprite (`nucleus`: its alpha, `tint` and star `shape`) in the coma. The coma's light falls as 1/ρ
  * from a core `core` wide, up to `peak`, and is cut off smoothly at `radius`, over a broad `halo` (its own peak and
@@ -818,23 +818,29 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  *
  * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the
  * rails and the copy's measurement have settled), fading in over `fadeIn` seconds so nothing starts. Where it hangs is
- * the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of `step` px where its box,
- * grown by as far as the camera can carry it (the drift and the lean, times its nearness), keeps clear of every quiet
- * zone's reach, stays inside the screen and lies below the navbar (METEOR.top) and above About's header row, copy the
- * zones know nothing of; a window with no such place has no comet. About's header row lies below the hero by the offset
- * of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding plus .section-header's 10 px
- * top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when the page has scrolled as far
- * as a comet can still show. Its own drift is not counted there, so the box test ends it should that drift carry it
- * to copy. Where no place fits it looks again after `retry` seconds. It is gone for the page view when the page scrolls
- * from where it began to show (SCROLL_CANCEL), when the sky is paused or resized, or when copy comes within reach of
- * its box.
+ * the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of `step` px whose path stays
+ * clear. The path is known when it starts, since the camera's drift and its own are functions of the drift clock, so its
+ * box is swept along it for `life[0]` seconds of drift clock, grown by `clearance` px and by the pointer's lean (its
+ * reach either way times the comet's nearness), and must keep clear of every quiet zone's reach, below the navbar
+ * (METEOR.top) and above About's header row, copy the zones know nothing of, with its head inside the screen
+ * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how it leaves. It takes the
+ * first of `sizes` (shares of its full size) whose path stays clear that long and, only where none does, the first that
+ * stays clear for `life[1]` seconds; a window with no such place has no comet. About's header row lies below the hero by
+ * the offset of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding plus
+ * .section-header's 10 px top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when the
+ * page has scrolled as far as a comet can still show. Where no place fits it looks again after `retry` seconds, from a
+ * new drift clock and so along a new path. It is gone for the page view when the page scrolls from where it began to
+ * show (SCROLL_CANCEL), when the sky is paused or resized, or when copy comes within reach of its box.
  */
 export const COMET = {
 	chance: 0.11,
 	firstDelay: 8,
 	retry: 5,
 	fadeIn: 10,
-	anchor: [0.8, 0.3],
+	anchor: [0.78, 0.42],
+	sizes: [1, 0.85, 0.7],
+	life: [90, 60],
+	clearance: 24,
 	step: 8,
 	aboutRow: [
 		[0, 70],

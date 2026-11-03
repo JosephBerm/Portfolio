@@ -17,7 +17,7 @@ export const NO_FRAMES: FrameDemand = { fps: 0, vsync: false, cap: Infinity }
 /** Every display refresh: a moving transient, scrolling under full motion. */
 export const EVERY_FRAME: FrameDemand = { fps: Infinity, vsync: true, cap: Infinity }
 
-/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing, the stars a quality step thins out). */
+/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing, the stars a quality step thins out, the comet fading in or out). */
 export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap: Infinity }
 
 /**
@@ -64,7 +64,7 @@ export interface FrameState {
 	cameraSpeed: number
 	/** Most frames per second the camera's motion may draw: the drift's cap (driftCap) while the drift is wanted or the lean moves, else Infinity, so a scroll glide alone is never cut to a crawl. */
 	cameraCap: number
-	/** A slow change runs: the dusk, the quiet ease, the motion ease or the thin fade. */
+	/** A slow change runs: the dusk, the quiet ease, the motion ease, the thin fade or a fade of the comet. */
 	fading: boolean
 	/** Twinkle's timer rate while it may change (full motion, the visitor not idle and a twinkling scene), else 0. */
 	twinkleFps: number

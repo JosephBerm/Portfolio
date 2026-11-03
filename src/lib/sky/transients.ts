@@ -67,7 +67,7 @@ export interface PlanContext {
 	now: number
 	field: SkyField
 	visit: VisitMemory
-	/** The ink lease is free, the crossing cooldown is over and nothing else is in the sky, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
+	/** The ink lease is free, the crossing cooldown is over, nothing else is in the sky and no comet shows, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
 	nearCopy: boolean
 	/** Share of each rect's ink budget a transient may keep on the copy (the contrast preference's meteorInk): planMeteor's ink option. */
 	ink: number
@@ -130,6 +130,8 @@ export interface LaunchGate {
 	field(): SkyField
 	/** The contrast preference's meteorInk (the worker's contrastLevels()): PlanContext.ink. */
 	ink: number
+	/** The comet (bodies.ts) is showing: no shooting star is planned near the copy meanwhile, so the comet never shares the sky with the lease's bright moment. */
+	bodyShowing: boolean
 }
 
 /** The scheduler's state: what flies, and when each kind tries next. */
@@ -214,9 +216,9 @@ function retire(schedule: TransientSchedule, now: number, scrollY: number): bool
 /**
  * Whether this tick's launch of `kind` is held back: the moment doesn't allow it, or a rule of the kind or the visit keeps
  * it. One rule keeps the sky's bright moment single: a kind that never takes the ink lease (a satellite) waits while a
- * transient that holds it flies, and launchKind plans a transient that may take it in clear sky while any other flies. A
- * kind flies only in its own launch scene and up to its own limit a visit. Whether the field leaves it room is asked after
- * these, by updateTransients, because that needs the field.
+ * transient that holds it flies, and launchKind plans a transient that may take it in clear sky while any other flies or
+ * the comet shows. A kind flies only in its own launch scene and up to its own limit a visit. Whether the field leaves
+ * it room is asked after these, by updateTransients, because that needs the field.
  */
 function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number, gate: LaunchGate): boolean {
 	const spec = SPECS[kind]
@@ -239,8 +241,8 @@ function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number,
  */
 function launchKind<K extends TransientKind>(schedule: TransientSchedule, random: Random, now: number, kind: K, gate: LaunchGate, field: SkyField): boolean {
 	const spec: TransientSpec<K> = SPECS[kind]
-	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over and nothing else is in the sky, so a satellite and a shooting star near the copy are never up together
-	const nearCopy = spec.lease && inkLeaseFree(schedule, now) && schedule.active.length === 0
+	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over, nothing else is in the sky and no comet shows, so a satellite or the comet and a shooting star near the copy are never up together
+	const nearCopy = spec.lease && inkLeaseFree(schedule, now) && schedule.active.length === 0 && !gate.bodyShowing
 	const body = spec.plan({ random, now, field, visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
 	if (body === null && (!nearCopy || spec.room !== undefined)) {
 		// Clear sky alone failing shows no lack of room, and on a phone counting it could stop shooting stars for the visit; nor does a plan

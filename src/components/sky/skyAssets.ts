@@ -1,4 +1,6 @@
+import { mixRgb } from '@/lib/sky/color'
 import {
+	COMET,
 	HAZE_MAX_PIXELS,
 	HAZE_NARROW_SCALE,
 	HAZE_POOLS,
@@ -13,6 +15,9 @@ import {
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { smoothstep } from '@/lib/sky/scene'
 
+/** Sigma (CSS px) of the Gaussian glow in the coma sprite: the comet draws it scaled to its own size. */
+export const COMA_SIGMA = 6
+
 /** A square sprite in the atlas (device px). */
 export interface Sprite {
 	x: number
@@ -22,7 +27,7 @@ export interface Sprite {
 
 /**
  * Pre-rendered point-spread sprites at device scale: one per (palette tint, shape, sub-pixel phase), plus the shooting
- * star's head.
+ * star's head and glow and the comet's coma.
  */
 export interface StarAtlas {
 	/** An ImageBitmap, not a canvas: drawing from a canvas snapshots it on every drawImage call. */
@@ -31,6 +36,8 @@ export interface StarAtlas {
 	stars: readonly Sprite[]
 	meteorCore: Sprite
 	meteorGlow: Sprite
+	/** A mint Gaussian of COMA_SIGMA CSS px, to scale to the coma's radius. */
+	cometComa: Sprite
 }
 
 /** The star palette: the theme white first, then the pale stellar tints. */
@@ -124,9 +131,10 @@ export function buildStarAtlas(dpr: number, tokens: SkyTokens): StarAtlas {
 	const shapes = STAR_SHAPES.map((shape) => pointSpread(Math.max(MIN_CORE_SIGMA_DEVICE_PX, shape.core * dpr), shape.halo * dpr, shape.haloPeak))
 	const core = pointSpread(Math.max(MIN_CORE_SIGMA_DEVICE_PX, METEOR_LOOK.core * dpr), 0, 0)
 	const glow = pointSpread(METEOR_LOOK.glow * dpr, 0, 0)
+	const coma = pointSpread(COMA_SIGMA * dpr, 0, 0)
 
 	// One row per tint; one STAR_PHASES x STAR_PHASES block of phases per shape, each sprite with a 1px gutter. The
-	// meteor sprites take an extra row.
+	// meteor and comet sprites take an extra row.
 	const row = STAR_PHASES * (Math.max(...shapes.map((shape) => shape.size)) + 1)
 	const columns: number[] = []
 	let width = 0
@@ -134,8 +142,8 @@ export function buildStarAtlas(dpr: number, tokens: SkyTokens): StarAtlas {
 		columns.push(width)
 		width += STAR_PHASES * (shape.size + 1)
 	}
-	width = Math.max(width, core.size + glow.size + 2)
-	const height = row * palette.length + Math.max(core.size, glow.size) + 1
+	width = Math.max(width, core.size + glow.size + coma.size + 3)
+	const height = row * palette.length + Math.max(core.size, glow.size, coma.size) + 1
 
 	const pixels = new ImageData(width, height)
 	const stars: Sprite[] = []
@@ -153,10 +161,12 @@ export function buildStarAtlas(dpr: number, tokens: SkyTokens): StarAtlas {
 	const meteorY = row * palette.length
 	const meteorCore = { x: 0, y: meteorY, size: core.size }
 	const meteorGlow = { x: core.size + 1, y: meteorY, size: glow.size }
+	const cometComa = { x: core.size + glow.size + 2, y: meteorY, size: coma.size }
 	paintSprite(pixels, meteorCore, tokens.white, core)
 	paintSprite(pixels, meteorGlow, tokens.white, glow)
+	paintSprite(pixels, cometComa, mixRgb(tokens.green, tokens.white, COMET.coma.mint), coma)
 
-	return { image: toBitmap(pixels), stars, meteorCore, meteorGlow }
+	return { image: toBitmap(pixels), stars, meteorCore, meteorGlow, cometComa }
 }
 
 /**

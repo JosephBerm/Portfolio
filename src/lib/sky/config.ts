@@ -620,18 +620,18 @@ export const FAREWELL = { gap: { floor: 8, mean: 14, cap: 45 }, limit: 2 } as co
  * edge of Earth's shadow at most once, as a real one does: at dusk (`shadowShare` of passes) it slides in lit from
  * beyond a side and fades into the shadow over `fadeOut` s while warming from palette index `tint` toward `shadowTint`,
  * as real ones redden; at dawn it fades in over `fadeIn` s as it leaves the shadow and glides out through a side. Alpha
- * `alpha`, about magnitude 3.5 to 5.5: never brighter than the brightest mid-layer star; drawn with star shape `shape`.
- * Clear sky only (every point clear of every padded quiet rect's reach, ZONE_REACH), never within `minTilt` degrees of
- * vertical (a vertical glide reads as scrolling), one at a time, wide screens only, on their own clock: the first
- * attempt `first` after the reveal and then `gap` after each pass (GapLaw, stretched on long visits), so 39% of visits
- * get a first attempt within their first minute and passes come about 89 s apart. Up to `attempts` candidate passes per
- * launch.
+ * `alpha`, about magnitude 2.7 to 4.8: never brighter than the brightest mid-layer star (0.62, at magnitude 2.5); drawn
+ * with star shape `shape`. Clear sky only (every point clear of every padded quiet rect's reach, ZONE_REACH), never
+ * within `minTilt` degrees of vertical (a vertical glide reads as scrolling), one at a time, wide screens only, on their
+ * own clock: the first attempt `first` after the reveal and then `gap` after each pass (GapLaw: 24 s and 36 s on
+ * average, the gaps stretched on long visits), so 93% of visits get a first pass within 45 s and a visit's first 5
+ * minutes hold about 6.6 passes, about 45 s apart. Up to `attempts` candidate passes per launch.
  */
 export const SATELLITE = {
-	first: { floor: 30, mean: 60, cap: 150 },
-	gap: { floor: 40, mean: 50, cap: 150 },
+	first: { floor: 12, mean: 12, cap: 90 },
+	gap: { floor: 18, mean: 18, cap: 90 },
 	angular: [1.2, 2.5],
-	alpha: [0.25, 0.5],
+	alpha: [0.35, 0.6],
 	life: 4.8,
 	fadeIn: 0.8,
 	fadeOut: [1.2, 1.5],

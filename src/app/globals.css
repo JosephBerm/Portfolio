@@ -1,4 +1,5 @@
-@import "tailwindcss";
+/* Tailwind detects class names only in src/ (source() paths are relative to this file's folder), so docs elsewhere in the repo add no CSS. */
+@import "tailwindcss" source("..");
 
 /* ============================================
    DESIGN TOKENS via Tailwind CSS 4 @theme

@@ -6,7 +6,7 @@ Developer notes for this Next.js app: stack, setup, scripts, configuration, rout
 
 - [Next.js 16](https://nextjs.org/docs) with the App Router (`src/app`), bundled with Turbopack
 - React 19 with the React Compiler
-- Tailwind CSS 4, configured CSS-first in `src/app/globals.css` (no `tailwind.config.*`)
+- Tailwind CSS 4, configured CSS-first in `src/app/globals.css` (no `tailwind.config.*`); it detects class names only in `src/`
 - TypeScript in strict mode
 - ESLint with a flat config (`eslint.config.mjs`)
 

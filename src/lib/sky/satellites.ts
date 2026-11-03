@@ -1,8 +1,8 @@
 /**
  * Satellites: steady points lit by a Sun below the horizon, gliding across clear sky, as a kind of transient. A pass is a
  * point on a straight line at constant speed, with no tail and no twinkle, and at most one fade: out into Earth's shadow,
- * warming as it goes, or in as it leaves the shadow. This module imports only types from transients.ts, which reads its
- * spec when it loads.
+ * turning orange just before it goes, or in as it leaves the shadow. This module imports only types from transients.ts,
+ * which reads its spec when it loads.
  */
 
 import { METEOR, SATELLITE } from './config'
@@ -29,7 +29,7 @@ export interface SatellitePass {
 	life: number
 	/** Fade in (s): 0 when it slides in from beyond an edge. */
 	fadeIn: number
-	/** Fade into Earth's shadow at the end (s), warming as it goes; 0 when it leaves through an edge. */
+	/** Fade into Earth's shadow at the end (s), which it turns orange for SATELLITE.warmLead s before; 0 when it leaves through an edge. */
 	fadeOut: number
 	/** Brightness while it is lit, 0-1. */
 	alpha: number
@@ -37,7 +37,7 @@ export interface SatellitePass {
 	startedAt: number
 }
 
-/** A satellite at one moment: where it is, how bright, and how far it has warmed into the shadow (0 to 1). */
+/** A satellite at one moment: where it is, how bright, and how far it has turned from its lit tint to the orange of the shadow (0 to 1). */
 export interface SatelliteFrame {
 	x: number
 	y: number
@@ -99,10 +99,11 @@ export function satelliteMoving(pass: SatellitePass, now: number): boolean {
 }
 
 /**
- * Where a pass is at `now`, how bright, and how far it has warmed into Earth's shadow. The point keeps one speed along the
- * whole line. A pass that enters the shadow fades out over its last `fadeOut` s along one smoothstep and warms by the
- * share it has faded; one that leaves the shadow fades in over its first `fadeIn` s. Outside its life it holds its first
- * or last place.
+ * Where a pass is at `now`, how bright, and how far it has turned to the orange of Earth's shadow. The point keeps one
+ * speed along the whole line. A pass that enters the shadow turns orange along one smoothstep over the SATELLITE.warmLead
+ * s before its fade, at its full brightness, so it is full orange when it starts to dim; then it fades out over its last
+ * `fadeOut` s along another and goes out orange. One that leaves the shadow fades in over its first `fadeIn` s and keeps
+ * its lit tint. Outside its life it holds its first or last place.
  */
 export function satelliteAt(pass: SatellitePass, now: number): SatelliteFrame {
 	const elapsed = Math.min(pass.life, Math.max(0, now - pass.startedAt))
@@ -110,7 +111,10 @@ export function satelliteAt(pass: SatellitePass, now: number): SatelliteFrame {
 	// The shares of its light still showing: not yet faded in, not yet gone into the shadow
 	const risen = pass.fadeIn > 0 ? smoothstep(0, pass.fadeIn, elapsed) : 1
 	const unshadowed = pass.fadeOut > 0 ? smoothstep(pass.life, pass.life - pass.fadeOut, elapsed) : 1
-	return { x: pass.startX + pass.dirX * distance, y: pass.startY + pass.dirY * distance, alpha: pass.alpha * risen * unshadowed, warmth: 1 - unshadowed }
+	// It warms over the lead, still at full brightness, and is full orange when the fade starts
+	const fadeStart = pass.life - pass.fadeOut
+	const warmth = pass.fadeOut > 0 ? smoothstep(fadeStart - SATELLITE.warmLead, fadeStart, elapsed) : 0
+	return { x: pass.startX + pass.dirX * distance, y: pass.startY + pass.dirY * distance, alpha: pass.alpha * risen * unshadowed, warmth }
 }
 
 /** The satellite kind: its own clock, clear sky only (it never takes the ink lease), wide screens only. */

@@ -11,6 +11,7 @@ import {
 	METEOR_LIGHT,
 	METEOR_LOOK,
 	METEOR_VEIL,
+	MIN_CORE_SIGMA_DEVICE_PX,
 	MIN_STAR_ALPHA,
 	SATELLITE,
 	SKY_LAYERS,
@@ -363,27 +364,54 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	ctx.globalAlpha = 1
 }
 
+/** The satellite's dot is a radial gradient of this many equal steps of its radius. */
+const DOT_STEPS = 8
+
 /**
- * A satellite at the frame's time: one steady point, with no tail and no twinkle. It is drawn from two sprites at the same
- * place, the pale tint and the orange one of Earth's shadow, in the shares its warmth gives them; added together they are
- * an exact mix of the two colors. `fade` (0-1) multiplies its light, as for a shooting star. `keeps` are the quiet keeps
- * it is drawn with (CLEAR_SKY_KEEPS), read at its center through transientQuietFactor every frame, so none of its light
- * lands inside a quiet rect, even mid-ease or when a layout changes under it.
+ * The light the satellite's dot adds at `t` (0 to 1) of its radius, per unit of the satellite's light: the core and the
+ * faint glow (SATELLITE.dot), both lowered by what they still have at the radius, so the dot ends in nothing and the
+ * square it is filled in leaves no ring, and scaled so that the center adds `gain`. Light past 1 clips where the
+ * gradient is drawn, so a bright pass saturates its core. It depends on the dot's proportions alone, so the dot has one
+ * shape at every pixel ratio.
+ */
+function dotLight(t: number): number {
+	const { radius, core, glow, glowSigma, gain } = SATELLITE.dot
+	const spread = (r: number) => Math.exp(-(r * r) / (2 * core * core)) + glow * Math.exp(-(r * r) / (2 * glowSigma * glowSigma))
+	const edge = spread(radius)
+	return (gain * (spread(radius * t) - edge)) / (spread(0) - edge)
+}
+
+/** The light the dot adds per unit of the satellite's light at each step of its radius, from its center to its edge. */
+const DOT_PROFILE = Array.from({ length: DOT_STEPS + 1 }, (_, k) => dotLight(k / DOT_STEPS))
+
+/**
+ * A satellite at the frame's time: one steady dot, with no tail and no twinkle, added to the sky. It is one radial
+ * gradient at the dot's unrounded place, so it glides, in the exact mix of its lit tint and the orange of Earth's shadow
+ * that its warmth gives (SATELLITE.tint, SATELLITE.shadowColor). It needs no sprites, so the star atlas is the same with
+ * or without satellites. The dot is SATELLITE.dot's size in CSS px, or larger where its core would fall under
+ * MIN_CORE_SIGMA_DEVICE_PX (a point that small aliases and shimmers as it moves, as a star's would), and has the same
+ * shape at every pixel ratio. `fade` (0-1) multiplies its light, as for a shooting star. `keeps` are the quiet keeps it is
+ * drawn with (CLEAR_SKY_KEEPS), read at its center through transientQuietFactor every frame, so none of its light lands
+ * inside a quiet rect, even mid-ease or when a layout changes under it: the dot reaches SATELLITE.dot.radius CSS px from
+ * there (a few more where the floor widens it), well short of QUIET.padding.
  */
 function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, pass: SatellitePass, frame: SkyFrame, fade: number, keeps: QuietKeeps): void {
 	const { x, y, alpha, warmth } = satelliteAt(pass, frame.time)
 	const light = alpha * fade * transientQuietFactor(frame.quiet, x, y, keeps)
 	if (light < MIN_STAR_ALPHA) return
-	const { atlas } = assets
+	const { dpr } = frame
+	const { dot } = SATELLITE
+	const radius = dot.radius * Math.max(dpr, MIN_CORE_SIGMA_DEVICE_PX / dot.core)
+	const px = x * dpr
+	const py = y * dpr
+	const color = mixRgb(assets.palette[SATELLITE.tint] ?? assets.tokens.white, SATELLITE.shadowColor, warmth)
+	const gradient = ctx.createRadialGradient(px, py, 0, px, py, radius)
+	for (const [k, added] of DOT_PROFILE.entries()) gradient.addColorStop(k / DOT_STEPS, rgba(color, light * added))
 	ctx.globalCompositeOperation = 'lighter'
-	for (const [tint, share] of [[SATELLITE.tint, 1 - warmth], [SATELLITE.shadowTint, warmth]] as const) {
-		// Unsnapped, so the point glides
-		const sprite = share > 0 ? placePoint(atlas, tint, SATELLITE.shape, x * frame.dpr, y * frame.dpr, false) : undefined
-		if (!sprite) continue
-		ctx.globalAlpha = light * share
-		ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, corner.x, corner.y, sprite.size, sprite.size)
-	}
 	ctx.globalAlpha = 1
+	ctx.fillStyle = gradient
+	// A device px past the radius on every side, where the gradient has nothing left to add
+	ctx.fillRect(px - radius - 1, py - radius - 1, 2 * radius + 2, 2 * radius + 2)
 }
 
 /** The wake stops drawMeteor samples for a body: none for one with no wake time (a point flash, which has no length either), else all of them. */

@@ -642,27 +642,34 @@ export const FAREWELL = { gap: { floor: 8, mean: 14, cap: 45 }, limit: 2 } as co
  * at the window's 40° center and 0.1 to 0.3°/s low in the sky; these run `angular` °/s of the sky window (SKY_WINDOW),
  * 2 to 5 times faster at the center, so a whole pass stays within `life` seconds (WCAG 2.2.2's 5 s). A pass crosses the
  * edge of Earth's shadow at most once, as a real one does: at dusk (`shadowShare` of passes) it slides in lit from
- * beyond a side and fades into the shadow over `fadeOut` s while warming from palette index `tint` toward `shadowTint`,
- * as real ones redden; at dawn it fades in over `fadeIn` s as it leaves the shadow and glides out through a side. Alpha
- * `alpha`, about magnitude 2.7 to 4.8: never brighter than the brightest mid-layer star (0.62, at magnitude 2.5); drawn
- * with star shape `shape`. Clear sky only (every point clear of every padded quiet rect's reach, ZONE_REACH), never
- * within `minTilt` degrees of vertical (a vertical glide reads as scrolling), one at a time, wide screens only, on their
- * own clock: the first attempt `first` after the reveal and then `gap` after each pass (GapLaw: 24 s and 36 s on
- * average, the gaps stretched on long visits), so 93% of visits get a first pass within 45 s and a visit's first 5
- * minutes hold about 6.6 passes, about 45 s apart. Up to `attempts` candidate passes per launch.
+ * beyond a side and fades into the shadow over `fadeOut` s, turning from palette index `tint` to the orange
+ * `shadowColor` over the `warmLead` s before the fade, at its full brightness, so it is plainly orange when it starts to
+ * dim and goes out orange, as real ones redden; at dawn it fades in over `fadeIn` s as it leaves the shadow and glides
+ * out through a side, without warming. It is deliberately brighter than any star, as the space station outshines every
+ * star when it passes, so that a visitor notices it: `alpha` is its brightness while lit, and the center of its dot adds
+ * `gain` times that, clipped at full light, so the dimmest pass adds 0.875, over the brightest star's 0.78, and a pass of
+ * 0.8 or more saturates its core. The dot (`dot`, CSS px) is a bright core of Gaussian sigma `core` (the brightest
+ * stars' is 0.85) and a faint glow of `glow` times the core's peak at Gaussian sigma `glowSigma`, both lowered so that
+ * the dot ends in nothing at `radius`: still one small point. Clear sky only (every point clear of every padded quiet
+ * rect's reach, ZONE_REACH), never within `minTilt` degrees of vertical (a vertical glide reads as scrolling), one at a
+ * time, wide screens only, on their own clock: the first attempt `first` after the reveal and then `gap` after each
+ * pass (GapLaw: 24 s and 36 s on average, the gaps stretched on long visits), so 93% of visits get a first pass within
+ * 45 s and a visit's first 5 minutes hold about 6.6 passes, about 45 s apart. Up to `attempts` candidate passes per
+ * launch.
  */
 export const SATELLITE = {
 	first: { floor: 12, mean: 12, cap: 90 },
 	gap: { floor: 18, mean: 18, cap: 90 },
 	angular: [1.2, 2.5],
-	alpha: [0.35, 0.6],
+	alpha: [0.7, 0.95],
 	life: 4.8,
 	fadeIn: 0.8,
 	fadeOut: [1.2, 1.5],
 	shadowShare: 0.6,
+	warmLead: 1.2,
 	tint: 4,
-	shadowTint: 6,
-	shape: 2,
+	shadowColor: [255, 130, 20],
+	dot: { radius: 4.5, core: 1.2, glow: 0.2, glowSigma: 2.4, gain: 1.25 },
 	minTilt: 20,
 	attempts: 40,
 } as const

@@ -504,26 +504,27 @@ interface SpeedClass {
  * values, anchored on the shares of the spectral classes, not on any published share of the colors people report. The
  * visit's shower draws its one spectrum from its class's `showerSpectra` (VisitSky.showerSpectrum), as a stream takes
  * its look from its parent body: slow showers are Taurid-like, medium ones Geminid-like and fast ones Perseid-like. Fast
- * meteors alone may leave a train.
+ * meteors alone may leave a train. A flight lasts `duration` seconds, 0.74 s on average, under twice the 0.4 s or so an
+ * ordinary meteor lasts, so it is quick and still easy to follow.
  */
 export const SPEED_CLASSES = {
 	slow: {
 		angular: 9,
-		duration: [1.1, 1.4],
+		duration: [0.85, 1.15],
 		spectra: { normalSlow: 0.35, naEnhanced: 0.3, naRich: 0.15, plain: 0.1, blue: 0.05, normal: 0.05 },
 		showerSpectra: { normalSlow: 0.5, naEnhanced: 0.5 },
 		train: false,
 	},
 	medium: {
 		angular: 14,
-		duration: [0.8, 1.1],
+		duration: [0.6, 0.85],
 		spectra: { normal: 0.4, naPoor: 0.2, normalSlow: 0.15, plain: 0.15, blue: 0.1 },
 		showerSpectra: { naPoor: 0.5, normal: 0.5 },
 		train: false,
 	},
 	fast: {
 		angular: 22,
-		duration: [0.55, 0.8],
+		duration: [0.4, 0.6],
 		spectra: { normal: 0.4, naPoor: 0.3, plain: 0.15, blue: 0.15 },
 		showerSpectra: { normal: 0.65, naPoor: 0.35 },
 		train: true,

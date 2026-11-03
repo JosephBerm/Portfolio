@@ -1,12 +1,12 @@
 import { scroll } from 'motion/react'
 import type { IntroPhase } from '@/hooks/useIntroPhase'
-import { REDUCED_MOTION_QUERY } from '@/lib/utils'
 import { lightHeadroom, minimumContrast, parseHexColor, parseRgbColor } from '@/lib/sky/color'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
+import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
 
 /** Handle returned by mountSky. */
 export interface SkyController {
-	/** Follows IntroGate: the stars come out as the loader lifts, and shooting stars start once the page shows. */
+	/** Follows IntroGate: the stars come out as the loader lifts, and shooting stars and satellites start once the page shows. */
 	setPhase(phase: IntroPhase): void
 	destroy(): void
 }
@@ -25,6 +25,15 @@ const LOW_MEMORY_GB = 4
 
 /** Largest canvas backing store (device px, about 33 MB): very large high-DPR screens draw slightly softer instead. */
 const MAX_BACKING_PIXELS = 3840 * 2160
+
+/** Presence pings for the sky's idle clock, at most this often (ms): someone moving the pointer or typing is still here. */
+const ACTIVITY_INTERVAL_MS = 1000
+
+/** Input that shows someone is still here without scrolling. */
+const ACTIVITY_EVENTS = ['pointermove', 'pointerdown', 'keydown', 'focusin'] as const
+
+/** Pointers that lean the sky (LEAN): a mouse or pen on a screen that can hover. */
+const LEAN_POINTER_QUERY = '(hover: hover) and (pointer: fine)'
 
 /**
  * Copy the sky stays quiet behind: no bright stars beside it, and a shooting star behind it dims to what the copy can
@@ -121,7 +130,8 @@ interface CopyReader {
  * beside the copy for good) and no opacity below 1 at rest (headroom reads `color` alone, so a translucent element would
  * be dimmer than its headroom says). The color is the one at measurement time: a link that changes color on hover or
  * focus (the rails' links, light slate at rest and green then) keeps the headroom of the state it was measured in until
- * the next measurement, which is harmless only while no flight reaches the rails (METEOR.maxEndY).
+ * the next measurement, which is harmless only while no flight reaches the rails (the planner's `clearOf`, which a launch
+ * fills with the padded rails).
  */
 function copyReader(tokens: SkyTokens, headrooms: Map<string, number>): CopyReader {
 	const shifts = new Map<Element, Shift>()
@@ -188,9 +198,10 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader): SkyRect
 }
 
 /**
- * Starts the night sky inside `host`: creates the canvas, hands it to the sky worker and forwards size, scroll,
- * visibility, preference and layout changes. Returns a no-op controller where OffscreenCanvas or workers are
- * missing or the theme tokens can't be read, which leaves the plain navy background.
+ * Starts the night sky inside `host`: creates the canvas, hands it to the sky worker and forwards size, scroll, the
+ * pointer's place for the lean, activity (pointer, keys and focus), visibility, preference and layout changes, and the
+ * page's animation frames while the worker asks for them. Returns a no-op controller where OffscreenCanvas or workers
+ * are missing or the theme tokens can't be read, which leaves the plain navy background.
  */
 export function mountSky(host: HTMLElement, canvasClassName: string): SkyController {
 	if (!supported()) return NOOP
@@ -208,10 +219,20 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 
 	const listeners = new AbortController()
 	const { signal } = listeners
-	const reducedMotion = matchMedia(REDUCED_MOTION_QUERY)
 	const forcedColors = matchMedia(FORCED_COLORS_QUERY)
 	const moreContrast = matchMedia(MORE_CONTRAST_QUERY)
-	const motion = (): SkyMotion => (forcedColors.matches ? 'off' : reducedMotion.matches ? 'reduced' : 'full')
+	// The pause store owns the reduced-motion query and the visitor's pause: either one holds the sky still
+	const motion = (): SkyMotion => (forcedColors.matches ? 'off' : skyPaused() ? 'reduced' : 'full')
+	let sentMotion = motion()
+	// Post only real changes: the store notifies whenever the playback may have changed (the sky starting or stopping, the
+	// OS setting, another tab), and many of those leave the motion as it was
+	const syncMotion = () => {
+		const next = motion()
+		if (next === sentMotion) return
+		sentMotion = next
+		post({ type: 'motion', motion: next })
+	}
+	const stopPlayback = subscribeSkyPlayback(syncMotion)
 
 	let phase: IntroPhase = 'loading'
 	let size = { width: 0, height: 0, dpr: 0 }
@@ -261,7 +282,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 				tokens,
 				emerging: phase !== 'loading',
 				revealed: phase === 'revealed',
-				motion: motion(),
+				motion: sentMotion,
 				visible: document.visibilityState === 'visible',
 				contrastMore: moreContrast.matches,
 				scrollY: window.scrollY,
@@ -307,9 +328,72 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		settleLater()
 	})
 
-	const syncMotion = () => post({ type: 'motion', motion: motion() })
+	// Pointer, keys and focus show someone is here without scrolling: tell the worker's idle clock, at most once a second
+	let lastActivity = -Infinity
+	const noteActivity = () => {
+		const now = performance.now()
+		// Before init there is no worker clock to wake
+		if (offscreen || now - lastActivity < ACTIVITY_INTERVAL_MS) return
+		lastActivity = now
+		post({ type: 'activity' })
+	}
+	for (const type of ACTIVITY_EVENTS) window.addEventListener(type, noteActivity, { passive: true, signal })
+
+	// A mouse or pen leans the stars: tell the worker where it is, from the canvas size the observer already measured (so
+	// there is no layout read) and at most once per animation frame, whatever the rate of the events
+	const finePointer = matchMedia(LEAN_POINTER_QUERY)
+	let pointerFrame = 0
+	let pointerAt: { x: number; y: number } | null = null
+	const sendPointer = () => {
+		pointerFrame = 0
+		post({ type: 'pointer', at: pointerAt })
+	}
+	const queuePointer = (at: { x: number; y: number } | null) => {
+		// Before the first size there is no worker to tell, and a size of 0 would make the position not finite. A paused sky
+		// or one under reduced motion holds still, so it isn't told either.
+		if (!size.width || !finePointer.matches || motion() !== 'full') return
+		pointerAt = at
+		if (!pointerFrame) pointerFrame = requestAnimationFrame(sendPointer)
+	}
+	window.addEventListener(
+		'pointermove',
+		(event) => {
+			// Touch already moves the page by scrolling
+			if (event.pointerType === 'touch') return
+			const x = Math.min(1, Math.max(-1, (event.clientX / size.width) * 2 - 1))
+			const y = Math.min(1, Math.max(-1, (event.clientY / size.height) * 2 - 1))
+			queuePointer({ x, y })
+		},
+		{ passive: true, signal }
+	)
+	// The pointer leaving the window (no related target) or the window losing focus: the lean eases back to the middle
+	document.addEventListener(
+		'pointerout',
+		(event) => {
+			if (event.pointerType !== 'touch' && event.relatedTarget === null) queuePointer(null)
+		},
+		{ passive: true, signal }
+	)
+	window.addEventListener('blur', () => queuePointer(null), { signal })
+
+	// WebKit's worker draws on a fixed 15 ms timer, not the display, so while the worker asks for it the page's own animation
+	// frames stand in: one tick per frame, nothing read from the layout. The worker stops it when it has no use for it.
+	let relayFrame = 0
+	const sendTick = () => {
+		relayFrame = requestAnimationFrame(sendTick)
+		post({ type: 'tick' })
+	}
+	const setRelay = (on: boolean) => {
+		if (on) {
+			// A sky that was destroyed starts nothing
+			if (!relayFrame && !destroyed) relayFrame = requestAnimationFrame(sendTick)
+			return
+		}
+		cancelAnimationFrame(relayFrame)
+		relayFrame = 0
+	}
+
 	document.addEventListener('visibilitychange', () => post({ type: 'visible', visible: document.visibilityState === 'visible' }), { signal })
-	reducedMotion.addEventListener('change', syncMotion, { signal })
 	forcedColors.addEventListener('change', syncMotion, { signal })
 	moreContrast.addEventListener('change', () => post({ type: 'contrast', more: moreContrast.matches }), { signal })
 
@@ -317,8 +401,14 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		if (destroyed) return
 		destroyed = true
 		clearTimeout(settleTimer)
+		// The pending pointer message and tick would go to a worker that is gone, which can no longer turn the relay off
+		cancelAnimationFrame(pointerFrame)
+		setRelay(false)
 		listeners.abort()
 		stopScroll()
+		stopPlayback()
+		// A failed or destroyed sky takes the pause control with it
+		setSkyRunning(false)
 		canvasObserver.disconnect()
 		layoutObserver.disconnect()
 		worker.terminate()
@@ -328,8 +418,25 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	worker.addEventListener(
 		'message',
 		(event: MessageEvent<SkyWorkerMessage>) => {
-			if (event.data.type === 'ready') canvas.dataset.ready = ''
-			else destroy()
+			const message = event.data
+			switch (message.type) {
+				case 'ready':
+					canvas.dataset.ready = ''
+					// The first frame is on the canvas: the pause control may show
+					setSkyRunning(true)
+					break
+				case 'error':
+					destroy()
+					break
+				case 'relay':
+					setRelay(message.on)
+					break
+				default: {
+					// Every message type is handled above: a new one fails to compile here, rather than being taken for an error
+					const unhandled: never = message
+					return unhandled
+				}
+			}
 		},
 		{ signal }
 	)

@@ -6,7 +6,7 @@ Developer notes for this Next.js app: stack, setup, scripts, configuration, rout
 
 - [Next.js 16](https://nextjs.org/docs) with the App Router (`src/app`), bundled with Turbopack
 - React 19 with the React Compiler
-- Tailwind CSS 4, configured CSS-first in `src/app/globals.css` (no `tailwind.config.*`)
+- Tailwind CSS 4, configured CSS-first in `src/app/globals.css` (no `tailwind.config.*`); it detects class names only in `src/`
 - TypeScript in strict mode
 - ESLint with a flat config (`eslint.config.mjs`)
 
@@ -72,12 +72,12 @@ src/
 ├── components/   UI components
 │   ├── icons/            SVG icon components
 │   ├── motion/           Animation wrappers
-│   ├── sky/              Home night sky: client island, controller and Web Worker renderer
+│   ├── sky/              Home night sky: client island, controller, pause store and control, and Web Worker renderer
 │   └── links/            /links components
 │       └── schedule/     /links/schedule components
 ├── hooks/        Client hooks
 ├── lib/          Site config, metadata helpers, schedule config and time helpers, content data
-│   └── sky/              Home sky model: tuning, star catalog, scene and shooting-star math (DOM-free)
+│   └── sky/              Home sky model (DOM-free): tuning, star catalog, scene and shooting-star math, camera and drift (camera.ts), frame pacing (pacing.ts), presence (presence.ts), the quiet-copy index (quietIndex.ts), the scheduler for short-lived events (transients.ts) with the shooting-star kinds (meteorKind.ts: over the hero, and farewell meteors at the foot of the page) and the satellite kind (satellites.ts), the radiants, speeds and brightness a visit's shooting stars take (radiants.ts), the law for the gaps between launches (gaps.ts) and the comet's place, fades and start rule (bodies.ts)
 ├── assets/       Fonts and images imported statically
 └── emails/       React Email templates
 public/           Static files served from the site root

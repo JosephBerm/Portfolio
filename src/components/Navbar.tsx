@@ -5,13 +5,14 @@ import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { motion, useMotionValueEvent, useScroll } from 'motion/react'
 import { Logo, MenuSVG } from '@/components/icons'
+import SkyPauseButton from '@/components/sky/SkyPauseButton'
 import { cn, delayedReveal, duration, easing, smoothScrollTo } from '@/lib'
 import { NAV_SECTIONS } from '@/lib/navigation'
 
 /** The md breakpoint, where the nav links sit inline and the mobile menu no longer applies. */
 const DESKTOP_QUERY = '(min-width: 768px)'
 
-/** Delay between successive nav items, and then the Resume button, as they drop in (seconds). */
+/** Delay between successive nav items, and then the Resume button and the sky's pause control, as they drop in (seconds). */
 const NAV_STAGGER = 0.1
 
 /** Nav entrance: drops in from -20px; each item's delay comes through Motion's `custom` prop. */
@@ -22,13 +23,17 @@ export default function Navbar() {
 	const [hidden, setHidden] = useState(false)
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 	const burgerRef = useRef<HTMLButtonElement>(null)
+	const headerRef = useRef<HTMLElement>(null)
 
 	// Frame-batched scroll position: re-renders only when `scrolled` / `hidden` actually change
 	const { scrollY } = useScroll()
 	useMotionValueEvent(scrollY, 'change', (current) => {
 		const previous = scrollY.getPrevious() ?? 0
+		// Never hide the header while it holds keyboard focus, or the focused control would be out of sight. :focus-visible,
+		// so a mouse click on a nav link (which leaves focus on it in Chrome) still lets the header hide as before
+		const focused = Boolean(headerRef.current?.querySelector(':focus-visible'))
 		setScrolled(current > 0)
-		setHidden(current > previous && current > 0)
+		setHidden(current > previous && current > 0 && !focused)
 	})
 
 	// While the mobile menu is open: lock page scroll, take the dimmed page out of the tab order (inert), close on
@@ -75,6 +80,9 @@ export default function Navbar() {
 
 	return (
 		<motion.header
+			ref={headerRef}
+			// Focus moving into a header that has slid away would land on something off screen: show it (WCAG 2.4.7, 2.4.11)
+			onFocus={() => setHidden(false)}
 			initial={{ y: 0 }}
 			animate={{ y: hidden ? -70 : 0 }}
 			transition={{ duration: 0.25, ease: easing.smooth }}
@@ -114,7 +122,7 @@ export default function Navbar() {
 					aria-label="Menu"
 					aria-expanded={mobileMenuOpen}
 					aria-controls="primary-nav"
-					className="cursor-pointer text-[2.5rem] z-[100] text-green w-[50px] h-[50px] flex items-center justify-center md:!hidden hover:border-[3px] hover:border-dashed hover:border-green hover:rounded-[5px]"
+					className="ml-auto cursor-pointer text-[2.5rem] z-[100] text-green w-[50px] h-[50px] flex items-center justify-center md:!hidden hover:border-[3px] hover:border-dashed hover:border-green hover:rounded-[5px]"
 					onClick={toggleMobileMenu}
 				>
 					<MenuSVG />
@@ -125,7 +133,7 @@ export default function Navbar() {
 					id="primary-nav"
 					className={cn(
 						'flex flex-col items-center justify-center fixed right-0 top-0 h-screen w-3/4 bg-light-navy transition-all duration-150 ease-out motion-reduce:transition-none z-[50]',
-						'md:flex-row md:justify-evenly md:relative md:inset-auto md:h-auto md:w-auto md:bg-transparent md:translate-x-0 md:visible',
+						'md:ml-auto md:flex-row md:justify-evenly md:relative md:inset-auto md:h-auto md:w-auto md:bg-transparent md:translate-x-0 md:visible',
 						mobileMenuOpen ? 'translate-x-0 visible' : 'translate-x-full invisible md:visible'
 					)}
 				>
@@ -160,6 +168,18 @@ export default function Navbar() {
 						</a>
 					</motion.div>
 				</div>
+
+				{/* Sky pause control: last, so the tab order is the order on screen at every width */}
+				<motion.div
+					variants={navItemVariants}
+					custom={(NAV_SECTIONS.length + 1) * NAV_STAGGER}
+					initial="hidden"
+					animate="visible"
+					// The open phone menu's panel covers this corner, so the control leaves the tab order with it (WCAG 2.4.11)
+					inert={mobileMenuOpen}
+				>
+					<SkyPauseButton className="ml-[10px] md:ml-[15px]" />
+				</motion.div>
 			</nav>
 		</motion.header>
 	)

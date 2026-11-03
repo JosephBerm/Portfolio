@@ -1,33 +1,85 @@
 /**
- * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while
- * something changes: 15 fps for twinkle, 30 fps for fades (the dusk, a lingering train), every animation frame
- * while a shooting star flies or the page scrolls. Hidden tabs, reduced motion, reading and idle visits sleep.
+ * Sky worker: owns the transferred canvas and draws the night sky off the main thread. It only draws while something
+ * changes. A sky that only changes brightness draws from timers: 15 fps for twinkle, 30 fps for fades (the dusk, a
+ * lingering train). Anything that moves draws on animation frames: every one while a shooting star or a satellite flies
+ * or the page scrolls, and every k-th one (PACING; every one while a glide or a lean is fast) while the stars drift,
+ * lean away from the pointer or glide to rest after the page stops. Where the worker's own animation frames come from a
+ * fixed timer, not the display (WebKit's), the main thread relays the page's own animation frames for as long as
+ * something moves. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
+ * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
+ * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there.
  */
 
+import { bodyFading, bodyShowing, bodyView, cancelBody, createSkyBody, dropBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
+import {
+	cameraOffset,
+	cameraSpeed,
+	createCamera,
+	driftRate,
+	driftTarget,
+	driftWanted,
+	forgetStep,
+	leanWanted,
+	resumeCamera,
+	stepCamera,
+	type CameraInput,
+	type DriftGate,
+	type Vec,
+} from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, FRAME, HAZE_REBUILD_MS, METEOR, NARROW_MAX_WIDTH, QUIET } from '@/lib/sky/config'
-import { meteorLifetime, meteorMoving, nextMeteorGap, pickRadiant, planMeteor, type Meteor, type MeteorField, type Point } from '@/lib/sky/meteors'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, NARROW_MAX_WIDTH, PACING, QUIET, TRANSIENTS } from '@/lib/sky/config'
+import {
+	createRefreshEstimate,
+	driftCap,
+	easeAt,
+	easeEnded,
+	easing,
+	fadeOutAt,
+	frameDemand,
+	frameDue,
+	NO_FRAMES,
+	refreshDivisor,
+	stepDivisor,
+	type Divisor,
+	type Ease,
+	type FrameDemand,
+	type FrameState,
+} from '@/lib/sky/pacing'
+import { createPresence, isIdle, notePresence, presenceLevel } from '@/lib/sky/presence'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
-import { between } from '@/lib/sky/random'
-import { emergenceDone, hazeEmergence, sceneAt, screenQuietZones, scrollKept, smoothstep, type QuietBlend } from '@/lib/sky/scene'
-import { createStarField, drawMeteor, drawSky, type SkyAssets, type SkyFrame } from './renderSky'
+import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
+import {
+	cancelTransients,
+	createTransientSchedule,
+	dropTransients,
+	forgetVisitSky,
+	holdTransients,
+	leaseHeld,
+	nextLaunchAt,
+	retryTransients,
+	revealTransients,
+	transientDemand,
+	transientFade,
+	updateTransients,
+	type LaunchGate,
+} from '@/lib/sky/transients'
+import { createStarField, drawComet, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
 /** The parts of DedicatedWorkerGlobalScope the sky uses (the project's TypeScript lib is DOM only). */
 interface SkyWorkerScope {
 	postMessage(message: SkyWorkerMessage): void
 	addEventListener(type: 'message', listener: (event: MessageEvent<SkyMainMessage>) => void): void
-	requestAnimationFrame(callback: (time: number) => void): number
-	cancelAnimationFrame(handle: number): void
+	/** Not every worker has the animation-frame pair: where it is missing, a timer stands in for the display. */
+	requestAnimationFrame?(callback: (time: number) => void): number
+	cancelAnimationFrame?(handle: number): void
 }
-
-type FrameMode = 'active' | 'fade' | 'twinkle' | 'sleep'
 
 type LayoutMessage = Extract<SkyMainMessage, { type: 'layout' }>
 
 const scope = self as unknown as SkyWorkerScope
 const field = createStarField()
-/** Shooting stars vary per visit; the star catalog itself is seeded and fixed. */
+/** Shooting stars and satellites vary per visit; the star catalog itself is seeded and fixed. */
 const random = Math.random
 
 let canvas: OffscreenCanvas | null = null
@@ -42,7 +94,6 @@ let motion: SkyMotion = 'full'
 let visible = true
 let contrastMore = false
 let scrollY = 0
-let parallaxScroll = 0
 let documentHeight = 0
 let quiet: readonly SkyRect[] = []
 let pinned: readonly SkyRect[] = []
@@ -54,30 +105,105 @@ let pendingLayout: LayoutMessage | null = null
 
 // Milliseconds on the worker clock
 let lastScrollAt = -Infinity
-let lastInputAt = 0
-let wokeAt = -Infinity
 let lastDrawAt = -Infinity
 let hiddenAt: number | null = null
 // Seconds on the worker clock
 let exitAt: number | null = null
 let revealAt: number | null = null
 let layoutAt: number | null = null
-let nextMeteorAt = Infinity
+/** Seconds the tab has spent hidden, each stretch added when it is shown again: the twinkle's clock leaves them out. */
+let hiddenTotal = 0
 
-let meteor: Meteor | null = null
-// The scroll offset the shooting star launched at (SCROLL_CANCEL)
-let launchScrollY = 0
-let radiant: Point | null = null
-let launched = 0
-let failedPlans = 0
+/** The short-lived events in the sky (shooting stars and satellites) and when each kind launches next. */
+const transients = createTransientSchedule()
+/** Whether and where transients may launch, refilled by launchGate every tick (reused, so a tick makes no garbage). */
+const gate: LaunchGate = {
+	allowed: false,
+	scene: null,
+	settled: false,
+	narrow: false,
+	sinceReveal: 0,
+	scrollY: 0,
+	// Built afresh on each call: the scheduler asks only for a due kind that may plan. The rails are padded once and the very
+	// same objects go in both lists, so a reader can tell them apart from the copy in the page's flow by identity
+	field: () => {
+		const rails = screenQuietZones([], scrollY, pinned)
+		return { width, height, quiet: [...screenQuietZones(quiet, scrollY), ...rails], pinned: rails }
+	},
+	ink: 1,
+	bodyShowing: false,
+}
+
+/** Whether the visitor seems to be here. Scroll, visibility and motion messages can reach it before init, so it exists from the start; init begins it afresh. */
+let presence = createPresence(0)
+
+/** The camera every star is drawn through; init puts it on the restored scroll. */
+let camera = createCamera(0)
+/** The camera's offset for the frame being drawn (reused). */
+const offset: Vec = { x: 0, y: 0 }
+/** Where a fine pointer is, -1 to 1 from the viewport's center (x right, y down): the middle until one has been seen, and once it leaves. */
+const pointerAt: Vec = { x: 0, y: 0 }
+/** The lean the camera heads for (reused): the pointer's place times the scene's lean level. */
+const leanGoal: Vec = { x: 0, y: 0 }
+/** What the camera follows on its next step (reused, so a step makes no garbage). */
+const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0, lean: leanGoal }
+/** The static comet, the sky's one long-lived body: the reveal draws whether this visit hangs one, and its start rule decides when it shows. */
+const comet = createSkyBody()
+/** What the comet's step reads at each tick (reused, so a tick makes no garbage). */
+const bodyStep: BodyStep = { gate, leaseHeld: false, time: 0, twinkleTime: 0, drawnAt: 0, twinkleDrawnAt: 0, offset }
+/** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
+let cameraMoving = false
+/** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */
+let skyMoved = false
+/**
+ * How much of its motion the sky has: 1 under full motion, 0 otherwise. When the motion changes (the pause control, a
+ * reduced-motion switch) the level eases over FRAME.motionEase from where it was, so neither the twinkle nor the drift
+ * stops or starts in one frame. `since` is on the worker clock (s); a load starts at rest on its motion's level.
+ */
+let motionLevel: Ease = { from: 1, to: 1, since: -Infinity }
+/** A narrow screen (NARROW_MAX_WIDTH), set in resize: the drift runs slower and draws fewer frames there. */
+let narrowScreen = false
+/** Frames a second a software-rasterized canvas can afford at PACING.softwareShare of a core, measured by probeRaster; Infinity for a GPU canvas. */
+let softwareFps = Infinity
+/** What the drift and the twinkle depend on right now, filled by gather (reused, so a frame decision makes no garbage). */
+const driftGate: DriftGate = { allowed: false, dusk: 0, on: false, level: 0, scene: 0, narrow: false }
 
 let quality = 0
 let slowFrames = 0
-let rafId = 0
+/** When (s on the worker clock) the first quality step began thinning the stars out, which then fade over ADAPT.thinFade; null before it. */
+let thinnedAt: number | null = null
+/** The pending animation frame request; null when there is none (a request id can be 0). */
+let rafId: number | null = null
+/** The pending frame timer: a fade or twinkle frame, the next launch, or where animation frames fail, any frame. */
 let timerId: ReturnType<typeof setTimeout> | undefined
 let hazeTimer: ReturnType<typeof setTimeout> | undefined
 let needsDraw = false
 let ready = false
+
+/** Whether animation frames can be relied on. False where the worker has none and after repeated stalls: a 60 Hz timer then stands in for the display. */
+let rafWorks = typeof scope.requestAnimationFrame === 'function'
+/** Requested animation frames in a row that didn't come in time, the worker's own or the page's relayed ones. */
+let strikes = 0
+/** Serves a requested animation frame, or a relayed one, that doesn't come. */
+let watchdogId: ReturnType<typeof setTimeout> | undefined
+/** The animation frame asked for to find out whether the display's clock is back, and when (ms) one was last asked for. */
+let probeId: number | null = null
+let probedAt = -Infinity
+/** How often the worker's own animation frames come, from their timestamps: the display's refresh, or a fixed timer's where they don't follow the display (`unaligned`). */
+const refresh = createRefreshEstimate()
+/**
+ * Whether the main thread has been asked to relay the page's animation frames, which reach the worker as ticks in place
+ * of its own animation frames. Asked for while the worker's own clock is a fixed timer, not the display
+ * (`refresh.unaligned`), and something moves. A relay that stalls stays on: the watchdog and then a 60 Hz timer serve
+ * the frames until a tick comes.
+ */
+let relayOn = false
+/** The display's refresh interval while relayed, measured from when the ticks arrive. */
+const relayRefresh = createRefreshEstimate()
+/** When (ms) the worker was last done with a relayed tick. */
+let relayTickDoneAt = -Infinity
+/** How many display refreshes pass per drawn frame while something moves. */
+const divisor: Divisor = { k: 1, slowerSince: null }
 
 /** Backing-store pixels for a CSS length (never zero). */
 function deviceSize(cssSize: number, ratio: number): number {
@@ -89,42 +215,41 @@ function contrastLevels(): typeof CONTRAST_NORMAL | typeof CONTRAST_MORE {
 	return contrastMore ? CONTRAST_MORE : CONTRAST_NORMAL
 }
 
-/** True when two lists hold the same rects (a layout message may change only the document height). */
-function sameRects(a: readonly SkyRect[], b: readonly SkyRect[]): boolean {
-	return (
-		a.length === b.length &&
-		a.every((rect, i) => rect.x === b[i]?.x && rect.y === b[i]?.y && rect.width === b[i]?.width && rect.height === b[i]?.height && rect.headroom === b[i]?.headroom)
-	)
+/**
+ * Gathers the gates for `now`: the drift's, and the ambient flag and level the twinkle shares with it (one presence
+ * gate for all ambient motion). Everything that reads them calls it first (tick before it steps the camera, demandNow
+ * at every frame decision, frameAt for the twinkle), so a message that wakes a sleeping worker is judged on fresh
+ * gates; for one `now` it gives the same values.
+ */
+function gather(now: number, scene: SceneLevels): void {
+	const t = now / 1000
+	driftGate.allowed = exitAt !== null && softwareFps >= PACING.minFps
+	driftGate.dusk = exitAt === null ? 0 : t - exitAt
+	driftGate.on = motion === 'full' && !isIdle(presence, now)
+	driftGate.level = presenceLevel(presence, now) * easeAt(motionLevel, FRAME.motionEase, t)
+	driftGate.scene = scene.drift
+	driftGate.narrow = narrowScreen
 }
 
-/** No scroll for FRAME.idleSleepMs: the visitor is probably not watching the sky. */
-function isIdle(now: number): boolean {
-	return now - lastInputAt > FRAME.idleSleepMs
+/** Twinkle strength right now: the scene's, times the ambient level gather found (presence and the motion level together). */
+function twinkleLevel(scene: SceneLevels): number {
+	return scene.twinkle * driftGate.level
 }
 
-/** Twinkle eases out after a long time without scrolling and back in when the visitor returns. */
-function idleTwinkle(now: number): number {
-	return (1 - smoothstep(FRAME.idleSleepMs - FRAME.idleFadeMs, FRAME.idleSleepMs, now - lastInputAt)) * smoothstep(0, FRAME.idleFadeMs, now - wokeAt)
+/**
+ * The lean the camera heads for: the pointer's place times the scene's lean level. It is (0, 0) without a fine pointer
+ * and, as for the drift, on a software-rasterized canvas too slow for PACING.minFps, which keeps a still sky.
+ */
+function leanTarget(scene: SceneLevels): Vec {
+	const level = softwareFps >= PACING.minFps ? scene.lean : 0
+	leanGoal.x = pointerAt.x * level
+	leanGoal.y = pointerAt.y * level
+	return leanGoal
 }
 
-/** Twinkle strength right now: scene, idle fade and motion preference together. */
-function twinkleLevel(now: number): number {
-	return motion === 'full' ? sceneAt(scrollY, height, documentHeight).twinkle * idleTwinkle(now) : 0
-}
-
-/** The next shooting star waits at least METEOR.afterReturn once the visitor is back (a tab, an idle stretch, full motion). */
-function holdMeteors(now: number): void {
-	if (revealAt !== null) nextMeteorAt = Math.max(nextMeteorAt, now / 1000 + METEOR.afterReturn)
-}
-
-/** Records a scroll or a return to the tab, waking the twinkle (with a fade) after an idle stretch. */
+/** Records input of any kind; back from an idle stretch, no launch straight away. */
 function noteInput(now: number): void {
-	const sinceInput = now - lastInputAt
-	// Back during the idle fade-out, the twinkle eases back in from where it was; after a full idle stretch, from nothing
-	if (sinceInput > FRAME.idleSleepMs - FRAME.idleFadeMs) wokeAt = now - Math.max(0, FRAME.idleSleepMs - sinceInput)
-	// Back from an idle stretch: no shooting star straight away
-	if (isIdle(now)) holdMeteors(now)
-	lastInputAt = now
+	if (notePresence(presence, now)) holdTransients(transients, now / 1000)
 }
 
 /** True at time t (s) while the quiet zones still ease toward the layout applied at `layoutAt` (QUIET.ease long). */
@@ -132,132 +257,259 @@ function quietEasing(t: number): boolean {
 	return layoutAt !== null && t - layoutAt < QUIET.ease
 }
 
-/** How often to draw right now, from the most to the least demanding reason to draw. */
-function frameMode(now: number): FrameMode {
-	if (!ctx || !visible || motion === 'off' || exitAt === null) return 'sleep'
-	const t = now / 1000
-	const scrolling = now - lastScrollAt < FRAME.scrollSettleMs
-	if ((meteor && meteorMoving(meteor, t)) || (scrolling && motion === 'full')) return 'active'
-	// A lingering train, scrolling under reduced motion, the dusk and copy that has just appeared or moved change slowly
-	if (meteor || scrolling || !emergenceDone(t - exitAt) || quietEasing(t)) return 'fade'
-	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
-	if (motion === 'full' && !isIdle(now) && sceneAt(scrollY, height, documentHeight).twinkle > 0) return 'twinkle'
-	return 'sleep'
-}
-
-/** Milliseconds between timer-driven frames. */
-function frameInterval(mode: 'fade' | 'twinkle'): number {
-	if (mode === 'fade') return 1000 / FRAME.fadeFps
-	return 1000 / (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps)
-}
-
-/** Drops any pending animation frame or timer. */
-function cancelFrames(): void {
-	if (rafId) scope.cancelAnimationFrame(rafId)
-	clearTimeout(timerId)
-	rafId = 0
-	timerId = undefined
-}
-
-/** True when a shooting star may launch at all right now (its own timing aside). */
-function meteorsAllowed(now: number): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(now) && sceneAt(scrollY, height, documentHeight).meteors
+/** What the frame clock sees now (reused). */
+const frameState: FrameState = {
+	live: false,
+	scrolling: false,
+	full: false,
+	transientDemand: NO_FRAMES,
+	cameraActive: false,
+	cameraSpeed: 0,
+	cameraCap: Infinity,
+	fading: false,
+	twinkleFps: 0,
 }
 
 /**
- * Moving things (a shooting star, scroll parallax) draw on animation frames, in step with the display.
- * Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between frames.
+ * The strictest demand of every part of the sky right now. It gathers the gates and reads the worker's state afresh at
+ * every frame decision, so a message that wakes a sleeping worker (an activity or pointer ping, say) is judged on this
+ * moment, not on what the last frame saw.
  */
-function schedule(now: number): void {
-	if (rafId || !ctx || !visible) return
-	clearTimeout(timerId)
-	timerId = undefined
-	const mode = frameMode(now)
-	if (mode === 'active') {
-		rafId = scope.requestAnimationFrame(onFrame)
-		return
-	}
-	if (mode === 'sleep') {
-		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
-		// Asleep in the hero (an idle twinkle, say): wake only for the next shooting star
-		else if (Number.isFinite(nextMeteorAt) && meteorsAllowed(now)) timerId = setTimeout(onTimer, Math.max(0, nextMeteorAt * 1000 - now))
-		return
-	}
-	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + frameInterval(mode) - now))
+function demandNow(now: number, scene: SceneLevels): FrameDemand {
+	const t = now / 1000
+	gather(now, scene)
+	const wanted = driftWanted(driftGate)
+	// The test the camera's step makes: under full motion, a lean spring away from the pointer's target. A pause holds the
+	// springs where they are, often short of it, and would otherwise draw identical frames until Play.
+	const leaning = leanWanted(camera, leanTarget(scene), motion === 'full')
+	frameState.live = ctx !== null && visible && motion !== 'off' && exitAt !== null
+	frameState.scrolling = now - lastScrollAt < FRAME.scrollSettleMs
+	frameState.full = motion === 'full'
+	frameState.transientDemand = transientDemand(transients, t)
+	// The stars keep gliding to rest after the page stops scrolling, the drift asks for frames from the moment it heads
+	// up, when its eased rate is still 0, and a pointer that has moved asks for them before the lean has moved a pixel: a
+	// sleeping worker would never wake for any of them
+	frameState.cameraActive = cameraMoving || wanted || leaning
+	frameState.cameraSpeed = DEPTH.maxNearness * cameraSpeed(camera, wanted ? driftTarget(driftGate) : 0) * dpr
+	frameState.cameraCap = wanted || leaning ? driftCap(narrowScreen, quality > 0, softwareFps) : Infinity
+	// The dusk, copy that has just appeared or moved, the motion level easing, the thinned stars and the comet fading change slowly
+	frameState.fading =
+		(exitAt !== null && !emergenceDone(t - exitAt)) ||
+		quietEasing(t) ||
+		easing(motionLevel.since, FRAME.motionEase, t) ||
+		easing(thinnedAt, ADAPT.thinFade, t) ||
+		bodyFading(comet, t, t - hiddenTotal)
+	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
+	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
+	return frameDemand(frameState)
 }
 
-/** Timer-driven frame (fades, twinkle, a due shooting star). */
+/** Drops any pending animation frame, watchdog or timer, ends the relay, and forgets the last refresh, so the gap before the next one isn't taken for a refresh interval. */
+function cancelFrames(): void {
+	if (rafId !== null) scope.cancelAnimationFrame?.(rafId)
+	clearTimeout(timerId)
+	clearTimeout(watchdogId)
+	rafId = null
+	timerId = undefined
+	watchdogId = undefined
+	refresh.pause()
+	setRelay(false)
+}
+
+/** Asks the main thread to start or stop relaying its animation frames, once per change. A stop also drops the watchdog waiting for the next tick. */
+function setRelay(on: boolean): void {
+	if (on === relayOn) return
+	relayOn = on
+	strikes = 0
+	relayRefresh.pause()
+	if (!on) {
+		clearTimeout(watchdogId)
+		watchdogId = undefined
+	}
+	scope.postMessage({ type: 'relay', on })
+}
+
+/** Whether the frames' clock can be relied on: the page's animation frames while they are relayed, the worker's own otherwise. */
+function clockWorks(): boolean {
+	return relayOn ? strikes < PACING.watchdogStrikes : rafWorks
+}
+
+/** True when transients may launch at all right now, in a launch scene (each kind's own timing and scene aside). */
+function launchesAllowed(now: number, scene: SceneLevels): boolean {
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launchScene !== null
+}
+
+/** Refills the launch gate for `now` (ms) in the tick's scene: whether and where transients may launch this tick. */
+function launchGate(now: number, scene: SceneLevels): LaunchGate {
+	gate.allowed = launchesAllowed(now, scene)
+	gate.scene = scene.launchScene
+	// Worker milliseconds against the key's seconds
+	gate.settled = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.narrow = narrowScreen
+	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
+	gate.scrollY = scrollY
+	gate.ink = contrastLevels().meteorInk
+	gate.bodyShowing = bodyShowing(comet)
+	return gate
+}
+
+/**
+ * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star or a
+ * satellite, scrolling, the drift, the lean, the stars gliding to rest) wake on animation frames, in step with the
+ * display, and tick draws on every k-th of them. Where the worker's own animation frames come from a fixed timer instead
+ * (WebKit's), the page's are relayed for as long as something moves, and each one that arrives wakes tick in place of
+ * one of its own. Slow changes (twinkle, fades) draw from a timer: no vsync subscription, so the worker sleeps between
+ * frames. With nothing to draw, one timer is left for a change a message has just made or the next launch. A frame
+ * already pending is left alone.
+ */
+function schedule(now: number): void {
+	if (rafId !== null || !ctx || !visible) return
+	clearTimeout(timerId)
+	timerId = undefined
+	const scene = sceneAt(scrollY, height, documentHeight)
+	const demand = demandNow(now, scene)
+	// A worker clock that isn't the display's is replaced by the page's for as long as something moves
+	setRelay(demand.vsync && rafWorks && refresh.unaligned)
+	if (demand.vsync) {
+		requestFrame(now, demand)
+		return
+	}
+	// Nothing moves: a later stretch of motion starts its wait for a lower need afresh, not from this one's
+	divisor.slowerSince = null
+	if (demand.fps <= 0) {
+		// Asleep: the gap before the next animation frame is not a refresh interval
+		refresh.pause()
+		const launchAt = nextLaunchAt(transients)
+		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
+		// Asleep in a launch scene (an idle twinkle, say): wake only for the next launch
+		else if (Number.isFinite(launchAt) && launchesAllowed(now, scene)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
+		return
+	}
+	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + 1000 / demand.fps - now))
+}
+
+/**
+ * Asks for the next wake-up of a moving sky: an animation frame, and a watchdog that serves it from a timer if it never
+ * comes. While the page's animation frames are relayed, the next wake-up is a tick, so only the watchdog is armed, and
+ * only if it isn't already: schedule runs after every message, and a watchdog restarted by each would be pushed back for
+ * as long as messages keep coming. Where animation frames can't be relied on, a 60 Hz timer stands in for the display
+ * instead. That timer is armed against the last drawn frame, not from now, for the same reason. It waits the divisor in
+ * use, or fewer refreshes if `demand` now needs fewer (a scroll message since the last tick, say). In that mode one
+ * animation frame is also asked for every PACING.reprobeMs, to find out whether the display's clock is back, unless the
+ * relayed frames are what failed: the next tick ends the timer's turn.
+ */
+function requestFrame(now: number, demand: FrameDemand): void {
+	if (clockWorks()) {
+		if (relayOn) {
+			watchdogId ??= setTimeout(onStalled, PACING.watchdogMs)
+			return
+		}
+		clearTimeout(watchdogId)
+		rafId = scope.requestAnimationFrame?.(onFrame) ?? null
+		watchdogId = setTimeout(onStalled, PACING.watchdogMs)
+		return
+	}
+	const k = Math.min(divisor.k, refreshDivisor(PACING.fallbackFps, demand.fps, demand.cap))
+	timerId = setTimeout(onTimer, needsDraw ? 0 : Math.max(0, lastDrawAt + (k * 1000) / PACING.fallbackFps - now))
+	if (relayOn || now - probedAt < PACING.reprobeMs) return
+	probedAt = now
+	if (probeId !== null) scope.cancelAnimationFrame?.(probeId)
+	probeId = scope.requestAnimationFrame?.(onProbe) ?? null
+}
+
+/** Timer-driven frame (fades, twinkle, a launch coming due, or any frame where animation frames can't be relied on). */
 function onTimer(): void {
 	timerId = undefined
 	tick(performance.now())
 }
 
-/** Animation-frame-driven frame (a flying shooting star, scrolling). */
-function onFrame(now: number): void {
-	rafId = 0
-	tick(now)
-}
-
-/** One wake-up: update the shooting star, draw if due, then schedule the next wake-up. */
-function tick(now: number): void {
-	updateMeteor(now)
-	settleQuiet(now)
-	const mode = frameMode(now)
-	// Timers fire a little early or late; 4ms of slack keeps the cadence even
-	if (needsDraw || mode === 'active' || (mode !== 'sleep' && now - lastDrawAt >= frameInterval(mode) - 4)) draw(now)
-	schedule(now)
-}
-
-/** Retires a finished or canceled shooting star and launches the next one when it is due and the moment allows. */
-function updateMeteor(now: number): void {
-	const t = now / 1000
-	if (meteor) {
-		// Scrolling away from where it launched takes it away: it would pass over copy the veil doesn't know (SCROLL_CANCEL)
-		if (t - meteor.startedAt <= meteorLifetime(meteor) && scrollKept(launchScrollY, scrollY) > 0) return
-		meteor = null
-		needsDraw = true
-	}
-	if (revealAt === null || t < nextMeteorAt) return
-	const narrow = width <= NARROW_MAX_WIDTH
-	if (!meteorsAllowed(now) || now - lastScrollAt < FRAME.meteorScrollQuietMs || (narrow && launched >= METEOR.narrowLimit)) {
-		nextMeteorAt = t + METEOR.recheck
-		return
-	}
-	const plan = planLaunch({ width, height, quiet: screenQuietZones(quiet, scrollY, pinned) }, narrow, t)
-	if (!plan) {
-		failedPlans++
-		// No room around the copy (a phone held sideways, say): stop trying until the layout changes
-		nextMeteorAt = failedPlans >= METEOR.maxFailedPlans ? Infinity : t + between(random, METEOR.retry[0], METEOR.retry[1])
-		return
-	}
-	failedPlans = 0
-	meteor = plan
-	launchScrollY = scrollY
-	launched++
-	nextMeteorAt = t + plan.duration + nextMeteorGap(random, t - revealAt)
+/** Animation-frame-driven frame (a shooting star or a satellite in flight, scrolling, the drift, the lean, the stars gliding to rest): the display's own clock, so it also times the refresh. */
+function onFrame(time: number): void {
+	clearTimeout(watchdogId)
+	watchdogId = undefined
+	rafId = null
+	strikes = 0
+	refresh.sample(time)
+	tick(time)
 }
 
 /**
- * A plan for one launch. The radiant in hand is kept while it yields long flights, so shooting stars share a direction;
- * when it doesn't, fresh ones are tried. Long flights come first on every radiant, and a shorter fallback only when none
- * has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on copy.
- * Returns null (and drops the radiant) when nothing fits.
+ * A relayed frame, one of the page's animation frames sent as a tick: the display's own clock, so it also times the
+ * refresh, from when it arrives. A tick the worker hasn't asked for, or has just stopped asking for, is ignored, and so is
+ * one handled the moment the last one was done with: it waited in the queue while that one's frame ran over a refresh,
+ * and drawing it too would let the ticks, and every message behind them (a scroll, a pause), pile up for as long as
+ * frames run that long.
  */
-function planLaunch(meteorField: MeteorField, narrow: boolean, t: number): Meteor | null {
-	const radiants = radiant ? [radiant] : []
-	while (radiants.length < (radiant ? 1 : 0) + (narrow ? 1 : METEOR.radiantTries)) radiants.push(pickRadiant(random, meteorField.width, meteorField.height))
-	const { meteorInk: ink } = contrastLevels()
-	for (const flights of ['long', 'short'] as const) {
-		for (const candidate of radiants) {
-			const plan = planMeteor(random, meteorField, candidate, t, { flights, ink })
-			if (plan) {
-				radiant = candidate
-				return plan
-			}
-		}
-	}
-	radiant = null
-	return null
+function onRelayTick(now: number): void {
+	if (!relayOn) return
+	const queued = now - relayTickDoneAt <= PACING.relayQueuedMs
+	relayTickDoneAt = now
+	if (queued) return
+	clearTimeout(watchdogId)
+	watchdogId = undefined
+	strikes = 0
+	relayRefresh.sample(now)
+	tick(now)
+	relayTickDoneAt = performance.now()
+}
+
+/**
+ * A requested animation frame didn't come in time: a timer serves this frame instead. After PACING.watchdogStrikes misses
+ * in a row animation frames are no longer relied on, until a probe finds the display's clock back. A relay that misses
+ * as often is no longer relied on either, until a tick comes; the worker's own clock is not at fault then.
+ */
+function onStalled(): void {
+	watchdogId = undefined
+	if (rafId !== null) scope.cancelAnimationFrame?.(rafId)
+	rafId = null
+	strikes++
+	if (strikes >= PACING.watchdogStrikes && !relayOn) rafWorks = false
+	tick(performance.now())
+}
+
+/** The probe's animation frame came: the display's clock works again. */
+function onProbe(): void {
+	probeId = null
+	rafWorks = true
+	strikes = 0
+}
+
+/**
+ * The display's clock may be back (the tab was shown, the GPU context restored): count misses afresh, and where a timer
+ * stands in for the clock, ask for an animation frame at the next chance instead of at the next probe.
+ */
+function recheckFrames(): void {
+	strikes = 0
+	probedAt = -Infinity
+}
+
+/**
+ * One wake-up: update the transients, gather the gates and step the camera, draw if due, then schedule the next
+ * wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
+ */
+function tick(now: number): void {
+	// The launch gate, the gates and the camera read one scene: nothing in a tick moves the scroll or the viewport
+	const scene = sceneAt(scrollY, height, documentHeight)
+	if (updateTransients(transients, random, now / 1000, launchGate(now, scene))) needsDraw = true
+	settleQuiet(now)
+	gather(now, scene)
+	// Fade frames come 1/FRAME.fadeFps s apart, so the motion ease and the thin fade end between two of them: the last
+	// frame shown still carries a trace of twinkle or of the thinned stars. One more frame shows the resting sky, which is
+	// what stays on screen.
+	const drawnAt = lastDrawAt / 1000
+	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, drawnAt) || easeEnded(thinnedAt, ADAPT.thinFade, now / 1000, drawnAt)) needsDraw = true
+	updateCamera(now, scene)
+	updateComet(now)
+	const demand = demandNow(now, scene)
+	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
+	// display: until the relay starts, each of its frames is drawn, divided only by a demand's cap. The page's relayed
+	// frames are the display's, and divide like any other
+	const works = clockWorks()
+	const interval = !works ? 1000 / PACING.fallbackFps : relayOn ? relayRefresh.interval : refresh.interval
+	const fps = works && !relayOn && refresh.unaligned ? Infinity : demand.fps
+	const k = demand.vsync ? stepDivisor(divisor, refreshDivisor(1000 / interval, fps, demand.cap), now) : 1
+	if (needsDraw || frameDue(demand, now, lastDrawAt, k, interval)) draw(now)
+	schedule(now)
 }
 
 /** The quiet zones on screen at time t (s): the previous layout's easing into the current one's over QUIET.ease, and the waiting layout's, if one is. */
@@ -301,27 +553,71 @@ function settleQuiet(now: number): void {
 	} else if (lastDrawAt / 1000 - layoutAt < QUIET.ease) needsDraw = true
 }
 
-/** Everything drawSky and drawMeteor need to draw the sky at time `now` (ms) onto `target`. */
+/** Steps the camera while the tab is visible, the drift at the rate gather found and the lean toward the pointer; when it comes to rest, one more frame draws the resting sky. */
+function updateCamera(now: number, scene: SceneLevels): void {
+	if (!visible) return
+	cameraInput.time = now / 1000
+	cameraInput.scroll = scrollY
+	cameraInput.viewportHeight = height
+	cameraInput.follow = motion === 'full'
+	cameraInput.drift = driftRate(driftGate)
+	cameraInput.lean = leanTarget(scene)
+	const moving = stepCamera(camera, cameraInput)
+	if (cameraMoving && !moving) needsDraw = true
+	cameraMoving = moving
+}
+
+/**
+ * Steps the comet after the launch step and the camera: it starts when its rule allows (never while a shooting star holds
+ * the ink lease), is gone once it keeps no light, and a fade of it that has just run out draws one more frame, so no trace
+ * of it stays on screen. The launch gate it reads is the one this tick's launch step filled.
+ */
+function updateComet(now: number): void {
+	// A visit that draws no comet, and one whose comet has gone, have nothing to step
+	if (!comet.planned || comet.status === 'gone') return
+	const t = now / 1000
+	bodyStep.leaseHeld = leaseHeld(transients)
+	bodyStep.time = t
+	bodyStep.twinkleTime = t - hiddenTotal
+	bodyStep.drawnAt = lastDrawAt / 1000
+	bodyStep.twinkleDrawnAt = lastDrawAt / 1000 - hiddenTotal
+	cameraOffset(camera, offset)
+	if (updateBody(comet, bodyStep)) needsDraw = true
+}
+
+/**
+ * Everything drawSky and drawTransient need to draw the sky at time `now` (ms) onto `target`. It gathers the gates first:
+ * the twinkle reads the ambient level, and frames are also drawn outside a frame decision (a resize, a quality step),
+ * where a sky that slept would otherwise show a stale twinkle.
+ */
 function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const t = now / 1000
 	const scene = sceneAt(scrollY, height, documentHeight)
+	gather(now, scene)
 	const dusk = exitAt === null ? -1 : t - exitAt
 	const contrast = contrastLevels()
+	const density = densityKeep(width, height)
+	const thinLevel = fadeOutAt(thinnedAt, ADAPT.thinFade, t)
 	return {
 		time: t,
+		twinkleTime: t - hiddenTotal,
 		width,
 		height,
 		dpr,
 		deviceWidth: target.width,
 		deviceHeight: target.height,
-		parallaxScroll,
-		keep: densityKeep(width, height) * (quality > 0 ? ADAPT.thinning : 1),
+		offset: cameraOffset(camera, offset),
+		// The stars a quality step thins out stay in the draw until they have faded away
+		keep: quality > 0 && thinLevel <= 0 ? density * ADAPT.thinning : density,
+		thinFrom: quality > 0 ? density * ADAPT.thinning : Infinity,
+		thinLevel,
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
-		twinkle: twinkleLevel(now),
+		twinkle: twinkleLevel(scene),
 		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
 		quiet: quietBlend(t),
 		meteorInk: contrast.meteorInk,
+		snap: !skyMoved,
 	}
 }
 
@@ -331,7 +627,10 @@ function draw(now: number): void {
 	const started = performance.now()
 	const frame = frameAt(now, canvas)
 	drawSky(ctx, assets, field, frame)
-	if (meteor) drawMeteor(ctx, assets, meteor, frame, scrollKept(launchScrollY, scrollY))
+	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
+	// The comet's view tests its box against the zones this frame draws, and may find it gone
+	const view = bodyShowing(comet) ? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, quiet: frame.quiet }) : null
+	if (view) drawComet(ctx, assets, view, frame)
 	lastDrawAt = now
 	needsDraw = false
 	if (!ready) {
@@ -348,13 +647,15 @@ function adapt(milliseconds: number, now: number): void {
 }
 
 /**
- * One quality step down, never back up: step 1 draws fewer stars and twinkles slower, step 2 also draws at CSS
- * resolution. The layout is unchanged, so the shooting star, the radiant and the haze stay.
+ * One quality step down, never back up: step 1 draws fewer stars (the thinned ones fade out), twinkles slower and caps
+ * the drift's frames, step 2 also draws at CSS resolution. The layout is unchanged, so a shooting star or a satellite
+ * in flight, the visit's sky and the haze stay.
  */
 function stepDown(now: number): void {
 	if (quality >= 2) return
 	quality++
 	slowFrames = 0
+	if (quality === 1) thinnedAt = now / 1000
 	if (quality < 2 || dpr <= 1) return
 	sizeCanvas(1)
 	// Resizing cleared the canvas: redraw in this task so no blank frame reaches the screen
@@ -363,7 +664,8 @@ function stepDown(now: number): void {
 
 /**
  * Software canvases (Chromium without a GPU, for one) rasterize after the draw calls return, where adapt() can't see
- * the cost. Rasterize one full sky off screen and time it: a slow one starts the sky at the lowest quality.
+ * the cost. Rasterize one full sky off screen and time it: a slow one starts the sky at the lowest quality, and its
+ * cost decides how many frames a second the drift can afford (PACING.softwareShare of a core).
  */
 function probeRaster(now: number): void {
 	if (!canvas || !assets) return
@@ -374,8 +676,17 @@ function probeRaster(now: number): void {
 	const started = performance.now()
 	// A GPU canvas only queues the work here; a software one rasterizes the whole frame
 	probe.transferToImageBitmap().close()
+	const rasterMs = performance.now() - started
 	const limit = Math.max(ADAPT.rasterMinMs, (ADAPT.rasterMsPerMp * probe.width * probe.height) / 1e6)
-	if (performance.now() - started > limit) while (quality < 2) stepDown(now)
+	if (rasterMs <= limit) return
+	const probedDpr = dpr
+	const thinsNow = quality === 0
+	while (quality < 2) stepDown(now)
+	// The probe thins the stars out before the sky has been shown, so the thinned ones are gone from the start, instead of
+	// coming out with the dusk and then fading away
+	if (thinsNow) thinnedAt = now / 1000 - ADAPT.thinFade
+	// The probe drew at the device ratio, and the sky now draws at CSS resolution: each frame costs that share of it
+	softwareFps = Math.floor((PACING.softwareShare * 1000) / (rasterMs * (dpr / probedDpr) ** 2))
 }
 
 /** Builds the sprite atlas and the haze for the current size and ratio, closing the old bitmaps. */
@@ -404,13 +715,6 @@ function rebuildHaze(): void {
 	schedule(performance.now())
 }
 
-/** A new layout may have room for shooting stars again. */
-function retryMeteors(now: number): void {
-	if (failedPlans < METEOR.maxFailedPlans || revealAt === null) return
-	failedPlans = 0
-	nextMeteorAt = now / 1000 + between(random, METEOR.retry[0], METEOR.retry[1])
-}
-
 /** Sizes the backing store for the CSS size at `ratio`, rebuilding the atlas if the ratio changed. Clears the canvas. */
 function sizeCanvas(ratio: number): void {
 	const ratioChanged = ratio !== dpr
@@ -431,10 +735,12 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	const hadAssets = assets !== null
 	width = nextWidth
 	height = nextHeight
-	// The old path was planned for the old layout
-	radiant = null
-	meteor = null
-	retryMeteors(now)
+	narrowScreen = nextWidth <= NARROW_MAX_WIDTH
+	// The old path was planned for the old layout, and so was the comet's place
+	forgetVisitSky(transients)
+	dropTransients(transients)
+	dropBody(comet)
+	retryTransients(transients, random, now / 1000)
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
 	// The haze follows the CSS size only, and it is smooth: keep stretching the old one until the size settles
@@ -452,12 +758,13 @@ function emerge(now: number): void {
 	needsDraw = true
 }
 
-/** The page is showing: start the shooting-star clock (the first one waits for the hero entrance to settle). */
+/** The page is showing: start the transients' clocks (the first launch waits for the hero entrance to settle) and draw whether this visit hangs the comet. */
 function reveal(now: number): void {
 	emerge(now)
 	if (revealAt !== null) return
 	revealAt = now / 1000
-	nextMeteorAt = revealAt + between(random, METEOR.firstDelay[0], METEOR.firstDelay[1])
+	revealTransients(transients, random, revealAt)
+	revealBody(comet, random)
 }
 
 scope.addEventListener('message', (event) => {
@@ -475,6 +782,8 @@ scope.addEventListener('message', (event) => {
 			canvas.addEventListener('contextrestored', () => {
 				rebuildAssets()
 				needsDraw = true
+				// A GPU restart may be what stalled the display's clock
+				recheckFrames()
 				schedule(performance.now())
 			})
 			tokens = message.tokens
@@ -483,8 +792,13 @@ scope.addEventListener('message', (event) => {
 			// A page opened in a background tab keeps its dusk until it is shown
 			if (!visible) hiddenAt = now
 			contrastMore = message.contrastMore
-			scrollY = parallaxScroll = message.scrollY
-			lastInputAt = now
+			scrollY = message.scrollY
+			camera = createCamera(message.scrollY)
+			skyMoved = message.motion === 'full'
+			// A load rests on its motion's level, so nothing eases at start
+			const level = message.motion === 'full' ? 1 : 0
+			motionLevel = { from: level, to: level, since: -Infinity }
+			presence = createPresence(now)
 			if (message.emerging) emerge(now)
 			if (message.revealed) reveal(now)
 			resize(message.width, message.height, message.dpr, now)
@@ -500,26 +814,66 @@ scope.addEventListener('message', (event) => {
 		case 'reveal':
 			reveal(now)
 			break
-		case 'motion':
-			// Back to full motion: no shooting star straight away
-			if (message.motion === 'full' && motion !== 'full') holdMeteors(now)
+		case 'motion': {
+			// Only a real change starts an ease, so a repeated message can't restart one
+			if (message.motion === motion) break
+			// Eases from the level on screen, so a change mid-ease never jumps. A hidden tab shows the level it had when it was
+			// hidden, not one an earlier ease has run out to unseen: a pause and a play that cancel out while it is hidden then
+			// leave nothing to ease when it is shown
+			const t = now / 1000
+			const shown = hiddenAt === null ? t : hiddenAt / 1000
+			motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, shown), to: message.motion === 'full' ? 1 : 0, since: t }
+			if (message.motion === 'full') {
+				skyMoved = true
+				// A switch to full motion in a shown tab means the visitor is here, whether they pressed Play on this page or in
+				// another tab or turned a setting off, even after a long idle stretch. A hidden tab notes it when it is shown.
+				if (visible) noteInput(now)
+				// Back to full motion: no launch straight away
+				holdTransients(transients, t)
+				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to
+				resumeCamera(camera, scrollY)
+			}
 			motion = message.motion
-			if (motion !== 'full') meteor = null
+			// A shooting star or a satellite in flight fades out over TRANSIENTS.cancelFade instead of vanishing, and so does the comet
+			if (motion !== 'full') {
+				cancelTransients(transients, t)
+				cancelBody(comet, t)
+			}
 			needsDraw = true
 			break
+		}
 		case 'visible':
 			visible = message.visible
 			if (!visible) {
 				cancelFrames()
-				meteor = null
+				forgetStep(camera)
+				dropTransients(transients)
 				hiddenAt = now
 				return
 			}
-			// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
-			if (exitAt !== null && hiddenAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
-			hiddenAt = null
+			if (hiddenAt !== null) {
+				// The stretch just ended is measured once, for the twinkle's clock, the dusk's, the motion ease's, the thin fade's
+				// and the idle clock's
+				hiddenTotal += (now - hiddenAt) / 1000
+				// The dusk clock stops while the tab is hidden: it resumes where it was, or starts if it began while hidden
+				if (exitAt !== null) exitAt = now / 1000 - Math.max(0, hiddenAt / 1000 - exitAt)
+				// So does the motion ease: one that began while hidden starts now, instead of running out unseen and jumping every
+				// star's twinkle in the first frame back. An ease that never ran (since -Infinity) stays that way.
+				motionLevel.since = now / 1000 - Math.max(0, hiddenAt / 1000 - motionLevel.since)
+				// And the thin fade, so the stars a quality step is thinning out don't vanish unseen while the tab is hidden and
+				// then all at once when it is shown
+				if (thinnedAt !== null) thinnedAt = now / 1000 - Math.max(0, hiddenAt / 1000 - thinnedAt)
+				// And the idle clock: time spent hidden is not time without input, so a tab hidden for longer than the idle sleep
+				// shows the twinkle it had, instead of one that has idled out and drops to rest in the first frame back. A visitor
+				// who was already asleep still eases in from 0, and one who has never been away (wokeAt -Infinity) stays that way.
+				presence.lastInputAt = now - Math.max(0, hiddenAt - presence.lastInputAt)
+				presence.wokeAt = now - Math.max(0, hiddenAt - presence.wokeAt)
+				hiddenAt = null
+			}
+			// Misses from before the tab was hidden say nothing about the display now
+			recheckFrames()
 			noteInput(now)
-			holdMeteors(now)
+			holdTransients(transients, now / 1000)
 			needsDraw = true
 			break
 		case 'contrast':
@@ -528,11 +882,10 @@ scope.addEventListener('message', (event) => {
 			break
 		case 'scroll':
 			scrollY = message.y
-			if (motion === 'full') parallaxScroll = message.y
 			lastScrollAt = now
 			noteInput(now)
-			// A running loop paces scroll redraws itself; a sleeping worker draws one now
-			if (!rafId && timerId === undefined) needsDraw = true
+			// A running loop (the relay's included) paces scroll redraws itself; a sleeping worker draws one now
+			if (!rafId && timerId === undefined && !relayOn) needsDraw = true
 			break
 		case 'layout': {
 			documentHeight = message.documentHeight
@@ -543,10 +896,31 @@ scope.addEventListener('message', (event) => {
 				if (quietEasing(now / 1000)) pendingLayout = message
 				else applyLayout(message, now)
 			}
-			retryMeteors(now)
+			retryTransients(transients, random, now / 1000)
 			needsDraw = true
 			break
 		}
+		case 'activity':
+			// The schedule below judges this moment's presence, so a sky that slept restarts its frames at once
+			noteInput(now)
+			break
+		case 'pointer':
+			// A position that isn't finite is ignored, so no message can make the camera's target not finite
+			if (message.at === null) {
+				pointerAt.x = 0
+				pointerAt.y = 0
+			} else if (Number.isFinite(message.at.x) && Number.isFinite(message.at.y)) {
+				pointerAt.x = message.at.x
+				pointerAt.y = message.at.y
+			}
+			// Someone moving the pointer is here. No needsDraw: the schedule below asks for the lean's frames at the pace its
+			// speed needs, where a draw per message would follow the mouse's rate and bypass the divisor
+			noteInput(now)
+			break
+		case 'tick':
+			// The frame draws and schedules the next wake-up itself
+			onRelayTick(now)
+			return
 	}
 	schedule(now)
 })

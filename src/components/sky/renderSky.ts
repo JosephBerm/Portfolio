@@ -1,51 +1,97 @@
-import { cellStars, twinkleNoise, type Star } from '@/lib/sky/catalog'
+import type { CometView } from '@/lib/sky/bodies'
+import type { Vec } from '@/lib/sky/camera'
+import { cellStars, LAYER_NEARNESS, twinkleNoise, type Star } from '@/lib/sky/catalog'
 import { mixRgb, rgba } from '@/lib/sky/color'
 import {
 	CELL_SIZE,
+	CLEAR_SKY_KEEPS,
+	COMET,
 	LAYERS,
 	METEOR,
 	METEOR_LIGHT,
 	METEOR_LOOK,
 	METEOR_VEIL,
 	MIN_STAR_ALPHA,
+	SATELLITE,
 	SKY_LAYERS,
 	STAR_ALPHA,
-	STAR_SHAPES,
+	STAR_PHASES,
 	TRAIN,
 	TWINKLE_HORIZON_GAIN,
 	type SkyLayer,
 } from '@/lib/sky/config'
 import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
-import { budgetKeeps, easedQuietFactor, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
-import type { StarAtlas } from './skyAssets'
+import { createQuietIndex } from '@/lib/sky/quietIndex'
+import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
+import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import type { Transient } from '@/lib/sky/transients'
+import { COMA_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
-/** Lazily generated cells of each layer's infinite plane, kept while they stay near the viewport. */
+/** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
 export interface StarField {
+	/** The stars of one cell; a cell beyond the key range (-32768 to 32767 on each axis) holds none, so keys never collide. */
 	cell(layer: SkyLayer, cx: number, cy: number): readonly Star[]
-	/** Drops the cache once it holds far more cells than one screenful. */
-	trim(visibleCells: number): void
+	/** Starts a frame: cells looked up from now on count as in use. */
+	beginFrame(): void
+	/** Drops the cells this frame didn't use once the cache holds more than CELL_CACHE_SLACK times the cells in use. */
+	trim(): void
 }
+
+/** How many times the cells in use the cache may hold before it drops the unused ones. */
+const CELL_CACHE_SLACK = 2
 
 /** Layer slot in a cell's cache key. */
 const LAYER_INDEX: Record<SkyLayer, number> = { far: 0, mid: 1, near: 2 }
 
-/** An empty star-cell cache; cells are generated on first use. */
+/**
+ * Each axis's cell coordinates from -CELL_KEY_RANGE to CELL_KEY_RANGE - 1 get their own key (about ±8.4 million px),
+ * well past how far the scroll moves any star on the longest page a browser lays out (Chromium stops at about 33.5
+ * million px).
+ */
+const CELL_KEY_RANGE = 0x8000
+
+/** A cell beyond the key range. */
+const NO_STARS: readonly Star[] = []
+
+/** A cached cell's stars and the frame that last used them. */
+interface CachedCell {
+	stars: readonly Star[]
+	frame: number
+}
+
+/**
+ * An empty star-cell cache; cells are generated on first use. A cell the current frame uses is never dropped or
+ * regenerated, so the cells on screen never regenerate in one burst; once the cache holds more than CELL_CACHE_SLACK
+ * times the cells in use, the cells this frame didn't use are dropped.
+ */
 export function createStarField(): StarField {
-	const cells = new Map<number, readonly Star[]>()
+	const cells = new Map<number, CachedCell>()
+	let frame = 0
+	let inUse = 0
 	return {
 		cell(layer, cx, cy) {
-			// Numeric key (no string garbage per frame): cell coordinates stay well inside ±32768
-			const key = ((cx + 0x8000) * 0x10000 + (cy + 0x8000)) * 4 + LAYER_INDEX[layer]
-			let stars = cells.get(key)
-			if (!stars) {
-				stars = cellStars(layer, cx, cy)
-				cells.set(key, stars)
+			if (cx < -CELL_KEY_RANGE || cx >= CELL_KEY_RANGE || cy < -CELL_KEY_RANGE || cy >= CELL_KEY_RANGE) return NO_STARS
+			// Numeric key (no string garbage per frame), one per cell inside the key range
+			const key = ((cx + CELL_KEY_RANGE) * 2 * CELL_KEY_RANGE + (cy + CELL_KEY_RANGE)) * 4 + LAYER_INDEX[layer]
+			let cached = cells.get(key)
+			if (!cached) {
+				cached = { stars: cellStars(layer, cx, cy), frame: -1 }
+				cells.set(key, cached)
 			}
-			return stars
+			if (cached.frame !== frame) {
+				cached.frame = frame
+				inUse++
+			}
+			return cached.stars
 		},
-		trim(visibleCells) {
-			if (cells.size > visibleCells * 4) cells.clear()
+		beginFrame() {
+			frame++
+			inUse = 0
+		},
+		trim() {
+			if (cells.size <= inUse * CELL_CACHE_SLACK) return
+			for (const [key, cached] of cells) if (cached.frame !== frame) cells.delete(key)
 		},
 	}
 }
@@ -61,17 +107,26 @@ export interface SkyAssets {
 
 /** Everything one frame needs. Sizes are CSS px unless named device. */
 export interface SkyFrame {
-	/** Seconds on the worker clock (twinkle, shooting stars). */
+	/** Seconds on the worker clock, for everything but the twinkle (which reads twinkleTime). */
 	time: number
+	/**
+	 * Seconds on the worker clock less the time the tab has spent hidden. The twinkle runs on it, so a tab shown again
+	 * picks the twinkle up where it stopped, instead of every star changing brightness at once.
+	 */
+	twinkleTime: number
 	width: number
 	height: number
 	dpr: number
 	deviceWidth: number
 	deviceHeight: number
-	/** Scroll offset that drives parallax (frozen under reduced motion). */
-	parallaxScroll: number
-	/** Share of the catalog to draw at this size and quality. */
+	/** The camera's offset (CSS px at nearness 1): each star is drawn its nearness times this far from its place on the sky. */
+	offset: Vec
+	/** Share of the catalog to draw at this size and quality: the unthinned share while the stars a quality step thins out are still fading away. */
 	keep: number
+	/** Stars with a thinning key at or above this are the ones a quality step thins out: the thinned share of the catalog, Infinity before the first step. */
+	thinFrom: number
+	/** How much of its light a star being thinned out still has: 1 before the first quality step, then easing to 0 over ADAPT.thinFade. */
+	thinLevel: number
 	/** Alpha multiplier per layer: scene × contrast. */
 	layers: Record<SkyLayer, number>
 	/** Seconds since the loader started lifting: negative before it, Infinity once every star is out. */
@@ -84,56 +139,93 @@ export interface SkyFrame {
 	quiet: QuietBlend
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (contrast). */
 	meteorInk: number
+	/** Every star at a whole device pixel, as a sky that hasn't moved in this page view draws them; false places each at its nearest sub-pixel phase (placePoint). */
+	snap: boolean
 }
 
-/** Shapes per palette row of the atlas. */
-const SHAPE_COUNT = STAR_SHAPES.length
-
-/** Stars this far beyond an edge are still drawn, so a halo never pops in at the border. */
+/**
+ * Stars this far beyond an edge (CSS px) are still drawn, so a halo never pops in at the border: the widest sprite's
+ * half-side, three halo sigmas rounded up to whole device pixels, is at most 12 CSS px, even at the 25% zoom the canvas
+ * ratio can fall to.
+ */
 const EDGE = 24
 
-/** Draws one depth layer; returns the cells visited. */
-function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): number {
+/** The quiet zones bucketed by screen tile over the viewport and EDGE, so each star reads only the zones that can reach it. */
+const quietIndex = createQuietIndex()
+
+/** Top-left device pixel of the sprite placePoint last picked (reused, so no garbage per star). */
+const corner = { x: 0, y: 0 }
+
+/**
+ * The sprite for a point of light centered at (px, py) device px, with its top-left whole pixel in `corner`. A moving
+ * point uses the sprite pre-rendered at its nearest sub-pixel phase, so it glides without blurring or pulsing; `snap`
+ * rounds to whole pixels (sprites have odd sides), so a sky that hasn't moved in this page view draws crisp points.
+ */
+function placePoint(atlas: StarAtlas, tint: number, shape: number, px: number, py: number, snap: boolean): Sprite | undefined {
+	let ix = snap ? Math.round(px) : Math.floor(px)
+	let iy = snap ? Math.round(py) : Math.floor(py)
+	let phaseX = snap ? 0 : Math.round((px - ix) * STAR_PHASES)
+	let phaseY = snap ? 0 : Math.round((py - iy) * STAR_PHASES)
+	// The nearest phase may be the next pixel's first
+	if (phaseX === STAR_PHASES) {
+		ix++
+		phaseX = 0
+	}
+	if (phaseY === STAR_PHASES) {
+		iy++
+		phaseY = 0
+	}
+	const sprite = atlas.stars[starSpriteIndex(tint, shape, phaseX, phaseY)]
+	if (!sprite) return undefined
+	const half = (sprite.size - 1) / 2
+	corner.x = ix - half
+	corner.y = iy - half
+	return sprite
+}
+
+/** Draws one depth layer: each star at its place on the sky less its nearness times the camera's offset. */
+function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame, layer: SkyLayer): void {
 	const scale = frame.layers[layer]
-	if (scale <= MIN_STAR_ALPHA) return 0
+	if (scale <= MIN_STAR_ALPHA) return
 	const config = LAYERS[layer]
-	const offsetY = frame.parallaxScroll * config.parallax
-	const x0 = Math.floor(-EDGE / CELL_SIZE)
-	const x1 = Math.floor((frame.width + EDGE) / CELL_SIZE)
-	const y0 = Math.floor((offsetY - EDGE) / CELL_SIZE)
-	const y1 = Math.floor((offsetY + frame.height + EDGE) / CELL_SIZE)
-	const { image, stars: sprites } = assets.atlas
+	const { offset } = frame
+	const [qFar, qNear] = LAYER_NEARNESS[layer]
+	// The cells this layer's stars can come from, for every nearness in its band
+	const x0 = Math.floor((Math.min(offset.x * qFar, offset.x * qNear) - EDGE) / CELL_SIZE)
+	const x1 = Math.floor((Math.max(offset.x * qFar, offset.x * qNear) + frame.width + EDGE) / CELL_SIZE)
+	const y0 = Math.floor((Math.min(offset.y * qFar, offset.y * qNear) - EDGE) / CELL_SIZE)
+	const y1 = Math.floor((Math.max(offset.y * qFar, offset.y * qNear) + frame.height + EDGE) / CELL_SIZE)
+	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
-	const quiet = frame.quiet.to.length > 0 || frame.quiet.from.length > 0
-	let cells = 0
+	// Whether any quiet zone is on screen: fixed for the whole frame, so read once per layer
+	const quiet = !quietIndex.empty
 	for (let cy = y0; cy <= y1; cy++) {
 		for (let cx = x0; cx <= x1; cx++) {
-			cells++
 			for (const star of field.cell(layer, cx, cy)) {
 				if (star.keep >= frame.keep) continue
-				const x = star.x
-				const y = star.y - offsetY
+				// Subtract in doubles before anything reaches the canvas, whose coordinates are float32
+				const x = star.x - offset.x * star.q
+				const y = star.y - offset.y * star.q
 				if (x < -EDGE || y < -EDGE || x > frame.width + EDGE || y > frame.height + EDGE) continue
 				let alpha = star.alpha * scale
+				// A star a quality step thins out fades away instead of vanishing in one frame
+				if (star.keep >= frame.thinFrom) alpha *= frame.thinLevel
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)
 				// A bright star beside the copy reads as punctuation or an accent
-				if (quiet) alpha *= easedQuietFactor(frame.quiet, x, y, config)
+				if (quiet) alpha *= quietIndex.factor(x, y, config)
 				if (star.twinkle && frame.twinkle > 0) {
 					const depth = y / frame.height
 					const sigma = star.twinkle.sigma * frame.twinkle * (1 + TWINKLE_HORIZON_GAIN * depth * depth)
-					alpha *= Math.exp(sigma * twinkleNoise(star.twinkle, frame.time) - (sigma * sigma) / 2)
+					alpha *= Math.exp(sigma * twinkleNoise(star.twinkle, frame.twinkleTime) - (sigma * sigma) / 2)
 				}
 				if (alpha < MIN_STAR_ALPHA) continue
-				const sprite = sprites[star.tint * SHAPE_COUNT + star.shape]
+				const sprite = placePoint(atlas, star.tint, star.shape, x * frame.dpr, y * frame.dpr, frame.snap)
 				if (!sprite) continue
-				// Snapped to device pixels (sprites have odd sides), so resting stars stay crisp points
-				const half = (sprite.size - 1) / 2
 				ctx.globalAlpha = Math.min(STAR_ALPHA.peak, alpha)
-				ctx.drawImage(image, sprite.x, sprite.y, sprite.size, sprite.size, Math.round(x * frame.dpr) - half, Math.round(y * frame.dpr) - half, sprite.size, sprite.size)
+				ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, corner.x, corner.y, sprite.size, sprite.size)
 			}
 		}
 	}
-	return cells
 }
 
 /** Navy, haze, then every layer with additive blending (starlight adds; overlapping glows never muddy). */
@@ -150,9 +242,10 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 		ctx.drawImage(assets.haze, 0, 0, frame.deviceWidth, frame.deviceHeight)
 		ctx.imageSmoothingEnabled = true
 	}
-	let cells = 0
-	for (const layer of SKY_LAYERS) cells += drawLayer(ctx, assets, field, frame, layer)
-	field.trim(cells)
+	quietIndex.update(frame.quiet, frame.width, frame.height, EDGE)
+	field.beginFrame()
+	for (const layer of SKY_LAYERS) drawLayer(ctx, assets, field, frame, layer)
+	field.trim()
 	ctx.globalAlpha = 1
 }
 
@@ -191,6 +284,14 @@ function drawTrain(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, me
 	ctx.stroke()
 }
 
+/** The color a wake cools to: mint for fast flights (fireballs too), warm for slow flights and the other fireballs, white for medium flights. */
+function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
+	const { white, green } = assets.tokens
+	if (meteor.wakeColor === 'mint') return mixRgb(green, white, METEOR_LOOK.mintToWhite)
+	if (meteor.wakeColor === 'warm' || meteor.fireball) return assets.palette[METEOR_LOOK.fireballTint] ?? white
+	return white
+}
+
 /**
  * A shooting star at the frame's time: its train, then the wake, glow and core. The wake is drawn from the flight's
  * emission history: each point glows from the moment the head passes it and fades with the wake time constant,
@@ -199,15 +300,18 @@ function drawTrain(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, me
  * point it draws, so a shooting star burning out behind the copy fades there while the part still in clear sky stays
  * bright, and on the copy it keeps its shape at a faint level. While a layout eases in it follows transientQuietFactor.
  * `fade` (0-1) multiplies the light of all of it, train, wake, glow and core: the caller's own fade, such as the scroll
- * cancel (scrollKept).
+ * cancel (scrollKept). `keeps` replaces the veil's budgets for a variant that never takes the ink lease (CLEAR_SKY_KEEPS),
+ * which keeps none of its light inside a padded quiet rect. `wakeStops` is how many of the wake's stops it samples, counted
+ * from the head (all of METEOR_LOOK.wakeStops by default). A body that leaves no wake, a point flash, takes none: each
+ * stop's light divides its age by the wake time, and an age of 0 over a wake time of 0 is NaN.
  */
-export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1): void {
+export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1, keeps?: QuietKeeps, wakeStops: number = METEOR_LOOK.wakeStops): void {
 	const { dpr } = frame
 	const state = meteorAt(meteor, frame.time)
-	const { white, green } = assets.tokens
+	const { white } = assets.tokens
 	const keptBy = (keeps: QuietKeeps) => (point: Point) => transientQuietFactor(frame.quiet, point.x, point.y, keeps) * fade
 	ctx.globalCompositeOperation = 'lighter'
-	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, keptBy(budgetKeeps(state.train, METEOR_VEIL.quietKeep, frame.meteorInk)))
+	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, keptBy(keeps ?? budgetKeeps(state.train, METEOR_VEIL.quietKeep, frame.meteorInk)))
 
 	// Emission progress still glowing: from `tail` (oldest) to `head` (now)
 	const head = Math.min(1, state.progress)
@@ -218,7 +322,7 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	const flaring = meteor.flare && state.progress > METEOR_LIGHT.flareGlowFrom
 	const boost = (meteor.fireball ? METEOR_LOOK.fireballGlow : 1) * (flaring ? METEOR_LIGHT.flareGlow : 1)
 	// The light each wake stop carries (from the head back to `tail`) and where it was emitted; the far half thins out a little faster than the afterglow alone
-	const wake = Array.from({ length: METEOR_LOOK.wakeStops }, (_, k) => {
+	const wake = Array.from({ length: wakeStops }, (_, k) => {
 		const f = k / (METEOR_LOOK.wakeStops - 1)
 		const emitted = head - f * (head - tail)
 		const age = (state.progress - emitted) * meteor.duration
@@ -227,14 +331,14 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	})
 	// The most white the brightest pixel would add with no veil: the veil keeps each copy's share of it, so everything dims together
 	const brightest = Math.max(state.intensity * headGain(boost), WAKE_GAIN * Math.max(...wake.map((stop) => stop.light)))
-	const kept = keptBy(budgetKeeps(brightest, METEOR_VEIL.quietKeep, frame.meteorInk))
+	const kept = keptBy(keeps ?? budgetKeeps(brightest, METEOR_VEIL.quietKeep, frame.meteorInk))
 	if (tail < 1) {
 		const tailPoint = meteorPoint(meteor, tail)
 		const tx = tailPoint.x * dpr
 		const ty = tailPoint.y * dpr
 		const length = Math.hypot(hx - tx, hy - ty)
 		if (length > 0.5) {
-			const tint = meteor.fireball ? (assets.palette[METEOR_LOOK.fireballTint] ?? white) : mixRgb(green, white, METEOR_LOOK.mintToWhite)
+			const tint = wakeTint(assets, meteor)
 			// One gradient serves the core and the wider, fainter soft pass
 			const gradient = ctx.createLinearGradient(hx, hy, tx, ty)
 			for (const stop of wake) gradient.addColorStop(stop.f, rgba(mixRgb(white, tint, Math.min(1, stop.f / METEOR_LOOK.coolBy)), stop.light * kept(stop.point)))
@@ -255,6 +359,167 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 		ctx.drawImage(image, glow.x, glow.y, glow.size, glow.size, hx - glow.size / 2, hy - glow.size / 2, glow.size, glow.size)
 		ctx.globalAlpha = Math.min(1, state.intensity * veiled)
 		ctx.drawImage(image, core.x, core.y, core.size, core.size, hx - core.size / 2, hy - core.size / 2, core.size, core.size)
+	}
+	ctx.globalAlpha = 1
+}
+
+/**
+ * A satellite at the frame's time: one steady point, with no tail and no twinkle. It is drawn from two sprites at the same
+ * place, the pale tint and the orange one of Earth's shadow, in the shares its warmth gives them; added together they are
+ * an exact mix of the two colors. `fade` (0-1) multiplies its light, as for a shooting star. `keeps` are the quiet keeps
+ * it is drawn with (CLEAR_SKY_KEEPS), read at its center through transientQuietFactor every frame, so none of its light
+ * lands inside a quiet rect, even mid-ease or when a layout changes under it.
+ */
+function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, pass: SatellitePass, frame: SkyFrame, fade: number, keeps: QuietKeeps): void {
+	const { x, y, alpha, warmth } = satelliteAt(pass, frame.time)
+	const light = alpha * fade * transientQuietFactor(frame.quiet, x, y, keeps)
+	if (light < MIN_STAR_ALPHA) return
+	const { atlas } = assets
+	ctx.globalCompositeOperation = 'lighter'
+	for (const [tint, share] of [[SATELLITE.tint, 1 - warmth], [SATELLITE.shadowTint, warmth]] as const) {
+		// Unsnapped, so the point glides
+		const sprite = share > 0 ? placePoint(atlas, tint, SATELLITE.shape, x * frame.dpr, y * frame.dpr, false) : undefined
+		if (!sprite) continue
+		ctx.globalAlpha = light * share
+		ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, corner.x, corner.y, sprite.size, sprite.size)
+	}
+	ctx.globalAlpha = 1
+}
+
+/** The wake stops drawMeteor samples for a body: none for one with no wake time (a point flash, which has no length either), else all of them. */
+function wakeStopsFor(meteor: Meteor): number {
+	return meteor.wake === 0 ? 0 : METEOR_LOOK.wakeStops
+}
+
+/**
+ * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
+ * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst, an
+ * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A burst
+ * draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
+ * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them.
+ */
+export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
+	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
+	const { kind, body } = transient
+	switch (kind) {
+		case 'meteor': {
+			const keeps = transient.clearSky ? CLEAR_SKY_KEEPS : undefined
+			drawMeteor(ctx, assets, body, frame, fade, keeps, wakeStopsFor(body))
+			if (body.followers) for (const follower of body.followers) drawMeteor(ctx, assets, follower, frame, fade, keeps, wakeStopsFor(follower))
+			return
+		}
+		case 'satellite':
+			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)
+			return
+		case 'farewell':
+			drawMeteor(ctx, assets, body, frame, fade)
+			return
+		default: {
+			const unhandled: never = kind
+			return unhandled
+		}
+	}
+}
+
+/**
+ * The cross-section of a comet's tail as nested passes, widest first: each is the tail at a share of its full width that
+ * carries a share of its peak light, so the light is faintest at the tail's edges and strongest down its spine.
+ */
+const TAIL_PASSES = [
+	{ width: 1, light: 0.35 },
+	{ width: 0.55, light: 0.35 },
+	{ width: 0.25, light: 0.3 },
+] as const
+
+/** How fast a tail's light falls from the nucleus to the tip: the share of its peak light left is (1 - the share of its length)^TAIL_FALLOFF. */
+const TAIL_FALLOFF = 1.4
+
+/** Gradient stops along a tail, past the first. */
+const TAIL_STOPS = 6
+
+/**
+ * The dust tail: the spine's fan, nested passes of it filled with one gradient along the chord from the nucleus to the
+ * tip. Each stop carries the tail's light there times `kept` at its own place on the spine.
+ */
+function drawDustTail(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, dpr: number, kept: (x: number, y: number) => number): void {
+	const { x, y, shape } = view
+	const { dust } = shape
+	const tip = dust[dust.length - 1]
+	if (!tip) return
+	const color = assets.palette[COMET.dust.tint] ?? assets.tokens.white
+	const chord = tip.x * tip.x + tip.y * tip.y
+	// The stops sit on spine samples; where each lies along the chord is its offset in the gradient
+	const stops = Array.from({ length: TAIL_STOPS + 1 }, (_, k) => {
+		const index = Math.round((k * (dust.length - 1)) / TAIL_STOPS)
+		const point = dust[index] ?? tip
+		const along = Math.min(1, Math.max(0, (point.x * tip.x + point.y * tip.y) / chord))
+		return { along, light: COMET.dust.alpha * (1 - index / (dust.length - 1)) ** TAIL_FALLOFF * kept(x + point.x, y + point.y) }
+	})
+	for (const pass of TAIL_PASSES) {
+		const gradient = ctx.createLinearGradient(x * dpr, y * dpr, (x + tip.x) * dpr, (y + tip.y) * dpr)
+		for (const stop of stops) gradient.addColorStop(stop.along, rgba(color, stop.light * pass.light))
+		ctx.fillStyle = gradient
+		ctx.beginPath()
+		dust.forEach((point, i) => {
+			const px = (x + point.x + point.nx * point.half * pass.width) * dpr
+			const py = (y + point.y + point.ny * point.half * pass.width) * dpr
+			if (i === 0) ctx.moveTo(px, py)
+			else ctx.lineTo(px, py)
+		})
+		for (let i = dust.length - 1; i >= 0; i--) {
+			const point = dust[i]
+			if (point) ctx.lineTo((x + point.x - point.nx * point.half * pass.width) * dpr, (y + point.y - point.ny * point.half * pass.width) * dpr)
+		}
+		ctx.closePath()
+		ctx.fill()
+	}
+}
+
+/** The ion tail: a straight tapered quad from the nucleus, in nested passes like the dust tail's, its light at each gradient stop times `kept` there. */
+function drawIonTail(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, dpr: number, kept: (x: number, y: number) => number): void {
+	const { x, y, shape } = view
+	const { ion } = shape
+	const color = assets.palette[COMET.ion.tint] ?? assets.tokens.white
+	const tipX = x + ion.dirX * ion.length
+	const tipY = y + ion.dirY * ion.length
+	for (const pass of TAIL_PASSES) {
+		const gradient = ctx.createLinearGradient(x * dpr, y * dpr, tipX * dpr, tipY * dpr)
+		for (let k = 0; k <= TAIL_STOPS; k++) {
+			const along = k / TAIL_STOPS
+			const light = COMET.ion.alpha * (1 - along) ** TAIL_FALLOFF * kept(x + ion.dirX * ion.length * along, y + ion.dirY * ion.length * along)
+			gradient.addColorStop(along, rgba(color, light * pass.light))
+		}
+		ctx.fillStyle = gradient
+		taperedQuad(ctx, x * dpr, y * dpr, tipX * dpr, tipY * dpr, -ion.dirY, ion.dirX, ion.head * pass.width * dpr, ion.tip * pass.width * dpr)
+	}
+}
+
+/**
+ * The static comet at one frame: the dust tail, the ion tail, the mint coma and the pseudo-nucleus over them, added to
+ * the sky. `view.light` (the fade-in times what the scroll and the fades leave) multiplies all of it, and each part is
+ * drawn through the transient quiet factor with CLEAR_SKY_KEEPS at its own place, so that copy which has come within
+ * reach of the comet's box takes the light from the part it nears at once, without waiting for the comet's fade.
+ */
+export function drawComet(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, frame: SkyFrame): void {
+	if (view.light < MIN_STAR_ALPHA) return
+	const { dpr } = frame
+	const { x, y, shape } = view
+	const kept = (px: number, py: number) => view.light * transientQuietFactor(frame.quiet, px, py, CLEAR_SKY_KEEPS)
+	ctx.globalCompositeOperation = 'lighter'
+	ctx.globalAlpha = 1
+	drawDustTail(ctx, assets, view, dpr, kept)
+	drawIonTail(ctx, assets, view, dpr, kept)
+	const { atlas } = assets
+	const { cometComa: coma } = atlas
+	// The sprite's glow reaches three sigmas to its edge: scale it so that edge is the coma's radius
+	const side = (coma.size * shape.coma) / (3 * COMA_SIGMA)
+	ctx.globalAlpha = COMET.coma.alpha * kept(x, y)
+	ctx.drawImage(atlas.image, coma.x, coma.y, coma.size, coma.size, x * dpr - side / 2, y * dpr - side / 2, side, side)
+	// Unsnapped, so the nucleus glides as the camera carries it
+	const nucleus = placePoint(atlas, COMET.nucleus.tint, COMET.nucleus.shape, x * dpr, y * dpr, false)
+	if (nucleus) {
+		ctx.globalAlpha = COMET.nucleus.alpha * kept(x, y)
+		ctx.drawImage(atlas.image, nucleus.x, nucleus.y, nucleus.size, nucleus.size, corner.x, corner.y, nucleus.size, nucleus.size)
 	}
 	ctx.globalAlpha = 1
 }

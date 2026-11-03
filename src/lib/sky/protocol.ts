@@ -31,8 +31,8 @@ export interface SkyRect {
 
 /**
  * How much the sky may change on its own:
- * - `full`: twinkle, scroll parallax and shooting stars
- * - `reduced`: prefers-reduced-motion, so fades and brightness only
+ * - `full`: twinkle, drift, scroll parallax and its glide, pointer lean and transients
+ * - `reduced`: prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only
  * - `off`: forced colors hide the sky, so nothing is drawn
  */
 export type SkyMotion = 'full' | 'reduced' | 'off'
@@ -48,7 +48,7 @@ export type SkyMainMessage =
 			tokens: SkyTokens
 			/** The loader has started to lift (or there is none): the stars come out. */
 			emerging: boolean
-			/** The page content is showing: shooting stars may start. */
+			/** The page content is showing: shooting stars and satellites may start. */
 			revealed: boolean
 			motion: SkyMotion
 			/** False when the page loads in a background tab. */
@@ -71,6 +71,16 @@ export type SkyMainMessage =
 			/** Quiet rects of copy in fixed elements, in screen coordinates. */
 			pinned: readonly SkyRect[]
 	  }
+	/** The visitor is still here without scrolling (pointer, keys, focus); at most one a second. */
+	| { type: 'activity' }
+	/** A fine pointer's position for the lean, -1 to 1 from the viewport center (x right, y down); null once it leaves. At most one per animation frame. */
+	| { type: 'pointer'; at: { x: number; y: number } | null }
+	/** One animation frame of the page, sent on every frame while the worker has asked for a relay and not otherwise. */
+	| { type: 'tick' }
 
-/** Sky worker to main thread: the first frame is on the canvas, or the sky can't run. */
-export type SkyWorkerMessage = { type: 'ready' } | { type: 'error'; message: string }
+/** Sky worker to main thread: the first frame is on the canvas, the sky can't run, or the page's animation frames are wanted or not. */
+export type SkyWorkerMessage =
+	| { type: 'ready' }
+	| { type: 'error'; message: string }
+	/** Whether the main thread should send a `tick` on every animation frame of the page. Sent only when that changes. */
+	| { type: 'relay'; on: boolean }

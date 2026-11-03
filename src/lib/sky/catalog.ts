@@ -1,12 +1,14 @@
 import {
 	CELL_SIZE,
 	COLOR_GROUPS,
+	DEPTH,
 	EMERGENCE,
 	LAYERS,
 	MAGNITUDE,
 	MAX_STARS,
 	NARROW_DENSITY_BOOST,
 	NARROW_MAX_WIDTH,
+	PLANET,
 	SHAPE_BREAKS,
 	SKY_LAYERS,
 	SKY_SEED,
@@ -36,6 +38,8 @@ export interface Star {
 	y: number
 	/** Alpha from the star's magnitude, before scene, dusk, quiet and twinkle factors. */
 	alpha: number
+	/** Nearness from the magnitude (DEPTH): the share of the camera's motion this star shows. Costs no random draw. */
+	q: number
 	/** Index into STAR_SHAPES. */
 	shape: number
 	/** Palette index: 0 is --color-white, 1-7 are STAR_TINTS. */
@@ -82,6 +86,19 @@ export function magnitudeAlpha(m: number): number {
 	return STAR_ALPHA.peak * (1 - STAR_ALPHA.drop * t ** STAR_ALPHA.power)
 }
 
+/** Nearness q of a star of magnitude m: its share of the camera's motion (DEPTH). Brighter is nearer, at most DEPTH.maxNearness. */
+export function nearness(m: number): number {
+	return Math.min(DEPTH.maxNearness, 10 ** (-DEPTH.compression * (m - DEPTH.reference)))
+}
+
+/** Each layer's nearness range [faintest, brightest], from its magnitude band, for culling its cells against the camera. */
+export const LAYER_NEARNESS = Object.fromEntries(
+	SKY_LAYERS.map((layer) => {
+		const [from, to] = LAYERS[layer].magnitude
+		return [layer, [nearness(to), nearness(from)] as const]
+	})
+) as Record<SkyLayer, readonly [number, number]>
+
 /**
  * Share of the catalog drawn for a viewport: all of it on narrow screens, 1 / NARROW_DENSITY_BOOST on wider ones,
  * thinned evenly past MAX_STARS. Thinning by each star's fixed key keeps the same stars from frame to frame.
@@ -124,10 +141,32 @@ function shapeFor(m: number): number {
 	return shape
 }
 
+/** Seconds after the loader starts lifting before a star of magnitude m begins to come out: the brighter, the sooner (EMERGENCE). */
+function emergenceDelay(m: number): number {
+	return Math.min(EMERGENCE.maxDelay, Math.max(0, (m - EMERGENCE.from) * EMERGENCE.perMagnitude))
+}
+
+/** The planet as a star of the near layer (PLANET): always drawn (it is never thinned) and it never twinkles. */
+const PLANET_STAR: Star = {
+	x: PLANET.x,
+	y: PLANET.y,
+	alpha: magnitudeAlpha(PLANET.magnitude),
+	q: nearness(PLANET.magnitude),
+	shape: PLANET.shape,
+	tint: PLANET.tint,
+	keep: 0,
+	delay: emergenceDelay(PLANET.magnitude),
+	twinkle: null,
+}
+
+/** The cell of the near layer that holds the planet. */
+const PLANET_CELL = { x: Math.floor(PLANET.x / CELL_SIZE), y: Math.floor(PLANET.y / CELL_SIZE) }
+
 /**
  * The stars in one cell of a layer's infinite plane. Deterministic: the same cell always yields the same stars,
  * so the sky never reshuffles on resize, scroll or remount. Every star consumes the same number of random draws,
- * so retuning twinkle or tints never moves a star.
+ * so retuning twinkle or tints never moves a star. The planet (PLANET) is the one star that doesn't come from the
+ * seed: its cell holds it after the others, so it moves none of them.
  */
 export function cellStars(layer: SkyLayer, cx: number, cy: number): Star[] {
 	const random = mulberry32(hashCell(cx, cy, SKY_SEED ^ LAYER_SALT[layer]))
@@ -153,15 +192,18 @@ export function cellStars(layer: SkyLayer, cx: number, cy: number): Star[] {
 			x,
 			y,
 			alpha: magnitudeAlpha(m),
+			q: nearness(m),
 			shape: shapeFor(m),
 			tint: tintFor(tintPick, m),
 			keep,
-			delay: Math.min(EMERGENCE.maxDelay, Math.max(0, (m - EMERGENCE.from) * EMERGENCE.perMagnitude)),
+			delay: emergenceDelay(m),
 			twinkle: twinkles
 				? { sigma, w1, w2: w1 * TWINKLE_HARMONICS.ratio2, w3: w1 * TWINKLE_HARMONICS.ratio3, p1, p2, p3 }
 				: null,
 		})
 	}
+	// The planet comes after the random draws, so it moves no other star
+	if (layer === 'near' && cx === PLANET_CELL.x && cy === PLANET_CELL.y) stars.push(PLANET_STAR)
 	return stars
 }
 

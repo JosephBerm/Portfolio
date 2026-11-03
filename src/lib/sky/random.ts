@@ -1,5 +1,8 @@
 /** Seeded randomness for the sky catalog, so every visitor sees the same stars and nothing random runs during render. */
 
+/** A source of floats in [0, 1): a seeded generator for the catalog, Math.random for what varies per visit. */
+export type Random = () => number
+
 /** mulberry32: a small, fast 32-bit generator returning floats in [0, 1). */
 export function mulberry32(seed: number): () => number {
 	let state = seed >>> 0
@@ -23,4 +26,12 @@ export function hashCell(cx: number, cy: number, salt: number): number {
 /** Uniform float in [min, max). */
 export function between(random: () => number, min: number, max: number): number {
 	return min + (max - min) * random()
+}
+
+/**
+ * A standard normal deviate (Box-Muller). It takes the log of 1 - random() because random() can return 0, and the log of
+ * 0 is -Infinity, which would make the deviate infinite.
+ */
+export function gaussian(random: Random): number {
+	return Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random())
 }

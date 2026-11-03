@@ -18,7 +18,7 @@ export interface SceneLevels {
 	twinkle: number
 	/** Share of the drift clock's rate. */
 	drift: number
-	/** Share of the pointer lean: hero only. */
+	/** Share of the pointer lean. */
 	lean: number
 	/**
 	 * Where transients may launch now, if anywhere: the hero, up to SCENE.heroLaunchMaxScroll viewport heights scrolled, or

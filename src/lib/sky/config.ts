@@ -125,10 +125,10 @@ export const DRIFT = {
 } as const satisfies DriftConfig
 
 /**
- * Leaning toward the pointer (mice and pens on hover-capable screens, the hero, full motion): the camera moves up to
- * `reach` CSS px (at nearness 1) toward a pointer at the viewport's edge, through critically damped springs of `omega`
- * rad/s (95% in 1.2 s), so the stars slide away from it, the brightest farthest (19 px) and the faint majority about
- * 3.5 px: the same law as scrolling, so the depth order never changes. Like the drift, it keeps still on a
+ * Leaning toward the pointer (mice and pens on hover-capable screens, full motion, the whole page): the camera moves
+ * up to `reach` CSS px (at nearness 1) toward a pointer at the viewport's edge, through critically damped springs of
+ * `omega` rad/s (95% in 1.2 s), so the stars slide away from it, the brightest farthest (19 px) and the faint majority
+ * about 3.5 px: the same law as scrolling, so the depth order never changes. Like the drift, it keeps still on a
  * software-rasterized canvas too slow for PACING.minFps. iOS's own motion effects use about ±10 points; 7 is a calmer
  * setting.
  */
@@ -245,12 +245,12 @@ export const QUIET_REACH = QUIET.padding + QUIET.feather
  * third), and a bookend near the end of the page. Levels blend continuously with scroll, so the narrative needs no
  * clock of its own. Star levels are per layer: while reading the brighter layers dim most, so no star behind body copy
  * reads as punctuation. `drift` scales the drift clock's rate (DRIFT); `lean` scales the pointer lean (LEAN), which
- * only the hero has.
+ * every scene has in full.
  */
 export const SCENE = {
 	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1, drift: 1, lean: 1 },
-	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.4, twinkle: 0, drift: 0.35, lean: 0 },
-	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.7, twinkle: 0.8, drift: 0.8, lean: 0 },
+	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.4, twinkle: 0, drift: 0.35, lean: 1 },
+	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.7, twinkle: 0.8, drift: 0.8, lean: 1 },
 	/** Viewport heights scrolled where the hero starts and finishes giving way to reading. */
 	heroFadeFrom: 0.5,
 	heroFadeTo: 1.3,

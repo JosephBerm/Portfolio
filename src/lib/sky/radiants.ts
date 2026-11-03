@@ -224,10 +224,18 @@ export function pickVisitSky(random: Random, field: MeteorField): VisitSky {
 	return buildVisitSky(random, view, radiant, null)
 }
 
-/** One launch's steer: a source (the shower with RADIANTS.showerShare, else a sporadic one) and its scattered radiant. */
-export function visitSteer(random: Random, sky: VisitSky): Steer {
+/** What a steer is asked for beyond a visit's usual mix of sources and brightness. */
+export interface SteerOptions {
+	/** Every flight comes from the shower, not only RADIANTS.showerShare of them. */
+	shower?: boolean
+	/** Every flight is faint (METEOR_BRIGHTNESS.faint), not only METEOR_BRIGHTNESS.faintShare of them. */
+	faint?: boolean
+}
+
+/** One launch's steer: a source (the shower with RADIANTS.showerShare, else a sporadic one, unless `options` ask for the shower) and its scattered radiant. */
+export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions = {}): Steer {
 	const view = sky.window
-	const source = random() < RADIANTS.showerShare ? sky.shower : (sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower)
+	const source = options.shower || random() < RADIANTS.showerShare ? sky.shower : (sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower)
 	const radiant = scattered(random, source.radiant, source.scatter)
 	const speedClass = SPEED_CLASSES[source.speed]
 	const [shortest, longest] = speedClass.duration
@@ -248,7 +256,7 @@ export function visitSteer(random: Random, sky: VisitSky): Steer {
 		const range = meteorRange(elevationAt(view, start.x, start.y))
 		const jitter = between(random, METEOR.speedJitter[0], METEOR.speedJitter[1])
 		const speed = (speedClass.angular * DEG * view.focal * motion.rate * jitter) / (range / centerRange)
-		const [dimmest, brightest] = random() < METEOR_BRIGHTNESS.faintShare ? METEOR_BRIGHTNESS.faint : METEOR_BRIGHTNESS.normal
+		const [dimmest, brightest] = options.faint || random() < METEOR_BRIGHTNESS.faintShare ? METEOR_BRIGHTNESS.faint : METEOR_BRIGHTNESS.normal
 		const peak = between(random, dimmest, brightest) * Math.max(METEOR_BRIGHTNESS.rangeFloor, (nearestRange / range) ** 2)
 		let near = false
 		if (onScreen !== null) {

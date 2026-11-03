@@ -4,9 +4,9 @@
  * transients.ts, which reads their specs when it loads.
  */
 
-import { FAREWELL, METEOR, METEOR_KINDS, METEOR_RATE } from './config'
+import { FAREWELL, METEOR, METEOR_KINDS, METEOR_RATE, TRANSIENTS } from './config'
 import { nextGap } from './gaps'
-import { meteorLifetime, meteorMoving, planMeteor, startArea, type Meteor, type PlanOptions } from './meteors'
+import { meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions } from './meteors'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH } from './quietIndex'
 import { pickVisitSky, pointNearRadiant, visitSteer, type VisitSky } from './radiants'
@@ -28,7 +28,7 @@ export interface MeteorMemory {
 
 /** The shooting stars' memory at the start of a visit: nothing remembered yet. */
 export function createMeteorMemory(): MeteorMemory {
-	return { sky: null, from: { fireball: -Infinity, flash: -Infinity } }
+	return { sky: null, from: { fireball: -Infinity, flash: -Infinity, burst: -Infinity } }
 }
 
 /**
@@ -106,6 +106,49 @@ export function planFlash(context: PlanContext): Meteor | null {
 	return null
 }
 
+/**
+ * A plan for a burst: METEOR_KINDS.burst.members faint shooting stars from the shower radiant, the first at `now` and each
+ * later one a stagger after the one before. Every member is planned in clear sky (the planner's `nearCopy` false) and
+ * clear of the side rails, from a fresh steer of the shower, long flights on up to METEOR.radiantTries + 1 steers before
+ * a shorter one, and has no flare and no train. A member that would end after TRANSIENTS.maxLife from the first light,
+ * or that finds no path, ends the burst, so the whole burst never outlasts the limit; fewer than the least members is no
+ * burst. The visit's sky is picked when there is none, and a failure leaves it, since clear sky alone failing says
+ * nothing about it.
+ */
+export function planBurst(context: PlanContext): Meteor | null {
+	const { random, now, field, visit } = context
+	const { members, stagger } = METEOR_KINDS.burst
+	const memory = visit.meteor
+	const sky = memory.sky ?? pickVisitSky(random, field)
+	memory.sky = sky
+	const count = members[0] + Math.floor(random() * (members[1] - members[0] + 1))
+	let burst: Meteor | null = null
+	let startedAt = now
+	for (let member = 0; member < count; member++) {
+		if (member > 0) startedAt += between(random, stagger[0], stagger[1])
+		const planned = planMember(random, context, sky)
+		if (planned === null) break
+		const timed: Meteor = { ...planned, flare: false, train: false, startedAt, variant: 'burst' }
+		const grown: Meteor = burst === null ? timed : { ...burst, followers: [...(burst.followers ?? []), timed] }
+		if (meteorLifetime(grown) > TRANSIENTS.maxLife) break
+		burst = grown
+	}
+	return burst !== null && 1 + (burst.followers?.length ?? 0) >= members[0] ? burst : null
+}
+
+/** One member of a burst: a faint flight from the shower in clear sky, long before short, on fresh steers. */
+function planMember(random: Random, context: PlanContext, sky: VisitSky): Meteor | null {
+	const { now, field, ink } = context
+	for (const flights of ['long', 'short'] as const) {
+		for (let tries = 0; tries < 1 + METEOR.radiantTries; tries++) {
+			const steer = visitSteer(random, sky, { shower: true, faint: true })
+			const plan = planMeteor(random, field, now, { steer, flights, ink, nearCopy: false, clearOf: field.pinned })
+			if (plan) return plan
+		}
+	}
+	return null
+}
+
 /** A kind of shooting star apart from the ordinary: a key of METEOR_KINDS. */
 type KindName = keyof typeof METEOR_KINDS
 
@@ -116,6 +159,7 @@ const KIND_ORDER = Object.keys(METEOR_KINDS) as KindName[]
 const NEEDS: Record<KindName, (context: PlanContext) => boolean> = {
 	fireball: () => true,
 	flash: (context) => (context.visit.meteor.sky?.showerOnScreen ?? null) !== null,
+	burst: () => true,
 }
 
 /**
@@ -125,6 +169,7 @@ const NEEDS: Record<KindName, (context: PlanContext) => boolean> = {
 const TRY: Record<KindName, (context: PlanContext) => Meteor | null> = {
 	fireball: (context) => planMeteorTransient({ ...context, nearCopy: false }, { fireball: true, flights: 'long' }),
 	flash: planFlash,
+	burst: planBurst,
 }
 
 /** The seconds a kind keeps off the launches after one of its own: its spacing, drawn from the range if it is one. */
@@ -167,12 +212,13 @@ function planMeteorLaunch(context: PlanContext): Meteor | null {
 /** The shooting stars' timing and planning. */
 export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	firstDelay: (random) => between(random, METEOR.firstDelay[0], METEOR.firstDelay[1]),
-	nextAfter: (meteor, random, sinceReveal, narrow) => meteor.duration + nextGap(random, narrow ? METEOR_RATE.narrow : METEOR_RATE.hero, sinceReveal),
+	nextAfter: (meteor, random, sinceReveal, narrow) => meteorSpan(meteor) + nextGap(random, narrow ? METEOR_RATE.narrow : METEOR_RATE.hero, sinceReveal),
 	plan: planMeteorLaunch,
 	lifetime: meteorLifetime,
 	moving: meteorMoving,
-	nearCopy: (meteor) => meteor.nearCopy,
+	nearCopy: (meteor) => meteor.nearCopy || (meteor.followers?.some((follower) => follower.nearCopy) ?? false),
 	clearSky: (meteor) => meteor.variant !== undefined,
+	lastOnset: (meteor) => (meteor.followers?.at(-1)?.startedAt ?? meteor.startedAt) - meteor.startedAt,
 	lease: true,
 	phones: true,
 	scene: 'hero',

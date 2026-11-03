@@ -512,7 +512,9 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
  * (`spacing`: a number, or a range drawn afresh after each one) and the earliest second after the reveal (`after`). A kind
  * is open to a launch on wide screens only, once `after` has passed and its spacing has run out. A launch draws one number
  * and gives it to the first open kind, in the order listed here, whose slice of the odds it falls in, so each kind's share
- * of the launches is its own `chance`; where that kind finds no path, an ordinary shooting star flies instead.
+ * of the launches is its own `chance`; where that kind finds no path, an ordinary shooting star flies instead. They are
+ * listed by their odds, the highest first: fireballs, flashes, bursts; the odds add up to less than 1, so the order
+ * changes no kind's share.
  */
 export const METEOR_KINDS = {
 	/**
@@ -532,6 +534,13 @@ export const METEOR_KINDS = {
 	 * ink lease.
 	 */
 	flash: { chance: 0.2, spacing: 60, after: 30, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
+	/**
+	 * Bursts: `members` faint shooting stars from the shower radiant, one after another `stagger` s apart (so no more than
+	 * 3 flashes a second), the whole burst at most TRANSIENTS.maxLife from first light to last: a member that would end
+	 * later is left out, and fewer than the least `members` is no burst. Every member flies in clear sky, so a burst never
+	 * takes the ink lease, and none has a flare or a train.
+	 */
+	burst: { chance: 0.05, spacing: 90, after: 45, members: [2, 4], stagger: [0.35, 1.2] },
 } as const
 
 /**

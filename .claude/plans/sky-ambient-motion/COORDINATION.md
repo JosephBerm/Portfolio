@@ -717,7 +717,7 @@ Notes on AC-26:
 
 **Records:** P9's entry above now has the five-minute crossings that 7.3 P9 asks for.
 
-**This branch's Vercel Previews fail**, with "RangeError: Invalid code point" (failing on 0a231d6). Before master's fix, Tailwind scanned `.claude/plans/`, where a Windows path reads as an invalid CSS escape (line 21 of `drafts/check-r8-code-grounding.md`). Merging `origin/master` brings the fix, and `git merge-tree` shows the merge has no conflicts. It waits on Joseph.
+**This branch's Vercel Previews fail**, with "RangeError: Invalid code point" (failing on 0a231d6). Before master's fix, Tailwind scanned `.claude/plans/`, where a Windows path reads as an invalid CSS escape (line 21 of `drafts/check-r8-code-grounding.md`). Merging `origin/master` brings the fix, and `git merge-tree` showed no conflicts. On Joseph's go-ahead, the planning branch merged it the same day (c610ce9), so the branch now differs from master only in `.claude/plans/sky-ambient-motion/`.
 
 ## Log
 
@@ -742,3 +742,4 @@ Notes on AC-26:
 - 2026-11-03: CP-2 for the second round Joseph asked for. #27 to #34 are merged (master at 8424a00); the comet (#35) and planet (#36) are open for his look.
 - 2026-11-03: Joseph approved the comet and the planet. #35 and #36 are merged (master at a7d65a4), so the round is complete.
 - 2026-11-03: #37 merged (master at c972a18), so `drawMeteor` is the veil's again apart from options. The checks a coverage audit found short (AC-1, AC-16, AC-20, AC-26, AC-34, AC-37 and B-10) ran at full strength and pass. P9's entry gains the five-minute crossings.
+- 2026-11-03: on Joseph's go-ahead, the planning branch merged `origin/master` at c972a18 for Tailwind's fix, so its Vercel Previews build.

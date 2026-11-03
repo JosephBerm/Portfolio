@@ -8,7 +8,7 @@ Last updated: 2026-11-03. Planning is done: `PLAN.md` is built on the veil commi
   - Joseph approved the comet (#35) and the planet (#36), and both are merged (master at `a7d65a4`). Every phase of the plan is now built.
   - A plan-coverage audit found nothing missing from the code. #37 then made `drawMeteor` the veil's again apart from options (master at `c972a18`). The checks that had not run at full strength (AC-1, AC-16, AC-20, AC-26, AC-34, AC-37 and B-10's 30-minute heap) now pass.
   - Each merge is logged under "Phase merges (CP-2)" in `COORDINATION.md`, with the crossing reruns.
-- This branch's Vercel Previews fail until it merges `origin/master`, which has Tailwind's fix (see the #37 entry). The merge has no conflicts and waits on Joseph.
+- On Joseph's go-ahead, this branch merged `origin/master` at `c972a18` on 2026-11-03 for Tailwind's fix, since its Vercel Previews failed without it (see the #37 entry in `COORDINATION.md`). It now differs from master only in `.claude/plans/sky-ambient-motion/`.
 - Left for Joseph, on real devices or with people:
   - the checks at the end of the P11 entry in `COORDINATION.md`:
     - AC-13 on a real display;
@@ -79,7 +79,7 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
 
 ## Key facts
 
-- Branch: `claude/quirky-carson-btv2u4` on JosephBerm/Portfolio, cut from master 246c0aa and merged with `origin/master` at `cf4d7b8`.
+- Branch: `claude/quirky-carson-btv2u4` on JosephBerm/Portfolio, cut from master 246c0aa and merged with `origin/master` at `cf4d7b8`, then at `c972a18`.
 - The shared brief for all subagents is `research/00-shared-brief.md`. It holds the user's request verbatim, the code map, the current behavior and the rules.
 - The old upward-moving stars live in git history before d116918; see `src/css/Background.css` at 7c176fb^.
 - `node_modules` must be installed (`npm ci`) for `node_modules/next/dist/docs`.
@@ -87,7 +87,8 @@ The deliverable is `.claude/plans/sky-ambient-motion/PLAN.md`, audited by four s
   - Joseph committed the fix as `cf4d7b8` on master, on 246c0aa: 11 files, +577 −184, with lint, type-check and its final Opus check clean.
     - Master was pushed, so `origin/master` is `cf4d7b8`.
     - We checked the commit's patch-id against the confirmed diff.
-    - This planning branch merged `origin/master` at `cf4d7b8` on 2026-10-28, so its `src/` is the plan's baseline. Its own commits change only documents.
+    - This planning branch merged `origin/master` at `cf4d7b8` on 2026-10-28, and its own commits change only documents.
+    - On 2026-11-03 it merged `origin/master` at `c972a18` too, for Tailwind's fix, so its `src/` is now master's, not the baseline. Read the baseline with `git show cf4d7b8:<path>`.
   - `COORDINATION.md` records:
     - its confirmed interface;
     - its answers to our five questions: the file rule is symbol-level, both shared-function edits are agreed, satellites may overlap a meteor under three conditions, and a comet keeps `scrollKept`;

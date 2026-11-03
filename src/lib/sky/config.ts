@@ -775,18 +775,20 @@ export const METEOR_LIGHT = { skew: 0.868, sharpness: 1.2, flare: 0.55, flareAt:
 
 /**
  * How a shooting star is drawn: head core and glow sigma, glow alpha (bigger for fireballs); the wake tapers from
- * the head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. From the head the wake
- * cools from white to its tint over `coolBy` of its length, and its far half thins to `tailKeep` at the end. Each wake
- * takes its speed class's color: fast ones cool to --color-green mixed `mintToWhite` toward --color-white, medium ones
- * stay white, and slow ones warm to palette index `fireballTint` (pale yellow), as fireballs do unless they are fast.
+ * the head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. An ordinary meteor is thin,
+ * as it looks to the eye: a point with a halo too faint to read as a disc, trailing a hair of wake, and the soft pass is
+ * what lets a tint read on a line that fine. From the head the wake cools from white to its tint over `coolBy` of its
+ * length, and its far half thins to `tailKeep` at the end. Each wake takes its speed class's color: fast ones cool to
+ * --color-green mixed `mintToWhite` toward --color-white, medium ones stay white, and slow ones warm to palette index
+ * `fireballTint` (pale yellow), as fireballs do unless they are fast.
  */
 export const METEOR_LOOK = {
-	core: 0.8,
-	glow: 3,
-	glowAlpha: 0.3,
+	core: 0.62,
+	glow: 2.2,
+	glowAlpha: 0.16,
 	fireballGlow: 1.6,
-	wakeWidth: [1.7, 0.35],
-	softWidth: 3.2,
+	wakeWidth: [1.15, 0.3],
+	softWidth: 2.8,
 	softAlpha: 0.22,
 	wakeStops: 9,
 	coolBy: 0.625,

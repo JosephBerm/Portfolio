@@ -301,9 +301,11 @@ function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
  * bright, and on the copy it keeps its shape at a faint level. While a layout eases in it follows transientQuietFactor.
  * `fade` (0-1) multiplies the light of all of it, train, wake, glow and core: the caller's own fade, such as the scroll
  * cancel (scrollKept). `keeps` replaces the veil's budgets for a variant that never takes the ink lease (CLEAR_SKY_KEEPS),
- * which keeps none of its light inside a padded quiet rect. A shooting star of no length, a point flash, has no wake to draw.
+ * which keeps none of its light inside a padded quiet rect. `wakeStops` is how many of the wake's stops it samples, counted
+ * from the head (all of METEOR_LOOK.wakeStops by default). A body that leaves no wake, a point flash, takes none: each
+ * stop's light divides its age by the wake time, and an age of 0 over a wake time of 0 is NaN.
  */
-export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1, keeps?: QuietKeeps): void {
+export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1, keeps?: QuietKeeps, wakeStops: number = METEOR_LOOK.wakeStops): void {
 	const { dpr } = frame
 	const state = meteorAt(meteor, frame.time)
 	const { white } = assets.tokens
@@ -320,7 +322,7 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	const flaring = meteor.flare && state.progress > METEOR_LIGHT.flareGlowFrom
 	const boost = (meteor.fireball ? METEOR_LOOK.fireballGlow : 1) * (flaring ? METEOR_LIGHT.flareGlow : 1)
 	// The light each wake stop carries (from the head back to `tail`) and where it was emitted; the far half thins out a little faster than the afterglow alone
-	const wake = Array.from({ length: meteor.length === 0 ? 0 : METEOR_LOOK.wakeStops }, (_, k) => {
+	const wake = Array.from({ length: wakeStops }, (_, k) => {
 		const f = k / (METEOR_LOOK.wakeStops - 1)
 		const emitted = head - f * (head - tail)
 		const age = (state.progress - emitted) * meteor.duration
@@ -384,11 +386,17 @@ function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets
 	ctx.globalAlpha = 1
 }
 
+/** The wake stops drawMeteor samples for a body: none for one with no wake time (a point flash, which has no length either), else all of them. */
+function wakeStopsFor(meteor: Meteor): number {
+	return meteor.wake === 0 ? 0 : METEOR_LOOK.wakeStops
+}
+
 /**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
  * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst, an
  * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A burst
- * draws its first member and then each later one the same way; a member that has not started yet adds no light.
+ * draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
+ * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
@@ -396,8 +404,8 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 	switch (kind) {
 		case 'meteor': {
 			const keeps = transient.clearSky ? CLEAR_SKY_KEEPS : undefined
-			drawMeteor(ctx, assets, body, frame, fade, keeps)
-			if (body.followers) for (const follower of body.followers) drawMeteor(ctx, assets, follower, frame, fade, keeps)
+			drawMeteor(ctx, assets, body, frame, fade, keeps, wakeStopsFor(body))
+			if (body.followers) for (const follower of body.followers) drawMeteor(ctx, assets, follower, frame, fade, keeps, wakeStopsFor(follower))
 			return
 		}
 		case 'satellite':

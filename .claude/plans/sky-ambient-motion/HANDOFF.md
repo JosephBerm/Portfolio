@@ -1,15 +1,33 @@
 # Handoff: sky ambient motion and transients (planning)
 
-Last updated: 2026-10-28. Planning is done: `PLAN.md` is built on the veil commit `cf4d7b8`, and it converged in gate round 12.
+Last updated: 2026-11-03. Planning is done: `PLAN.md` is built on the veil commit `cf4d7b8`, and it converged in gate round 12.
 - Joseph chose the recommended defaults for every decision in section 3 ("Use the defaults").
 - Implementation ran in the local session "Implement the sky ambient-motion plan (P0 onward)" (`local_173b1826-7839-4b4e-a7c8-ad3fe4af9577`).
   - P1 to P11 are merged into master (#16 to #26, master at `ecfbf1a`).
   - A second round, which Joseph asked for, then built P12 and P13, plus his rate changes: #27 to #34, master at `8424a00` on 2026-11-03. That covers farewell meteors, the WebKit relay, fireballs about every 90 s, the point flash, bursts, earthgrazers, the lean on the whole page, and satellites about every 45 s.
   - Joseph approved the comet (#35) and the planet (#36), and both are merged (master at `a7d65a4`). Every phase of the plan is now built.
+  - A plan-coverage audit found nothing missing from the code. #37 then made `drawMeteor` the veil's again apart from options (master at `c972a18`). The checks that had not run at full strength (AC-1, AC-16, AC-20, AC-26, AC-34, AC-37 and B-10's 30-minute heap) now pass.
   - Each merge is logged under "Phase merges (CP-2)" in `COORDINATION.md`, with the crossing reruns.
-- Left for Joseph:
-  - the real-device checks at the end of the P11 entry in `COORDINATION.md`, including a real Mac or iPhone for the Safari relay;
-  - the three budgets the second round put over (B-3, B-5 on WebKit, B-9), listed at the end of its entry.
+- This branch's Vercel Previews fail until it merges `origin/master`, which has Tailwind's fix (see the #37 entry). The merge has no conflicts and waits on Joseph.
+- Left for Joseph, on real devices or with people:
+  - the checks at the end of the P11 entry in `COORDINATION.md`:
+    - AC-13 on a real display;
+    - P6's by-eye pass and the `DRIFT.speed` choice;
+    - budgets B-1 to B-7;
+  - AC-17: three viewers watch the headline for 20 s, and none sees it move;
+  - AC-28: a VoiceOver or NVDA pass on the pause control, and the G186 and F16 procedures;
+  - `PLAN.md` 12.2's question 3: whether moving stars at DPR 1 need the 0.85 device-px core floor, judged by eye on a DPR-1 monitor;
+  - P3's Firefox Profiler and Safari pacing traces;
+  - the relay's Safari steps (#28), on a real Mac or iPhone:
+    - the relay turns on within about 1 s, and it ticks at the page's frame rate;
+    - Pause turns it off, and Play turns it back on;
+    - no ticks after leaving the home page;
+    - 10 to 30 µs of main-thread time a frame;
+    - a 10-minute Low Power Mode test;
+  - the three budgets the second round put over (B-3, B-5 on WebKit, B-9), listed at the end of its entry: accept them or have them tuned.
+- Still open from `PLAN.md` 12.2:
+  - questions 2 and 5 shipped with the plan's values: a 90 s idle window, and the end bookend's twinkle and drift at 0.8;
+  - question 8 is outside this plan: the gradient cards' rotating border, which the sky's pause doesn't stop.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 

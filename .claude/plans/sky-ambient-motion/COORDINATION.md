@@ -517,6 +517,20 @@ Crossings a minute over a visit's first 2 minutes, at the 40 s cooldown:
 | 2560x1440 | 0.389 | 0.421 |
 | 390x844 | 0.676 | 0.964 |
 
+Crossings a minute over a visit's first 5 minutes, at the 40 s cooldown, beside the oracle's as `PLAN.md` 7.3 P9 asks (added 2026-11-03 from the implementing session's report):
+
+| Size | P9 | Veil commit |
+|---|---|---|
+| 1440x900 | 0.478 | 0.790 |
+| 1280x800 | 0.657 | 0.750 |
+| 1920x1080 | 0.435 | 0.465 |
+| 1366x768 | 0.582 | 0.908 |
+| 1536x864 | 0.463 | 0.643 |
+| 1280x720 | 0.715 | 0.810 |
+| 1024x768 | 0.422 | 1.166 |
+| 2560x1440 | 0.420 | 0.350 |
+| 390x844 | 0.365 | 0.385 |
+
 - **Choosing 40 s:** at 35 s, 2560x1440 goes over its bar by 0.0026, so the rule gives 40 s.
 - **Over five minutes:** only 2560x1440 is above the veil commit's rate: 0.420 against 0.350.
 - **With P10:** the rule still gives 40 s (0.396 at 2560x1440).
@@ -667,6 +681,44 @@ The planning session checked:
 - between 8424a00 and a7d65a4, these are byte-identical: `veiledFrom`, `segmentTouches`, `planFlight`, `planMeteor`, `scrollKept`, `transientQuietFactor`, `budgetKeeps`, `drawMeteor`, `drawTrain`, `quietBlend`, `applyLayout`, `settleQuiet` and `copyReader`;
 - `meteors.ts`, `scene.ts`, `mountSky.ts` and `protocol.ts` aren't in that diff at all.
 
+### CP-2, 2026-11-03: #37, and the checks run at full strength
+
+Joseph asked the implementing session to close the gaps that a plan-coverage audit found (Opus over P1 to P13 and sections 9 to 12). The audit found nothing missing from the code. What is left are device and human checks, listed in `HANDOFF.md` under "Left for Joseph".
+
+**Merged:** #37 (`claude/sky-drawmeteor-options`, commit 217205b), as c972a18. The Tailwind session merged it after its own fix (51f58ff and 9278a03). Master is c972a18, and no PRs are open.
+- `drawMeteor`'s wake-stop count is now a trailing option, `wakeStops` (default `METEOR_LOOK.wakeStops`). It replaces the second round's `meteor.length === 0` guard.
+- `drawTransient` passes `wakeStopsFor(body)`, for followers too: no stops for a body with no wake time (the point flash), else all of them.
+- The implementing session reports that canvas recordings of every kind before and after are byte-identical: 147,420 frames, 4,016,880 operations.
+
+The planning session checked:
+- #37 is merged, and no PR is open;
+- between a7d65a4 and c972a18, `src/lib/sky` is unchanged. In `src/components/sky`, only `renderSky.ts` changes: `drawMeteor`'s option, `wakeStopsFor` and `drawTransient`'s two calls;
+- `drawMeteor` differs from cf4d7b8 in exactly three ways, so 8.4's rule holds:
+  - the `keeps` option (#30);
+  - the `wakeTint` call (P9);
+  - the `wakeStops` option;
+- the Tailwind fix: `src/app/globals.css` imports Tailwind with `source("..")`, Tailwind is 4.2.4, and AGENTS.md and the README say so.
+
+**Checks that now ran at full strength.** These are the implementing session's results. They ran on a7d65a4, whose sky draws the same as c972a18's.
+
+| Check | Result |
+|---|---|
+| AC-37 | H7 at 10⁵ sequences, for the default, forced, cooldown and gap variants of every kind (`run-tune all` and `run-p12 all`). Every check passes. |
+| AC-1 | Production build, 30 s without input, DPR 2. Band median on-screen speeds were 0.870 (far), 1.488 (mid) and 2.905 (near) px/s, from 237, 83 and 18 stars, so far < mid < near. |
+| AC-16 | Over 142,539 consecutive drawn-frame pairs of stars within a quiet zone's reach, the largest change in alpha before the twinkle was 0.0114 per frame. The limit is 0.05. |
+| AC-20 | Shooting stars in the first minute over 10 fresh 1440x900 loads: 5, 5, 4, 4, 5, 5, 4, 5, 5 and 6. All 10 fall within 3 to 6, against a bar of 8 of 10. |
+| AC-26 | Re-baselined, since the planet shows under reduced motion: the hero and the end at 1440x900@2, 1440x900@1 and 393x852@2. Each pair of shots 30 s apart is identical. |
+| AC-34 | A resize across 640 px (1440 to 600 and back) and a 125% zoom (DPR 1.25), mid-drift. The camera's speed never passed 3.6 px/s, against a steady drift peak of 9.9. No sampled star jumped between drawn frames (the largest move was 0.52 CSS px), and the drift went on. |
+| B-10 | Worker heap after GC, each minute for 30 minutes in the hero at DPR 2. The median was 1.30 MB over minutes 2 to 10 and 1.35 MB over the last 8, so there is no growth. |
+
+Notes on AC-26:
+- The side rails (`SidePane.tsx`, unchanged since cf4d7b8) fade in once, a few seconds after load, even under reduced motion. That is the page's entrance, not the sky, so the shots start 20 s after load.
+- The six shots (4.5 MB) are in the implementing session's temporary scratchpad, under `gaps\out\baseline\rm-{hero,end}-{desk2,desk1,phone}.png`. They aren't archived here.
+
+**Records:** P9's entry above now has the five-minute crossings that 7.3 P9 asks for.
+
+**This branch's Vercel Previews fail**, with "RangeError: Invalid code point" (failing on 0a231d6). Before master's fix, Tailwind scanned `.claude/plans/`, where a Windows path reads as an invalid CSS escape (line 21 of `drafts/check-r8-code-grounding.md`). Merging `origin/master` brings the fix, and `git merge-tree` shows the merge has no conflicts. It waits on Joseph.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -689,3 +741,4 @@ The planning session checked:
 - 2026-10-28: CP-2 for P11 (#26, master at ecfbf1a). P1 to P11 are done; P12 and P13 are skipped per D4 and D7.
 - 2026-11-03: CP-2 for the second round Joseph asked for. #27 to #34 are merged (master at 8424a00); the comet (#35) and planet (#36) are open for his look.
 - 2026-11-03: Joseph approved the comet and the planet. #35 and #36 are merged (master at a7d65a4), so the round is complete.
+- 2026-11-03: #37 merged (master at c972a18), so `drawMeteor` is the veil's again apart from options. The checks a coverage audit found short (AC-1, AC-16, AC-20, AC-26, AC-34, AC-37 and B-10) ran at full strength and pass. P9's entry gains the five-minute crossings.

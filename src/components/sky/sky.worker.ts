@@ -66,7 +66,7 @@ import {
 } from '@/lib/sky/transients'
 import { createMiamiRuntime } from './miamiRuntime'
 import { createStarField, drawComet, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
-import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
+import { buildCometArt, buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
 /** The parts of DedicatedWorkerGlobalScope the sky uses (the project's TypeScript lib is DOM only). */
 interface SkyWorkerScope {
@@ -634,7 +634,14 @@ function draw(now: number): void {
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
 	// The comet's view tests its box against the zones this frame draws, and may find it gone
 	const view = bodyShowing(comet) ? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, quiet: frame.quiet }) : null
-	if (view) drawComet(ctx, assets, view, frame)
+	if (view) {
+		// Painted once, in the first frame it shows (still at no light), and again after a lost context took it
+		assets.comet ??= buildCometArt(view.shape, assets.tokens)
+		drawComet(ctx, assets, view, frame)
+	} else if (assets.comet) {
+		assets.comet.close()
+		assets.comet = null
+	}
 	lastDrawAt = now
 	needsDraw = false
 	if (!ready) {
@@ -693,12 +700,13 @@ function probeRaster(now: number): void {
 	softwareFps = Math.floor((PACING.softwareShare * 1000) / (rasterMs * (dpr / probedDpr) ** 2))
 }
 
-/** Builds the sprite atlas and the haze for the current size and ratio, closing the old bitmaps. */
+/** Builds the sprite atlas and the haze for the current size and ratio, closing the old bitmaps; a comet that shows is painted again by the next frame. */
 function rebuildAssets(): void {
 	if (!tokens) return
 	assets?.atlas.image.close()
 	assets?.haze?.close()
-	assets = { atlas: buildStarAtlas(dpr, tokens), haze: buildHaze(width, height, tokens), palette: starPalette(tokens), tokens }
+	assets?.comet?.close()
+	assets = { atlas: buildStarAtlas(dpr, tokens), haze: buildHaze(width, height, tokens), comet: null, palette: starPalette(tokens), tokens }
 }
 
 /**

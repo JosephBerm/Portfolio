@@ -3,9 +3,9 @@
  * moves it as it moves the faint stars and it never moves on its own; it fades in over seconds instead of lighting up,
  * and it stays until the page scrolls from where it began to show, the sky is paused or resized, or copy comes near it.
  * Then it is gone for the page view. It never lights the copy: it shows only where its whole box keeps clear of every
- * quiet zone's reach. This module is its model, pure functions over a body's state: where it hangs, its fades, the box
- * test and its start rule. The worker keeps the state and feeds them what it knows, and renderSky draws what they
- * return. It imports only types from transients.ts.
+ * quiet zone's reach. This module is its model, pure functions over a body's state: where it hangs, the light of its
+ * head and tails, its fades, the box test and its start rule. The worker keeps the state and feeds them what it knows,
+ * and renderSky draws what they return. It imports only types from transients.ts.
  */
 
 import { DRIFT_REACH, type Vec } from './camera'
@@ -22,12 +22,6 @@ import type { LaunchGate, SkyField } from './transients'
 
 /** Radians per degree. */
 const DEG = Math.PI / 180
-
-/** Segments the dust tail's spine is drawn in. */
-const DUST_STEPS = 12
-
-/** How the dust tail widens along its length: its width grows as the share of the length to this power, so it fans out near the tip. */
-const DUST_WIDEN = 0.85
 
 /**
  * Nearness of a body that hangs among the faint majority of stars, the mean of the far band's (0.293): stars of a
@@ -66,33 +60,135 @@ interface Box {
 	bottom: number
 }
 
-/** The straight ion tail: the unit direction it points in from the nucleus, its length, and its width at the nucleus and at the tip. */
-export interface IonTail {
-	dirX: number
-	dirY: number
-	length: number
-	head: number
-	tip: number
-}
-
-/** One sample of the dust tail's spine: its place relative to the nucleus, the unit normal to the spine there and half the tail's width. */
-export interface DustPoint {
-	x: number
-	y: number
-	nx: number
-	ny: number
-	half: number
-}
-
-/** The comet's parts relative to its nucleus (CSS px, y down), for one size of sky window. */
-export interface CometShape {
-	/** Radius of the coma's glow. */
+/** The light of the comet's parts at one place: what each adds (0 to 1 of its tint), and the share of the coma's light that is mint. */
+export interface CometLight {
 	coma: number
-	ion: IonTail
-	/** The dust tail's spine from the nucleus outward, bending away from the ion tail. */
-	dust: readonly DustPoint[]
-	/** The box around everything drawn, which the placement and the clear-of-copy test use. */
+	mint: number
+	dust: number
+	ion: number
+}
+
+/** The unit vector the ion tail's axis points along on screen (y down). */
+const AXIS = { x: Math.cos(COMET.angle * DEG), y: Math.sin(COMET.angle * DEG) }
+
+/** The ion tail's rays with the cosine and sine of their angle off the axis. */
+const ION_RAYS = COMET.ion.rays.map(({ off, share }) => ({ share, cos: Math.cos(off * DEG), sin: Math.sin(off * DEG) }))
+
+/**
+ * The comet's light at a point `xi` degrees along the axis its tails point along, away from the Sun, and `eta` degrees
+ * across it toward the side the dust tail bends to, written to `out`. It is the one place the look's math lives, read by
+ * both the scan for the comet's box and the painter of its bitmap.
+ */
+export function cometLight(xi: number, eta: number, out: CometLight): void {
+	const { coma, dust, ion } = COMET
+	const rho = Math.hypot(xi, eta)
+	// The coma: light falling as 1/rho from a softened core, cut off at its radius, over a broad halo
+	out.coma =
+		rho < 2 * coma.radius
+			? (coma.peak / (1 + rho / coma.core)) * Math.exp(-((rho / coma.radius) ** 2)) + coma.halo * Math.exp(-((rho / coma.haloRadius) ** 2))
+			: 0
+	out.mint = smoothstep(coma.mintFrom, coma.mintTo, rho)
+	// The dust tail: every grain size lags the axis as the 1.5 power of the distance along it, so the ridge does, in a fan from a parabolic cap
+	out.dust = 0
+	if (xi > -2.2 * dust.cap && xi < dust.length) {
+		const bend = Math.max(0, xi / dust.length) ** 1.5
+		const capWidth = Math.sqrt(4 * dust.cap * Math.max(xi + dust.cap, 1e-6))
+		// Across the ridge: a sharp edge on the side toward the ion tail (negative), a diffuse one on the other
+		const delta = eta - dust.lag * dust.length * bend
+		const width = delta < 0 ? capWidth * dust.convex : (capWidth + dust.spread * dust.length * bend) * dust.concave
+		const along =
+			(xi > 0 ? (1 + xi / dust.scale) ** -dust.power : 1) *
+			(1 - smoothstep(dust.fadeFrom * dust.length, dust.length, xi)) *
+			smoothstep(-1.6 * dust.cap, 0, xi) *
+			(dust.headKeep + (1 - dust.headKeep) * smoothstep(0, dust.headTo, xi))
+		out.dust = dust.peak * along * Math.exp(-((delta / width) ** 2))
+	}
+	// The ion tail: narrow rays from the head, widening downstream
+	out.ion = 0
+	for (const ray of ION_RAYS) {
+		const distance = xi * ray.cos - eta * ray.sin
+		if (distance <= 0 || distance >= ion.length) continue
+		const across = eta * ray.cos + xi * ray.sin
+		out.ion +=
+			ion.peak *
+			ray.share *
+			(1 + distance / ion.scale) ** -1 *
+			(1 - smoothstep(ion.fadeFrom * ion.length, ion.length, distance)) *
+			Math.exp(-((across / (ion.width[0] + ion.width[1] * distance)) ** 2)) *
+			smoothstep(0, 0.4, distance)
+	}
+}
+
+/** cometLight at the screen point `x` degrees right of the nucleus and `y` below it. */
+export function cometLightAt(x: number, y: number, out: CometLight): void {
+	cometLight(x * AXIS.x + y * AXIS.y, x * AXIS.y - y * AXIS.x, out)
+}
+
+/** The least light that shows on the sky: one level of 255. */
+const SEEN = 1 / 255
+
+/** The step of the scan for the comet's extent, and the margin the box keeps around what shows (degrees). */
+const SCAN_STEP = 0.25
+
+/** What shows of the comet in degrees of the sky window from its nucleus, on screen axes (y down): a box around all of it and the place each tail shows farthest. */
+interface CometExtent {
 	box: Box
+	dustTip: Point
+	ionTip: Point
+}
+
+/** The comet's extent, found on first use: a visit with no comet never scans. */
+let extent: CometExtent | null = null
+
+/**
+ * Where the comet's light shows, by scanning cometLight over a square that holds its longest reach: the box around every
+ * place whose light adds to at least one level, padded by a step, and the farthest place each of the dust and the ion
+ * tail shows at. It follows the config, so a changed tail or angle never leaves a stale box.
+ */
+function cometExtent(): CometExtent {
+	if (extent) return extent
+	const { dust, ion } = COMET
+	const reach = Math.ceil(Math.max(ion.length, Math.hypot(dust.length, dust.lag * dust.length)))
+	const light: CometLight = { coma: 0, mint: 0, dust: 0, ion: 0 }
+	const box: Box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }
+	const dustTip = { x: 0, y: 0 }
+	const ionTip = { x: 0, y: 0 }
+	let dustFar = 0
+	let ionFar = 0
+	for (let y = -reach; y <= reach; y += SCAN_STEP) {
+		for (let x = -reach; x <= reach; x += SCAN_STEP) {
+			cometLightAt(x, y, light)
+			const far = Math.hypot(x, y)
+			if (light.dust >= SEEN && far > dustFar) {
+				dustFar = far
+				dustTip.x = x
+				dustTip.y = y
+			}
+			if (light.ion >= SEEN && far > ionFar) {
+				ionFar = far
+				ionTip.x = x
+				ionTip.y = y
+			}
+			if (light.coma + light.dust + light.ion < SEEN) continue
+			box.left = Math.min(box.left, x)
+			box.top = Math.min(box.top, y)
+			box.right = Math.max(box.right, x)
+			box.bottom = Math.max(box.bottom, y)
+		}
+	}
+	extent = { box: { left: box.left - SCAN_STEP, top: box.top - SCAN_STEP, right: box.right + SCAN_STEP, bottom: box.bottom + SCAN_STEP }, dustTip, ionTip }
+	return extent
+}
+
+/** The comet's size and extent relative to its nucleus (CSS px, y down), for one size of sky window. */
+export interface CometShape {
+	/** CSS px a degree of the sky window spans: the art and the box are drawn at this scale. */
+	unit: number
+	/** The box around everything that shows, which the placement and the clear-of-copy test use. */
+	box: Box
+	/** Where each tail shows farthest from the nucleus: with the nucleus, the places that copy coming near dims all of the comet from. */
+	dustTip: Point
+	ionTip: Point
 }
 
 /** Where a body is in its life. */
@@ -108,7 +204,7 @@ export interface SkyBody {
 	/** Where its nucleus hangs on the sky (CSS px): the place it was put on screen plus its nearness times the camera's offset then. Set once it shows. */
 	x: number
 	y: number
-	/** Its parts, laid out for the sky window it was placed in; null until it shows. */
+	/** Its size and extent, laid out for the sky window it was placed in; null until it shows. */
 	shape: CometShape | null
 	/** When it began to show, on the twinkle clock. */
 	startedAt: number
@@ -150,64 +246,20 @@ export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean
 	return body.status === 'waiting' && body.planned && inHero(gate) && gate.settled && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
 }
 
-/** Grows `box` to hold the point (x, y). */
-function include(box: Box, x: number, y: number): void {
-	box.left = Math.min(box.left, x)
-	box.top = Math.min(box.top, y)
-	box.right = Math.max(box.right, x)
-	box.bottom = Math.max(box.bottom, y)
-}
-
-/** Heading (radians) of the dust tail a share `along` (0 to 1) of the way to its tip: it starts beside the ion tail and bends away from it. */
-function dustHeading(along: number): number {
-	return (COMET.angle + COMET.dust.start + COMET.dust.curve * along) * DEG
-}
-
-/** The dust tail's spine for a window of `unit` CSS px a degree, widening toward the tip. */
-function dustSpine(unit: number): DustPoint[] {
-	const spine: DustPoint[] = []
-	const step = (COMET.dust.length * unit) / DUST_STEPS
-	let x = 0
-	let y = 0
-	for (let i = 0; i <= DUST_STEPS; i++) {
-		const along = i / DUST_STEPS
-		const heading = dustHeading(along)
-		const width = COMET.dust.width[0] + (COMET.dust.width[1] - COMET.dust.width[0]) * along ** DUST_WIDEN
-		spine.push({ x, y, nx: -Math.sin(heading), ny: Math.cos(heading), half: (width * unit) / 2 })
-		// Each step goes the way the spine heads halfway along it
-		const mid = dustHeading((i + 0.5) / DUST_STEPS)
-		x += step * Math.cos(mid)
-		y += step * Math.sin(mid)
-	}
-	return spine
-}
-
-/** The comet laid out for a screen of this size: its parts scale with the sky window (SKY_WINDOW), so it looks the same size on the sky at any screen size. */
+/**
+ * The comet laid out for a screen of this size: its parts scale with the sky window (SKY_WINDOW), so it looks the same
+ * size on the sky at any screen size. The box is rounded out to whole CSS px, so the pixels of the comet's art line up
+ * with the screen's and fall the same way about the nucleus in every window, which is what its brightest pixel depends on.
+ */
 export function cometShape(width: number, height: number): CometShape {
 	const unit = (skyWindow(width, height).focal * Math.PI) / 180
-	const angle = COMET.angle * DEG
-	const ion: IonTail = {
-		dirX: Math.cos(angle),
-		dirY: Math.sin(angle),
-		length: COMET.ion.length * unit,
-		head: COMET.ion.width[0] * unit,
-		tip: COMET.ion.width[1] * unit,
+	const { box, dustTip, ionTip } = cometExtent()
+	return {
+		unit,
+		box: { left: Math.floor(box.left * unit), top: Math.floor(box.top * unit), right: Math.ceil(box.right * unit), bottom: Math.ceil(box.bottom * unit) },
+		dustTip: { x: dustTip.x * unit, y: dustTip.y * unit },
+		ionTip: { x: ionTip.x * unit, y: ionTip.y * unit },
 	}
-	const coma = COMET.coma.radius * unit
-	const dust = dustSpine(unit)
-	const box: Box = { left: -coma, top: -coma, right: coma, bottom: coma }
-	// The ion tail is a quad from its width at the nucleus to its width at the tip
-	const normalX = -ion.dirY
-	const normalY = ion.dirX
-	for (const [along, half] of [[0, ion.head / 2], [ion.length, ion.tip / 2]] as const) {
-		include(box, ion.dirX * along + normalX * half, ion.dirY * along + normalY * half)
-		include(box, ion.dirX * along - normalX * half, ion.dirY * along - normalY * half)
-	}
-	for (const point of dust) {
-		include(box, point.x + point.nx * point.half, point.y + point.ny * point.half)
-		include(box, point.x - point.nx * point.half, point.y - point.ny * point.half)
-	}
-	return { coma, ion, dust, box }
 }
 
 /** The line a zone's reach above About's header row (CSS px from the top of the screen) once the page has scrolled as far as a comet can still show; findPlace keeps the comet's box BODY_REACH above it. */

@@ -775,18 +775,36 @@ export const SATELLITE = {
 export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
 
 /**
- * The static comet, the sky's one long-lived body: a mint coma around a pseudo-nucleus, a curved pale dust tail and a
- * faint straight blue-white ion tail, never a green tail. It hangs in the upper right of the hero as far away as the
- * faint majority of stars, so the camera moves it as it moves them (DEPTH) and it never moves on its own. It is
- * pictured to scale with the sky window (SKY_WINDOW): the coma radius, the tails' lengths and widths are degrees of it,
- * and the tails point `angle` degrees clockwise from the right (up is -90), the dust tail starting `dust.start` degrees
- * further round and bending `dust.curve` degrees over its length (negative is anticlockwise). The alphas are each
- * part's peak light, all at the nucleus, where they add: together they stay at most 0.6, under the brightest stars, and
- * fall to 0 at the tails' tips. `tint` picks a star palette color. The coma is --color-green mixed `coma.mint`
- * toward --color-white. It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the
- * hero's entrance, the rails and the copy's measurement have settled), fading in over `fadeIn` seconds so nothing
- * starts. Where it hangs is the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of
- * `step` px where its box, grown by as far as the camera can carry it (the drift and the lean, times its nearness),
+ * The comet, the sky's one long-lived body, drawn as a bright comet looks in a photograph: a star-like head in a soft
+ * glow, one fan-shaped dust tail and a fainter, straight ion tail. It hangs in the upper right of the hero as far away
+ * as the faint majority of stars, so the camera moves it as it moves them (DEPTH) and it never moves on its own. It is
+ * pictured to scale with the sky window (SKY_WINDOW): its lengths are degrees of it, and the ion tail lies `angle`
+ * degrees clockwise from the right (up is -90), pointing away from the Sun, with the dust tail bending away from it.
+ * All of it is light added over the sky, `tint` picks a star palette color for a part, and at the head the parts add to
+ * about 0.6 of white (0.58 at 1366 px wide to 0.62 at 3840), under the brightest stars' 0.78.
+ *
+ * The head is a star sprite (`nucleus`: its alpha, `tint` and star `shape`) in the coma. The coma's light falls as 1/ρ
+ * from a core `core` wide, up to `peak`, and is cut off smoothly at `radius`, over a broad `halo` (its own peak and
+ * radius): a bright center with a long soft glow, as a coma has and a Gaussian ball has not. From its `tint` it turns to
+ * --color-green mixed `mint` toward --color-white between `mintFrom` and `mintTo` degrees from the head, the green a
+ * camera shows in a comet's head and no tail has, since sunlight destroys what makes it before it reaches them.
+ *
+ * The dust tail is sunlight scattered by grains that radiation pressure pushes away from the Sun while they lag behind
+ * the comet in its orbit, so its ridge lags the axis as the 1.5 power of the distance along it: it leaves a cap `cap`
+ * wide at the head and ends `lag` of its `length` to the side. Its edge toward the ion tail is sharp (half a width
+ * `convex` times the cap's) and its other side diffuse (`concave`, widening by `spread` of the length as the ridge
+ * bends). Its light, at most `peak`, falls as (1 + distance / `scale`)^-`power` and eases out from `fadeFrom` of the
+ * length; at the head it keeps `headKeep` of it, rising to all of it by `headTo` degrees. The ion tail is a few narrow
+ * rays (`rays`: degrees clockwise of the axis, and a share of the light) widening downstream from `width[0]` by
+ * `width[1]` a degree, `peak` at most at the head and falling as 1 / (1 + distance / `scale`) to nothing at its
+ * `length`, easing out from `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its
+ * two. The art of the coma and the tails is painted once when the comet shows, as a bitmap of one pixel per CSS px, fewer
+ * where its longer side would pass `art.maxSide` (so at most 1 MB), fading out over its last `art.edge` px.
+ *
+ * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the
+ * rails and the copy's measurement have settled), fading in over `fadeIn` seconds so nothing starts. Where it hangs is
+ * the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of `step` px where its box,
+ * grown by as far as the camera can carry it (the drift and the lean, times its nearness),
  * keeps clear of every quiet zone's reach, stays inside the screen and lies below the navbar (METEOR.top) and above
  * About's header row, copy the zones know nothing of; a window with no such place has no comet. About's header row lies
  * below the hero by the offset of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding
@@ -807,11 +825,39 @@ export const COMET = {
 		[768, 90],
 		[1024, 110],
 	],
-	angle: -68,
-	nucleus: { alpha: 0.25, tint: 4, shape: 4 },
-	coma: { radius: 0.5, alpha: 0.16, mint: 0.3 },
-	ion: { length: 6.5, width: [0.11, 0.04], alpha: 0.08, tint: 2 },
-	dust: { length: 4.2, start: -8, curve: -52, width: [0.15, 1], alpha: 0.11, tint: 4 },
+	angle: -70,
+	nucleus: { alpha: 0.28, tint: 4, shape: 5 },
+	coma: { peak: 0.2, core: 0.06, radius: 0.85, halo: 0.05, haloRadius: 0.45, tint: 4, mint: 0.22, mintFrom: 0.04, mintTo: 0.26 },
+	dust: {
+		length: 9.5,
+		lag: 0.62,
+		cap: 0.11,
+		spread: 0.26,
+		convex: 0.44,
+		concave: 0.72,
+		peak: 0.38,
+		scale: 1.6,
+		power: 1.15,
+		fadeFrom: 0.42,
+		headKeep: 0.35,
+		headTo: 0.6,
+		tint: 6,
+	},
+	ion: {
+		length: 12,
+		peak: 0.036,
+		scale: 4,
+		width: [0.035, 0.02],
+		fadeFrom: 0.5,
+		tint: 3,
+		rays: [
+			{ off: 0, share: 1 },
+			{ off: 1.5, share: 0.34 },
+			{ off: -1.1, share: 0.24 },
+			{ off: 2.9, share: 0.16 },
+		],
+	},
+	art: { maxSide: 512, edge: 8 },
 } as const
 
 /**

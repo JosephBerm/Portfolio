@@ -1,11 +1,12 @@
 /**
- * The sky's long-lived bodies; so far the static comet. A comet is not a transient. It hangs on the sky, so the camera
- * moves it as it moves the faint stars and it never moves on its own; it fades in over seconds instead of lighting up,
- * and it stays until the page scrolls from where it began to show, the sky is paused or resized, or copy comes near it.
- * Then it is gone for the page view. It never lights the copy: it shows only where its whole box keeps clear of every
- * quiet zone's reach. This module is its model, pure functions over a body's state: where it hangs, the light of its
- * head and tails, its fades, the box test and its start rule. The worker keeps the state and feeds them what it knows,
- * and renderSky draws what they return. It imports only types from transients.ts.
+ * The sky's long-lived bodies; so far the comet. A comet is not a transient. It hangs on the sky, so the camera moves it
+ * as it moves the faint stars, and it drifts on its own as a comet does, slowly, a day a minute, as a function of the
+ * drift clock, so it stops whenever the drift does. It fades in over seconds instead of lighting up, and it stays until
+ * the page scrolls from where it began to show, the sky is paused or resized, copy comes near it or it has glided off
+ * the right edge. Then it is gone for the page view. It never lights the copy: it shows only where its whole box keeps
+ * clear of every quiet zone's reach. This module is its model, pure functions over a body's state: where it hangs and
+ * drifts, the light of its head, tails and knots, its fades, the box test and its start rule. The worker keeps the state
+ * and feeds them what it knows, and renderSky draws what they return. It imports only types from transients.ts.
  */
 
 import { DRIFT_REACH, type Vec } from './camera'
@@ -71,8 +72,12 @@ export interface CometLight {
 /** The unit vector the ion tail's axis points along on screen (y down). */
 const AXIS = { x: Math.cos(COMET.angle * DEG), y: Math.sin(COMET.angle * DEG) }
 
-/** The ion tail's rays with the cosine and sine of their angle off the axis. */
-const ION_RAYS = COMET.ion.rays.map(({ off, share }) => ({ share, cos: Math.cos(off * DEG), sin: Math.sin(off * DEG) }))
+/** The ion tail's rays with the cosine and sine of their angle off the axis, and the unit vector each points along on screen: the axis turned clockwise by that angle. */
+const ION_RAYS = COMET.ion.rays.map(({ off, share }) => {
+	const cos = Math.cos(off * DEG)
+	const sin = Math.sin(off * DEG)
+	return { share, cos, sin, dirX: AXIS.x * cos - AXIS.y * sin, dirY: AXIS.y * cos + AXIS.x * sin }
+})
 
 /**
  * The comet's light at a point `xi` degrees along the axis its tails point along, away from the Sun, and `eta` degrees
@@ -122,6 +127,51 @@ export function cometLight(xi: number, eta: number, out: CometLight): void {
 /** cometLight at the screen point `x` degrees right of the nucleus and `y` below it. */
 export function cometLightAt(x: number, y: number, out: CometLight): void {
 	cometLight(x * AXIS.x + y * AXIS.y, x * AXIS.y - y * AXIS.x, out)
+}
+
+/** One knot gliding outward along the ion tail: its place from the nucleus (CSS px), the unit vector of its ray, its light (0 to 1 of the knot sprite's) and its standard deviation along the ray and across it (CSS px). */
+export interface CometKnot {
+	x: number
+	y: number
+	dirX: number
+	dirY: number
+	light: number
+	long: number
+	wide: number
+}
+
+/** The golden ratio's fractional part: knots that far apart in phase never bunch up, however many there are. */
+const KNOT_PHASE = 0.618034
+
+/**
+ * Writes where each of the ion tail's knots is at drift-clock time `clock` (s), for a window of `unit` CSS px a degree. A
+ * knot is born near the head every COMET.knots.period s, glides outward faster and faster along one of the first rays,
+ * fades in as it is born and out well before the tail's end, and has a brightness of its own (0.6 to 1 of the peak). It
+ * is a pure function of the clock, so a pause freezes it and a returning tab never jumps it, and it neither breathes nor
+ * twinkles: only the stars do.
+ */
+export function cometKnots(clock: number, unit: number, knots: CometKnot[]): void {
+	const { ion, knots: config } = COMET
+	for (const [n, knot] of knots.entries()) {
+		const ray = ION_RAYS[n % config.rays]
+		if (!ray) continue
+		const tau = (clock / config.period + n * KNOT_PHASE) % 1
+		const age = tau * config.period
+		const distance = config.from + config.v0 * age + 0.5 * config.accel * age * age
+		knot.x = ray.dirX * distance * unit
+		knot.y = ray.dirY * distance * unit
+		knot.dirX = ray.dirX
+		knot.dirY = ray.dirY
+		knot.light =
+			config.peak *
+			smoothstep(0, 0.1, tau) *
+			(1 - smoothstep(0.62, 1, tau)) *
+			(0.6 + 0.4 * Math.sin(n * 12.9898) ** 2) *
+			(1 + distance / ion.scale) ** -1 *
+			(1 - smoothstep(ion.fadeFrom * ion.length, ion.length, distance))
+		knot.long = config.long * unit * (1 + distance / config.stretch)
+		knot.wide = config.wide * (ion.width[0] + ion.width[1] * distance) * unit
+	}
 }
 
 /** The least light that shows on the sky: one level of 255. */
@@ -189,6 +239,9 @@ export interface CometShape {
 	/** Where each tail shows farthest from the nucleus: with the nucleus, the places that copy coming near dims all of the comet from. */
 	dustTip: Point
 	ionTip: Point
+	/** How far its own drift carries it in a second of drift clock (CSS px). */
+	driftX: number
+	driftY: number
 }
 
 /** Where a body is in its life. */
@@ -201,13 +254,17 @@ export interface SkyBody {
 	planned: boolean
 	/** Seconds after the reveal before its start rule is next looked at: the first delay, then a wait after no place fit. */
 	nextAt: number
-	/** Where its nucleus hangs on the sky (CSS px): the place it was put on screen plus its nearness times the camera's offset then. Set once it shows. */
+	/** Where its nucleus hangs on the sky (CSS px) before its own drift: the place it was put on screen plus its nearness times the camera's offset then. Set once it shows. */
 	x: number
 	y: number
 	/** Its size and extent, laid out for the sky window it was placed in; null until it shows. */
 	shape: CometShape | null
 	/** When it began to show, on the twinkle clock. */
 	startedAt: number
+	/** The drift clock (Camera.clock, s) when it began to show: its own drift is what it has run since. */
+	startClock: number
+	/** Its knots, rewritten for every frame it shows (reused, so a frame makes no garbage). */
+	knots: CometKnot[]
 	/** scrollY when it began to show: the page may scroll SCROLL_CANCEL.to px from there before it is gone. */
 	launchScrollY: number
 	/** When copy first came within reach of its box (worker clock); it fades out over TRANSIENTS.cancelFade from then. Null while its box has been clear. */
@@ -218,7 +275,20 @@ export interface SkyBody {
 
 /** A body that has not been revealed yet: nothing drawn, and its start rule waits for the first delay. */
 export function createSkyBody(): SkyBody {
-	return { status: 'waiting', planned: false, nextAt: COMET.firstDelay, x: 0, y: 0, shape: null, startedAt: 0, launchScrollY: 0, boxFailedAt: null, pausedAt: null }
+	return {
+		status: 'waiting',
+		planned: false,
+		nextAt: COMET.firstDelay,
+		x: 0,
+		y: 0,
+		shape: null,
+		startedAt: 0,
+		startClock: 0,
+		knots: Array.from({ length: COMET.knots.count }, () => ({ x: 0, y: 0, dirX: 0, dirY: 0, light: 0, long: 0, wide: 0 })),
+		launchScrollY: 0,
+		boxFailedAt: null,
+		pausedAt: null,
+	}
 }
 
 /** The page is revealed: the visit draws whether it hangs a comet (COMET.chance). */
@@ -254,11 +324,15 @@ export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean
 export function cometShape(width: number, height: number): CometShape {
 	const unit = (skyWindow(width, height).focal * Math.PI) / 180
 	const { box, dustTip, ionTip } = cometExtent()
+	const pace = COMET.drift.speed * unit
+	const heading = COMET.drift.heading * DEG
 	return {
 		unit,
 		box: { left: Math.floor(box.left * unit), top: Math.floor(box.top * unit), right: Math.ceil(box.right * unit), bottom: Math.ceil(box.bottom * unit) },
 		dustTip: { x: dustTip.x * unit, y: dustTip.y * unit },
 		ionTip: { x: ionTip.x * unit, y: ionTip.y * unit },
+		driftX: Math.cos(heading) * pace,
+		driftY: Math.sin(heading) * pace,
 	}
 }
 
@@ -280,8 +354,8 @@ function clearOfZones(zones: readonly SkyRect[], x0: number, y0: number, x1: num
  * side is everywhere the camera's drift and lean can carry it, so that grown box must keep clear of the reach of every
  * zone of the field (the padded hero, Contact and footer copy and the side rails), stay inside the screen
  * (METEOR.edgeMargin), and lie below the navbar (METEOR.top) and above About's header row, copy the zones know nothing
- * of. The camera alone then never brings the comet to copy; only a new layout or the page's scroll can. A window with no
- * such place has no comet. Of the places on a COMET.step grid that fit, it takes the one nearest COMET.anchor.
+ * of. The camera alone then never brings the comet to copy; only its own drift, a new layout or the page's scroll can. A
+ * window with no such place has no comet. Of the places on a COMET.step grid that fit, it takes the one nearest COMET.anchor.
  */
 export function findPlace(field: SkyField, shape: CometShape): Point | null {
 	const { width, height } = field
@@ -329,6 +403,8 @@ export interface BodyStep {
 	twinkleDrawnAt: number
 	/** The camera's offset now (CSS px at nearness 1). */
 	offset: Vec
+	/** The drift clock now (Camera.clock, s). */
+	clock: number
 }
 
 /** Whether a fade of a showing body has just run out while the last frame drawn still showed it part way: one more frame shows its end. */
@@ -366,6 +442,7 @@ export function updateBody(body: SkyBody, step: BodyStep): boolean {
 	body.x = place.x + BODY_NEARNESS * step.offset.x
 	body.y = place.y + BODY_NEARNESS * step.offset.y
 	body.startedAt = step.twinkleTime
+	body.startClock = step.clock
 	body.launchScrollY = gate.scrollY
 	return true
 }
@@ -388,7 +465,7 @@ export function bodyFading(body: SkyBody, time: number, twinkleTime: number): bo
 	)
 }
 
-/** What the worker knows at a drawn frame, for the body's view: the clocks, the scroll, the camera and the zones on screen. */
+/** What the worker knows at a drawn frame, for the body's view: the clocks, the scroll, the camera, the screen and the zones on screen. */
 export interface BodyFrame {
 	/** Seconds on the worker clock. */
 	time: number
@@ -397,29 +474,42 @@ export interface BodyFrame {
 	scrollY: number
 	/** The camera's offset (CSS px at nearness 1). */
 	offset: Vec
+	/** The drift clock (Camera.clock, s). */
+	clock: number
+	/** The screen's width (CSS px). */
+	width: number
 	/** The zones on screen as the frame draws them; the box answers to `to` and a waiting layout's `next`. */
 	quiet: QuietBlend
 }
 
-/** The comet at one drawn frame: where its nucleus is on screen and how much of its light shows. */
+/** The comet at one drawn frame: where its nucleus is on screen, how much of its light shows and where its knots are. */
 export interface CometView {
 	x: number
 	y: number
 	/** The light it shows, 0 to 1: its fade-in times the share the scroll and the fades leave. */
 	light: number
 	shape: CometShape
+	/** The ion tail's knots relative to the nucleus: the body's own reused list, rewritten by each view. */
+	knots: readonly CometKnot[]
 }
 
 /**
- * The comet as one drawn frame shows it, or null when none shows. Its box is tested against the zones the frame answers
- * to (the layout it is easing to and one waiting), whose copy and the comet both move, and the first time copy comes
- * within reach it starts to fade out and is gone for good.
+ * The comet as one drawn frame shows it, or null when none shows. It hangs where the camera carries it and drifts on its
+ * own: the drift clock's time since it began to show, times its pace. It is gone once its whole box is past the right
+ * edge, where no copy lies. Its box is tested against the zones the frame answers to (the layout it is easing to and one
+ * waiting), whose copy and the comet both move, and the first time copy comes within reach it starts to fade out and is
+ * gone for good.
  */
 export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const { shape } = body
 	if (body.status !== 'showing' || !shape) return null
-	const x = body.x - BODY_NEARNESS * frame.offset.x
-	const y = body.y - BODY_NEARNESS * frame.offset.y
+	const flown = frame.clock - body.startClock
+	const x = body.x - BODY_NEARNESS * frame.offset.x + shape.driftX * flown
+	const y = body.y - BODY_NEARNESS * frame.offset.y + shape.driftY * flown
+	if (x + shape.box.left >= frame.width) {
+		body.status = 'gone'
+		return null
+	}
 	if (body.boxFailedAt === null) {
 		const { left, top, right, bottom } = shape.box
 		const x0 = x + left
@@ -433,5 +523,6 @@ export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 		body.status = 'gone'
 		return null
 	}
-	return { x, y, light: smoothstep(0, COMET.fadeIn, frame.twinkleTime - body.startedAt) * kept, shape }
+	cometKnots(frame.clock, shape.unit, body.knots)
+	return { x, y, light: smoothstep(0, COMET.fadeIn, frame.twinkleTime - body.startedAt) * kept, shape, knots: body.knots }
 }

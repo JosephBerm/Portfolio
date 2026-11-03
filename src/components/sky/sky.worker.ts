@@ -151,10 +151,10 @@ const pointerAt: Vec = { x: 0, y: 0 }
 const leanGoal: Vec = { x: 0, y: 0 }
 /** What the camera follows on its next step (reused, so a step makes no garbage). */
 const cameraInput: CameraInput = { time: 0, scroll: 0, viewportHeight: 0, follow: false, drift: 0, lean: leanGoal }
-/** The static comet, the sky's one long-lived body: the reveal draws whether this visit hangs one, and its start rule decides when it shows. */
+/** The comet, the sky's one long-lived body: the reveal draws whether this visit hangs one, and its start rule decides when it shows. */
 const comet = createSkyBody()
 /** What the comet's step reads at each tick (reused, so a tick makes no garbage). */
-const bodyStep: BodyStep = { gate, leaseHeld: false, time: 0, twinkleTime: 0, drawnAt: 0, twinkleDrawnAt: 0, offset }
+const bodyStep: BodyStep = { gate, leaseHeld: false, time: 0, twinkleTime: 0, drawnAt: 0, twinkleDrawnAt: 0, offset, clock: 0 }
 /** Whether the camera moved on its last step: it then needs motion frames, and stopping draws one last frame. */
 let cameraMoving = false
 /** Motion has been full at some point in this page view: until then stars sit at whole device pixels, so a sky that has never moved draws crisp points. */
@@ -585,6 +585,7 @@ function updateComet(now: number): void {
 	bodyStep.twinkleTime = t - hiddenTotal
 	bodyStep.drawnAt = lastDrawAt / 1000
 	bodyStep.twinkleDrawnAt = lastDrawAt / 1000 - hiddenTotal
+	bodyStep.clock = camera.clock
 	cameraOffset(camera, offset)
 	if (updateBody(comet, bodyStep)) needsDraw = true
 }
@@ -633,7 +634,9 @@ function draw(now: number): void {
 	drawSky(ctx, assets, field, frame)
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
 	// The comet's view tests its box against the zones this frame draws, and may find it gone
-	const view = bodyShowing(comet) ? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, quiet: frame.quiet }) : null
+	const view = bodyShowing(comet)
+		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet })
+		: null
 	if (view) {
 		// Painted once, in the first frame it shows (still at no light), and again after a lost context took it
 		assets.comet ??= buildCometArt(view.shape, assets.tokens)

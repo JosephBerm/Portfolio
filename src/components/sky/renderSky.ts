@@ -30,7 +30,7 @@ import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import { drawFireball } from './renderFireball'
-import { starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
+import { KNOT_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
 export interface StarField {
@@ -496,13 +496,13 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 }
 
 /**
- * The comet at one frame: its bitmap of coma and tails added to the sky, then the pseudo-nucleus over it. `view.light`
- * (the fade-in times what the scroll and the fades leave) multiplies all of it, and so does the transient quiet factor
- * with CLEAR_SKY_KEEPS, sampled at the nucleus and at the far end of each tail and taken at the lowest of the three. One
- * bitmap cannot be dimmed part by part, so when copy comes within reach of any of them all of the comet gives way
- * together, without waiting for its fade; copy that lands between them is left to the box test (bodyView), whose fade
- * takes the comet out in TRANSIENTS.cancelFade. The bitmap is assets.comet; the caller has painted it before the comet
- * shows.
+ * The comet at one frame: its bitmap of coma and tails added to the sky, the knots gliding along the ion tail, then the
+ * pseudo-nucleus over them. `view.light` (the fade-in times what the scroll and the fades leave) multiplies all of it,
+ * and so does the transient quiet factor with CLEAR_SKY_KEEPS, sampled at the nucleus and at the far end of each tail and
+ * taken at the lowest of the three. One bitmap cannot be dimmed part by part, so when copy comes within reach of any of
+ * them all of the comet gives way together, without waiting for its fade; copy that lands between them is left to the
+ * box test (bodyView), whose fade takes the comet out in TRANSIENTS.cancelFade. The bitmap is assets.comet; the caller
+ * has painted it before the comet shows.
  */
 export function drawComet(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, frame: SkyFrame): void {
 	const { comet, atlas } = assets
@@ -516,6 +516,18 @@ export function drawComet(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAss
 	ctx.globalCompositeOperation = 'lighter'
 	ctx.globalAlpha = kept
 	ctx.drawImage(comet, (x + box.left) * dpr, (y + box.top) * dpr, (box.right - box.left) * dpr, (box.bottom - box.top) * dpr)
+	// Each knot is the knot sprite scaled to its length and width and turned along its ray; the sprite's sigma is KNOT_SIGMA CSS px
+	const { cometKnot: sprite } = atlas
+	for (const knot of view.knots) {
+		const light = knot.light * kept
+		if (light < MIN_STAR_ALPHA) continue
+		const along = knot.long / KNOT_SIGMA
+		const across = knot.wide / KNOT_SIGMA
+		ctx.globalAlpha = light
+		ctx.setTransform(knot.dirX * along, knot.dirY * along, -knot.dirY * across, knot.dirX * across, (x + knot.x) * dpr, (y + knot.y) * dpr)
+		ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, -sprite.size / 2, -sprite.size / 2, sprite.size, sprite.size)
+	}
+	ctx.setTransform(1, 0, 0, 1, 0, 0)
 	// Unsnapped, so the nucleus glides as the camera carries it
 	const nucleus = placePoint(atlas, COMET.nucleus.tint, COMET.nucleus.shape, x * dpr, y * dpr, false)
 	if (nucleus) {

@@ -268,3 +268,17 @@ export function visitSteer(random: Random, sky: VisitSky): Steer {
 		}
 	}
 }
+
+/**
+ * A point on the screen within `degrees` of the shower radiant, where a meteor coming straight at the viewer shows (it
+ * has no length and stands still), or null while the radiant is off screen. Drawn uniformly over a disc around the
+ * radiant whose radius is `degrees` at the window's center: toward the edges a degree spans more pixels, so no point lies
+ * farther than `degrees` from the radiant.
+ */
+export function pointNearRadiant(random: Random, sky: VisitSky, degrees: number): Point | null {
+	const { showerOnScreen } = sky
+	if (showerOnScreen === null) return null
+	const radius = sky.window.focal * degrees * DEG * Math.sqrt(random())
+	const angle = 2 * Math.PI * random()
+	return { x: showerOnScreen.x + radius * Math.cos(angle), y: showerOnScreen.y + radius * Math.sin(angle) }
+}

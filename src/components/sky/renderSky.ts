@@ -298,15 +298,16 @@ function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
  * point it draws, so a shooting star burning out behind the copy fades there while the part still in clear sky stays
  * bright, and on the copy it keeps its shape at a faint level. While a layout eases in it follows transientQuietFactor.
  * `fade` (0-1) multiplies the light of all of it, train, wake, glow and core: the caller's own fade, such as the scroll
- * cancel (scrollKept).
+ * cancel (scrollKept). `keeps` replaces the veil's budgets for a variant that never takes the ink lease (CLEAR_SKY_KEEPS),
+ * which keeps none of its light inside a padded quiet rect. A shooting star of no length, a point flash, has no wake to draw.
  */
-export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1): void {
+export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1, keeps?: QuietKeeps): void {
 	const { dpr } = frame
 	const state = meteorAt(meteor, frame.time)
 	const { white } = assets.tokens
 	const keptBy = (keeps: QuietKeeps) => (point: Point) => transientQuietFactor(frame.quiet, point.x, point.y, keeps) * fade
 	ctx.globalCompositeOperation = 'lighter'
-	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, keptBy(budgetKeeps(state.train, METEOR_VEIL.quietKeep, frame.meteorInk)))
+	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, keptBy(keeps ?? budgetKeeps(state.train, METEOR_VEIL.quietKeep, frame.meteorInk)))
 
 	// Emission progress still glowing: from `tail` (oldest) to `head` (now)
 	const head = Math.min(1, state.progress)
@@ -317,7 +318,7 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	const flaring = meteor.flare && state.progress > METEOR_LIGHT.flareGlowFrom
 	const boost = (meteor.fireball ? METEOR_LOOK.fireballGlow : 1) * (flaring ? METEOR_LIGHT.flareGlow : 1)
 	// The light each wake stop carries (from the head back to `tail`) and where it was emitted; the far half thins out a little faster than the afterglow alone
-	const wake = Array.from({ length: METEOR_LOOK.wakeStops }, (_, k) => {
+	const wake = Array.from({ length: meteor.length === 0 ? 0 : METEOR_LOOK.wakeStops }, (_, k) => {
 		const f = k / (METEOR_LOOK.wakeStops - 1)
 		const emitted = head - f * (head - tail)
 		const age = (state.progress - emitted) * meteor.duration
@@ -326,7 +327,7 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	})
 	// The most white the brightest pixel would add with no veil: the veil keeps each copy's share of it, so everything dims together
 	const brightest = Math.max(state.intensity * headGain(boost), WAKE_GAIN * Math.max(...wake.map((stop) => stop.light)))
-	const kept = keptBy(budgetKeeps(brightest, METEOR_VEIL.quietKeep, frame.meteorInk))
+	const kept = keptBy(keeps ?? budgetKeeps(brightest, METEOR_VEIL.quietKeep, frame.meteorInk))
 	if (tail < 1) {
 		const tailPoint = meteorPoint(meteor, tail)
 		const tx = tailPoint.x * dpr
@@ -383,15 +384,15 @@ function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets
 
 /**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
- * which holds scrollY). Clear-sky kinds draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case
- * fails to compile.
+ * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash), draw with CLEAR_SKY_KEEPS,
+ * chosen here for every drawer; a kind without a case fails to compile.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
 	const { kind, body } = transient
 	switch (kind) {
 		case 'meteor':
-			drawMeteor(ctx, assets, body, frame, fade)
+			drawMeteor(ctx, assets, body, frame, fade, transient.clearSky ? CLEAR_SKY_KEEPS : undefined)
 			return
 		case 'satellite':
 			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)

@@ -73,7 +73,7 @@ export interface PlanContext {
 	ink: number
 	/** A narrow screen (phones). */
 	narrow: boolean
-	/** Seconds since the reveal: a kind may wait for the visit to settle (fireballs wait METEOR_KINDS.fireball.after). */
+	/** Seconds since the reveal: a kind may wait for the visit to settle (each of METEOR_KINDS waits its `after`). */
 	sinceReveal: number
 }
 
@@ -91,6 +91,8 @@ export interface TransientSpec<K extends TransientKind> {
 	moving(body: TransientBodies[K], now: number): boolean
 	/** Its light may reach quiet copy, so it holds the ink lease: the body's own report (Meteor.nearCopy), never a copy of the context. */
 	nearCopy(body: TransientBodies[K]): boolean
+	/** This body never takes the ink lease although its kind may (a shooting star variant): it is planned in clear sky and drawn with CLEAR_SKY_KEEPS, as a kind with `lease` false is. Absent for a kind whose bodies may all take it. */
+	clearSky?(body: TransientBodies[K]): boolean
 	/** This kind may take the ink lease; false (satellites) plans in clear sky only and draws with CLEAR_SKY_KEEPS. */
 	lease: boolean
 	/** It may launch on narrow screens (phones). */
@@ -246,8 +248,10 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 	}
 	const lifetime = body === null ? 0 : spec.lifetime(body)
 	const reachesCopy = body !== null && spec.nearCopy(body)
-	// A plan that outlives TRANSIENTS.maxLife, or reaches copy it was told to keep clear of, is a failed plan whatever the planner did
-	if (body === null || lifetime > TRANSIENTS.maxLife || (reachesCopy && !nearCopy)) {
+	// It never takes the ink lease: its kind never does, or the kind marks this body as one that doesn't
+	const clearSky = !spec.lease || (body !== null && spec.clearSky?.(body) === true)
+	// A plan that outlives TRANSIENTS.maxLife, or reaches copy it was told to keep clear of or may never reach, is a failed plan whatever the planner did
+	if (body === null || lifetime > TRANSIENTS.maxLife || (reachesCopy && (!nearCopy || clearSky))) {
 		const failed = schedule.failedPlans[kind] + 1
 		schedule.failedPlans[kind] = failed
 		// No room around the copy (a phone held sideways, say): stop trying until the layout changes
@@ -260,7 +264,7 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 		startedAt: now,
 		lifetime,
 		nearCopy: reachesCopy,
-		clearSky: !spec.lease,
+		clearSky,
 		launchScrollY: gate.scrollY,
 		cancelledAt: null,
 	}

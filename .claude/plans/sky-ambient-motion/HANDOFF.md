@@ -4,9 +4,13 @@ Last updated: 2026-10-28. Planning is done: `PLAN.md` is built on the veil commi
 - Joseph chose the recommended defaults for every decision in section 3 ("Use the defaults").
 - Implementation ran in the local session "Implement the sky ambient-motion plan (P0 onward)" (`local_173b1826-7839-4b4e-a7c8-ad3fe4af9577`).
   - P1 to P11 are merged into master (#16 to #26, master at `ecfbf1a`).
-  - P12 and P13 are skipped per D4 and D7.
-  - Each merge is logged under "Phase merges (CP-2)" in `COORDINATION.md`, with the crossing rerun after P9.
-- What's left is Joseph's real-device checks. They are listed at the end of the P11 entry in `COORDINATION.md`, and the iPhone tests decide D7.
+  - A second round, which Joseph asked for, then built most of P12 and P13, plus his rate changes: #27 to #34, master at `8424a00` on 2026-11-03. That covers farewell meteors, the WebKit relay, fireballs about every 90 s, the point flash, bursts, earthgrazers, the lean on the whole page, and satellites about every 45 s.
+  - The comet (#35) and the planet (#36, stacked on the comet) are open, waiting for Joseph's look at the composition.
+  - Each merge is logged under "Phase merges (CP-2)" in `COORDINATION.md`, with the crossing reruns.
+- Left for Joseph:
+  - the real-device checks at the end of the P11 entry in `COORDINATION.md`;
+  - #35 and #36;
+  - the three budgets the second round put over (B-3, B-5 on WebKit, B-9), listed at the end of its entry.
 
 This file lets another session (on any account) pick up the work where it stopped. The copy-and-paste prompt is at the bottom.
 

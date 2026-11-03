@@ -577,6 +577,81 @@ This entry is the implementing session's report. The planning session checked:
 - iPhone Safari (WebKit judder, Low Power Mode), which also decides D7, the relay;
 - budgets B-1 to B-7 and B-10's heap check.
 
+### CP-2, 2026-11-03: the second round, which Joseph asked for
+
+**Merged into master (now 8424a00), as merge commits:**
+
+| PR | Change | Merge commit |
+|---|---|---|
+| #27 | Farewell meteors (P12) | a514e2d |
+| #28 | The WebKit relay (P13) | e457ee7 |
+| #29 | Fireballs about every 90 s | 9c7f82f |
+| #30 | Point flash (P12) | 17dedf7 |
+| #31 | Bursts (P12) | 440a423 |
+| #32 | Earthgrazers (P12) | affacb6 |
+| #33 | The lean on the whole page | f1a33a6 |
+| #34 | Satellites about every 45 s | 8424a00 |
+
+**Open, waiting for Joseph's look at the composition:**
+- #35, comet (P12): `claude/sky-p12-comet` at e3e2f4a.
+- #36, planet (P12): `claude/sky-p12-planet` at 2be42a9, stacked on the comet (its base is the comet branch).
+
+**How it was done:**
+- Sonnet 5.5 (max) implemented five streams in parallel, and an independent Sonnet harness writer kept the kit.
+- Opus 5.5 (max) audited each PR group and the whole stack.
+- Separate Sonnet 5.5 (max) fixers applied the fixes, and Opus checked each fix.
+
+This entry is the implementing session's report. The planning session checked:
+- the eight merges and the two open PRs on GitHub;
+- byte-identical at 8424a00 against cf4d7b8: `veiledFrom`, `segmentTouches`, `headGain`, `drawTrain`, the scene's quiet and ink functions (`scrollKept`, `transientQuietFactor`, `easedQuietFactor`, `quietFactor`, `inkBudget`, `budgetKeeps`, `fitKeep`), the worker's quiet ease (`quietBlend`, `quietEasing`, `applyLayout`, `settleQuiet`), `copyReader` and `quietRects`;
+- `planMeteor` is unchanged since P10, and `planFlight` changes one line since P10: `options.starts ?? startArea(field)`;
+- `drawMeteor` changes since P10 in two ways:
+  - an optional `keeps` argument that replaces `budgetKeeps` when given (clear-sky bodies pass `CLEAR_SKY_KEEPS`);
+  - a guard that draws no wake when `meteor.length === 0`, for the point flash.
+
+  Ordinary shooting stars draw as before.
+
+**Files and functions changed, by PR:**
+- **Farewell (#27):**
+  - `scene.ts`: `SceneLevels.launchScene` (`'hero' | 'end' | null`) replaces `launches`.
+  - `transients.ts`: `LaunchGate.scene`, `TransientSpec.scene`/`room`/`limit` and `TransientSchedule.kindLaunches`. The launch step gets scene, limit and room holds, with the field built once.
+  - `config.ts`: `SCENE.endLaunchLevel` and `FAREWELL`.
+  - `meteors.ts`: `StartArea`, `PlanOptions.starts`, and a farewell clause in the `clearOf` doc.
+  - `meteorKind.ts`: `flowEdge`, `farewellRoom`, `planFarewell` and `FAREWELL_SPEC`.
+  - `renderSky.ts`: a `'farewell'` case in `drawTransient`.
+  - `sky.worker.ts`: `launchGate` fills `scene`.
+  - The README sky line, and the AGENTS.md note that copy without `data-sky-quiet` belongs above Contact.
+- **Relay (#28):**
+  - `protocol.ts`: a bare `{ type: 'tick' }`, and `{ type: 'relay'; on }`.
+  - `mountSky.ts`: the relay loop and its case, cancelled in `destroy`.
+  - `sky.worker.ts`: the relay state machine and tick frames (`setRelay`, `onRelayTick`, a second refresh estimate). A relayed frame that waited in the queue draws nothing.
+- **Fireballs (#29):** `METEOR_KINDS.fireball` gets chance 0.55, and a spacing drawn per fireball from [50, 85]. `MeteorMemory.from` replaces `lastFireballAt`. The cooldown went from 40 to 35 s.
+- **Point flash (#30):**
+  - `TransientSpec.clearSky(body)`, folded into the envelope.
+  - `drawMeteor`'s optional `keeps`; `drawTransient` passes `CLEAR_SKY_KEEPS` for clear-sky bodies.
+  - `Meteor.variant`, `planFlash` and `radiants.pointNearRadiant`.
+  - The one-draw decision step `planMeteorLaunch`, which leaves out kinds with chance 0.
+  - The cooldown went from 35 to 30 s.
+- **Bursts (#31):** `Meteor.followers`, `meteorSpan` and `planBurst`; `TransientSpec.lastOnset`, with `lastOnsetAt` covering the last member. Followers are drawn in `drawTransient`, so `drawMeteor` still draws one meteor.
+- **Earthgrazers (#32):** `planGrazer`. The steer's `Course.pathShare` of Infinity lifts the 640 px cap through options only.
+- **Lean (#33):** `SCENE.reading.lean` and `SCENE.end.lean` set to 1, plus docs.
+- **Satellites (#34):** `SATELLITE.first` is 12 + Exp(12) capped at 90, `gap` is 18 + Exp(18) capped at 90, and `alpha` is [0.35, 0.6].
+- **Comet (#35, open):**
+  - new: `bodies.ts`, `COMET` and `drawComet`;
+  - `LaunchGate.bodyShowing`, and `launchKind`'s `nearCopy` needs `!gate.bodyShowing`;
+  - `skyAssets.ts`: `COMA_SIGMA` and `StarAtlas.cometComa`;
+  - worker hooks, and `pacing.ts` docs.
+- **Planet (#36, open):** `PLANET` and a seventh `STAR_SHAPES` entry; `catalog.ts`'s near cell (3, 0); the `skyAssets.ts` atlas row, where the meteor head now sits above its glow.
+
+**For the veil session (6.12):** farewell meteors launch around Contact and the footer. Copy above Contact has no `data-sky-quiet` (Other Projects, on tall screens), so they fly only below the top of the highest flow zone on screen.
+
+**Crossings:** the cooldown is now 30 s, the rule's value with the clear-sky kinds (satellites left out). With satellites and every kind at the stack's top, every layout stays under its bar. The tightest is 2560x1440, at 0.348 against 0.421.
+
+**Budgets now over, for Joseph to accept or have tuned:**
+- B-9: drawing every frame takes 12.3 to 12.4 s a minute in the hero, against a budget of 10, because of the satellite clock.
+- B-3 is exceeded while the pointer moves in reading, since the lean now runs on the whole page.
+- B-5 (no work on the main thread each frame) no longer holds on WebKit, by the relay's design.
+
 ## Log
 
 - 2026-10-25 07:0x UTC: we sent our scope and questions.
@@ -597,3 +672,4 @@ This entry is the implementing session's report. The planning session checked:
 - 2026-10-28: CP-2 for P8 (#23, master at c9e7841), recorded the same way.
 - 2026-10-28: CP-2 for P9 and P10 (#24 and #25, master at 942ebcb), with the crossing rerun the veil asked for, reported to Joseph next to the veil's numbers.
 - 2026-10-28: CP-2 for P11 (#26, master at ecfbf1a). P1 to P11 are done; P12 and P13 are skipped per D4 and D7.
+- 2026-11-03: CP-2 for the second round Joseph asked for. #27 to #34 are merged (master at 8424a00); the comet (#35) and planet (#36) are open for his look.

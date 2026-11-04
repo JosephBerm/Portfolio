@@ -88,7 +88,10 @@ export default function Navbar() {
 			transition={{ duration: 0.25, ease: easing.smooth }}
 			className={cn(
 				// CSS transitions only the height and shadow; Motion alone animates y, so the hide/show honors reduced motion
-				'fixed top-0 z-[11] flex w-full items-center justify-between px-[25px] md:px-[40px] lg:px-[50px] backdrop-blur-[10px] transition-[height,box-shadow] duration-250',
+				// The gutter and the items' left margins widen at lg, not md: at the low end of md (768 wide, or a little less
+				// where a scrollbar takes room) the links, Resume and the pause control barely fit, and wider spacing would
+				// push the control past the right edge
+				'fixed top-0 z-[11] flex w-full items-center justify-between px-[25px] lg:px-[50px] backdrop-blur-[10px] transition-[height,box-shadow] duration-250',
 				'bg-navy/85',
 				scrolled ? 'h-[70px] shadow-[0_10px_30px_-10px_var(--color-navy-shadow)]' : 'h-[100px]'
 			)}
@@ -145,7 +148,7 @@ export default function Navbar() {
 								custom={index * NAV_STAGGER}
 								initial="hidden"
 								animate="visible"
-								className="relative my-[20px] text-lg md:my-0 md:ml-[8px] md:text-sm [counter-increment:item_1]"
+								className="relative my-[20px] text-lg md:my-0 lg:ml-[8px] md:text-sm [counter-increment:item_1]"
 							>
 								<a
 									href={`#${section.id}`}
@@ -163,7 +166,7 @@ export default function Navbar() {
 						initial="hidden"
 						animate="visible"
 					>
-						<a href="/resume.pdf" target="_blank" rel="noopener noreferrer" className="btn md:ml-[15px] text-sm">
+						<a href="/resume.pdf" target="_blank" rel="noopener noreferrer" className="btn md:ml-[10px] lg:ml-[15px] text-sm">
 							Resume
 						</a>
 					</motion.div>
@@ -178,7 +181,7 @@ export default function Navbar() {
 					// The open phone menu's panel covers this corner, so the control leaves the tab order with it (WCAG 2.4.11)
 					inert={mobileMenuOpen}
 				>
-					<SkyPauseButton className="ml-[10px] md:ml-[15px]" />
+					<SkyPauseButton className="ml-[10px] lg:ml-[15px]" />
 				</motion.div>
 			</nav>
 		</motion.header>

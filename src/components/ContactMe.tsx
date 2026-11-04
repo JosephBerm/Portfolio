@@ -21,7 +21,7 @@ export default function ContactMe() {
 				<h2 className="text-[clamp(35px,5vw,55px)] text-lightest-slate font-semibold">Get In Touch</h2>
 			</RevealItem>
 			<RevealItem>
-				<p className="text-[clamp(var(--text-xs),5vw,var(--text-base))] leading-[1.5]">
+				<p className="text-[clamp(var(--text-xs),5vw,var(--text-base))] leading-[1.5] text-light-slate">
 					I&apos;m always glad to hear from people. If you have a project in mind or a question about
 					VendorX, send me a note and I&apos;ll get back to you.
 				</p>

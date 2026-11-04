@@ -1,6 +1,6 @@
 /**
  * Whether the home sky moves, as a small external store rather than React context: its readers are the pause controls
- * in the navbar and the right rail, and mountSky, which isn't React. A page view is one mount of the home page: the last
+ * in the navbar, the right rail and the footer, and mountSky, which isn't React. A page view is one mount of the home page: the last
  * unsubscribe forgets what was read and any Play pressed under reduced motion, so the next mount reads storage and the OS setting
  * afresh. Nothing here touches window, matchMedia or localStorage at module scope, so server-rendered client code can
  * import it.

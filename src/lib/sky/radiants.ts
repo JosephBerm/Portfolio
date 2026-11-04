@@ -5,7 +5,7 @@
  * screen into a direction, a speed and a brightness for a shooting star launched there.
  */
 
-import { METEOR, METEOR_BRIGHTNESS, NARROW_MAX_WIDTH, RADIANTS, SKY_WINDOW, SPEED_CLASSES } from './config'
+import { METEOR, METEOR_BRIGHTNESS, NARROW_MAX_WIDTH, RADIANTS, SKY_WINDOW, SPEED_CLASSES, type SpectrumName, type SpectrumOdds, type SpeedClassName } from './config'
 import { startArea, type Course, type MeteorField, type Point, type Steer } from './meteors'
 import { between, gaussian, type Random } from './random'
 import { quietAt } from './scene'
@@ -13,11 +13,8 @@ import { quietAt } from './scene'
 /** Radians per degree. */
 const DEG = Math.PI / 180
 
-/** The name of a speed class. */
-type SpeedName = keyof typeof SPEED_CLASSES
-
 /** The speed classes, slowest first: the shower takes any one of them and the sporadic sources one each in turn. */
-const SPEED_NAMES = Object.keys(SPEED_CLASSES) as SpeedName[]
+const SPEED_NAMES = Object.keys(SPEED_CLASSES) as SpeedClassName[]
 
 /** Points tried for a radiant on screen before the shower goes off screen after all. */
 const ON_SCREEN_TRIES = 20
@@ -54,7 +51,7 @@ export interface Source {
 	radiant: SkyDirection
 	/** Scatter (radians, one standard deviation): RADIANTS' degrees, converted. */
 	scatter: number
-	speed: SpeedName
+	speed: SpeedClassName
 }
 
 /** A visit's sky: the window, the shower and the sporadic sources; picked afresh after a resize or a failed launch allowed near copy, never by a layout. */
@@ -62,6 +59,8 @@ export interface VisitSky {
 	window: SkyWindow
 	shower: Source
 	sporadic: readonly Source[]
+	/** The spectrum (METEOR_SPECTRA) most of the shower's flights share, drawn from its speed class's `showerSpectra` (RADIANTS.showerKeeps). */
+	showerSpectrum: SpectrumName
 	/** Where the shower radiant sits on screen (RADIANTS.onScreen of wide-screen visits, never on narrow screens), else null. */
 	showerOnScreen: Point | null
 }
@@ -186,11 +185,26 @@ function usable(view: SkyWindow, radiant: SkyDirection, field: MeteorField): boo
 }
 
 /** The speed class at `index`, counting round. */
-function speedAt(index: number): SpeedName {
+function speedAt(index: number): SpeedClassName {
 	return SPEED_NAMES[index % SPEED_NAMES.length] ?? 'medium'
 }
 
-/** A visit's sky around a shower radiant: the shower with a speed class picked uniformly, and a sporadic source for each speed class in turn. */
+/** A spectrum drawn with `odds`, each named one in its own share and in the order listed; the last takes whatever rounding leaves of the draw. */
+function drawSpectrum(random: Random, odds: SpectrumOdds): SpectrumName {
+	let roll = random()
+	let drawn: SpectrumName = 'plain'
+	for (const [name, share] of Object.entries(odds) as [SpectrumName, number][]) {
+		drawn = name
+		if (roll < share) break
+		roll -= share
+	}
+	return drawn
+}
+
+/**
+ * A visit's sky around a shower radiant: the shower with a speed class picked uniformly and a spectrum from that
+ * class's showerSpectra, and a sporadic source for each speed class in turn.
+ */
 function buildVisitSky(random: Random, view: SkyWindow, radiant: SkyDirection, showerOnScreen: Point | null): VisitSky {
 	const shower: Source = { kind: 'shower', radiant, scatter: RADIANTS.showerScatter * DEG, speed: speedAt(Math.floor(random() * SPEED_NAMES.length)) }
 	const sporadic = Array.from({ length: RADIANTS.sporadicSources }, (_, i): Source => ({
@@ -199,7 +213,7 @@ function buildVisitSky(random: Random, view: SkyWindow, radiant: SkyDirection, s
 		scatter: RADIANTS.sporadicScatter * DEG,
 		speed: speedAt(i),
 	}))
-	return { window: view, shower, sporadic, showerOnScreen }
+	return { window: view, shower, sporadic, showerSpectrum: drawSpectrum(random, SPEED_CLASSES[shower.speed].showerSpectra), showerOnScreen }
 }
 
 /** A visit's sky: radiants with elevation density sin h cos h; the shower on screen in clear sky on RADIANTS.onScreen of wide-screen visits (never on narrow screens). */
@@ -226,18 +240,23 @@ export function pickVisitSky(random: Random, field: MeteorField): VisitSky {
 
 /** What a steer is asked for beyond a visit's usual mix of sources and brightness. */
 export interface SteerOptions {
-	/** Every flight comes from the shower, not only RADIANTS.showerShare of them. */
+	/** Every flight comes from the shower, not only RADIANTS.showerShare of them, and takes the shower's spectrum, not only RADIANTS.showerKeeps of them. */
 	shower?: boolean
 	/** Every flight is faint (METEOR_BRIGHTNESS.faint), not only METEOR_BRIGHTNESS.faintShare of them. */
 	faint?: boolean
 }
 
-/** One launch's steer: a source (the shower with RADIANTS.showerShare, else a sporadic one, unless `options` ask for the shower) and its scattered radiant. */
+/**
+ * One launch's steer: a source (the shower with RADIANTS.showerShare, else a sporadic one, unless `options` ask for the
+ * shower), its scattered radiant and the spectrum of its flights: the shower's own for a shower flight with
+ * RADIANTS.showerKeeps (always, if `options` ask for the shower), else one drawn from the source's speed class.
+ */
 export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions = {}): Steer {
 	const view = sky.window
 	const source = options.shower || random() < RADIANTS.showerShare ? sky.shower : (sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower)
 	const radiant = scattered(random, source.radiant, source.scatter)
 	const speedClass = SPEED_CLASSES[source.speed]
+	const spectrum = source.kind === 'shower' && (options.shower || random() < RADIANTS.showerKeeps) ? sky.showerSpectrum : drawSpectrum(random, speedClass.spectra)
 	const [shortest, longest] = speedClass.duration
 	const durations = { long: speedClass.duration, short: [shortest * METEOR.fallbackScale, longest * METEOR.fallbackScale] as const }
 	const steepest = -Math.sin(RADIANTS.climbDegrees * DEG)
@@ -271,7 +290,7 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 			pathShare: climbing ? RADIANTS.climbShare : 1,
 			minPath: near ? RADIANTS.nearRadiantPath : null,
 			peak,
-			wakeColor: speedClass.wakeColor,
+			spectrum,
 			train: speedClass.train,
 		}
 	}

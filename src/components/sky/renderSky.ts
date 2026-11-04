@@ -1,7 +1,7 @@
 import type { CometView } from '@/lib/sky/bodies'
 import type { Vec } from '@/lib/sky/camera'
 import { cellStars, LAYER_NEARNESS, twinkleNoise, type Star } from '@/lib/sky/catalog'
-import { mixRgb, rgba } from '@/lib/sky/color'
+import { colorAlong, mixRgb, rgba } from '@/lib/sky/color'
 import {
 	CELL_SIZE,
 	CLEAR_SKY_KEEPS,
@@ -10,6 +10,8 @@ import {
 	METEOR,
 	METEOR_LIGHT,
 	METEOR_LOOK,
+	METEOR_SHEATH,
+	METEOR_SPECTRA,
 	METEOR_VEIL,
 	MIN_CORE_SIGMA_DEVICE_PX,
 	MIN_STAR_ALPHA,
@@ -21,7 +23,7 @@ import {
 	TWINKLE_HORIZON_GAIN,
 	type SkyLayer,
 } from '@/lib/sky/config'
-import { headGain, meteorAt, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
+import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
@@ -262,19 +264,22 @@ function taperedQuad(ctx: OffscreenCanvasRenderingContext2D, hx: number, hy: num
 }
 
 /**
- * The faint persistent train: a mint line along the flown path that fades at both ends and widens as it ages. `kept`
- * gives the share of its light each point keeps behind quiet copy.
+ * The faint persistent train: a line along the flown path that fades at both ends and widens as it ages, in its
+ * spectrum's train colors by its age (colorAlong over TRAIN.life since the flight ended). Those colors are absolute, so
+ * the assets are not read. `kept` gives the share of its light each point keeps behind quiet copy.
  */
-function drawTrain(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, state: MeteorFrame, dpr: number, kept: (point: Point) => number): void {
+function drawTrain(ctx: OffscreenCanvasRenderingContext2D, _assets: SkyAssets, meteor: Meteor, state: MeteorFrame, dpr: number, kept: (point: Point) => number): void {
 	if (state.flown < 2) return
 	const end = meteorPoint(meteor, state.progress)
-	const color = mixRgb(assets.tokens.green, assets.tokens.white, TRAIN.mintToWhite)
+	// Seconds since the flight ended (0 while the head still flies)
+	const since = Math.max(0, (state.progress - 1) * meteor.duration)
+	const color = colorAlong(METEOR_SPECTRA[meteor.spectrum].train, since / TRAIN.life)
 	const gradient = ctx.createLinearGradient(meteor.startX * dpr, meteor.startY * dpr, end.x * dpr, end.y * dpr)
 	for (let k = 0; k <= 4; k++) {
 		const point = { x: meteor.startX + ((end.x - meteor.startX) * k) / 4, y: meteor.startY + ((end.y - meteor.startY) * k) / 4 }
 		gradient.addColorStop(k / 4, rgba(color, state.train * Math.sin((Math.PI * k) / 4) * kept(point)))
 	}
-	const aged = Math.min(1, Math.max(0, (state.progress - 1) * meteor.duration) / TRAIN.widen)
+	const aged = Math.min(1, since / TRAIN.widen)
 	ctx.globalAlpha = 1
 	ctx.strokeStyle = gradient
 	ctx.lineCap = 'butt'
@@ -285,12 +290,10 @@ function drawTrain(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, me
 	ctx.stroke()
 }
 
-/** The color a wake cools to: mint for fast flights (fireballs too), warm for slow flights and the other fireballs, white for medium flights. */
+/** The color a wake cools to: its spectrum's wake color mixed from the theme's white by the meteor's chroma, so a faint one stays nearly white; `plain` stays white. */
 function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
-	const { white, green } = assets.tokens
-	if (meteor.wakeColor === 'mint') return mixRgb(green, white, METEOR_LOOK.mintToWhite)
-	if (meteor.wakeColor === 'warm' || meteor.fireball) return assets.palette[METEOR_LOOK.fireballTint] ?? white
-	return white
+	const { white } = assets.tokens
+	return mixRgb(white, METEOR_SPECTRA[meteor.spectrum].wake ?? white, meteorChroma(meteor.peak))
 }
 
 /**
@@ -364,6 +367,34 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 	ctx.globalAlpha = 1
 }
 
+/**
+ * The color of a shooting star's head, drawn after drawMeteor, whose head stays white: a glow round it (METEOR_SHEATH)
+ * in its spectrum's sheath color, mixed from the theme's white by the meteor's chroma. Its light is the head's light now
+ * times `fade` (the caller's own, as for drawMeteor) and the transient quiet factor at the head's center with
+ * CLEAR_SKY_KEEPS, which is 0 once the head is inside a padded quiet rect, so the sheath never reaches the copy and the
+ * veil's budgets never count it. A spectrum with no sheath (`plain`) draws nothing.
+ */
+export function drawMeteorSheath(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1): void {
+	const sheath = METEOR_SPECTRA[meteor.spectrum].sheath
+	if (sheath === null) return
+	const { dpr } = frame
+	const state = meteorAt(meteor, frame.time)
+	const head = meteorPoint(meteor, Math.min(1, state.progress))
+	const chroma = meteorChroma(meteor.peak)
+	const alpha = METEOR_SHEATH.alpha * chroma * state.intensity * fade * transientQuietFactor(frame.quiet, head.x, head.y, CLEAR_SKY_KEEPS)
+	if (alpha < MIN_STAR_ALPHA) return
+	const x = head.x * dpr
+	const y = head.y * dpr
+	const radius = METEOR_SHEATH.radius * dpr
+	const color = mixRgb(assets.tokens.white, sheath, chroma)
+	const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius)
+	for (const [at, share] of METEOR_SHEATH.stops) gradient.addColorStop(at, rgba(color, alpha * share))
+	ctx.globalCompositeOperation = 'lighter'
+	ctx.globalAlpha = 1
+	ctx.fillStyle = gradient
+	ctx.fillRect(x - radius, y - radius, 2 * radius, 2 * radius)
+}
+
 /** The satellite's dot is a radial gradient of this many equal steps of its radius. */
 const DOT_STEPS = 8
 
@@ -419,10 +450,17 @@ function wakeStopsFor(meteor: Meteor): number {
 	return meteor.wake === 0 ? 0 : METEOR_LOOK.wakeStops
 }
 
+/** A shooting star: drawMeteor with the wake stops its body takes (wakeStopsFor) and `keeps`, then its sheath. */
+function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade: number, keeps?: QuietKeeps): void {
+	drawMeteor(ctx, assets, meteor, frame, fade, keeps, wakeStopsFor(meteor))
+	drawMeteorSheath(ctx, assets, meteor, frame, fade)
+}
+
 /**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
  * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst, an
- * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A burst
+ * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A
+ * shooting star is drawn with drawMeteor and then its sheath (drawMeteorSheath), which always keeps clear of copy. A burst
  * draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
  * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them.
  */
@@ -432,15 +470,15 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 	switch (kind) {
 		case 'meteor': {
 			const keeps = transient.clearSky ? CLEAR_SKY_KEEPS : undefined
-			drawMeteor(ctx, assets, body, frame, fade, keeps, wakeStopsFor(body))
-			if (body.followers) for (const follower of body.followers) drawMeteor(ctx, assets, follower, frame, fade, keeps, wakeStopsFor(follower))
+			drawShootingStar(ctx, assets, body, frame, fade, keeps)
+			if (body.followers) for (const follower of body.followers) drawShootingStar(ctx, assets, follower, frame, fade, keeps)
 			return
 		}
 		case 'satellite':
 			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)
 			return
 		case 'farewell':
-			drawMeteor(ctx, assets, body, frame, fade)
+			drawShootingStar(ctx, assets, body, frame, fade)
 			return
 		default: {
 			const unhandled: never = kind

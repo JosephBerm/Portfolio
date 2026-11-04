@@ -271,7 +271,8 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 	const view = sky.window
 	const source = options.shower || random() < RADIANTS.showerShare ? sky.shower : (sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower)
 	const radiant = options.radiant ?? scattered(random, source.radiant, source.scatter)
-	const speedClass = SPEED_CLASSES[options.speed ?? source.speed]
+	const speedName = options.speed ?? source.speed
+	const speedClass = SPEED_CLASSES[speedName]
 	const spectrum = options.spectrum ?? (source.kind === 'shower' && (options.shower || random() < RADIANTS.showerKeeps) ? sky.showerSpectrum : drawSpectrum(random, speedClass.spectra))
 	const duration = options.duration ?? speedClass.duration
 	const [shortest, longest] = duration
@@ -308,7 +309,7 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 			peak,
 			spectrum,
 			train: speedClass.train,
-			speedClass: source.speed,
+			speedClass: speedName,
 		}
 	}
 }

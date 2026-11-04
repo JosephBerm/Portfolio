@@ -4,6 +4,7 @@ import { brakedSpeed, fireballFlare, fireballLight, fireballPoint, quietClearanc
 import { trainEnvelope, trainWidth, type Meteor, type Point } from '@/lib/sky/meteors'
 import type { Rgb } from '@/lib/sky/protocol'
 import { smoothstep, transientQuietFactor } from '@/lib/sky/scene'
+import { drawRadial } from './renderRadial'
 import type { SkyAssets, SkyFrame } from './renderSky'
 
 /** Everything the parts of one fireball read at one moment. Lengths in device px unless a name says otherwise. */
@@ -40,20 +41,6 @@ interface Moment {
 	clearanceAt: (x: number, y: number) => number
 	/** The same at the head. */
 	clearance: number
-}
-
-/**
- * A radial light from full `alpha` shaped by `stops` ([share of the radius, share of `alpha`]), cut at `radius`, whose last
- * stop is 0 so nothing lands beyond it. The square it is filled in is grown by `margin` px on every side: its edge falls
- * between pixels and takes a share of the faint steps nearest the rim from the pixels it crosses, which a margin of a pixel
- * leaves to the gradient.
- */
-export function drawRadial(ctx: OffscreenCanvasRenderingContext2D, x: number, y: number, radius: number, color: Rgb, alpha: number, stops: readonly (readonly [number, number])[], margin = 0): void {
-	if (radius < 1 || alpha < MIN_STAR_ALPHA) return
-	const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius)
-	for (const [at, share] of stops) gradient.addColorStop(at, rgba(color, alpha * share))
-	ctx.fillStyle = gradient
-	ctx.fillRect(x - radius - margin, y - radius - margin, 2 * radius + 2 * margin, 2 * radius + 2 * margin)
 }
 
 /**

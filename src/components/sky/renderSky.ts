@@ -29,7 +29,8 @@ import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
-import { drawFireball, drawRadial } from './renderFireball'
+import { drawFireball } from './renderFireball'
+import { drawRadial } from './renderRadial'
 import { KNOT_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */

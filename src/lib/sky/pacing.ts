@@ -68,6 +68,12 @@ export interface FrameState {
 	fading: boolean
 	/** Twinkle's timer rate while it may change (full motion, the visitor not idle and a twinkling scene), else 0. */
 	twinkleFps: number
+	/** The landing scene's ambient motion: frames a second while it is on screen and running, else 0. */
+	sceneFps: number
+	/** Most frames a second the scene may draw: the drift's cap, and a third of a software canvas's budget. */
+	sceneCap: number
+	/** The scene's silhouettes are on screen: scrolling draws every refresh at any motion level, so the picture stays with the page. */
+	sceneOnScreen: boolean
 }
 
 /** The strictest demand of every part of the sky this tick. */
@@ -75,7 +81,8 @@ export function frameDemand(state: FrameState): FrameDemand {
 	if (!state.live) return NO_FRAMES
 	return combineDemands(
 		state.transientDemand,
-		state.scrolling ? (state.full ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES,
+		state.scrolling ? (state.full || state.sceneOnScreen ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES,
+		state.sceneFps > 0 ? { fps: state.sceneFps, vsync: true, cap: state.sceneCap } : NO_FRAMES,
 		state.cameraActive ? { fps: motionFps(state.cameraSpeed), vsync: true, cap: state.cameraCap } : NO_FRAMES,
 		state.fading ? FADE_FRAMES : NO_FRAMES,
 		state.twinkleFps > 0 ? { fps: state.twinkleFps, vsync: false, cap: Infinity } : NO_FRAMES

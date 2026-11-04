@@ -27,9 +27,11 @@ import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, trainWidth,
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
-import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { budgetKeeps, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
+import type { MiamiFrame } from './miamiRuntime'
 import { drawFireball } from './renderFireball'
+import { drawMiamiScene, drawMiamiSky } from './renderMiami'
 import { drawRadial } from './renderRadial'
 import { KNOT_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
@@ -148,6 +150,14 @@ export interface SkyFrame {
 	meteorInk: number
 	/** Every star at a whole device pixel, as a sky that hasn't moved in this page view draws them; false places each at its nearest sub-pixel phase (placePoint). */
 	snap: boolean
+	/** The landing scene's frame: null while the scene is off screen, unbuilt or failed, and the sky is then exactly the shared sky. */
+	miami: MiamiFrame | null
+	/** The canvas y (CSS px) at and below which no star shows, locked to the page's end; Infinity with no scene. */
+	starFloorY: number
+	/** The canvas y above which stars are at full strength, locked to the page's end, and between it and `starFloorY` they ease out; Infinity with no scene. */
+	starFullY: number
+	/** How much of the floor applies, 0 to 1: it eases in with the scene after a jump to the page's end. */
+	starFloorFade: number
 }
 
 /**
@@ -220,6 +230,8 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)
 				// A bright star beside the copy reads as punctuation or an accent
 				if (quiet) alpha *= quietIndex.factor(x, y, config)
+				// The landing scene's sky warms toward the bottom of the screen, and the stars go out into it from the bottom up
+				if (y > frame.starFullY) alpha *= 1 - frame.starFloorFade * (1 - smoothstep(frame.starFloorY, frame.starFullY, y))
 				if (star.twinkle && frame.twinkle > 0) {
 					const depth = y / frame.height
 					const sigma = star.twinkle.sigma * frame.twinkle * (1 + TWINKLE_HORIZON_GAIN * depth * depth)
@@ -235,12 +247,13 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 	}
 }
 
-/** Navy, haze, then every layer with additive blending (starlight adds; overlapping glows never muddy). */
+/** Navy, the landing scene's sky where the frame has one, haze, then every layer with additive blending (starlight adds; overlapping glows never muddy). */
 export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, field: StarField, frame: SkyFrame): void {
 	ctx.globalCompositeOperation = 'source-over'
 	ctx.globalAlpha = 1
 	ctx.fillStyle = rgba(assets.tokens.navy, 1)
 	ctx.fillRect(0, 0, frame.deviceWidth, frame.deviceHeight)
+	if (frame.miami) drawMiamiSky(ctx, frame.miami, frame)
 	ctx.globalCompositeOperation = 'lighter'
 	if (assets.haze && frame.haze > MIN_STAR_ALPHA) {
 		// Nearest-neighbor keeps the dither grain intact when the haze buffer is scaled up
@@ -254,6 +267,14 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 	for (const layer of SKY_LAYERS) drawLayer(ctx, assets, field, frame, layer)
 	field.trim()
 	ctx.globalAlpha = 1
+}
+
+/**
+ * The landing scene's silhouettes, over the sky, the shooting stars and the comet, so what they cover hides what is behind;
+ * draws nothing where the frame has no scene.
+ */
+export function drawLandingScene(ctx: OffscreenCanvasRenderingContext2D, frame: SkyFrame): void {
+	if (frame.miami) drawMiamiScene(ctx, frame.miami, frame)
 }
 
 /** Fills a quad tapering from `headWidth` at (hx, hy) to `tailWidth` at (tx, ty); (nx, ny) is the unit normal. */

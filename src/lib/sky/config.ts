@@ -817,8 +817,10 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * second at birth to 0.2 at the tail's end, the speeds of real ion-tail features (25 km/s near the head, 86 to 295 km/s
  * farther out) at a day a minute. Its own drift and its knots are functions of the drift clock (Camera.clock) alone, so
  * they stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and
- * never jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. Its tails keep their
- * direction, and it is gone once its whole box has left the screen, gliding off the right edge.
+ * never jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. A pause, or reduced
+ * motion turned on in mid-visit, holds it lit and still where it is: a fade-in it interrupts stands at the light it
+ * had, and Play goes on from there with no jump. Its tails keep their direction, and it is gone once its whole box has
+ * left the screen, gliding off the right edge.
  *
  * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the
  * rails and the copy's measurement have settled), fading in over `fadeIn` seconds so nothing starts. Where it hangs is
@@ -834,7 +836,7 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * .section-header's 10 px top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when the
  * page has scrolled as far as a comet can still show. Where no place fits it looks again after `retry` seconds, from a
  * new drift clock and so along a new path. It is gone for the page view when the page scrolls from where it began to
- * show (SCROLL_CANCEL), when the sky is paused or resized, or when copy comes within reach of its box.
+ * show (SCROLL_CANCEL), when the sky is resized, or when copy comes within reach of its box, held or not.
  */
 export const COMET = {
 	chance: 0.11,

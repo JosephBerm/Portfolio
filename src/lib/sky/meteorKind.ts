@@ -61,6 +61,11 @@ export function planMeteorTransient(context: PlanContext, options: Omit<PlanOpti
 	return null
 }
 
+/** Whether a point lies inside the screen's guards for where a transient may start: METEOR's edge margin and top, and the height under METEOR.maxEndY. */
+function insideGuards(field: SkyField, x: number, y: number): boolean {
+	return x >= METEOR.edgeMargin && x <= field.width - METEOR.edgeMargin && y >= METEOR.top && y <= field.height * METEOR.maxEndY
+}
+
 /** Points tried near the radiant for a flash before the launch goes without one. */
 const FLASH_TRIES = 20
 
@@ -80,7 +85,7 @@ export function planFlash(context: PlanContext): Meteor | null {
 	for (let tries = 0; tries < FLASH_TRIES; tries++) {
 		const point = pointNearRadiant(random, sky, radius)
 		if (point === null) return null
-		if (point.x < METEOR.edgeMargin || point.x > field.width - METEOR.edgeMargin || point.y < METEOR.top || point.y > field.height * METEOR.maxEndY) continue
+		if (!insideGuards(field, point.x, point.y)) continue
 		if (quietAt(field.quiet, point.x, point.y) > 0) continue
 		return {
 			startX: point.x,

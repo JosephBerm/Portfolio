@@ -107,9 +107,8 @@ function through(view: SkyWindow, x: number, y: number): SkyDirection {
 	return { x: u / norm, y: v / norm, z: 1 / norm }
 }
 
-/** `radiant` moved by `scatter` radians (one standard deviation) along two directions at right angles on the sky, and made a unit vector again. */
-function scattered(random: Random, radiant: SkyDirection, scatter: number): SkyDirection {
-	// Two unit vectors at right angles to the radiant and to each other, built from an axis the radiant doesn't lie along
+/** Two unit vectors at right angles to the radiant and to each other, built from an axis the radiant doesn't lie along. */
+function radiantAxes(radiant: SkyDirection): { east: SkyDirection; north: SkyDirection } {
 	const axis = Math.abs(radiant.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 }
 	const cx = radiant.y * axis.z - radiant.z * axis.y
 	const cy = radiant.z * axis.x - radiant.x * axis.z
@@ -121,6 +120,12 @@ function scattered(random: Random, radiant: SkyDirection, scatter: number): SkyD
 		y: radiant.z * east.x - radiant.x * east.z,
 		z: radiant.x * east.y - radiant.y * east.x,
 	}
+	return { east, north }
+}
+
+/** `radiant` moved by `scatter` radians (one standard deviation) along two directions at right angles on the sky, and made a unit vector again. */
+function scattered(random: Random, radiant: SkyDirection, scatter: number): SkyDirection {
+	const { east, north } = radiantAxes(radiant)
 	const eastward = gaussian(random) * scatter
 	const northward = gaussian(random) * scatter
 	const x = radiant.x + eastward * east.x + northward * north.x
@@ -156,12 +161,16 @@ export function meteorRange(h: number): number {
 	return Math.sqrt(layer * layer - (ground * Math.cos(h)) ** 2) - ground * Math.sin(h)
 }
 
+/** The screen point a radiant in front of the viewer vanishes at, or null when it lies behind the screen. */
+function vanishingPoint(view: SkyWindow, radiant: SkyDirection): Point | null {
+	if (radiant.z <= 0) return null
+	return { x: view.cx + (view.focal * radiant.x) / radiant.z, y: view.cy + (view.focal * radiant.y) / radiant.z }
+}
+
 /** Whether a radiant in front of the viewer has its vanishing point inside the viewport. */
 function projectsOnScreen(view: SkyWindow, radiant: SkyDirection, field: MeteorField): boolean {
-	if (radiant.z <= 0) return false
-	const x = view.cx + (view.focal * radiant.x) / radiant.z
-	const y = view.cy + (view.focal * radiant.y) / radiant.z
-	return x >= 0 && x <= field.width && y >= 0 && y <= field.height
+	const point = vanishingPoint(view, radiant)
+	return point !== null && point.x >= 0 && point.x <= field.width && point.y >= 0 && point.y <= field.height
 }
 
 /**

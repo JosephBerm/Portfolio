@@ -1,7 +1,7 @@
 import { colorAlong, mixRgb, rgba } from '@/lib/sky/color'
 import { CLEAR_SKY_KEEPS, FIREBALL, METEOR, METEOR_SPECTRA, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { brakedSpeed, fireballFlare, fireballLight, fireballPoint, quietClearance, type FireballShow } from '@/lib/sky/fireball'
-import { trainEnvelope, type Meteor, type Point } from '@/lib/sky/meteors'
+import { trainEnvelope, trainWidth, type Meteor, type Point } from '@/lib/sky/meteors'
 import type { Rgb } from '@/lib/sky/protocol'
 import { smoothstep, transientQuietFactor } from '@/lib/sky/scene'
 import type { SkyAssets, SkyFrame } from './renderSky'
@@ -103,8 +103,7 @@ function drawTrain(moment: Moment): void {
 		const profile = Math.min(1, fireballLight(emitted, show)) ** lightPower * knotAt(show, emitted)
 		gradient.addColorStop(along, rgba(colorAlong(colors, age / train.life), level * profile * smoothstep(lights[0], lights[1], age) * (keeps[k] ?? 0)))
 	})
-	const aged = Math.min(1, Math.max(0, elapsed - meteor.duration) / train.widen)
-	const width = (train.width[0] + (train.width[1] - train.width[0]) * aged) * dpr
+	const width = trainWidth(train, Math.max(0, elapsed - meteor.duration)) * dpr
 	ctx.strokeStyle = gradient
 	ctx.lineCap = 'butt'
 	for (const stroke of strokes) {

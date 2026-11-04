@@ -23,7 +23,7 @@ import {
 	TWINKLE_HORIZON_GAIN,
 	type SkyLayer,
 } from '@/lib/sky/config'
-import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
+import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, trainWidth, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
@@ -282,11 +282,10 @@ function drawTrain(ctx: OffscreenCanvasRenderingContext2D, _assets: SkyAssets, m
 		const point = { x: meteor.startX + ((end.x - meteor.startX) * k) / 4, y: meteor.startY + ((end.y - meteor.startY) * k) / 4 }
 		gradient.addColorStop(k / 4, rgba(color, state.train * Math.sin((Math.PI * k) / 4) * kept(point)))
 	}
-	const aged = Math.min(1, since / TRAIN.widen)
 	ctx.globalAlpha = 1
 	ctx.strokeStyle = gradient
 	ctx.lineCap = 'butt'
-	ctx.lineWidth = (TRAIN.width[0] + (TRAIN.width[1] - TRAIN.width[0]) * aged) * dpr
+	ctx.lineWidth = trainWidth(TRAIN, since) * dpr
 	ctx.beginPath()
 	ctx.moveTo(meteor.startX * dpr, meteor.startY * dpr)
 	ctx.lineTo(end.x * dpr, end.y * dpr)

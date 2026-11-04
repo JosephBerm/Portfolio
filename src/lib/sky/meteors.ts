@@ -397,6 +397,12 @@ export function trainEnvelope(elapsed: number, duration: number, train: TrainSpe
 	)
 }
 
+/** A persistent train's width `since` seconds after the flight ended (never negative): it widens from `width[0]` to `width[1]` over `widen` seconds. */
+export function trainWidth(train: TrainSpec, since: number): number {
+	const aged = Math.min(1, since / train.widen)
+	return train.width[0] + (train.width[1] - train.width[0]) * aged
+}
+
 /** Progress, brightness and train of a shooting star at time `now` (s). */
 export function meteorAt(meteor: Meteor, now: number): MeteorFrame {
 	const elapsed = now - meteor.startedAt

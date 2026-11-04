@@ -11,10 +11,11 @@ const POST_LOADER_PAUSE = 0.25
 
 /**
  * Without JavaScript the timers never run: hide the loader, show the server-rendered page and drop Motion's inline
- * initial states (opacity 0 and entrance offsets), which a stylesheet's !important outranks.
+ * initial states (opacity 0 and entrance offsets), which a stylesheet's !important outranks. The sky's landing room
+ * (empty space for a canvas that is never drawn) goes too, so the page has no gap.
  */
 const NO_SCRIPT_CSS =
-	'#intro-loader{display:none!important}#intro-content{display:block!important}#intro-content [style*="opacity"]{opacity:1!important;transform:none!important}'
+	'#intro-loader{display:none!important}#intro-content{display:block!important}#intro-content [style*="opacity"]{opacity:1!important;transform:none!important}[data-sky-landing]{display:none}'
 
 /** The element the URL fragment points at, if any (a malformed %-escape matches nothing). */
 function getHashTarget(): HTMLElement | null {

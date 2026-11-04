@@ -1,4 +1,5 @@
 import { EMERGENCE, INK_BUDGET, QUIET, SCENE, SCROLL_CANCEL, STAR_INK_PEAK, type SkyLayer } from './config'
+import { DESCENT } from './miamiConfig'
 import type { SkyRect } from './protocol'
 
 /** Hermite step from 0 at edge0 to 1 at edge1 (the edges may be reversed). */
@@ -27,27 +28,46 @@ export interface SceneLevels {
 	 * meet: the bookend's level is 0 until the hero has begun to give way.
 	 */
 	launchScene: LaunchScene | null
+	/** Coming down to the landing scene: 0 up to DescentWindow.fromPx from the page's end, 1 from toPx on. Always 0 where there is no scene. */
+	descent: number
+	/** Share of every rect's ink budget a transient may keep: 1, falling to 0 early in the descent, because headroom assumes a navy ground. */
+	inkShare: number
+}
+
+/** The scroll left to the page's end (px) over which the sky comes down to the landing scene: the descent starts at `fromPx` and is complete at `toPx`, which is the smaller. */
+export interface DescentWindow {
+	fromPx: number
+	toPx: number
 }
 
 /**
  * Scroll narrative: the full sky in the hero, a dimmer, slowly drifting sky while reading, and a bookend near the end
- * of the page. Continuous in scroll, so it never needs its own animation clock.
+ * of the page. Continuous in scroll, so it never needs its own animation clock. Where the page has a landing scene,
+ * `descentWindow` says where the last stretch lies, and the stars, drift and haze give way to it; without one every level
+ * is exactly the narrative's.
  */
-export function sceneAt(scrollY: number, viewportHeight: number, documentHeight: number): SceneLevels {
+export function sceneAt(scrollY: number, viewportHeight: number, documentHeight: number, descentWindow: DescentWindow | null = null): SceneLevels {
 	const scrolled = scrollY / viewportHeight
 	const remaining = Math.max(0, documentHeight - scrollY - viewportHeight) / viewportHeight
 	const hero = 1 - smoothstep(SCENE.heroFadeFrom, SCENE.heroFadeTo, scrolled)
 	const end = (1 - hero) * smoothstep(SCENE.endFadeFrom, SCENE.endFadeTo, remaining)
 	const reading = 1 - hero - end
+	const left = Math.max(0, documentHeight - scrollY - viewportHeight)
+	const descent = descentWindow ? (1 - hero) * smoothstep(descentWindow.fromPx, descentWindow.toPx, left) : 0
+	// The stars and the drift mix toward the descent's own levels, and the haze fades out, as the descent goes on
+	const dusk = smoothstep(DESCENT.starMix[0], DESCENT.starMix[1], descent)
 	const mix = (key: 'haze' | 'twinkle' | 'drift' | 'lean') => hero * SCENE.hero[key] + reading * SCENE.reading[key] + end * SCENE.end[key]
-	const stars = (layer: SkyLayer) => hero * SCENE.hero.stars[layer] + reading * SCENE.reading.stars[layer] + end * SCENE.end.stars[layer]
+	const stars = (layer: SkyLayer) =>
+		(hero * SCENE.hero.stars[layer] + reading * SCENE.reading.stars[layer] + end * SCENE.end.stars[layer]) * (1 - dusk) + DESCENT.stars[layer] * dusk
 	return {
 		stars: { far: stars('far'), mid: stars('mid'), near: stars('near') },
-		haze: mix('haze'),
+		haze: mix('haze') * (1 - smoothstep(DESCENT.hazeOut[0], DESCENT.hazeOut[1], descent)),
 		twinkle: mix('twinkle'),
-		drift: mix('drift'),
+		drift: mix('drift') * (1 - dusk) + DESCENT.drift * dusk,
 		lean: mix('lean'),
 		launchScene: scrolled <= SCENE.heroLaunchMaxScroll ? 'hero' : end >= SCENE.endLaunchLevel ? 'end' : null,
+		descent,
+		inkShare: 1 - smoothstep(DESCENT.inkOut[0], DESCENT.inkOut[1], descent),
 	}
 }
 

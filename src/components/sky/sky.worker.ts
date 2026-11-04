@@ -28,6 +28,7 @@ import {
 } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
 import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, NARROW_MAX_WIDTH, PACING, QUIET, TRANSIENTS } from '@/lib/sky/config'
+import { DESCENT } from '@/lib/sky/miamiConfig'
 import {
 	createRefreshEstimate,
 	driftCap,
@@ -63,6 +64,7 @@ import {
 	updateTransients,
 	type LaunchGate,
 } from '@/lib/sky/transients'
+import { createMiamiRuntime } from './miamiRuntime'
 import { createStarField, drawComet, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
@@ -116,6 +118,8 @@ let hiddenTotal = 0
 
 /** The short-lived events in the sky (shooting stars and satellites) and when each kind launches next. */
 const transients = createTransientSchedule()
+/** The landing scene at the foot of the page. Its stage, where the page has a landing, says where the descent runs. */
+const miami = createMiamiRuntime()
 /** Whether and where transients may launch, refilled by launchGate every tick (reused, so a tick makes no garbage). */
 const gate: LaunchGate = {
 	allowed: false,
@@ -334,9 +338,9 @@ function clockWorks(): boolean {
 	return relayOn ? strikes < PACING.watchdogStrikes : rafWorks
 }
 
-/** True when transients may launch at all right now, in a launch scene (each kind's own timing and scene aside). */
+/** True when transients may launch at all right now, in a launch scene (each kind's own timing and scene aside) and before the descent has brought bright sky up the screen. */
 function launchesAllowed(now: number, scene: SceneLevels): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launchScene !== null
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launchScene !== null && scene.descent < DESCENT.eventStop
 }
 
 /** Refills the launch gate for `now` (ms) in the tick's scene: whether and where transients may launch this tick. */
@@ -348,7 +352,7 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.narrow = narrowScreen
 	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
 	gate.scrollY = scrollY
-	gate.ink = contrastLevels().meteorInk
+	gate.ink = contrastLevels().meteorInk * scene.inkShare
 	gate.bodyShowing = bodyShowing(comet)
 	return gate
 }
@@ -366,7 +370,7 @@ function schedule(now: number): void {
 	if (rafId !== null || !ctx || !visible) return
 	clearTimeout(timerId)
 	timerId = undefined
-	const scene = sceneAt(scrollY, height, documentHeight)
+	const scene = sceneAt(scrollY, height, documentHeight, miami.descentWindow())
 	const demand = demandNow(now, scene)
 	// A worker clock that isn't the display's is replaced by the page's for as long as something moves
 	setRelay(demand.vsync && rafWorks && refresh.unaligned)
@@ -489,7 +493,7 @@ function recheckFrames(): void {
  */
 function tick(now: number): void {
 	// The launch gate, the gates and the camera read one scene: nothing in a tick moves the scroll or the viewport
-	const scene = sceneAt(scrollY, height, documentHeight)
+	const scene = sceneAt(scrollY, height, documentHeight, miami.descentWindow())
 	if (updateTransients(transients, random, now / 1000, launchGate(now, scene))) needsDraw = true
 	settleQuiet(now)
 	gather(now, scene)
@@ -592,7 +596,7 @@ function updateComet(now: number): void {
  */
 function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const t = now / 1000
-	const scene = sceneAt(scrollY, height, documentHeight)
+	const scene = sceneAt(scrollY, height, documentHeight, miami.descentWindow())
 	gather(now, scene)
 	const dusk = exitAt === null ? -1 : t - exitAt
 	const contrast = contrastLevels()
@@ -616,7 +620,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		twinkle: twinkleLevel(scene),
 		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
 		quiet: quietBlend(t),
-		meteorInk: contrast.meteorInk,
+		meteorInk: contrast.meteorInk * scene.inkShare,
 		snap: !skyMoved,
 	}
 }
@@ -743,6 +747,7 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	retryTransients(transients, random, now / 1000)
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
+	miami.setSize(width, height, dpr)
 	// The haze follows the CSS size only, and it is smooth: keep stretching the old one until the size settles
 	if (hadAssets && sizeChanged) {
 		clearTimeout(hazeTimer)
@@ -781,6 +786,7 @@ scope.addEventListener('message', (event) => {
 			// A lost GPU context drops the canvas contents and bitmaps: rebuild and redraw once it is back
 			canvas.addEventListener('contextrestored', () => {
 				rebuildAssets()
+				miami.dropAssets()
 				needsDraw = true
 				// A GPU restart may be what stalled the display's clock
 				recheckFrames()
@@ -792,6 +798,9 @@ scope.addEventListener('message', (event) => {
 			// A page opened in a background tab keeps its dusk until it is shown
 			if (!visible) hiddenAt = now
 			contrastMore = message.contrastMore
+			// A load sends the theme and the contrast preference only here, and the landing scene's stage is fitted to both
+			miami.setTokens(message.tokens)
+			miami.setContrast(message.contrastMore)
 			scrollY = message.scrollY
 			camera = createCamera(message.scrollY)
 			skyMoved = message.motion === 'full'
@@ -878,6 +887,7 @@ scope.addEventListener('message', (event) => {
 			break
 		case 'contrast':
 			contrastMore = message.more
+			miami.setContrast(message.more)
 			needsDraw = true
 			break
 		case 'scroll':
@@ -889,6 +899,7 @@ scope.addEventListener('message', (event) => {
 			break
 		case 'layout': {
 			documentHeight = message.documentHeight
+			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
 			// near it fade instead of changing in one frame. A change mid-ease waits for the ease to end.
 			const latest = pendingLayout ?? { quiet, pinned }

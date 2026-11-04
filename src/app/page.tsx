@@ -15,6 +15,7 @@ import HowIBuild from '@/components/HowIBuild'
 import Projects from '@/components/Projects'
 import OtherProjects from '@/components/OtherProjects'
 import ContactMe from '@/components/ContactMe'
+import SkyLanding from '@/components/SkyLanding'
 import AppFooter from '@/components/AppFooter'
 
 // Title, description and the share card come from the root layout; only the canonical URL is home-specific
@@ -60,6 +61,7 @@ export default function HomePage() {
 						<OtherProjects />
 						<ContactMe />
 					</main>
+					<SkyLanding />
 					<AppFooter />
 				</div>
 			</IntroGate>

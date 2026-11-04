@@ -226,21 +226,32 @@ function traceMote(moment: Moment, x: number, y: number, radius: number, tail: n
 	ctx.closePath()
 }
 
+/**
+ * Where a fragment shed at `origin` is `age` s on, and how long its tail is (CSS px). It leaves at `speed` px/s along the
+ * path and `side` px/s across it, and both brake with the time constant `tau`, so it has gone `tau` (1 - e^(-age / tau))
+ * seconds' worth of each by now. Its tail is its speed now times `tailOfSpeed`, and at least `tailMin`.
+ */
+function shed(moment: Moment, origin: Point, speed: number, tau: number, side: number, age: number, { tailMin, tailOfSpeed }: { readonly tailMin: number; readonly tailOfSpeed: number }): { x: number; y: number; tail: number } {
+	const { meteor, nx, ny } = moment
+	const gone = tau * (1 - Math.exp(-age / tau))
+	return {
+		x: origin.x + meteor.dirX * speed * gone + nx * side * gone,
+		y: origin.y + meteor.dirY * speed * gone + ny * side * gone,
+		tail: Math.max(tailMin, speed * Math.exp(-age / tau) * tailOfSpeed),
+	}
+}
+
 /** Sparks shed behind the head: they brake fast, because they are small, and cool from the head's color to the spectrum's `cool`. */
 function drawSparks(moment: Moment): void {
-	const { ctx, meteor, show, dpr, elapsed, nx, ny, white } = moment
+	const { ctx, meteor, show, dpr, elapsed, white } = moment
 	const { brake } = show.motion
 	const { arc, cool } = METEOR_SPECTRA[show.spectrum]
-	const { fadeIn, fadePower, whiten, coolBy, shrink, tailMin, tailOfSpeed } = FIREBALL.sparks
+	const { fadeIn, fadePower, whiten, coolBy, shrink } = FIREBALL.sparks
 	for (const spark of show.sparks) {
 		const age = elapsed - spark.emitted * meteor.duration
 		if (age <= 0 || age >= spark.life) continue
 		const origin = fireballPoint(meteor, brake, spark.emitted)
-		const speed = (meteor.length / meteor.duration) * brakedSpeed(spark.emitted, brake) * spark.lag
-		const gone = spark.tau * (1 - Math.exp(-age / spark.tau))
-		const x = origin.x + meteor.dirX * speed * gone + nx * spark.side * gone
-		const y = origin.y + meteor.dirY * speed * gone + ny * spark.side * gone
-		const tail = Math.max(tailMin, speed * Math.exp(-age / spark.tau) * tailOfSpeed)
+		const { x, y, tail } = shed(moment, origin, meteor.speed * brakedSpeed(spark.emitted, brake) * spark.lag, spark.tau, spark.side, age, FIREBALL.sparks)
 		const light = spark.light * Math.min(1, age / fadeIn) * (1 - age / spark.life) ** fadePower * keptMote(moment, x, y, tail)
 		if (light < MIN_STAR_ALPHA) continue
 		const start = mixRgb(colorAlong(arc, spark.emitted), white, whiten)
@@ -255,21 +266,18 @@ function drawSparks(moment: Moment): void {
  * the smaller a piece the sooner it brakes and falls behind. Their light ends with the flight's.
  */
 function drawPieces(moment: Moment): void {
-	const { ctx, meteor, show, dpr, elapsed, progress, color, nx, ny, white, clearanceAt } = moment
+	const { ctx, meteor, show, dpr, elapsed, progress, color, white, clearanceAt } = moment
 	if (progress <= show.burstAt) return
 	const { brake } = show.motion
 	const { cool } = METEOR_SPECTRA[show.spectrum]
-	const { fadeIn, coolOver, lingers, tailMin, tailOfSpeed, whiten, glowOfSize, glowAlpha, coreOfSize, bodyOfSize } = FIREBALL.pieces
+	const { fadeIn, coolOver, lingers, whiten, glowOfSize, glowAlpha, coreOfSize, bodyOfSize } = FIREBALL.pieces
 	const origin = fireballPoint(meteor, brake, show.burstAt)
-	const speed = (meteor.length / meteor.duration) * brakedSpeed(show.burstAt, brake)
+	const speed = meteor.speed * brakedSpeed(show.burstAt, brake)
 	const age = elapsed - show.burstAt * meteor.duration
 	const ending = smoothstep(meteor.duration + lingers[1], meteor.duration + lingers[0], elapsed)
 	const piece = mixRgb(color, cool, Math.min(1, age / coolOver))
 	for (const { tau, side, size, light: bright, decay } of show.pieces) {
-		const gone = tau * (1 - Math.exp(-age / tau))
-		const cx = origin.x + meteor.dirX * speed * gone + nx * side * gone
-		const cy = origin.y + meteor.dirY * speed * gone + ny * side * gone
-		const back = Math.max(tailMin, speed * Math.exp(-age / tau) * tailOfSpeed)
+		const { x: cx, y: cy, tail: back } = shed(moment, origin, speed, tau, side, age, FIREBALL.pieces)
 		const light = bright * Math.exp(-age / decay) * Math.min(1, age / fadeIn) * ending * keptMote(moment, cx, cy, back)
 		if (light < MIN_STAR_ALPHA) continue
 		const x = cx * dpr

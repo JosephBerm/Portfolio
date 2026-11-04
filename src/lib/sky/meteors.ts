@@ -1,4 +1,5 @@
-import { METEOR, METEOR_CHROMA, METEOR_KINDS, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type SpectrumName } from './config'
+import { METEOR, METEOR_CHROMA, METEOR_KINDS, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type SpectrumName, type SpeedClassName, type TrainSpec } from './config'
+import { planFireballShow, type FireballShow } from './fireball'
 import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
 import { budgetKeeps, inkAt, quietAt, quietFactor, smoothstep } from './scene'
@@ -53,6 +54,8 @@ export interface Meteor extends MeteorPath {
 	variant?: MeteorVariant
 	/** The later members of a burst: this shooting star is its first, and each of these starts (`startedAt`) after it, in order. */
 	followers?: readonly Meteor[]
+	/** A fireball's flight: everything it does beyond its path, drawn at launch (planFireballShow). Only a fireball has one, and it is drawn by drawFireball. */
+	show?: FireballShow
 }
 
 /** How a shooting star launched at a start point flies; the planner keeps start sampling, the layout guards and the checks against quiet copy (METEOR_VEIL). */
@@ -74,6 +77,8 @@ export interface Course {
 	spectrum: SpectrumName
 	/** A persistent train is possible here. */
 	train: boolean
+	/** The speed class it flies at: how long a fireball launched here lasts (METEOR_KINDS.fireball). */
+	speedClass: SpeedClassName
 }
 
 /** Direction, speed and timing for a start point the planner picked; null when no shooting star starts there. */
@@ -103,8 +108,8 @@ export interface PlanOptions {
 	starts?: StartArea
 	/**
 	 * This launch is a fireball: its long flights are fireballs, in clear sky only, for METEOR_KINDS.fireball's duration
-	 * and at a peak of 1. The shorter fallback pass never flies one, so a caller that wants a fireball or none asks for
-	 * `flights: 'long'`.
+	 * by the course's speed class and at a peak of 1. The shorter fallback pass never flies one, so a caller that wants a
+	 * fireball or none asks for `flights: 'long'`.
 	 */
 	fireball?: boolean
 }
@@ -268,14 +273,14 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 			const course = steer(random, start, fallback)
 			if (course === null) continue
 
-			// A fireball flies the course's way, but slower and for longer than its class
+			// A fireball flies the course's way, but slower and for longer than its speed class
 			const speed = course.speed * (fireball ? METEOR.fireballSpeedScale : 1)
-			const [minDuration, maxDuration] = fireball ? METEOR_KINDS.fireball.duration : course.duration
+			const [minDuration, maxDuration] = fireball ? METEOR_KINDS.fireball.duration[course.speedClass] : course.duration
 			const duration = between(random, minDuration, maxDuration)
 			const length = Math.min(maxPath * course.pathShare, speed * duration)
 			if (length < (course.minPath ?? minPath)) continue
 
-			const path = { startX: start.x, startY: start.y, dirX: course.dirX, dirY: course.dirY, length, drag: fireball ? METEOR.fireballDrag : METEOR.drag }
+			const path = { startX: start.x, startY: start.y, dirX: course.dirX, dirY: course.dirY, length, drag: METEOR.drag }
 			const end = meteorPoint(path, 1)
 			// Both ends on screen keep the straight path on screen, and the end clears the navbar and the bottom corners
 			if (end.x < METEOR.edgeMargin || end.x > width - METEOR.edgeMargin || end.y < METEOR.top || end.y > height * METEOR.maxEndY) continue
@@ -290,23 +295,25 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 			if (veiled === null || veiled.behind < minBehind) continue
 			const { dimFrom } = veiled
 
+			// A fireball's flares, train, wake and spectrum are its show's, and it brakes by its own law, not by METEOR.drag
+			const show = fireball ? planFireballShow(random, course.spectrum, duration) : undefined
 			// A flare brightens the head and a train lingers along the whole path: both only in clear sky
-			const flare = dimFrom > METEOR_LIGHT.flareAt + METEOR_LIGHT.flareClearWidths * METEOR_LIGHT.flareWidth && random() < METEOR.flareChance
-			const train = dimFrom === 1 && (course.train || fireball) && random() < METEOR.trainChance
+			const flare = !fireball && dimFrom > METEOR_LIGHT.flareAt + METEOR_LIGHT.flareClearWidths * METEOR_LIGHT.flareWidth && random() < METEOR.flareChance
+			const train = show ? show.train !== null : dimFrom === 1 && course.train && random() < METEOR.trainChance
 			return {
 				meteor: {
 					...path,
 					speed: length / duration,
 					duration,
 					peak,
-					wake: fireball ? METEOR.fireballWake : METEOR.wake,
-					// A fireball is bright enough to show a color, so one that drew the eye's white takes the usual green
-					spectrum: fireball && course.spectrum === 'plain' ? 'normal' : course.spectrum,
+					wake: show?.motion.wake ?? METEOR.wake,
+					spectrum: show?.spectrum ?? course.spectrum,
 					fireball,
 					flare,
 					train,
 					nearCopy: dimFrom < 1,
 					startedAt: now,
+					...(show && { show }),
 				},
 				behind: veiled.behind,
 			}
@@ -361,9 +368,15 @@ export function meteorMoving(meteor: Meteor, now: number): boolean {
 	return now - meteor.startedAt < meteor.duration + METEOR.wakeSpan * meteor.wake || (meteor.followers?.some((follower) => meteorMoving(follower, now)) ?? false)
 }
 
+/** The persistent train a shooting star leaves, if it leaves one: a fireball's own, which its show holds, else TRAIN. */
+function trainOf(meteor: Meteor): TrainSpec | null {
+	return meteor.train ? (meteor.show?.train ?? TRAIN) : null
+}
+
 /** Seconds a shooting star stays visible after launch: its flight, then its wake or its train; a burst, until its last member is gone. */
 export function meteorLifetime(meteor: Meteor): number {
-	const own = meteor.duration + (meteor.train ? TRAIN.life : METEOR.wakeSpan * meteor.wake)
+	const train = trainOf(meteor)
+	const own = meteor.duration + (train ? train.life : METEOR.wakeSpan * meteor.wake)
 	return (meteor.followers ?? []).reduce((longest, follower) => Math.max(longest, follower.startedAt - meteor.startedAt + meteorLifetime(follower)), own)
 }
 
@@ -372,21 +385,25 @@ export function meteorSpan(meteor: Meteor): number {
 	return (meteor.followers ?? []).reduce((longest, follower) => Math.max(longest, follower.startedAt - meteor.startedAt + follower.duration), meteor.duration)
 }
 
+/** A persistent train's alpha `elapsed` s after launch: it brightens as the head crosses the path, lingers after the flight of `duration` s and eases out before it is retired. */
+export function trainEnvelope(elapsed: number, duration: number, train: TrainSpec): number {
+	return (
+		train.peak *
+		(1 - Math.exp(-Math.max(0, elapsed - train.onset * duration) / train.rise)) *
+		Math.exp(-Math.max(0, elapsed - duration) / train.decay) *
+		smoothstep(train.life, train.life - train.fadeOut, elapsed - duration)
+	)
+}
+
 /** Progress, brightness and train of a shooting star at time `now` (s). */
 export function meteorAt(meteor: Meteor, now: number): MeteorFrame {
 	const elapsed = now - meteor.startedAt
 	const progress = Math.max(0, elapsed / meteor.duration)
-	// The train brightens as the head crosses the path, lingers after the flight and eases out before it is retired
-	const train = meteor.train
-		? TRAIN.peak *
-			(1 - Math.exp(-Math.max(0, elapsed - TRAIN.onset * meteor.duration) / TRAIN.rise)) *
-			Math.exp(-Math.max(0, elapsed - meteor.duration) / TRAIN.decay) *
-			smoothstep(TRAIN.life, TRAIN.life - TRAIN.fadeOut, elapsed - meteor.duration)
-		: 0
+	const train = trainOf(meteor)
 	return {
 		progress,
 		intensity: meteor.peak * meteorLight(progress, meteor.flare),
-		train,
+		train: train ? trainEnvelope(elapsed, meteor.duration, train) : 0,
 		flown: meteor.length * travel(progress, meteor.drag),
 	}
 }

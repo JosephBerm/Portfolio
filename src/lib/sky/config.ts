@@ -578,15 +578,16 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
  */
 export const METEOR_KINDS = {
 	/**
-	 * Fireballs (brighter than Venus) stay in clear sky, last `duration` s at METEOR.fireballSpeedScale of the normal speed,
-	 * and with a 2.4 s train stay under 5 s. The real sky shows about one fireball per 100 to 200 meteors; this sky shows
-	 * them far more often by design, about one every 90 s over a visit's first 5 minutes and one every 110 s over the next
-	 * 5. The spacing is a range, drawn afresh after each fireball and kept in the visit's memory, so no two come closer
-	 * than its low end and the gaps vary; `chance` is high because launches come further apart as a visit goes on
-	 * (TRANSIENTS.longVisit), and with fewer launches to decide on, lower odds would leave more than 2 minutes between
-	 * fireballs.
+	 * Fireballs (brighter than Venus) stay in clear sky and fly at METEOR.fireballSpeedScale of their speed class's speed
+	 * for `duration` s by that class, the slower the longer: 1.5 to 2.9 s, against at most 1.15 s for a shooting star. How
+	 * they brake, flare and look is FIREBALL's, and with their train they last at most FIREBALL.life. The real sky shows
+	 * about one fireball per 100 to 200 meteors; this sky shows them far more often by design, about one every 90 s over
+	 * a visit's first 5 minutes and one every 110 s over the next 5. The spacing is a range, drawn afresh after each
+	 * fireball and kept in the visit's memory, so no two come closer than its low end and the gaps vary; `chance` is high
+	 * because launches come further apart as a visit goes on (TRANSIENTS.longVisit), and with fewer launches to decide on,
+	 * lower odds would leave more than 2 minutes between fireballs.
 	 */
-	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: [1.8, 2.5] },
+	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: { slow: [2.4, 2.9], medium: [2, 2.6], fast: [1.5, 2] } },
 	/**
 	 * Point flashes: a meteor coming straight at the viewer shows as a point at the shower radiant, with no length and no
 	 * movement, that brightens and fades in `duration` s at a `peak` of at most 0.7. They need the radiant on screen (on
@@ -604,7 +605,7 @@ export const METEOR_KINDS = {
 	/**
 	 * Earthgrazers: a long, slow, warm shooting star skimming the sky within `tilt` degrees of horizontal, as a meteor
 	 * entering at a shallow angle does. It runs at `angular` °/s of the sky window (SKY_WINDOW) for `duration` s, with the
-	 * wake of a fireball (about 4 s in all), across at least `widthShare` of the screen's width: about 20° of the window,
+	 * wake METEOR.grazerWake (about 4 s in all), across at least `widthShare` of the screen's width: about 20° of the window,
 	 * since 4 to 6°/s for 2.5 to 3.5 s spans 21° at most, so a larger share could never fit. It flies in clear sky, so it
 	 * never takes the ink lease, and is skipped silently where no band of clear sky is long enough. Screens narrower than
 	 * `minWidth` px have none.
@@ -659,13 +660,13 @@ export const METEOR = {
 	/** Wake afterglow (s): each point of the path dims to 1/e this long after the head passes; drawn for `wakeSpan` of these. */
 	wake: 0.13,
 	wakeSpan: 3,
-	/** Fireballs (long flights only; METEOR_KINDS.fireball has their odds and timing): longer, slower and brighter, with more drag and a longer wake. */
+	/** Fireballs (long flights only; METEOR_KINDS.fireball has their odds and timing, FIREBALL how they brake and look) fly this share of their speed class's speed. */
 	fireballSpeedScale: 0.6,
-	fireballDrag: 0.15,
-	fireballWake: 0.18,
-	/** A late flare on some flights. */
+	/** An earthgrazer's wake (s), in place of `wake`: it is long and slow, so its wake lingers (about 4 s in all with its flight). */
+	grazerWake: 0.18,
+	/** A late flare on some flights (a fireball's flares are its own, FIREBALL.flares). */
 	flareChance: 0.12,
-	/** A faint persistent train behind some fireballs and fast flights (SPEED_CLASSES' `train`). */
+	/** A faint persistent train behind some fast flights (SPEED_CLASSES' `train`); a fireball's odds are its tier's (FIREBALL_TIERS). */
 	trainChance: 0.15,
 } as const
 

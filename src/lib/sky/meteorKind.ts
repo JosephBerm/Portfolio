@@ -10,7 +10,7 @@ import { meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type M
 import type { SkyRect } from './protocol'
 import { ZONE_REACH } from './quietIndex'
 import { drawSpectrum, pickVisitSky, pointNearRadiant, radiantOver, showerRadiantAt, skyWindow, swarmPiece, visitSteer, type SteerOptions, type VisitSky } from './radiants'
-import { between, gaussian, type Random } from './random'
+import { between, exponential, gaussian, type Random } from './random'
 import { quietAt } from './scene'
 import type { PlanContext, SkyField, TransientSpec } from './transients'
 
@@ -163,8 +163,7 @@ function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: num
 		const peak = Math.max(faintest, brightest * rank ** -rankPower)
 		const time = meanFlight * (flight[0] + ((flight[1] - flight[0]) * (peak - faintest)) / (brightest - faintest))
 		for (let tries = 0; tries < PIECE_TRIES; tries++) {
-			// Behind the front by an exponential delay (log of 1 - random() is finite, as in gaussian)
-			const offset = { east: gaussian(random) * width, north: gaussian(random) * width, behind: -meanDelay * Math.log(1 - random()) }
+			const offset = { east: gaussian(random) * width, north: gaussian(random) * width, behind: exponential(random, meanDelay) }
 			const place = swarmPiece(sky.window, radiant, speed, center, offset)
 			if (place === null || place.delay > lastOnset || place.delay < -lastOnset / 2 || !insideGuards(field, place.x, place.y)) continue
 			// A start within `laneGap` of another's line would put two pieces on nearly one path: the fan only widens downstream, so this is the closest they come

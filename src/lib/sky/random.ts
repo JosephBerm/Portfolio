@@ -37,6 +37,14 @@ export function gaussian(random: Random): number {
 }
 
 /**
+ * An exponential deviate of this `mean`. Like gaussian, it takes the log of 1 - random(), since random() can return 0 and
+ * the log of 0 is -Infinity.
+ */
+export function exponential(random: Random, mean: number): number {
+	return -mean * Math.log(1 - random())
+}
+
+/**
  * One of `items` drawn by the share `shareOf` gives each, which add up to 1: one number from `random` walks the items in
  * order, and the last takes whatever rounding leaves of the draw. `fallback` is what a list of none gives.
  */

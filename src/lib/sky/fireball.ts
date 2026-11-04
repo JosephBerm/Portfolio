@@ -8,7 +8,7 @@
 import { FIREBALL, FIREBALL_MOTION, FIREBALL_TIERS, type FireballMotion, type FireballSpectrumName, type FireballTier, type SpectrumName, type TrainSpec } from './config'
 import type { MeteorPath, Point } from './meteors'
 import type { SkyRect } from './protocol'
-import { between, type Random } from './random'
+import { between, drawByShare, type Random } from './random'
 import { smoothstep, type QuietBlend } from './scene'
 
 /** A sudden brightening as the body breaks: its peak (flight progress), how much it adds, and its rise and fall (progress units). */
@@ -75,14 +75,7 @@ function along(range: readonly [number, number], share: number): number {
 
 /** A tier drawn by the tiers' shares, which add up to 1; the last takes whatever rounding leaves of the draw. */
 function drawTier(random: Random): FireballTier {
-	let roll = random()
-	let drawn: FireballTier = FIREBALL_TIERS.bright
-	for (const tier of Object.values(FIREBALL_TIERS)) {
-		drawn = tier
-		if (roll < tier.share) break
-		roll -= tier.share
-	}
-	return drawn
+	return drawByShare(random, Object.values(FIREBALL_TIERS), (tier) => tier.share, FIREBALL_TIERS.bright)
 }
 
 /** Either side of the path, at a speed within `range`. */

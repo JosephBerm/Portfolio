@@ -8,7 +8,7 @@
 
 import { METEOR, METEOR_BRIGHTNESS, NARROW_MAX_WIDTH, RADIANTS, SKY_WINDOW, SPEED_CLASSES, type SpectrumName, type SpectrumOdds, type SpeedClassName } from './config'
 import { startArea, type Course, type MeteorField, type Point, type Steer } from './meteors'
-import { between, gaussian, type Random } from './random'
+import { between, drawByShare, gaussian, type Random } from './random'
 import { quietAt } from './scene'
 
 /** Radians per degree. */
@@ -203,14 +203,7 @@ function speedAt(index: number): SpeedClassName {
 
 /** A spectrum drawn with `odds`, each named one in its own share and in the order listed; the last takes whatever rounding leaves of the draw. */
 export function drawSpectrum(random: Random, odds: SpectrumOdds): SpectrumName {
-	let roll = random()
-	let drawn: SpectrumName = 'plain'
-	for (const [name, share] of Object.entries(odds) as [SpectrumName, number][]) {
-		drawn = name
-		if (roll < share) break
-		roll -= share
-	}
-	return drawn
+	return drawByShare(random, Object.keys(odds) as SpectrumName[], (name) => odds[name] ?? 0, 'plain')
 }
 
 /**

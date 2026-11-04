@@ -147,15 +147,16 @@ function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: num
 	const radiant = own ? radiantOver(random, sky.window, center, radiantDistance, heading) : showerRadiantAt(sky, center, radiantDistance, slowest)
 	if (radiant === null) return []
 	const speed = own ? ownSpeed : sky.shower.speed
-	const spectrum = own ? drawSpectrum(random, SPEED_CLASSES[speed].spectra) : sky.showerSpectrum
+	const speedClass = SPEED_CLASSES[speed]
+	const spectrum = own ? drawSpectrum(random, speedClass.spectra) : sky.showerSpectrum
 	const course = { radiant, speed, spectrum }
-	const [shortest, longest] = SPEED_CLASSES[speed].duration
+	const [shortest, longest] = speedClass.duration
 	const meanFlight = (shortest + longest) / 2
 	const brightest = between(random, leadPeak[0], leadPeak[1])
 	const leadTime = meanFlight * leadFlight
 	const lead = planPiece(context, sky, center.x, center.y, { ...course, peak: brightest, duration: [leadTime, leadTime] })
 	if (lead === null) return []
-	const pieces: Meteor[] = [{ ...lead, wake: leadWake, train: SPEED_CLASSES[speed].train && random() < METEOR.trainChance }]
+	const pieces: Meteor[] = [{ ...lead, wake: leadWake, train: speedClass.train && random() < METEOR.trainChance }]
 	const width = between(random, across[0], across[1])
 	const meanDelay = between(random, delay[0], delay[1])
 	for (let rank = 2; rank <= count; rank++) {

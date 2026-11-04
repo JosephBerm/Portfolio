@@ -14,6 +14,9 @@ import { quietAt } from './scene'
 /** Radians per degree. */
 const DEG = Math.PI / 180
 
+/** The y component of a path's screen direction at the steepest climb a path may have (RADIANTS.climbDegrees): a path whose y is under it climbs more. */
+const STEEPEST = -Math.sin(RADIANTS.climbDegrees * DEG)
+
 /** The speed classes, slowest first: the shower takes any one of them and the sporadic sources one each in turn. */
 const SPEED_NAMES = Object.keys(SPEED_CLASSES) as SpeedClassName[]
 
@@ -181,14 +184,13 @@ function projectsOnScreen(view: SkyWindow, radiant: SkyDirection, field: MeteorF
  */
 function usable(view: SkyWindow, radiant: SkyDirection, field: MeteorField): boolean {
 	const { x0, x1, y0, y1 } = startArea(field)
-	const steepest = -Math.sin(RADIANTS.climbDegrees * DEG)
 	let fits = 0
 	for (let i = 0; i < PROBES_PER_SIDE; i++) {
 		for (let j = 0; j < PROBES_PER_SIDE; j++) {
 			const x = x0 + ((x1 - x0) * (i + 0.5)) / PROBES_PER_SIDE
 			const y = Math.max(METEOR.top, y0 + ((y1 - y0) * (j + 0.5)) / PROBES_PER_SIDE)
 			const motion = radiantMotion(view, radiant, x, y)
-			if (motion !== null && motion.dirY >= steepest) fits++
+			if (motion !== null && motion.dirY >= STEEPEST) fits++
 		}
 	}
 	return fits >= PROBES_NEEDED
@@ -281,7 +283,6 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 	const duration = options.duration ?? speedClass.duration
 	const [shortest, longest] = duration
 	const durations = { long: duration, short: [shortest * METEOR.fallbackScale, longest * METEOR.fallbackScale] as const }
-	const steepest = -Math.sin(RADIANTS.climbDegrees * DEG)
 	const centerRange = meteorRange(view.pitch)
 	// The range at the nearest point of the start area: a flight dims with the square of its range over this one, so none is brighter than its peak
 	const nearestRange = meteorRange(elevationAt(view, view.cx, METEOR.top))
@@ -291,7 +292,7 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 	return (random, start, fallback): Course | null => {
 		const motion = radiantMotion(view, radiant, start.x, start.y)
 		if (motion === null) return null
-		const climbing = motion.dirY < steepest
+		const climbing = motion.dirY < STEEPEST
 		// A shower never climbs: the planner draws another start
 		if (climbing && source.kind === 'shower') return null
 		const range = meteorRange(elevationAt(view, start.x, start.y))
@@ -333,7 +334,7 @@ export function showerRadiantAt(sky: VisitSky, at: Point, degrees: readonly [num
 	const away = Math.hypot(at.x - point.x, at.y - point.y)
 	const near = view.focal * Math.tan(degrees[0] * DEG)
 	const far = view.focal * Math.tan(degrees[1] * DEG)
-	const climbs = motion.dirY < -Math.sin(RADIANTS.climbDegrees * DEG)
+	const climbs = motion.dirY < STEEPEST
 	const crawls = SPEED_CLASSES[shower.speed].angular * motion.rate < slowest
 	return away >= near && away <= far && !climbs && !crawls ? shower.radiant : null
 }

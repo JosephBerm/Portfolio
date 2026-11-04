@@ -160,13 +160,109 @@ function cometPath(drift: Vec, clock: number, life: number): Point[] {
 }
 
 /**
+ * Samples of the path that blockedPlaces takes as one run. The nucleus moves a few px between samples, so over a run it
+ * moves far less than the width of any zone's reach and a few steps of the grid in y at most. A shorter run leaves fewer
+ * places to the test and costs more rectangles.
+ */
+const RUN = 8
+
+/**
+ * What blockedPlaces keeps inside every edge of what it blocks (CSS px): far over the rounding in the sums findPlace's
+ * test makes and far under a step of the grid, so a place it blocks is blocked in those sums too, and a place that lies
+ * within the slack of an edge is left to the test.
+ */
+const EDGE_SLACK = 1e-6
+
+/** How far the nucleus gets from where it started over a stretch of its path, each way on each axis (CSS px). */
+interface Span {
+	minX: number
+	maxX: number
+	minY: number
+	maxY: number
+}
+
+/** The span of the samples of `path` from `from` up to, but not including, `to`. */
+function spanOf(path: readonly Point[], from: number, to: number): Span {
+	const span: Span = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+	for (const step of path.slice(from, to)) {
+		span.minX = Math.min(span.minX, step.x)
+		span.maxX = Math.max(span.maxX, step.x)
+		span.minY = Math.min(span.minY, step.y)
+		span.maxY = Math.max(span.maxY, step.y)
+	}
+	return span
+}
+
+/**
+ * The places of a grid where a comet's box surely does not keep clear, as a count per place (above 0 where it does not),
+ * read at row × stride + column. The grid is `columns` by `rows`: the x of each column and the y of each row, a
+ * COMET.step apart. At one sample of the path a zone blocks the places whose box, grown by `margin`, comes within
+ * ZONE_REACH of it (zoneReaches): a rectangle of the grid, and at the next sample the same rectangle a few px over. A
+ * place in a row that the rectangles of all of a run's samples hold, and in a column that the rectangle of one of them
+ * holds, is blocked, since at that sample the box is within reach. The samples of a run are closer in x than a rectangle
+ * is wide, so those columns are one stretch, and each zone and run adds one rectangle of places by its four corners (+1
+ * or -1 at each, summed after, so it costs the same however many places it holds). A place the path blocks may be
+ * missing (one in a row that only some samples of a run block), but none is counted that it does not block.
+ */
+function blockedPlaces(zones: readonly SkyRect[], path: readonly Point[], box: CometShape['box'], margin: number, columns: readonly number[], rows: readonly number[]): { counts: Int32Array; stride: number } {
+	// One more column and row than the grid, for the corners just past it
+	const stride = columns.length + 1
+	const counts = new Int32Array(stride * (rows.length + 1))
+	const add = (row: number, column: number, change: number) => {
+		const at = row * stride + column
+		counts[at] = (counts[at] ?? 0) + change
+	}
+	const x0 = columns[0] ?? 0
+	const y0 = rows[0] ?? 0
+	const runs: Span[] = []
+	for (let from = 0; from < path.length; from += RUN) runs.push(spanOf(path, from, from + RUN))
+	for (const zone of zones) {
+		const wide = zone.width + 2 * ZONE_REACH + box.right - box.left + 2 * margin
+		for (const run of runs) {
+			// One stretch of columns needs the samples closer than a rectangle is wide; half of that leaves room to spare
+			if (run.maxX - run.minX > wide / 2) continue
+			const fromX = zone.x - ZONE_REACH - box.right - margin - run.maxX + EDGE_SLACK
+			const toX = zone.x + zone.width + ZONE_REACH - box.left + margin - run.minX - EDGE_SLACK
+			const fromY = zone.y - ZONE_REACH - box.bottom - margin - run.minY + EDGE_SLACK
+			const toY = zone.y + zone.height + ZONE_REACH - box.top + margin - run.maxY - EDGE_SLACK
+			const firstColumn = Math.max(0, Math.ceil((fromX - x0) / COMET.step))
+			const lastColumn = Math.min(columns.length - 1, Math.floor((toX - x0) / COMET.step))
+			const firstRow = Math.max(0, Math.ceil((fromY - y0) / COMET.step))
+			const lastRow = Math.min(rows.length - 1, Math.floor((toY - y0) / COMET.step))
+			if (firstColumn > lastColumn || firstRow > lastRow) continue
+			add(firstRow, firstColumn, 1)
+			add(firstRow, lastColumn + 1, -1)
+			add(lastRow + 1, firstColumn, -1)
+			add(lastRow + 1, lastColumn + 1, 1)
+		}
+	}
+	// Sum the corners, so each place counts the rectangles that hold it
+	for (let row = 0; row < rows.length; row++) {
+		let along = 0
+		for (let column = 0; column < columns.length; column++) {
+			const at = row * stride + column
+			along += counts[at] ?? 0
+			counts[at] = along + (row > 0 ? (counts[at - stride] ?? 0) : 0)
+		}
+	}
+	return { counts, stride }
+}
+
+/**
  * Where the comet's nucleus goes on screen, or null when no place fits, for a comet that starts at drift clock `clock`
  * and keeps clear for `life` seconds of it. Its path is known (cometPath), so its box is swept along it, grown by
  * COMET.clearance and the pointer's lean (LEAN_REACH, either way), and at every sample must keep clear of the reach of
  * every zone of the field (the padded hero, Contact and footer copy and the side rails), lie below the navbar
  * (METEOR.top) and above About's header row, copy the zones know nothing of, and keep its head inside the screen
  * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how the comet leaves. Of the
- * places on a COMET.step grid that fit, it takes the one nearest COMET.anchor.
+ * places on a COMET.step grid that fit, it takes the one nearest COMET.anchor, and the first of them (rows from the top,
+ * each from the left) where two are as near.
+ *
+ * A field may hold hundreds of zones, a grid thousands of places and a path dozens of samples, so a place is not tried
+ * against all of them. The screen's edge, the navbar and About's row are settled for every place at once from the samples
+ * that go farthest each way, zones that reach no box of the sweep are left out, the places that surely stay blocked are
+ * mapped (blockedPlaces) and skipped, and each place left is tried zone by zone, a zone sample by sample only where it
+ * reaches the box that holds the whole sweep there.
  */
 export function findPlace(field: SkyField, shape: CometShape, clock: number, life: number): Point | null {
 	const { width, height } = field
@@ -177,23 +273,41 @@ export function findPlace(field: SkyField, shape: CometShape, clock: number, lif
 	const y1 = lowest - margin - bottom
 	if (y1 < y0) return null
 	const path = cometPath(cometDrift(width, height), clock, life)
-	// A zone below the line of About's row reaches no box above it
-	const zones = field.quiet.filter((zone) => zone.y - ZONE_REACH <= lowest)
+	const travel = spanOf(path, 0, path.length)
 	const anchorX = COMET.anchor[0] * width
 	const anchorY = COMET.anchor[1] * height
 	const x0 = METEOR.edgeMargin - left
 	const x1 = width - METEOR.edgeMargin
-	const staysClear = (x: number, y: number) =>
-		path.every((step) => {
-			const px = x + step.x
-			const py = y + step.y
-			if (px > x1 || py + top - margin < METEOR.top || py + bottom + margin > lowest) return false
-			return clearOfZones(zones, px + left - margin, py + top - margin, px + right + margin, py + bottom + margin)
-		})
+	// A sum never falls when an addend rises, so the sample that goes farthest each way decides for all of them: the head
+	// is inside the right edge, and the box below the navbar and above About's row, at every sample if it is at that one.
+	// The columns and rows that fail are no place at all
+	const columns: number[] = []
+	for (let x = x0; x <= x1 && x + travel.maxX <= x1; x += COMET.step) columns.push(x)
+	const rows: number[] = []
+	for (let y = y0; y <= y1 && y + travel.maxY + bottom + margin <= lowest; y += COMET.step) {
+		if (y + travel.minY + top - margin >= METEOR.top) rows.push(y)
+	}
+	// A zone that reaches no box of the sweep takes no part, nor does one below the line of About's row
+	const zones = field.quiet.filter((zone) => zoneReaches(zone, x0 + travel.minX + left - margin, y0 + travel.minY + top - margin, x1 + travel.maxX + right + margin, lowest))
+	const { counts, stride } = blockedPlaces(zones, path, shape.box, margin, columns, rows)
+	const staysClear = (x: number, y: number) => {
+		for (const zone of zones) {
+			if (!zoneReaches(zone, x + travel.minX + left - margin, y + travel.minY + top - margin, x + travel.maxX + right + margin, y + travel.maxY + bottom + margin)) continue
+			for (const step of path) {
+				const px = x + step.x
+				const py = y + step.y
+				if (zoneReaches(zone, px + left - margin, py + top - margin, px + right + margin, py + bottom + margin)) return false
+			}
+		}
+		return true
+	}
 	let best: Point | null = null
 	let nearest = Infinity
-	for (let y = y0; y <= y1; y += COMET.step) {
-		for (let x = x0; x <= x1; x += COMET.step) {
+	for (let row = 0; row < rows.length; row++) {
+		for (let column = 0; column < columns.length; column++) {
+			if ((counts[row * stride + column] ?? 0) > 0) continue
+			const x = columns[column] ?? 0
+			const y = rows[row] ?? 0
 			const distance = Math.hypot(x - anchorX, y - anchorY)
 			if (distance >= nearest) continue
 			if (staysClear(x, y)) {

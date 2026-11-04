@@ -52,7 +52,7 @@ export interface Meteor extends MeteorPath {
 	startedAt: number
 	/** Which variant this is, if one: it flies in clear sky only, never takes the ink lease and is drawn with CLEAR_SKY_KEEPS. */
 	variant?: MeteorVariant
-	/** The later members of a burst: this shooting star is its first, and each of these starts (`startedAt`) after it, in order. */
+	/** The other pieces of a burst: this shooting star is its first, and each of these starts (`startedAt`) with it or after it, in order. */
 	followers?: readonly Meteor[]
 	/** A fireball's flight: everything it does beyond its path, drawn at launch (planFireballShow). Only a fireball has one, and it is drawn by drawFireball. */
 	show?: FireballShow
@@ -112,6 +112,8 @@ export interface PlanOptions {
 	 * fireball or none asks for `flights: 'long'`.
 	 */
 	fireball?: boolean
+	/** Candidate paths each pass tries, in place of METEOR.attempts: a caller whose `starts` is one point gains nothing by drawing it again. */
+	attempts?: number
 }
 
 /** What one pass of the planner adds to the caller's options: whether it is the shorter fallback (its durations and its shortest path scaled by METEOR.fallbackScale). */
@@ -252,23 +254,23 @@ interface Fit {
 }
 
 /**
- * Up to METEOR.attempts candidate paths from start points in `options.starts` (startArea by default), steered by
- * `options.steer`, shorter on the fallback pass and every one a fireball if `options.fireball`; the first that fits. A
- * share of the launches (METEOR_PASS) then trade that flight for one that passes visibly behind copy, where one fits in as
- * many more candidates. Fireballs, flares and trains need clear sky, so a launch that came out as one keeps it: their
- * rates don't depend on the aim.
+ * Up to `options.attempts` (METEOR.attempts by default) candidate paths from start points in `options.starts` (startArea
+ * by default), steered by `options.steer`, shorter on the fallback pass and every one a fireball if `options.fireball`;
+ * the first that fits. A share of the launches (METEOR_PASS) then trade that flight for one that passes visibly behind
+ * copy, where one fits in as many more candidates. Fireballs, flares and trains need clear sky, so a launch that came out
+ * as one keeps it: their rates don't depend on the aim.
  */
 function planFlight(random: Random, field: MeteorField, now: number, options: PassOptions): Meteor | null {
 	const { width, height } = field
 	const narrow = width <= NARROW_MAX_WIDTH
 	const longSide = Math.max(width, height)
-	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1 } = options
+	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1, attempts = METEOR.attempts } = options
 	const minPath = (narrow ? METEOR.narrowMinPath : METEOR.path[0]) * (fallback ? METEOR.fallbackScale : 1)
 	const maxPath = narrow ? width * METEOR.narrowMaxPathShare : Math.min(METEOR.path[1], METEOR.pathShare * longSide)
 	const { x0, x1, y0, y1 } = options.starts ?? startArea(field)
-	// The first of up to METEOR.attempts candidates that fits and whose head spends at least `minBehind` of the flight visibly on copy
+	// The first of up to `attempts` candidates that fits and whose head spends at least `minBehind` of the flight visibly on copy
 	const fit = (minBehind: number): Fit | null => {
-		for (let attempt = 0; attempt < METEOR.attempts; attempt++) {
+		for (let attempt = 0; attempt < attempts; attempt++) {
 			const start = { x: between(random, x0, x1), y: Math.max(METEOR.top, between(random, y0, y1)) }
 			const course = steer(random, start, fallback)
 			if (course === null) continue

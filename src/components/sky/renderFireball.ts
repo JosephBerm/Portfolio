@@ -1,9 +1,9 @@
 import { colorAlong, mixRgb, rgba } from '@/lib/sky/color'
 import { CLEAR_SKY_KEEPS, FIREBALL, METEOR, METEOR_SPECTRA, MIN_STAR_ALPHA } from '@/lib/sky/config'
-import { brakedSpeed, fireballFlare, fireballLight, fireballPoint, quietClearance, type FireballShow } from '@/lib/sky/fireball'
+import { brakedSpeed, fireballFlare, fireballLight, fireballPoint, type FireballShow } from '@/lib/sky/fireball'
 import { trainEnvelope, trainWidth, type Meteor, type Point } from '@/lib/sky/meteors'
 import type { Rgb } from '@/lib/sky/protocol'
-import { smoothstep, transientQuietFactor } from '@/lib/sky/scene'
+import { quietClearance, smoothstep, transientQuietFactor } from '@/lib/sky/scene'
 import { drawRadial } from './renderRadial'
 import type { SkyAssets, SkyFrame } from './renderSky'
 

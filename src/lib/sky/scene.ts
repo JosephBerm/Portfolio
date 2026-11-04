@@ -201,6 +201,33 @@ export function transientQuietFactor(blend: QuietBlend, x: number, y: number, ke
 	return blend.next ? Math.min(current, quietFactor(blend.next, x, y, keeps)) : current
 }
 
+/**
+ * The least distance from (x, y) to the padded rects of `zones` (CSS px), or `least` if that is less. A rect's distance is
+ * measured here as zoneQuiet measures it, and written out in both rather than shared: zoneQuiet runs for every star every
+ * frame and spares the hypot for the many rects a star is nowhere near, and calling a shared function from it measured
+ * slower.
+ */
+function clearanceOf(zones: readonly SkyRect[], x: number, y: number, least: number): number {
+	let clearance = least
+	for (const zone of zones) {
+		const dx = Math.max(zone.x - x, 0, x - zone.x - zone.width)
+		const dy = Math.max(zone.y - y, 0, y - zone.y - zone.height)
+		clearance = Math.min(clearance, Math.hypot(dx, dy))
+	}
+	return clearance
+}
+
+/**
+ * How far from (x, y) a light may reach and stay out of every padded quiet rect (CSS px): the distance to the nearest of
+ * them, in the zones now, the zones they ease from while the ease runs and a waiting layout's, the lists
+ * transientQuietFactor answers to. Infinity with none on screen. A radial light whose rim is this far out lands nothing
+ * on the copy, whatever its strength.
+ */
+export function quietClearance(blend: QuietBlend, x: number, y: number): number {
+	const eased = clearanceOf(blend.to, x, y, blend.level < 1 ? clearanceOf(blend.from, x, y, Infinity) : Infinity)
+	return blend.next ? clearanceOf(blend.next, x, y, eased) : eased
+}
+
 /** White (0-1) a shooting star, or any transient, may add on the copy of a rect with this `headroom` (INK_BUDGET). */
 export function inkBudget(headroom: number): number {
 	const { ceiling, safety, hazeReserve } = INK_BUDGET

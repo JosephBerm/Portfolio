@@ -30,7 +30,7 @@ import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import { drawFireball } from './renderFireball'
-import { COMA_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
+import { KNOT_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
 export interface StarField {
@@ -104,6 +104,8 @@ export function createStarField(): StarField {
 export interface SkyAssets {
 	atlas: StarAtlas
 	haze: ImageBitmap | null
+	/** The comet's coma and tails as one bitmap of light (buildCometArt), painted when it starts to show and closed once it is gone; null while none shows. */
+	comet: ImageBitmap | null
 	/** Star tints: --color-white, then the pale stellar tints. */
 	palette: readonly Rgb[]
 	tokens: SkyTokens
@@ -494,103 +496,42 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 }
 
 /**
- * The cross-section of a comet's tail as nested passes, widest first: each is the tail at a share of its full width that
- * carries a share of its peak light, so the light is faintest at the tail's edges and strongest down its spine.
- */
-const TAIL_PASSES = [
-	{ width: 1, light: 0.35 },
-	{ width: 0.55, light: 0.35 },
-	{ width: 0.25, light: 0.3 },
-] as const
-
-/** How fast a tail's light falls from the nucleus to the tip: the share of its peak light left is (1 - the share of its length)^TAIL_FALLOFF. */
-const TAIL_FALLOFF = 1.4
-
-/** Gradient stops along a tail, past the first. */
-const TAIL_STOPS = 6
-
-/**
- * The dust tail: the spine's fan, nested passes of it filled with one gradient along the chord from the nucleus to the
- * tip. Each stop carries the tail's light there times `kept` at its own place on the spine.
- */
-function drawDustTail(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, dpr: number, kept: (x: number, y: number) => number): void {
-	const { x, y, shape } = view
-	const { dust } = shape
-	const tip = dust[dust.length - 1]
-	if (!tip) return
-	const color = assets.palette[COMET.dust.tint] ?? assets.tokens.white
-	const chord = tip.x * tip.x + tip.y * tip.y
-	// The stops sit on spine samples; where each lies along the chord is its offset in the gradient
-	const stops = Array.from({ length: TAIL_STOPS + 1 }, (_, k) => {
-		const index = Math.round((k * (dust.length - 1)) / TAIL_STOPS)
-		const point = dust[index] ?? tip
-		const along = Math.min(1, Math.max(0, (point.x * tip.x + point.y * tip.y) / chord))
-		return { along, light: COMET.dust.alpha * (1 - index / (dust.length - 1)) ** TAIL_FALLOFF * kept(x + point.x, y + point.y) }
-	})
-	for (const pass of TAIL_PASSES) {
-		const gradient = ctx.createLinearGradient(x * dpr, y * dpr, (x + tip.x) * dpr, (y + tip.y) * dpr)
-		for (const stop of stops) gradient.addColorStop(stop.along, rgba(color, stop.light * pass.light))
-		ctx.fillStyle = gradient
-		ctx.beginPath()
-		dust.forEach((point, i) => {
-			const px = (x + point.x + point.nx * point.half * pass.width) * dpr
-			const py = (y + point.y + point.ny * point.half * pass.width) * dpr
-			if (i === 0) ctx.moveTo(px, py)
-			else ctx.lineTo(px, py)
-		})
-		for (let i = dust.length - 1; i >= 0; i--) {
-			const point = dust[i]
-			if (point) ctx.lineTo((x + point.x - point.nx * point.half * pass.width) * dpr, (y + point.y - point.ny * point.half * pass.width) * dpr)
-		}
-		ctx.closePath()
-		ctx.fill()
-	}
-}
-
-/** The ion tail: a straight tapered quad from the nucleus, in nested passes like the dust tail's, its light at each gradient stop times `kept` there. */
-function drawIonTail(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, dpr: number, kept: (x: number, y: number) => number): void {
-	const { x, y, shape } = view
-	const { ion } = shape
-	const color = assets.palette[COMET.ion.tint] ?? assets.tokens.white
-	const tipX = x + ion.dirX * ion.length
-	const tipY = y + ion.dirY * ion.length
-	for (const pass of TAIL_PASSES) {
-		const gradient = ctx.createLinearGradient(x * dpr, y * dpr, tipX * dpr, tipY * dpr)
-		for (let k = 0; k <= TAIL_STOPS; k++) {
-			const along = k / TAIL_STOPS
-			const light = COMET.ion.alpha * (1 - along) ** TAIL_FALLOFF * kept(x + ion.dirX * ion.length * along, y + ion.dirY * ion.length * along)
-			gradient.addColorStop(along, rgba(color, light * pass.light))
-		}
-		ctx.fillStyle = gradient
-		taperedQuad(ctx, x * dpr, y * dpr, tipX * dpr, tipY * dpr, -ion.dirY, ion.dirX, ion.head * pass.width * dpr, ion.tip * pass.width * dpr)
-	}
-}
-
-/**
- * The static comet at one frame: the dust tail, the ion tail, the mint coma and the pseudo-nucleus over them, added to
- * the sky. `view.light` (the fade-in times what the scroll and the fades leave) multiplies all of it, and each part is
- * drawn through the transient quiet factor with CLEAR_SKY_KEEPS at its own place, so that copy which has come within
- * reach of the comet's box takes the light from the part it nears at once, without waiting for the comet's fade.
+ * The comet at one frame: its bitmap of coma and tails added to the sky, the knots gliding along the ion tail, then the
+ * pseudo-nucleus over them. `view.light` (the fade-in times what the scroll and the fades leave) multiplies all of it,
+ * and so does the transient quiet factor with CLEAR_SKY_KEEPS, sampled at the nucleus and at the far end of each tail and
+ * taken at the lowest of the three. One bitmap cannot be dimmed part by part, so when copy comes within reach of any of
+ * them all of the comet gives way together, without waiting for its fade; copy that lands between them is left to the
+ * box test (bodyView), whose fade takes the comet out in TRANSIENTS.cancelFade. The bitmap is assets.comet; the caller
+ * has painted it before the comet shows.
  */
 export function drawComet(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, frame: SkyFrame): void {
-	if (view.light < MIN_STAR_ALPHA) return
+	const { comet, atlas } = assets
+	if (!comet || view.light < MIN_STAR_ALPHA) return
 	const { dpr } = frame
 	const { x, y, shape } = view
-	const kept = (px: number, py: number) => view.light * transientQuietFactor(frame.quiet, px, py, CLEAR_SKY_KEEPS)
+	const keptAt = (px: number, py: number) => transientQuietFactor(frame.quiet, px, py, CLEAR_SKY_KEEPS)
+	const kept = view.light * Math.min(keptAt(x, y), keptAt(x + shape.dustTip.x, y + shape.dustTip.y), keptAt(x + shape.ionTip.x, y + shape.ionTip.y))
+	if (kept < MIN_STAR_ALPHA) return
+	const { box } = shape
 	ctx.globalCompositeOperation = 'lighter'
-	ctx.globalAlpha = 1
-	drawDustTail(ctx, assets, view, dpr, kept)
-	drawIonTail(ctx, assets, view, dpr, kept)
-	const { atlas } = assets
-	const { cometComa: coma } = atlas
-	// The sprite's glow reaches three sigmas to its edge: scale it so that edge is the coma's radius
-	const side = (coma.size * shape.coma) / (3 * COMA_SIGMA)
-	ctx.globalAlpha = COMET.coma.alpha * kept(x, y)
-	ctx.drawImage(atlas.image, coma.x, coma.y, coma.size, coma.size, x * dpr - side / 2, y * dpr - side / 2, side, side)
+	ctx.globalAlpha = kept
+	ctx.drawImage(comet, (x + box.left) * dpr, (y + box.top) * dpr, (box.right - box.left) * dpr, (box.bottom - box.top) * dpr)
+	// Each knot is the knot sprite scaled to its length and width and turned along its ray; the sprite's sigma is KNOT_SIGMA CSS px
+	const { cometKnot: sprite } = atlas
+	for (const knot of view.knots) {
+		const light = knot.light * kept
+		if (light < MIN_STAR_ALPHA) continue
+		const along = knot.long / KNOT_SIGMA
+		const across = knot.wide / KNOT_SIGMA
+		ctx.globalAlpha = light
+		ctx.setTransform(knot.dirX * along, knot.dirY * along, -knot.dirY * across, knot.dirX * across, (x + knot.x) * dpr, (y + knot.y) * dpr)
+		ctx.drawImage(atlas.image, sprite.x, sprite.y, sprite.size, sprite.size, -sprite.size / 2, -sprite.size / 2, sprite.size, sprite.size)
+	}
+	ctx.setTransform(1, 0, 0, 1, 0, 0)
 	// Unsnapped, so the nucleus glides as the camera carries it
 	const nucleus = placePoint(atlas, COMET.nucleus.tint, COMET.nucleus.shape, x * dpr, y * dpr, false)
 	if (nucleus) {
-		ctx.globalAlpha = COMET.nucleus.alpha * kept(x, y)
+		ctx.globalAlpha = COMET.nucleus.alpha * kept
 		ctx.drawImage(atlas.image, nucleus.x, nucleus.y, nucleus.size, nucleus.size, corner.x, corner.y, nucleus.size, nucleus.size)
 	}
 	ctx.globalAlpha = 1

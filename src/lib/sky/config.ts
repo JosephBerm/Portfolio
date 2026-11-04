@@ -775,43 +775,113 @@ export const SATELLITE = {
 export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
 
 /**
- * The static comet, the sky's one long-lived body: a mint coma around a pseudo-nucleus, a curved pale dust tail and a
- * faint straight blue-white ion tail, never a green tail. It hangs in the upper right of the hero as far away as the
- * faint majority of stars, so the camera moves it as it moves them (DEPTH) and it never moves on its own. It is
- * pictured to scale with the sky window (SKY_WINDOW): the coma radius, the tails' lengths and widths are degrees of it,
- * and the tails point `angle` degrees clockwise from the right (up is -90), the dust tail starting `dust.start` degrees
- * further round and bending `dust.curve` degrees over its length (negative is anticlockwise). The alphas are each
- * part's peak light, all at the nucleus, where they add: together they stay at most 0.6, under the brightest stars, and
- * fall to 0 at the tails' tips. `tint` picks a star palette color. The coma is --color-green mixed `coma.mint`
- * toward --color-white. It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the
- * hero's entrance, the rails and the copy's measurement have settled), fading in over `fadeIn` seconds so nothing
- * starts. Where it hangs is the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of
- * `step` px where its box, grown by as far as the camera can carry it (the drift and the lean, times its nearness),
- * keeps clear of every quiet zone's reach, stays inside the screen and lies below the navbar (METEOR.top) and above
- * About's header row, copy the zones know nothing of; a window with no such place has no comet. About's header row lies
- * below the hero by the offset of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding
- * plus .section-header's 10 px top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when
- * the page has scrolled as far as a comet can still show. Where no place fits it looks again after `retry` seconds. It
- * is gone for the page view when the page scrolls from where it began to show (SCROLL_CANCEL), when the sky is paused
- * or resized, or when copy comes within reach of its box.
+ * The comet, the sky's one long-lived body, drawn as a bright comet looks in a photograph: a star-like head in a soft
+ * glow, one fan-shaped dust tail and a fainter, straight ion tail. It hangs in the upper right of the hero as far away
+ * as the faint majority of stars, so the camera moves it as it moves them (DEPTH). It is pictured to scale with the
+ * sky window (SKY_WINDOW): its lengths are degrees of it, and the ion tail lies `angle` degrees clockwise from the
+ * right (up is -90), pointing away from the Sun, with the dust tail bending away from it. All of it is light added over
+ * the sky, `tint` picks a star palette color for a part, and at the head the parts add to about 0.6 of white (0.55 for
+ * the smallest size at 1366 px wide to 0.62 at 3840), under the brightest stars' 0.78.
+ *
+ * The head is a star sprite (`nucleus`: its alpha, `tint` and star `shape`) in the coma. The coma's light falls as 1/ρ
+ * from a core `core` wide, up to `peak`, and is cut off smoothly at `radius`, over a broad `halo` (its own peak and
+ * radius): a bright center with a long soft glow, as a coma has and a Gaussian ball has not. From its `tint` it turns to
+ * --color-green mixed `mint` toward --color-white between `mintFrom` and `mintTo` degrees from the head, the green a
+ * camera shows in a comet's head and no tail has, since sunlight destroys what makes it before it reaches them.
+ *
+ * The dust tail is sunlight scattered by grains that radiation pressure pushes away from the Sun while they lag behind
+ * the comet in its orbit, so its ridge lags the axis as the 1.5 power of the distance along it: it leaves a cap `cap`
+ * wide at the head and ends `lag` of its `length` to the side. Its edge toward the ion tail is sharp (half a width
+ * `convex` times the cap's) and its other side diffuse (`concave`, widening by `spread` of the length as the ridge
+ * bends). Its light, at most `peak`, falls as (1 + distance / `scale`)^-`power` and eases out from `fadeFrom` of the
+ * length; at the head it keeps `headKeep` of it, rising to all of it by `headTo` degrees. The ion tail is a few narrow
+ * rays (`rays`: degrees clockwise of the axis, and a share of the light) widening downstream from `width[0]` by
+ * `width[1]` a degree, `peak` at most at the head and falling as 1 / (1 + distance / `scale`) to nothing at its
+ * `length`, easing out from `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its
+ * two. `count` knots, faint and elongated brightenings, glide outward along its first `rays` rays: one is born `from`
+ * degrees from the head every `period` seconds (the knots a golden ratio apart in phase), moves `v0` degrees a second and
+ * speeds up by `accel` a second, as the knots of real ion tails do, and adds at most `peak` of light, `long` degrees long
+ * at the head and growing by its own length every `stretch` degrees, and `wide` times as wide as its ray. The art of the
+ * coma and the tails is painted once when the comet shows, as a bitmap of one pixel per CSS px, fewer where its longer
+ * side would pass `art.maxSide` (so at most 1 MB), fading out over its last `art.edge` px.
+ *
+ * A real comet crosses the stars too slowly to see (Comet NEOWISE at its fastest, 3.72 degrees a day, would cross about
+ * 0.001 px a second here), so any motion the page shows is a time-lapse, and this one keeps real rates and says so: the
+ * comet drifts on its own a day a minute, `drift.speed` degrees of the sky window a second (that rate times 1440), at
+ * `drift.heading` degrees clockwise from the right, right and a little down, 78 degrees from the tails as great comets
+ * cross theirs, and away from the side the dust tail bends to. The knots keep the same factor: from about 0.02 degrees a
+ * second at birth to 0.2 at the tail's end, the speeds of real ion-tail features (25 km/s near the head, 86 to 295 km/s
+ * farther out) at a day a minute. Its place and its knots are functions of the drift clock (Camera.clock) alone, so they
+ * stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and never
+ * jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. Its tails keep their
+ * direction, and it is gone once its whole box has left the screen, gliding off the right edge.
+ *
+ * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the
+ * rails and the copy's measurement have settled), fading in over `fadeIn` seconds so nothing starts. Where it hangs is
+ * the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of `step` px whose path stays
+ * clear. The path is known when it starts, since the camera's drift and its own are functions of the drift clock, so its
+ * box is swept along it for `life[0]` seconds of drift clock, grown by `clearance` px and by the pointer's lean (its
+ * reach either way times the comet's nearness), and must keep clear of every quiet zone's reach, below the navbar
+ * (METEOR.top) and above About's header row, copy the zones know nothing of, with its head inside the screen
+ * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how it leaves. It takes the
+ * first of `sizes` (shares of its full size) whose path stays clear that long and, only where none does, the first that
+ * stays clear for `life[1]` seconds; a window with no such place has no comet. About's header row lies below the hero by
+ * the offset of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding plus
+ * .section-header's 10 px top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when the
+ * page has scrolled as far as a comet can still show. Where no place fits it looks again after `retry` seconds, from a
+ * new drift clock and so along a new path. It is gone for the page view when the page scrolls from where it began to
+ * show (SCROLL_CANCEL), when the sky is paused or resized, or when copy comes within reach of its box.
  */
 export const COMET = {
 	chance: 0.11,
 	firstDelay: 8,
 	retry: 5,
 	fadeIn: 10,
-	anchor: [0.8, 0.3],
+	anchor: [0.78, 0.42],
+	sizes: [1, 0.85, 0.7],
+	life: [90, 60],
+	clearance: 24,
 	step: 8,
 	aboutRow: [
 		[0, 70],
 		[768, 90],
 		[1024, 110],
 	],
-	angle: -68,
-	nucleus: { alpha: 0.25, tint: 4, shape: 4 },
-	coma: { radius: 0.5, alpha: 0.16, mint: 0.3 },
-	ion: { length: 6.5, width: [0.11, 0.04], alpha: 0.08, tint: 2 },
-	dust: { length: 4.2, start: -8, curve: -52, width: [0.15, 1], alpha: 0.11, tint: 4 },
+	angle: -70,
+	drift: { speed: 0.062, heading: 8 },
+	nucleus: { alpha: 0.28, tint: 4, shape: 5 },
+	coma: { peak: 0.2, core: 0.06, radius: 0.85, halo: 0.05, haloRadius: 0.45, tint: 4, mint: 0.22, mintFrom: 0.04, mintTo: 0.26 },
+	dust: {
+		length: 9.5,
+		lag: 0.62,
+		cap: 0.11,
+		spread: 0.26,
+		convex: 0.44,
+		concave: 0.72,
+		peak: 0.38,
+		scale: 1.6,
+		power: 1.15,
+		fadeFrom: 0.42,
+		headKeep: 0.35,
+		headTo: 0.6,
+		tint: 6,
+	},
+	ion: {
+		length: 12,
+		peak: 0.036,
+		scale: 4,
+		width: [0.035, 0.02],
+		fadeFrom: 0.5,
+		tint: 3,
+		rays: [
+			{ off: 0, share: 1 },
+			{ off: 1.5, share: 0.34 },
+			{ off: -1.1, share: 0.24 },
+			{ off: 2.9, share: 0.16 },
+		],
+	},
+	knots: { count: 5, rays: 3, period: 115, from: 0.5, v0: 0.02, accel: 0.0016, peak: 0.03, long: 0.5, stretch: 8, wide: 1.1 },
+	art: { maxSide: 512, edge: 8 },
 } as const
 
 /**

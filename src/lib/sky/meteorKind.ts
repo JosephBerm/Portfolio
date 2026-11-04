@@ -6,12 +6,11 @@
 
 import { FAREWELL, METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, RADIANTS, SPEED_CLASSES, TRANSIENTS } from './config'
 import { nextGap } from './gaps'
-import { meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions, type Steer } from './meteors'
+import { clearStart, drawStart, insideGuards, meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions, type Steer } from './meteors'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH } from './quietIndex'
 import { drawSpectrum, pickVisitSky, pointNearRadiant, radiantOver, showerRadiantAt, skyWindow, swarmPiece, visitSteer, type SteerOptions, type VisitSky } from './radiants'
-import { between, gaussian, type Random } from './random'
-import { quietAt } from './scene'
+import { between, exponential, gaussian, type Random } from './random'
 import type { PlanContext, SkyField, TransientSpec } from './transients'
 
 /**
@@ -61,11 +60,6 @@ export function planMeteorTransient(context: PlanContext, options: Omit<PlanOpti
 	return null
 }
 
-/** Whether a point lies inside the screen's guards for where a transient may start: METEOR's edge margin and top, and the height under METEOR.maxEndY. */
-function insideGuards(field: SkyField, x: number, y: number): boolean {
-	return x >= METEOR.edgeMargin && x <= field.width - METEOR.edgeMargin && y >= METEOR.top && y <= field.height * METEOR.maxEndY
-}
-
 /** Points tried near the radiant for a flash before the launch goes without one. */
 const FLASH_TRIES = 20
 
@@ -85,8 +79,7 @@ export function planFlash(context: PlanContext): Meteor | null {
 	for (let tries = 0; tries < FLASH_TRIES; tries++) {
 		const point = pointNearRadiant(random, sky, radius)
 		if (point === null) return null
-		if (!insideGuards(field, point.x, point.y)) continue
-		if (quietAt(field.quiet, point.x, point.y) > 0) continue
+		if (!clearStart(field, point.x, point.y)) continue
 		return {
 			startX: point.x,
 			startY: point.y,
@@ -140,10 +133,9 @@ function planPiece(context: PlanContext, sky: VisitSky, x: number, y: number, op
  */
 function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: number): Meteor[] {
 	const { random, now, field } = context
-	const { across, delay, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
-	const { x0, x1, y0, y1 } = startArea(field)
-	const center = { x: between(random, x0, x1), y: Math.max(METEOR.top, between(random, y0, y1)) }
-	if (!insideGuards(field, center.x, center.y) || quietAt(field.quiet, center.x, center.y) > 0) return []
+	const { across, delay, firstOnset, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
+	const center = drawStart(random, startArea(field))
+	if (!clearStart(field, center.x, center.y)) return []
 	const radiant = own ? radiantOver(random, sky.window, center, radiantDistance, heading) : showerRadiantAt(sky, center, radiantDistance, slowest)
 	if (radiant === null) return []
 	const speed = own ? ownSpeed : sky.shower.speed
@@ -163,10 +155,9 @@ function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: num
 		const peak = Math.max(faintest, brightest * rank ** -rankPower)
 		const time = meanFlight * (flight[0] + ((flight[1] - flight[0]) * (peak - faintest)) / (brightest - faintest))
 		for (let tries = 0; tries < PIECE_TRIES; tries++) {
-			// Behind the front by an exponential delay (log of 1 - random() is finite, as in gaussian)
-			const offset = { east: gaussian(random) * width, north: gaussian(random) * width, behind: -meanDelay * Math.log(1 - random()) }
+			const offset = { east: gaussian(random) * width, north: gaussian(random) * width, behind: exponential(random, meanDelay) }
 			const place = swarmPiece(sky.window, radiant, speed, center, offset)
-			if (place === null || place.delay > lastOnset || place.delay < -lastOnset / 2 || !insideGuards(field, place.x, place.y)) continue
+			if (place === null || place.delay > lastOnset || place.delay < firstOnset || !insideGuards(field, place.x, place.y)) continue
 			// A start within `laneGap` of another's line would put two pieces on nearly one path: the fan only widens downstream, so this is the closest they come
 			if (pieces.some((other) => Math.abs((place.x - other.startX) * other.dirY - (place.y - other.startY) * other.dirX) < laneGap)) continue
 			const piece = planPiece(context, sky, place.x, place.y, { ...course, peak, duration: [time, time] })

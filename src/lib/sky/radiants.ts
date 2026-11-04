@@ -8,7 +8,7 @@
 
 import { METEOR, METEOR_BRIGHTNESS, NARROW_MAX_WIDTH, RADIANTS, SKY_WINDOW, SPEED_CLASSES, type SpectrumName, type SpectrumOdds, type SpeedClassName } from './config'
 import { startArea, type Course, type MeteorField, type Point, type Steer } from './meteors'
-import { between, gaussian, type Random } from './random'
+import { between, drawByShare, gaussian, type Random } from './random'
 import { quietAt } from './scene'
 
 /** Radians per degree. */
@@ -203,14 +203,7 @@ function speedAt(index: number): SpeedClassName {
 
 /** A spectrum drawn with `odds`, each named one in its own share and in the order listed; the last takes whatever rounding leaves of the draw. */
 export function drawSpectrum(random: Random, odds: SpectrumOdds): SpectrumName {
-	let roll = random()
-	let drawn: SpectrumName = 'plain'
-	for (const [name, share] of Object.entries(odds) as [SpectrumName, number][]) {
-		drawn = name
-		if (roll < share) break
-		roll -= share
-	}
-	return drawn
+	return drawByShare(random, Object.keys(odds) as SpectrumName[], (name) => odds[name] ?? 0, 'plain')
 }
 
 /**
@@ -278,7 +271,8 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 	const view = sky.window
 	const source = options.shower || random() < RADIANTS.showerShare ? sky.shower : (sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower)
 	const radiant = options.radiant ?? scattered(random, source.radiant, source.scatter)
-	const speedClass = SPEED_CLASSES[options.speed ?? source.speed]
+	const speedName = options.speed ?? source.speed
+	const speedClass = SPEED_CLASSES[speedName]
 	const spectrum = options.spectrum ?? (source.kind === 'shower' && (options.shower || random() < RADIANTS.showerKeeps) ? sky.showerSpectrum : drawSpectrum(random, speedClass.spectra))
 	const duration = options.duration ?? speedClass.duration
 	const [shortest, longest] = duration
@@ -315,7 +309,7 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 			peak,
 			spectrum,
 			train: speedClass.train,
-			speedClass: source.speed,
+			speedClass: speedName,
 		}
 	}
 }

@@ -603,8 +603,8 @@ export const METEOR_KINDS = {
 	 * Where a piece first lights and when follow from where it lies in the swarm (swarmPiece): `across` km to either side
 	 * of the swarm's center line (one standard deviation, drawn per burst: measured clusters run from tens of km to a few
 	 * hundred, and this is the compact end, so a swarm fits the clear sky) and behind its front by an exponential delay of
-	 * mean `delay` s (drawn per burst), so most arrive together and a few straggle. A piece that would light more than
-	 * `lastOnset` s after the swarm's center, or more than half of that before it, is drawn again. The center lies
+	 * mean `delay` s (drawn per burst), so most arrive together and a few straggle. A piece that would light outside
+	 * `firstOnset` to `lastOnset` s from the swarm's center is drawn again. The center lies
 	 * `radiantDistance` degrees from the radiant: nearer and the pieces would be stubs, farther and their paths would look
 	 * parallel. The radiant is the visit's shower's where it is that far from the center and its flights cross there at
 	 * `slowest` °/s or more (a slower swarm would crawl as stubs); elsewhere the burst has a radiant of its own, within
@@ -634,6 +634,7 @@ export const METEOR_KINDS = {
 		least: 4,
 		across: [8, 13],
 		delay: [0.3, 0.6],
+		firstOnset: -1.1,
 		lastOnset: 2.2,
 		radiantDistance: [22, 40],
 		slowest: 7,
@@ -794,16 +795,19 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * wide at the head and ends `lag` of its `length` to the side. Its edge toward the ion tail is sharp (half a width
  * `convex` times the cap's) and its other side diffuse (`concave`, widening by `spread` of the length as the ridge
  * bends). Its light, at most `peak`, falls as (1 + distance / `scale`)^-`power` and eases out from `fadeFrom` of the
- * length; at the head it keeps `headKeep` of it, rising to all of it by `headTo` degrees. The ion tail is a few narrow
- * rays (`rays`: degrees clockwise of the axis, and a share of the light) widening downstream from `width[0]` by
- * `width[1]` a degree, `peak` at most at the head and falling as 1 / (1 + distance / `scale`) to nothing at its
- * `length`, easing out from `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its
- * two. `count` knots, faint and elongated brightenings, glide outward along its first `rays` rays: one is born `from`
- * degrees from the head every `period` seconds (the knots a golden ratio apart in phase), moves `v0` degrees a second and
- * speeds up by `accel` a second, as the knots of real ion tails do, and adds at most `peak` of light, `long` degrees long
- * at the head and growing by its own length every `stretch` degrees, and `wide` times as wide as its ray. The art of the
- * coma and the tails is painted once when the comet shows, as a bitmap of one pixel per CSS px, fewer where its longer
- * side would pass `art.maxSide` (so at most 1 MB), fading out over its last `art.edge` px.
+ * length; at the head it keeps `headKeep` of it, rising to all of it by `headTo` degrees. Sunward of the head, its light
+ * rises from nothing, `rise` cap widths from the head, to all of it at the head, and the tail is looked for no farther
+ * than `behind` of them. The ion tail is a few narrow rays (`rays`: degrees clockwise of the axis, and a share of
+ * `peak`) widening downstream from `width[0]` by `width[1]` a degree, each rising from nothing at the head over its
+ * first `rise` degrees and falling as 1 / (1 + distance / `scale`) to nothing at its `length`, easing out from
+ * `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its two. `count` knots,
+ * faint and elongated brightenings, glide outward along its first `rays` rays: one is born `from` degrees from the head
+ * every `period` seconds (the knots a golden ratio apart in phase), moves `v0` degrees a second and speeds up by `accel`
+ * a second, as the knots of real ion tails do, fades in over the first `fadeIn` of its period and out from `fadeOutFrom`
+ * of it, and adds at most `peak` of light (each knot its own share of it, from `floor` to `floor` plus `spread`), `long`
+ * degrees long at the head and growing by its own length every `stretch` degrees, and `wide` times as wide as its ray.
+ * The art of the coma and the tails is painted once when the comet shows, as a bitmap of one pixel per CSS px, fewer
+ * where its longer side would pass `art.maxSide` (so at most 1 MB), fading out over its last `art.edge` px.
  *
  * A real comet crosses the stars too slowly to see (Comet NEOWISE at its fastest, 3.72 degrees a day, would cross about
  * 0.001 px a second here), so any motion the page shows is a time-lapse, and this one keeps real rates and says so: the
@@ -811,9 +815,9 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * `drift.heading` degrees clockwise from the right, right and a little down, 78 degrees from the tails as great comets
  * cross theirs, and away from the side the dust tail bends to. The knots keep the same factor: from about 0.02 degrees a
  * second at birth to 0.2 at the tail's end, the speeds of real ion-tail features (25 km/s near the head, 86 to 295 km/s
- * farther out) at a day a minute. Its place and its knots are functions of the drift clock (Camera.clock) alone, so they
- * stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and never
- * jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. Its tails keep their
+ * farther out) at a day a minute. Its own drift and its knots are functions of the drift clock (Camera.clock) alone, so
+ * they stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and
+ * never jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. Its tails keep their
  * direction, and it is gone once its whole box has left the screen, gliding off the right edge.
  *
  * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the
@@ -864,6 +868,8 @@ export const COMET = {
 		fadeFrom: 0.42,
 		headKeep: 0.35,
 		headTo: 0.6,
+		behind: 2.2,
+		rise: 1.6,
 		tint: 6,
 	},
 	ion: {
@@ -872,6 +878,7 @@ export const COMET = {
 		scale: 4,
 		width: [0.035, 0.02],
 		fadeFrom: 0.5,
+		rise: 0.4,
 		tint: 3,
 		rays: [
 			{ off: 0, share: 1 },
@@ -880,7 +887,7 @@ export const COMET = {
 			{ off: 2.9, share: 0.16 },
 		],
 	},
-	knots: { count: 5, rays: 3, period: 115, from: 0.5, v0: 0.02, accel: 0.0016, peak: 0.03, long: 0.5, stretch: 8, wide: 1.1 },
+	knots: { count: 5, rays: 3, period: 115, from: 0.5, v0: 0.02, accel: 0.0016, peak: 0.03, long: 0.5, stretch: 8, wide: 1.1, fadeIn: 0.1, fadeOutFrom: 0.62, floor: 0.6, spread: 0.4 },
 	art: { maxSide: 512, edge: 8 },
 } as const
 
@@ -1417,8 +1424,9 @@ export const FIREBALL = {
 	 * head's speed and brake with time constant `tau` (the smaller a piece, the sooner), drift `side` px/s across the path, fade in over
 	 * `fadeIn` and fade with time constant `decay`, and their light ends with the flight's, over `lingers` seconds from its
 	 * end. Each is a soft glow `glowOfSize` times its `size` wide at `glowAlpha`, a tailed point `bodyOfSize` of its size
-	 * with a tail of at least `tailMin` px, `tailOfSpeed` of its speed, and a white center `coreOfSize` of its size, in the
-	 * head's color at the burst whitened by `whiten` and cooling to the spectrum's `cool` over `coolOver` s.
+	 * with a tail of at least `tailMin` px, `tailOfSpeed` of its speed, and a white center `coreOfSize` of its size. The
+	 * glow and the point are in the head's color now, cooling to the spectrum's `cool` over `coolOver` s since the burst,
+	 * and the point's head end is whitened by `whiten`.
 	 */
 	pieces: {
 		tau: [0.3, 1],

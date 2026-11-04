@@ -1,5 +1,5 @@
-import { cometLightAt, type CometLight, type CometShape } from '@/lib/sky/bodies'
 import { mixRgb } from '@/lib/sky/color'
+import { cometLightAt, type CometLight, type CometShape } from '@/lib/sky/comet'
 import {
 	COMET,
 	HAZE_MAX_PIXELS,

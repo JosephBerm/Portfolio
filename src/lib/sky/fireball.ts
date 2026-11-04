@@ -7,9 +7,8 @@
 
 import { FIREBALL, FIREBALL_MOTION, FIREBALL_TIERS, type FireballMotion, type FireballSpectrumName, type FireballTier, type SpectrumName, type TrainSpec } from './config'
 import type { MeteorPath, Point } from './meteors'
-import type { SkyRect } from './protocol'
-import { between, type Random } from './random'
-import { smoothstep, type QuietBlend } from './scene'
+import { between, drawByShare, type Random } from './random'
+import { smoothstep } from './scene'
 
 /** A sudden brightening as the body breaks: its peak (flight progress), how much it adds, and its rise and fall (progress units). */
 export interface FireballFlare {
@@ -75,14 +74,7 @@ function along(range: readonly [number, number], share: number): number {
 
 /** A tier drawn by the tiers' shares, which add up to 1; the last takes whatever rounding leaves of the draw. */
 function drawTier(random: Random): FireballTier {
-	let roll = random()
-	let drawn: FireballTier = FIREBALL_TIERS.bright
-	for (const tier of Object.values(FIREBALL_TIERS)) {
-		drawn = tier
-		if (roll < tier.share) break
-		roll -= tier.share
-	}
-	return drawn
+	return drawByShare(random, Object.values(FIREBALL_TIERS), (tier) => tier.share, FIREBALL_TIERS.bright)
 }
 
 /** Either side of the path, at a speed within `range`. */
@@ -191,23 +183,35 @@ export function fireballLight(progress: number, show: FireballShow): number {
 	return base * left * level + fireballFlare(progress, show) * Math.min(1, base + flareFloor)
 }
 
-/** The least distance from (x, y) to `zones`, or `least` if that is less. */
-function clearanceOf(zones: readonly SkyRect[], x: number, y: number, least: number): number {
-	let clearance = least
-	for (const zone of zones) {
-		const dx = Math.max(zone.x - x, 0, x - zone.x - zone.width)
-		const dy = Math.max(zone.y - y, 0, y - zone.y - zone.height)
-		clearance = Math.min(clearance, Math.hypot(dx, dy))
-	}
-	return clearance
+/**
+ * The radius of the head's white-hot core at flight progress p (CSS px): its tier's `head` times the share of it the head's
+ * light gives (FIREBALL.head), a flare's growth, and what the terminal burst takes of it. `light` is the head's light as it is
+ * drawn (at most FIREBALL.light.cap) and `flare` how far into its strongest flare the flight is, as fireballLight and
+ * fireballFlare give them.
+ */
+export function fireballHead(progress: number, show: FireballShow, light: number, flare: number): number {
+	const { least, lightPower, flareGrow, spentShrink, spentOver } = FIREBALL.head
+	return show.tier.head * (least + (1 - least) * Math.min(1, light ** lightPower)) * (1 + flareGrow * flare) * (1 - spentShrink * smoothstep(show.burstAt, show.burstAt + spentOver, progress))
+}
+
+/** The light of the knot that flight progress p falls in (FIREBALL.knots equal stretches of the flight): how bright the wake and the train are there. */
+export function fireballKnot(progress: number, show: FireballShow): number {
+	return show.knots[Math.min(show.knots.length - 1, Math.floor(progress * show.knots.length))] ?? 1
 }
 
 /**
- * How far from (x, y) a light may reach and stay out of every padded quiet rect (CSS px): the distance to the nearest of
- * them, in the zones now, the zones they ease from and a waiting layout's, as transientQuietFactor reads them. Infinity
- * with none on screen. A radial light whose rim is this far out lands nothing on the copy, whatever its strength.
+ * Where a fragment shed at `origin` is `age` s on, and how long its tail is (CSS px). It leaves at `speed` px/s along the
+ * path and `side` px/s across it, and both brake with the time constant `tau`, so it has gone `tau` (1 - e^(-age / tau))
+ * seconds' worth of each by now. Its tail is its speed now times `tailOfSpeed`, and at least `tailMin`.
  */
-export function quietClearance(blend: QuietBlend, x: number, y: number): number {
-	const eased = clearanceOf(blend.to, x, y, blend.level < 1 ? clearanceOf(blend.from, x, y, Infinity) : Infinity)
-	return blend.next ? clearanceOf(blend.next, x, y, eased) : eased
+export function fragmentAt(meteor: MeteorPath, origin: Point, speed: number, tau: number, side: number, age: number, { tailMin, tailOfSpeed }: { readonly tailMin: number; readonly tailOfSpeed: number }): { x: number; y: number; tail: number } {
+	const gone = tau * (1 - Math.exp(-age / tau))
+	// The unit normal of the path, which `side` is along
+	const nx = -meteor.dirY
+	const ny = meteor.dirX
+	return {
+		x: origin.x + meteor.dirX * speed * gone + nx * side * gone,
+		y: origin.y + meteor.dirY * speed * gone + ny * side * gone,
+		tail: Math.max(tailMin, speed * Math.exp(-age / tau) * tailOfSpeed),
+	}
 }

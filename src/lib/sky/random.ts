@@ -35,3 +35,27 @@ export function between(random: () => number, min: number, max: number): number 
 export function gaussian(random: Random): number {
 	return Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random())
 }
+
+/**
+ * An exponential deviate of this `mean`. Like gaussian, it takes the log of 1 - random(), since random() can return 0 and
+ * the log of 0 is -Infinity.
+ */
+export function exponential(random: Random, mean: number): number {
+	return -mean * Math.log(1 - random())
+}
+
+/**
+ * One of `items` drawn by the share `shareOf` gives each, which add up to 1: one number from `random` walks the items in
+ * order, and the last takes whatever rounding leaves of the draw. `fallback` is what a list of none gives.
+ */
+export function drawByShare<T>(random: Random, items: readonly T[], shareOf: (item: T) => number, fallback: T): T {
+	let roll = random()
+	let drawn = fallback
+	for (const item of items) {
+		drawn = item
+		const share = shareOf(item)
+		if (roll < share) break
+		roll -= share
+	}
+	return drawn
+}

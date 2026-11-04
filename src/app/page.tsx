@@ -7,6 +7,7 @@ import Background from '@/components/Background'
 import Navbar from '@/components/Navbar'
 import SidePane from '@/components/SidePane'
 import LinksList from '@/components/LinksList'
+import SkyPauseButton from '@/components/sky/SkyPauseButton'
 import Introduction from '@/components/Introduction'
 import AboutMe from '@/components/AboutMe'
 import Experience from '@/components/Experience'
@@ -34,6 +35,13 @@ export default function HomePage() {
 					<LinksList />
 				</SidePane>
 				<SidePane side="right">
+					{/* The navbar's pause control slides away as the page scrolls down; this one stays on screen beside the sky */}
+					<SkyPauseButton
+						// At the top of the page, in a window 386px tall or less, the navbar's 100px covers this control,
+						// which sits above the 286px of rail below it, so there it has no box and no tab stop, and the
+						// navbar's control is the one left
+						className="[@media(max-height:386px)]:hidden"
+					/>
 					<a
 						href={`mailto:${email}`}
 						className="my-[20px] mx-auto p-[10px] font-mono text-xxs tracking-[0.2em] [writing-mode:vertical-rl]"

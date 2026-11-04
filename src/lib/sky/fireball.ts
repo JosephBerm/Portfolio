@@ -182,3 +182,36 @@ export function fireballLight(progress: number, show: FireballShow): number {
 	const left = 1 - spent * smoothstep(show.burstAt, show.burstAt + spentOver, progress)
 	return base * left * level + fireballFlare(progress, show) * Math.min(1, base + flareFloor)
 }
+
+/**
+ * The radius of the head's white-hot core at flight progress p (CSS px): its tier's `head` times the share of it the head's
+ * light gives (FIREBALL.head), a flare's growth, and what the terminal burst takes of it. `light` is the head's light as it is
+ * drawn (at most FIREBALL.light.cap) and `flare` how far into its strongest flare the flight is, as fireballLight and
+ * fireballFlare give them.
+ */
+export function fireballHead(progress: number, show: FireballShow, light: number, flare: number): number {
+	const { least, lightPower, flareGrow, spentShrink, spentOver } = FIREBALL.head
+	return show.tier.head * (least + (1 - least) * Math.min(1, light ** lightPower)) * (1 + flareGrow * flare) * (1 - spentShrink * smoothstep(show.burstAt, show.burstAt + spentOver, progress))
+}
+
+/** The light of the knot that flight progress p falls in (FIREBALL.knots equal stretches of the flight): how bright the wake and the train are there. */
+export function fireballKnot(progress: number, show: FireballShow): number {
+	return show.knots[Math.min(show.knots.length - 1, Math.floor(progress * show.knots.length))] ?? 1
+}
+
+/**
+ * Where a fragment shed at `origin` is `age` s on, and how long its tail is (CSS px). It leaves at `speed` px/s along the
+ * path and `side` px/s across it, and both brake with the time constant `tau`, so it has gone `tau` (1 - e^(-age / tau))
+ * seconds' worth of each by now. Its tail is its speed now times `tailOfSpeed`, and at least `tailMin`.
+ */
+export function fragmentAt(meteor: MeteorPath, origin: Point, speed: number, tau: number, side: number, age: number, { tailMin, tailOfSpeed }: { readonly tailMin: number; readonly tailOfSpeed: number }): { x: number; y: number; tail: number } {
+	const gone = tau * (1 - Math.exp(-age / tau))
+	// The unit normal of the path, which `side` is along
+	const nx = -meteor.dirY
+	const ny = meteor.dirX
+	return {
+		x: origin.x + meteor.dirX * speed * gone + nx * side * gone,
+		y: origin.y + meteor.dirY * speed * gone + ny * side * gone,
+		tail: Math.max(tailMin, speed * Math.exp(-age / tau) * tailOfSpeed),
+	}
+}

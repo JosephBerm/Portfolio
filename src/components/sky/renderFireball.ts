@@ -1,6 +1,6 @@
 import { colorAlong, mixRgb, rgba } from '@/lib/sky/color'
 import { CLEAR_SKY_KEEPS, FIREBALL, METEOR, METEOR_SPECTRA, MIN_STAR_ALPHA } from '@/lib/sky/config'
-import { brakedSpeed, fireballFlare, fireballLight, fireballPoint, type FireballShow } from '@/lib/sky/fireball'
+import { brakedSpeed, fireballFlare, fireballHead, fireballKnot, fireballLight, fireballPoint, fragmentAt, type FireballShow } from '@/lib/sky/fireball'
 import { trainEnvelope, trainWidth, type Meteor, type Point } from '@/lib/sky/meteors'
 import type { Rgb } from '@/lib/sky/protocol'
 import { quietClearance, smoothstep, transientQuietFactor } from '@/lib/sky/scene'
@@ -58,11 +58,6 @@ function keptMote(moment: Moment, x: number, y: number, tail: number): number {
 	return Math.min(kept(x, y), kept(x - meteor.dirX * tail, y - meteor.dirY * tail))
 }
 
-/** The knot light at flight progress `emitted`. */
-function knotAt(show: FireballShow, emitted: number): number {
-	return show.knots[Math.min(show.knots.length - 1, Math.floor(emitted * show.knots.length))] ?? 1
-}
-
 /** The train: what the flight leaves, brightest where the flight was and uneven along its length, swelling as it ages. It lights only once the wake has passed each point. */
 function drawTrain(moment: Moment): void {
 	const { ctx, meteor, show, dpr, elapsed, head, kept } = moment
@@ -87,7 +82,7 @@ function drawTrain(moment: Moment): void {
 		const emitted = (k / stops) * head
 		const along = Math.min(1, Math.hypot(point.x * dpr - sx, point.y * dpr - sy) / length)
 		const age = elapsed - emitted * meteor.duration
-		const profile = Math.min(1, fireballLight(emitted, show)) ** lightPower * knotAt(show, emitted)
+		const profile = Math.min(1, fireballLight(emitted, show)) ** lightPower * fireballKnot(emitted, show)
 		gradient.addColorStop(along, rgba(colorAlong(colors, age / train.life), level * profile * smoothstep(lights[0], lights[1], age) * (keeps[k] ?? 0)))
 	})
 	const width = trainWidth(train, Math.max(0, elapsed - meteor.duration)) * dpr
@@ -185,7 +180,7 @@ function drawFlame(moment: Moment): void {
 		const emitted = emissions[k] ?? head
 		const age = (progress - emitted) * meteor.duration
 		const along = Math.min(1, Math.hypot(point.x * dpr - x, point.y * dpr - y) / length)
-		const light = Math.min(lightCap, fireballLight(emitted, show) * lightGain + lightFloor) * Math.exp(-age / wake) * knotAt(show, emitted) * (keeps[k] ?? 0)
+		const light = Math.min(lightCap, fireballLight(emitted, show) * lightGain + lightFloor) * Math.exp(-age / wake) * fireballKnot(emitted, show) * (keeps[k] ?? 0)
 		const then = colorAlong(arc, emitted)
 		glow.addColorStop(along, rgba(mixRgb(then, cool, 1 - Math.exp(-age / (wake * coolOver))), light))
 		hot.addColorStop(along, rgba(mixRgb(white, then, Math.min(1, age / (wake * hotOver))), light * Math.exp(-age / (wake * hotFade))))
@@ -213,21 +208,6 @@ function traceMote(moment: Moment, x: number, y: number, radius: number, tail: n
 	ctx.closePath()
 }
 
-/**
- * Where a fragment shed at `origin` is `age` s on, and how long its tail is (CSS px). It leaves at `speed` px/s along the
- * path and `side` px/s across it, and both brake with the time constant `tau`, so it has gone `tau` (1 - e^(-age / tau))
- * seconds' worth of each by now. Its tail is its speed now times `tailOfSpeed`, and at least `tailMin`.
- */
-function shed(moment: Moment, origin: Point, speed: number, tau: number, side: number, age: number, { tailMin, tailOfSpeed }: { readonly tailMin: number; readonly tailOfSpeed: number }): { x: number; y: number; tail: number } {
-	const { meteor, nx, ny } = moment
-	const gone = tau * (1 - Math.exp(-age / tau))
-	return {
-		x: origin.x + meteor.dirX * speed * gone + nx * side * gone,
-		y: origin.y + meteor.dirY * speed * gone + ny * side * gone,
-		tail: Math.max(tailMin, speed * Math.exp(-age / tau) * tailOfSpeed),
-	}
-}
-
 /** Sparks shed behind the head: they brake fast, because they are small, and cool from the head's color to the spectrum's `cool`. */
 function drawSparks(moment: Moment): void {
 	const { ctx, meteor, show, dpr, elapsed, white } = moment
@@ -238,7 +218,7 @@ function drawSparks(moment: Moment): void {
 		const age = elapsed - spark.emitted * meteor.duration
 		if (age <= 0 || age >= spark.life) continue
 		const origin = fireballPoint(meteor, brake, spark.emitted)
-		const { x, y, tail } = shed(moment, origin, meteor.speed * brakedSpeed(spark.emitted, brake) * spark.lag, spark.tau, spark.side, age, FIREBALL.sparks)
+		const { x, y, tail } = fragmentAt(meteor, origin, meteor.speed * brakedSpeed(spark.emitted, brake) * spark.lag, spark.tau, spark.side, age, FIREBALL.sparks)
 		const light = spark.light * Math.min(1, age / fadeIn) * (1 - age / spark.life) ** fadePower * keptMote(moment, x, y, tail)
 		if (light < MIN_STAR_ALPHA) continue
 		const start = mixRgb(colorAlong(arc, spark.emitted), white, whiten)
@@ -264,7 +244,7 @@ function drawPieces(moment: Moment): void {
 	const ending = smoothstep(meteor.duration + lingers[1], meteor.duration + lingers[0], elapsed)
 	const piece = mixRgb(color, cool, Math.min(1, age / coolOver))
 	for (const { tau, side, size, light: bright, decay } of show.pieces) {
-		const { x: cx, y: cy, tail: back } = shed(moment, origin, speed, tau, side, age, FIREBALL.pieces)
+		const { x: cx, y: cy, tail: back } = fragmentAt(meteor, origin, speed, tau, side, age, FIREBALL.pieces)
 		const light = bright * Math.exp(-age / decay) * Math.min(1, age / fadeIn) * ending * keptMote(moment, cx, cy, back)
 		if (light < MIN_STAR_ALPHA) continue
 		const x = cx * dpr
@@ -307,7 +287,6 @@ export function drawFireball(ctx: OffscreenCanvasRenderingContext2D, assets: Sky
 	const flare = fireballFlare(progress, show)
 	const kept = (x: number, y: number) => transientQuietFactor(frame.quiet, x, y, CLEAR_SKY_KEEPS) * fade
 	const clearanceAt = (x: number, y: number) => quietClearance(frame.quiet, x, y)
-	const { least, lightPower, flareGrow, spentShrink, spentOver } = FIREBALL.head
 	const moment: Moment = {
 		ctx,
 		white: assets.tokens.white,
@@ -324,7 +303,7 @@ export function drawFireball(ctx: OffscreenCanvasRenderingContext2D, assets: Sky
 		y: point.y * dpr,
 		nx: -meteor.dirY,
 		ny: meteor.dirX,
-		radius: show.tier.head * (least + (1 - least) * Math.min(1, light ** lightPower)) * (1 + flareGrow * flare) * (1 - spentShrink * smoothstep(show.burstAt, show.burstAt + spentOver, progress)) * dpr,
+		radius: fireballHead(progress, show, light, flare) * dpr,
 		kept,
 		headKept: kept(point.x, point.y),
 		clearanceAt,

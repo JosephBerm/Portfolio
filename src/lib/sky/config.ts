@@ -819,13 +819,14 @@ export const SCROLL_CANCEL = { from: 12, to: 24 } as const
 export const METEOR_LIGHT = { skew: 0.868, sharpness: 1.2, flare: 0.55, flareAt: 0.86, flareWidth: 0.035, flareClearWidths: 2, flareGlow: 1.3, flareGlowFrom: 0.8 } as const
 
 /**
- * How a shooting star is drawn: head core and glow sigma, glow alpha (bigger for fireballs); the wake tapers from
- * the head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. An ordinary meteor is thin,
- * as it looks to the eye: a point with a halo too faint to read as a disc, trailing a hair of wake, and the soft pass is
- * what lets a tint read on a line that fine. From the head the wake cools from white to its tint over `coolBy` of its
- * length, so the first fifth stays white-hot and the rest carries the color, and its far half thins to `tailKeep` at the
- * end. The tint is the wake color of the flight's spectrum (METEOR_SPECTRA), as much of it as the meteor's brightness
- * shows (METEOR_CHROMA).
+ * How a shooting star is drawn: head core and glow sigma, glow alpha (`fireballGlow` times it for a body marked as a
+ * fireball that drawMeteor draws, which a fireball with a show never is: FIREBALL has its own); the wake tapers from the
+ * head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. An ordinary meteor is thin, as it
+ * looks to the eye: a point with a halo too faint to read as a disc, trailing a hair of wake, and the soft pass is what
+ * lets a tint read on a line that fine. From the head the wake cools from white to its tint over `coolBy` of its length,
+ * so the first fifth stays white-hot and the rest carries the color, and its far half thins to `tailKeep` at the end. The
+ * tint is the wake color of the flight's spectrum (METEOR_SPECTRA), as much of it as the meteor's brightness shows
+ * (METEOR_CHROMA).
  */
 export const METEOR_LOOK = {
 	core: 0.62,

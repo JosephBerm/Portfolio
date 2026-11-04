@@ -640,8 +640,16 @@ export const METEOR = {
 	 */
 	speedJitter: [0.88, 1.12],
 	fallbackScale: 0.64,
-	/** Path length range (px; the fallback pass accepts `fallbackScale` times the shortest); the longest is also at most `pathShare` of the longer viewport side. */
-	path: [160, 640],
+	/**
+	 * Path length range (px; the fallback pass accepts `fallbackScale` times the shortest); the longest is also at most
+	 * `pathShare` of the longer viewport side. A path is a speed times a flight time, and a small window's speeds are slow
+	 * (SKY_WINDOW), so the shortest is what such a window can still reach in SPEED_CLASSES' durations. At 135 px the planner
+	 * finds a path for 73% of its launch attempts on a 740 x 360 phone held sideways and 99% on 1024 x 768; at 160 px, 31%
+	 * and 97%. Three plans in a row that find no room stop the shooting stars until the next layout
+	 * (TRANSIENTS.maxFailedPlans), which with the page held still 160 px does within two minutes on 6 visits in 10 on that
+	 * phone and 135 px on 1 in 20.
+	 */
+	path: [135, 640],
 	pathShare: 0.36,
 	/** Narrow screens: paths at least `narrowMinPath` px (`fallbackScale` times that on the fallback pass) and at most `narrowMaxPathShare` of the width. */
 	narrowMinPath: 110,

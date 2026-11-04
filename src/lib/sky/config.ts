@@ -364,13 +364,12 @@ export const FRAME = {
  * Frame pacing for moving stars (FRAME keeps the timers for a sky that only changes brightness). A moving star steps at
  * most `stepDevicePx` per drawn frame (two quarter-pixel phases, under a third of the smallest star's width) where the
  * display's refresh rate allows it, and never draws below `minFps`. Motion draws on animation frames divided by a whole
- * number, so every drawn frame stays up for the same number of display refreshes, and a need may fall `refreshSlack` short
- * of its rate, because a worker's 0.1 ms timestamps read a 60 Hz display as 59.88 Hz, which must divide as 60 does; a lower
- * need must last `slowDownAfter` seconds before the clock slows down. The drift and the pointer lean draw at most
- * `narrowMaxFps` on
- * narrow screens (phone GPUs pay most for a full-screen frame) and `slowMaxFps` after the first adaptive step; a
- * software-rasterized canvas may spend `softwareShare` of a core on them and keeps a still sky below `minFps`. The
- * refresh interval is the median of the last `refreshSamples` frame intervals; a median within `unalignedToleranceMs`
+ * number, so every drawn frame stays up for the same number of display refreshes, and a need may fall short of its rate by
+ * a factor of `refreshSlack`, because a worker's 0.1 ms timestamps read a 60 Hz display as 59.88 Hz, which must divide as
+ * 60 does; a lower need must last `slowDownAfter` seconds before the clock slows down. The drift and the pointer lean draw
+ * at most `narrowMaxFps` on narrow screens (phone GPUs pay most for a full-screen frame) and `slowMaxFps` after the first
+ * adaptive step; a software-rasterized canvas may spend `softwareShare` of a core on them and keeps a still sky below `minFps`.
+ * The refresh interval is the median of the last `refreshSamples` frame intervals; a median within `unalignedToleranceMs`
  * of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock, not the display, so while something moves the main
  * thread relays the page's own animation frames to the worker, which divides them like a display's. A requested
  * animation frame that hasn't come `watchdogMs` after the request (while visible) is served by a timer; after

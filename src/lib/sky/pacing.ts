@@ -114,10 +114,10 @@ export function fadeOutAt(since: number | null, duration: number, t: number): nu
 	return since === null ? 1 : 1 - smoothstep(since, since + duration, t)
 }
 
-/** Draw on every k-th refresh: the largest k that still gives `fps`, and at least the k that keeps under `cap`. */
+/** Draw on every k-th refresh: the largest k that still gives `fps`, within PACING.refreshSlack, and at least the k that keeps under `cap`. */
 export function refreshDivisor(refreshHz: number, fps: number, cap: number): number {
 	// A hair of slack on both roundings: a measured refresh such as 59.999... Hz must divide like 60
-	return Math.max(Math.floor(refreshHz / fps + 1e-9), Math.ceil(refreshHz / cap - 1e-9), 1)
+	return Math.max(Math.floor((refreshHz / fps) * PACING.refreshSlack + 1e-9), Math.ceil(refreshHz / cap - 1e-9), 1)
 }
 
 /** The divisor in use, and since when (worker-clock ms) a larger one has been enough. */

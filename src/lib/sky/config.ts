@@ -796,10 +796,10 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * bends). Its light, at most `peak`, falls as (1 + distance / `scale`)^-`power` and eases out from `fadeFrom` of the
  * length; at the head it keeps `headKeep` of it, rising to all of it by `headTo` degrees. Sunward of the head, its light
  * rises from nothing, `rise` cap widths from the head, to all of it at the head, and the tail is looked for no farther
- * than `behind` of them. The ion tail is a few narrow rays (`rays`: degrees clockwise of the axis, and a share of the
- * light) widening downstream from `width[0]` by `width[1]` a degree, `peak` at most at the head, rising from nothing
- * there over its first `rise` degrees and falling as 1 / (1 + distance / `scale`) to nothing at its `length`, easing out
- * from `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its two. `count` knots,
+ * than `behind` of them. The ion tail is a few narrow rays (`rays`: degrees clockwise of the axis, and a share of
+ * `peak`) widening downstream from `width[0]` by `width[1]` a degree, each rising from nothing at the head over its
+ * first `rise` degrees and falling as 1 / (1 + distance / `scale`) to nothing at its `length`, easing out from
+ * `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its two. `count` knots,
  * faint and elongated brightenings, glide outward along its first `rays` rays: one is born `from` degrees from the head
  * every `period` seconds (the knots a golden ratio apart in phase), moves `v0` degrees a second and speeds up by `accel`
  * a second, as the knots of real ion tails do, fades in over the first `fadeIn` of its period and out from `fadeOutFrom`

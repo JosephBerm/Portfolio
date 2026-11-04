@@ -177,9 +177,9 @@ export function drawStart(random: Random, area: StartArea): Point {
 }
 
 /**
- * Whether a point lies inside the screen's guards for where a transient's key points may fall: METEOR's edge margin from
- * each side, below METEOR.top and not below METEOR.maxEndY of the height. A flight's end, a flash, a swarm's pieces and
- * a satellite's fade keep to them.
+ * Whether a point lies inside the screen's guards for where a transient's key points may fall: METEOR's edge margin in
+ * from the left and right edges, below METEOR.top and not below METEOR.maxEndY of the height. A flight's end, a flash, a
+ * swarm's pieces and a satellite's fade keep to them.
  */
 export function insideGuards(field: MeteorField, x: number, y: number): boolean {
 	return x >= METEOR.edgeMargin && x <= field.width - METEOR.edgeMargin && y >= METEOR.top && y <= field.height * METEOR.maxEndY

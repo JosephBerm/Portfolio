@@ -29,7 +29,7 @@ import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
-import { drawFireball } from './renderFireball'
+import { drawFireball, drawRadial } from './renderFireball'
 import { KNOT_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
@@ -386,16 +386,9 @@ export function drawMeteorSheath(ctx: OffscreenCanvasRenderingContext2D, assets:
 	const chroma = meteorChroma(meteor.peak)
 	const alpha = METEOR_SHEATH.alpha * chroma * state.intensity * fade * transientQuietFactor(frame.quiet, head.x, head.y, CLEAR_SKY_KEEPS)
 	if (alpha < MIN_STAR_ALPHA) return
-	const x = head.x * dpr
-	const y = head.y * dpr
-	const radius = METEOR_SHEATH.radius * dpr
-	const color = mixRgb(assets.tokens.white, sheath, chroma)
-	const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius)
-	for (const [at, share] of METEOR_SHEATH.stops) gradient.addColorStop(at, rgba(color, alpha * share))
 	ctx.globalCompositeOperation = 'lighter'
 	ctx.globalAlpha = 1
-	ctx.fillStyle = gradient
-	ctx.fillRect(x - radius, y - radius, 2 * radius, 2 * radius)
+	drawRadial(ctx, head.x * dpr, head.y * dpr, METEOR_SHEATH.radius * dpr, mixRgb(assets.tokens.white, sheath, chroma), alpha, METEOR_SHEATH.stops)
 }
 
 /** The satellite's dot is a radial gradient of this many equal steps of its radius. */
@@ -415,8 +408,8 @@ function dotLight(t: number): number {
 	return (gain * (spread(radius * t) - edge)) / (spread(0) - edge)
 }
 
-/** The light the dot adds per unit of the satellite's light at each step of its radius, from its center to its edge. */
-const DOT_PROFILE = Array.from({ length: DOT_STEPS + 1 }, (_, k) => dotLight(k / DOT_STEPS))
+/** The stops of the dot's gradient: each step of its radius, from its center to its edge, and the light it adds there per unit of the satellite's light. */
+const DOT_STOPS = Array.from({ length: DOT_STEPS + 1 }, (_, k): readonly [number, number] => [k / DOT_STEPS, dotLight(k / DOT_STEPS)])
 
 /**
  * A satellite at the frame's time: one steady dot, with no tail and no twinkle, added to the sky. It is one radial
@@ -436,16 +429,11 @@ function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets
 	const { dpr } = frame
 	const { dot } = SATELLITE
 	const radius = dot.radius * Math.max(dpr, MIN_CORE_SIGMA_DEVICE_PX / dot.core)
-	const px = x * dpr
-	const py = y * dpr
 	const color = mixRgb(assets.palette[SATELLITE.tint] ?? assets.tokens.white, SATELLITE.shadowColor, warmth)
-	const gradient = ctx.createRadialGradient(px, py, 0, px, py, radius)
-	for (const [k, added] of DOT_PROFILE.entries()) gradient.addColorStop(k / DOT_STEPS, rgba(color, light * added))
 	ctx.globalCompositeOperation = 'lighter'
 	ctx.globalAlpha = 1
-	ctx.fillStyle = gradient
 	// A device px past the radius on every side, where the gradient has nothing left to add
-	ctx.fillRect(px - radius - 1, py - radius - 1, 2 * radius + 2, 2 * radius + 2)
+	drawRadial(ctx, x * dpr, y * dpr, radius, color, light, DOT_STOPS, 1)
 }
 
 /** The wake stops drawMeteor samples for a body: none for one with no wake time (a point flash, which has no length either), else all of them. */

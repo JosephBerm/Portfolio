@@ -1424,8 +1424,9 @@ export const FIREBALL = {
 	 * head's speed and brake with time constant `tau` (the smaller a piece, the sooner), drift `side` px/s across the path, fade in over
 	 * `fadeIn` and fade with time constant `decay`, and their light ends with the flight's, over `lingers` seconds from its
 	 * end. Each is a soft glow `glowOfSize` times its `size` wide at `glowAlpha`, a tailed point `bodyOfSize` of its size
-	 * with a tail of at least `tailMin` px, `tailOfSpeed` of its speed, and a white center `coreOfSize` of its size, in the
-	 * head's color at the burst whitened by `whiten` and cooling to the spectrum's `cool` over `coolOver` s.
+	 * with a tail of at least `tailMin` px, `tailOfSpeed` of its speed, and a white center `coreOfSize` of its size. The
+	 * glow and the point are in the head's color now, cooling to the spectrum's `cool` over `coolOver` s since the burst,
+	 * and the point's head end is whitened by `whiten`.
 	 */
 	pieces: {
 		tau: [0.3, 1],

@@ -247,27 +247,41 @@ export function pickVisitSky(random: Random, field: MeteorField): VisitSky {
 	return buildVisitSky(random, view, radiant, null)
 }
 
-/** What a steer is asked for beyond a visit's usual mix of sources and brightness. */
+/** What a steer is asked for beyond a visit's usual mix of sources and brightness. Each field from `radiant` on replaces what the steer would have drawn. */
 export interface SteerOptions {
 	/** Every flight comes from the shower, not only RADIANTS.showerShare of them, and takes the shower's spectrum, not only RADIANTS.showerKeeps of them. */
 	shower?: boolean
 	/** Every flight is faint (METEOR_BRIGHTNESS.faint), not only METEOR_BRIGHTNESS.faintShare of them. */
 	faint?: boolean
+	/** Flights come from exactly this radiant, not one scattered about their source's: the pieces of a cluster fly parallel. */
+	radiant?: SkyDirection
+	/** Flights fly at this speed class, not their source's. */
+	speed?: SpeedClassName
+	/** Flights have this spectrum, not the shower's or one drawn from their speed class. */
+	spectrum?: SpectrumName
+	/** Peak brightness before range dims it, not one drawn from METEOR_BRIGHTNESS. */
+	peak?: number
+	/** Flight time range (s; the shorter fallback scales it as it scales a class's), not their class's. */
+	duration?: readonly [number, number]
+	/** Shortest path (px), not the planner's or the near-radiant one. */
+	minPath?: number
 }
 
 /**
  * One launch's steer: a source (the shower with RADIANTS.showerShare, else a sporadic one, unless `options` ask for the
  * shower), its scattered radiant and the spectrum of its flights: the shower's own for a shower flight with
- * RADIANTS.showerKeeps (always, if `options` ask for the shower), else one drawn from the source's speed class.
+ * RADIANTS.showerKeeps (always, if `options` ask for the shower), else one drawn from the source's speed class. `options`
+ * can fix the radiant, the speed class, the spectrum, the peak, the flight time and the shortest path instead.
  */
 export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions = {}): Steer {
 	const view = sky.window
 	const source = options.shower || random() < RADIANTS.showerShare ? sky.shower : (sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower)
-	const radiant = scattered(random, source.radiant, source.scatter)
-	const speedClass = SPEED_CLASSES[source.speed]
-	const spectrum = source.kind === 'shower' && (options.shower || random() < RADIANTS.showerKeeps) ? sky.showerSpectrum : drawSpectrum(random, speedClass.spectra)
-	const [shortest, longest] = speedClass.duration
-	const durations = { long: speedClass.duration, short: [shortest * METEOR.fallbackScale, longest * METEOR.fallbackScale] as const }
+	const radiant = options.radiant ?? scattered(random, source.radiant, source.scatter)
+	const speedClass = SPEED_CLASSES[options.speed ?? source.speed]
+	const spectrum = options.spectrum ?? (source.kind === 'shower' && (options.shower || random() < RADIANTS.showerKeeps) ? sky.showerSpectrum : drawSpectrum(random, speedClass.spectra))
+	const duration = options.duration ?? speedClass.duration
+	const [shortest, longest] = duration
+	const durations = { long: duration, short: [shortest * METEOR.fallbackScale, longest * METEOR.fallbackScale] as const }
 	const steepest = -Math.sin(RADIANTS.climbDegrees * DEG)
 	const centerRange = meteorRange(view.pitch)
 	// The range at the nearest point of the start area: a flight dims with the square of its range over this one, so none is brighter than its peak
@@ -285,7 +299,7 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 		const jitter = between(random, METEOR.speedJitter[0], METEOR.speedJitter[1])
 		const speed = (speedClass.angular * DEG * view.focal * motion.rate * jitter) / (range / centerRange)
 		const [dimmest, brightest] = options.faint || random() < METEOR_BRIGHTNESS.faintShare ? METEOR_BRIGHTNESS.faint : METEOR_BRIGHTNESS.normal
-		const peak = between(random, dimmest, brightest) * Math.max(METEOR_BRIGHTNESS.rangeFloor, (nearestRange / range) ** 2)
+		const peak = (options.peak ?? between(random, dimmest, brightest)) * Math.max(METEOR_BRIGHTNESS.rangeFloor, (nearestRange / range) ** 2)
 		let near = false
 		if (onScreen !== null) {
 			const toStart = through(view, start.x, start.y)
@@ -297,13 +311,78 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 			speed,
 			duration: fallback ? durations.short : durations.long,
 			pathShare: climbing ? RADIANTS.climbShare : 1,
-			minPath: near ? RADIANTS.nearRadiantPath : null,
+			minPath: options.minPath ?? (near ? RADIANTS.nearRadiantPath : null),
 			peak,
 			spectrum,
 			train: speedClass.train,
 			speedClass: source.speed,
 		}
 	}
+}
+
+/**
+ * The visit's shower radiant, for a cluster centered on screen point `at`, when it lies `degrees` of the sky window from
+ * there (a range of distance on the screen, in degrees as they are at the window's center, so toward its edge the true
+ * angle is a little less) and flights from it there neither climb nor cross slower than `slowest` °/s; else null. A radiant
+ * behind the screen never qualifies: it lies too far.
+ */
+export function showerRadiantAt(sky: VisitSky, at: Point, degrees: readonly [number, number], slowest: number): SkyDirection | null {
+	const { window: view, shower } = sky
+	const point = vanishingPoint(view, shower.radiant)
+	const motion = radiantMotion(view, shower.radiant, at.x, at.y)
+	if (point === null || motion === null) return null
+	const away = Math.hypot(at.x - point.x, at.y - point.y)
+	const near = view.focal * Math.tan(degrees[0] * DEG)
+	const far = view.focal * Math.tan(degrees[1] * DEG)
+	const climbs = motion.dirY < -Math.sin(RADIANTS.climbDegrees * DEG)
+	const crawls = SPEED_CLASSES[shower.speed].angular * motion.rate < slowest
+	return away >= near && away <= far && !climbs && !crawls ? shower.radiant : null
+}
+
+/** A radiant for a cluster of its own, `degrees` of the sky window from screen point `at`, within `heading` degrees of straight above it on the screen. */
+export function radiantOver(random: Random, view: SkyWindow, at: Point, degrees: readonly [number, number], heading: number): SkyDirection {
+	const away = view.focal * Math.tan(between(random, degrees[0], degrees[1]) * DEG)
+	const angle = between(random, -heading, heading) * DEG
+	return through(view, at.x + away * Math.sin(angle), at.y - away * Math.cos(angle))
+}
+
+/** Where a piece of a swarm lies: km to either side of the swarm's center line, across its flight, and seconds behind its front. */
+export interface SwarmOffset {
+	east: number
+	north: number
+	behind: number
+}
+
+/**
+ * Where a piece of a swarm first lights on the screen, and when. A cluster is the pieces of one meteoroid, flying as a
+ * swarm on parallel lines along -radiant at the speed class's entry speed (km/s, from its angular speed at the window's
+ * center). The swarm's center line meets the meteor layer at the point seen through screen point `at`, at second 0, and
+ * a piece lies where `offset` puts it. Its line first reaches the layer at one point, which the piece lights at, `delay`
+ * seconds after the center line does (before it if negative). So a piece that lights later lights farther along the sky
+ * where the radiant is low and beside the others where it is high, as a real cluster does. Null when its line misses
+ * the layer or meets it behind the screen.
+ */
+export function swarmPiece(view: SkyWindow, radiant: SkyDirection, speed: SpeedClassName, at: Point, offset: SwarmOffset): (Point & { delay: number }) | null {
+	const ground = SKY_WINDOW.earthRadiusKm
+	const layer = ground + SKY_WINDOW.meteorHeightKm
+	const speedKm = SPEED_CLASSES[speed].angular * DEG * meteorRange(view.pitch)
+	const toAt = through(view, at.x, at.y)
+	const range = meteorRange(elevationAt(view, at.x, at.y))
+	const { east, north } = radiantAxes(radiant)
+	const behind = offset.behind * speedKm
+	// The viewer stands `ground` km from the Earth's center, along the zenith: (0, -cos pitch, sin pitch) in the window's frame
+	const up = { y: -Math.cos(view.pitch), z: Math.sin(view.pitch) }
+	// A point of the piece's line, from the Earth's center
+	const x = toAt.x * range + east.x * offset.east + north.x * offset.north + radiant.x * behind
+	const y = toAt.y * range + east.y * offset.east + north.y * offset.north + radiant.y * behind + up.y * ground
+	const z = toAt.z * range + east.z * offset.east + north.z * offset.north + radiant.z * behind + up.z * ground
+	// How far along -radiant it first meets the layer: |point - km × radiant| = layer
+	const along = x * radiant.x + y * radiant.y + z * radiant.z
+	const km = along - Math.sqrt(along * along - (x * x + y * y + z * z) + layer * layer)
+	const depth = z - radiant.z * km - up.z * ground
+	// Written so that a line that misses the layer (km is NaN) is null too
+	if (!(depth > 0)) return null
+	return { x: view.cx + (view.focal * (x - radiant.x * km)) / depth, y: view.cy + (view.focal * (y - radiant.y * km - up.y * ground)) / depth, delay: km / speedKm }
 }
 
 /**

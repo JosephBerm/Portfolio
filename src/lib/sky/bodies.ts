@@ -78,6 +78,21 @@ const ION_RAYS = COMET.ion.rays.map(({ off, share }) => {
 	return { share, cos, sin, dirX: AXIS.x * cos - AXIS.y * sin, dirY: AXIS.y * cos + AXIS.x * sin }
 })
 
+/** How much of the ion tail's light is left `distance` degrees down a ray: it falls as 1 / (1 + distance / scale). */
+function ionFalloff(distance: number): number {
+	return (1 + distance / COMET.ion.scale) ** -1
+}
+
+/** How much of the ion tail's light its end leaves at `distance` degrees: all of it until `fadeFrom` of the length, easing to none at the length. */
+function ionFade(distance: number): number {
+	return 1 - smoothstep(COMET.ion.fadeFrom * COMET.ion.length, COMET.ion.length, distance)
+}
+
+/** The width of the ion tail's rays `distance` degrees down a ray (one standard deviation, degrees): `width[0]`, widening by `width[1]` a degree. */
+function ionWidth(distance: number): number {
+	return COMET.ion.width[0] + COMET.ion.width[1] * distance
+}
+
 /**
  * The comet's light at a point `xi` degrees along the axis its tails point along, away from the Sun, and `eta` degrees
  * across it toward the side the dust tail bends to, written to `out`. It is the one place the look's math lives, read by
@@ -116,9 +131,9 @@ export function cometLight(xi: number, eta: number, out: CometLight): void {
 		out.ion +=
 			ion.peak *
 			ray.share *
-			(1 + distance / ion.scale) ** -1 *
-			(1 - smoothstep(ion.fadeFrom * ion.length, ion.length, distance)) *
-			Math.exp(-((across / (ion.width[0] + ion.width[1] * distance)) ** 2)) *
+			ionFalloff(distance) *
+			ionFade(distance) *
+			Math.exp(-((across / ionWidth(distance)) ** 2)) *
 			smoothstep(0, 0.4, distance)
 	}
 }
@@ -150,7 +165,7 @@ const KNOT_PHASE = 0.618034
  * twinkles: only the stars do.
  */
 export function cometKnots(clock: number, unit: number, knots: CometKnot[]): void {
-	const { ion, knots: config } = COMET
+	const config = COMET.knots
 	for (const [n, knot] of knots.entries()) {
 		const ray = ION_RAYS[n % config.rays]
 		if (!ray) continue
@@ -166,10 +181,10 @@ export function cometKnots(clock: number, unit: number, knots: CometKnot[]): voi
 			smoothstep(0, 0.1, tau) *
 			(1 - smoothstep(0.62, 1, tau)) *
 			(0.6 + 0.4 * Math.sin(n * 12.9898) ** 2) *
-			(1 + distance / ion.scale) ** -1 *
-			(1 - smoothstep(ion.fadeFrom * ion.length, ion.length, distance))
+			ionFalloff(distance) *
+			ionFade(distance)
 		knot.long = config.long * unit * (1 + distance / config.stretch)
-		knot.wide = config.wide * (ion.width[0] + ion.width[1] * distance) * unit
+		knot.wide = config.wide * ionWidth(distance) * unit
 	}
 }
 

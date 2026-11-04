@@ -109,7 +109,7 @@ export function cometLight(xi: number, eta: number, out: CometLight): void {
 	out.mint = smoothstep(coma.mintFrom, coma.mintTo, rho)
 	// The dust tail: every grain size lags the axis as the 1.5 power of the distance along it, so the ridge does, in a fan from a parabolic cap
 	out.dust = 0
-	if (xi > -2.2 * dust.cap && xi < dust.length) {
+	if (xi > -dust.behind * dust.cap && xi < dust.length) {
 		const bend = Math.max(0, xi / dust.length) ** 1.5
 		const capWidth = Math.sqrt(4 * dust.cap * Math.max(xi + dust.cap, 1e-6))
 		// Across the ridge: a sharp edge on the side toward the ion tail (negative), a diffuse one on the other
@@ -118,7 +118,7 @@ export function cometLight(xi: number, eta: number, out: CometLight): void {
 		const along =
 			(xi > 0 ? (1 + xi / dust.scale) ** -dust.power : 1) *
 			(1 - smoothstep(dust.fadeFrom * dust.length, dust.length, xi)) *
-			smoothstep(-1.6 * dust.cap, 0, xi) *
+			smoothstep(-dust.rise * dust.cap, 0, xi) *
 			(dust.headKeep + (1 - dust.headKeep) * smoothstep(0, dust.headTo, xi))
 		out.dust = dust.peak * along * Math.exp(-((delta / width) ** 2))
 	}
@@ -134,7 +134,7 @@ export function cometLight(xi: number, eta: number, out: CometLight): void {
 			ionFalloff(distance) *
 			ionFade(distance) *
 			Math.exp(-((across / ionWidth(distance)) ** 2)) *
-			smoothstep(0, 0.4, distance)
+			smoothstep(0, ion.rise, distance)
 	}
 }
 
@@ -157,12 +157,16 @@ export interface CometKnot {
 /** The golden ratio's fractional part: knots that far apart in phase never bunch up, however many there are. */
 const KNOT_PHASE = 0.618034
 
+/** The multiplier of the sine hash that gives each knot a brightness of its own, sin(n × KNOT_HASH)²: it makes neighbors differ, and is not a look number. */
+const KNOT_HASH = 12.9898
+
 /**
  * Writes where each of the ion tail's knots is at drift-clock time `clock` (s), for a window of `unit` CSS px a degree. A
  * knot is born near the head every COMET.knots.period s, glides outward faster and faster along one of the first rays,
- * fades in as it is born and out well before the tail's end, and has a brightness of its own (0.6 to 1 of the peak). It
- * is a pure function of the clock, so a pause freezes it and a returning tab never jumps it, and it neither breathes nor
- * twinkles: only the stars do.
+ * fades in over COMET.knots.fadeIn of its period and out from COMET.knots.fadeOutFrom of it, well before the tail's end,
+ * and has a brightness of its own (COMET.knots.floor to floor plus COMET.knots.spread of the peak). It is a pure
+ * function of the clock, so a pause freezes it and a returning tab never jumps it, and it neither breathes nor twinkles:
+ * only the stars do.
  */
 export function cometKnots(clock: number, unit: number, knots: CometKnot[]): void {
 	const config = COMET.knots
@@ -178,9 +182,9 @@ export function cometKnots(clock: number, unit: number, knots: CometKnot[]): voi
 		knot.dirY = ray.dirY
 		knot.light =
 			config.peak *
-			smoothstep(0, 0.1, tau) *
-			(1 - smoothstep(0.62, 1, tau)) *
-			(0.6 + 0.4 * Math.sin(n * 12.9898) ** 2) *
+			smoothstep(0, config.fadeIn, tau) *
+			(1 - smoothstep(config.fadeOutFrom, 1, tau)) *
+			(config.floor + config.spread * Math.sin(n * KNOT_HASH) ** 2) *
 			ionFalloff(distance) *
 			ionFade(distance)
 		knot.long = config.long * unit * (1 + distance / config.stretch)

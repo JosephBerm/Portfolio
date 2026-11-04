@@ -794,16 +794,19 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * wide at the head and ends `lag` of its `length` to the side. Its edge toward the ion tail is sharp (half a width
  * `convex` times the cap's) and its other side diffuse (`concave`, widening by `spread` of the length as the ridge
  * bends). Its light, at most `peak`, falls as (1 + distance / `scale`)^-`power` and eases out from `fadeFrom` of the
- * length; at the head it keeps `headKeep` of it, rising to all of it by `headTo` degrees. The ion tail is a few narrow
- * rays (`rays`: degrees clockwise of the axis, and a share of the light) widening downstream from `width[0]` by
- * `width[1]` a degree, `peak` at most at the head and falling as 1 / (1 + distance / `scale`) to nothing at its
- * `length`, easing out from `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its
- * two. `count` knots, faint and elongated brightenings, glide outward along its first `rays` rays: one is born `from`
- * degrees from the head every `period` seconds (the knots a golden ratio apart in phase), moves `v0` degrees a second and
- * speeds up by `accel` a second, as the knots of real ion tails do, and adds at most `peak` of light, `long` degrees long
- * at the head and growing by its own length every `stretch` degrees, and `wide` times as wide as its ray. The art of the
- * coma and the tails is painted once when the comet shows, as a bitmap of one pixel per CSS px, fewer where its longer
- * side would pass `art.maxSide` (so at most 1 MB), fading out over its last `art.edge` px.
+ * length; at the head it keeps `headKeep` of it, rising to all of it by `headTo` degrees. Sunward of the head, its light
+ * rises from nothing, `rise` cap widths from the head, to all of it at the head, and the tail is looked for no farther
+ * than `behind` of them. The ion tail is a few narrow rays (`rays`: degrees clockwise of the axis, and a share of the
+ * light) widening downstream from `width[0]` by `width[1]` a degree, `peak` at most at the head, rising from nothing
+ * there over its first `rise` degrees and falling as 1 / (1 + distance / `scale`) to nothing at its `length`, easing out
+ * from `fadeFrom` of it: the faint partner of the dust tail, kept because a comet is known by its two. `count` knots,
+ * faint and elongated brightenings, glide outward along its first `rays` rays: one is born `from` degrees from the head
+ * every `period` seconds (the knots a golden ratio apart in phase), moves `v0` degrees a second and speeds up by `accel`
+ * a second, as the knots of real ion tails do, fades in over the first `fadeIn` of its period and out from `fadeOutFrom`
+ * of it, and adds at most `peak` of light (each knot its own share of it, from `floor` to `floor` plus `spread`), `long`
+ * degrees long at the head and growing by its own length every `stretch` degrees, and `wide` times as wide as its ray.
+ * The art of the coma and the tails is painted once when the comet shows, as a bitmap of one pixel per CSS px, fewer
+ * where its longer side would pass `art.maxSide` (so at most 1 MB), fading out over its last `art.edge` px.
  *
  * A real comet crosses the stars too slowly to see (Comet NEOWISE at its fastest, 3.72 degrees a day, would cross about
  * 0.001 px a second here), so any motion the page shows is a time-lapse, and this one keeps real rates and says so: the
@@ -864,6 +867,8 @@ export const COMET = {
 		fadeFrom: 0.42,
 		headKeep: 0.35,
 		headTo: 0.6,
+		behind: 2.2,
+		rise: 1.6,
 		tint: 6,
 	},
 	ion: {
@@ -872,6 +877,7 @@ export const COMET = {
 		scale: 4,
 		width: [0.035, 0.02],
 		fadeFrom: 0.5,
+		rise: 0.4,
 		tint: 3,
 		rays: [
 			{ off: 0, share: 1 },
@@ -880,7 +886,7 @@ export const COMET = {
 			{ off: 2.9, share: 0.16 },
 		],
 	},
-	knots: { count: 5, rays: 3, period: 115, from: 0.5, v0: 0.02, accel: 0.0016, peak: 0.03, long: 0.5, stretch: 8, wide: 1.1 },
+	knots: { count: 5, rays: 3, period: 115, from: 0.5, v0: 0.02, accel: 0.0016, peak: 0.03, long: 0.5, stretch: 8, wide: 1.1, fadeIn: 0.1, fadeOutFrom: 0.62, floor: 0.6, spread: 0.4 },
 	art: { maxSide: 512, edge: 8 },
 } as const
 

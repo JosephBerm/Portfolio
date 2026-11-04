@@ -5,25 +5,23 @@
  * the page scrolls from where it began to show, the sky is paused or resized, copy comes near it or it has glided off
  * the right edge. Then it is gone for the page view. It never lights the copy: it shows only where its whole box keeps
  * clear of every quiet zone's reach. This module is its model, pure functions over a body's state: where it hangs and
- * drifts, the light of its head, tails and knots, its fades, the box test and its start rule. The worker keeps the state
- * and feeds them what it knows, renderSky draws what they return, and skyAssets paints the comet's bitmap from
- * cometLightAt. It imports only types from transients.ts.
+ * drifts, its fades, the box test and its start rule. What it looks like and how fast it drifts (the light of its head,
+ * tails and knots, its size and box, the pace of its drift) is comet.ts's: skyAssets paints the comet's bitmap from it, and
+ * this module reads its box and its pace. The worker keeps the state and feeds the functions what it knows, and renderSky
+ * draws what they return. It imports only types from transients.ts.
  */
 
 import { driftAt, type Vec } from './camera'
 import { nearness } from './catalog'
+import { cometDrift, cometKnots, cometShape, type CometKnot, type CometShape } from './comet'
 import { COMET, LAYERS, LEAN, MAGNITUDE, METEOR, SCENE, SCROLL_CANCEL, TRANSIENTS } from './config'
 import type { Point } from './meteors'
 import { easeEnded, easing, fadeOutAt } from './pacing'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH, zoneReaches } from './quietIndex'
-import { skyWindow } from './radiants'
 import type { Random } from './random'
 import { scrollKept, smoothstep, type QuietBlend } from './scene'
 import type { LaunchGate, SkyField } from './transients'
-
-/** Radians per degree. */
-const DEG = Math.PI / 180
 
 /**
  * Nearness of a body that hangs among the faint majority of stars, the mean of the far band's (0.293): stars of a
@@ -53,216 +51,6 @@ function farBandNearness(): number {
  */
 const LEAN_REACH = BODY_NEARNESS * LEAN.reach
 
-/** A box in CSS px. */
-interface Box {
-	left: number
-	top: number
-	right: number
-	bottom: number
-}
-
-/** The light of the comet's parts at one place: what each adds (0 to 1 of its tint), and the share of the coma's light that is mint. */
-export interface CometLight {
-	coma: number
-	mint: number
-	dust: number
-	ion: number
-}
-
-/** The unit vector the ion tail's axis points along on screen (y down). */
-const AXIS = { x: Math.cos(COMET.angle * DEG), y: Math.sin(COMET.angle * DEG) }
-
-/** The ion tail's rays with the cosine and sine of their angle off the axis, and the unit vector each points along on screen: the axis turned clockwise by that angle. */
-const ION_RAYS = COMET.ion.rays.map(({ off, share }) => {
-	const cos = Math.cos(off * DEG)
-	const sin = Math.sin(off * DEG)
-	return { share, cos, sin, dirX: AXIS.x * cos - AXIS.y * sin, dirY: AXIS.y * cos + AXIS.x * sin }
-})
-
-/** How much of the ion tail's light is left `distance` degrees down a ray: it falls as 1 / (1 + distance / scale). */
-function ionFalloff(distance: number): number {
-	return (1 + distance / COMET.ion.scale) ** -1
-}
-
-/** How much of the ion tail's light its end leaves at `distance` degrees: all of it until `fadeFrom` of the length, easing to none at the length. */
-function ionFade(distance: number): number {
-	return 1 - smoothstep(COMET.ion.fadeFrom * COMET.ion.length, COMET.ion.length, distance)
-}
-
-/** The width of the ion tail's rays `distance` degrees down a ray (one standard deviation, degrees): `width[0]`, widening by `width[1]` a degree. */
-function ionWidth(distance: number): number {
-	return COMET.ion.width[0] + COMET.ion.width[1] * distance
-}
-
-/**
- * The comet's light at a point `xi` degrees along the axis its tails point along, away from the Sun, and `eta` degrees
- * across it toward the side the dust tail bends to, written to `out`. It is the one place the look's math lives, read by
- * both the scan for the comet's box and the painter of its bitmap.
- */
-export function cometLight(xi: number, eta: number, out: CometLight): void {
-	const { coma, dust, ion } = COMET
-	const rho = Math.hypot(xi, eta)
-	// The coma: light falling as 1/rho from a softened core, cut off at its radius, over a broad halo
-	out.coma =
-		rho < 2 * coma.radius
-			? (coma.peak / (1 + rho / coma.core)) * Math.exp(-((rho / coma.radius) ** 2)) + coma.halo * Math.exp(-((rho / coma.haloRadius) ** 2))
-			: 0
-	out.mint = smoothstep(coma.mintFrom, coma.mintTo, rho)
-	// The dust tail: every grain size lags the axis as the 1.5 power of the distance along it, so the ridge does, in a fan from a parabolic cap
-	out.dust = 0
-	if (xi > -dust.behind * dust.cap && xi < dust.length) {
-		const bend = Math.max(0, xi / dust.length) ** 1.5
-		const capWidth = Math.sqrt(4 * dust.cap * Math.max(xi + dust.cap, 1e-6))
-		// Across the ridge: a sharp edge on the side toward the ion tail (negative), a diffuse one on the other
-		const delta = eta - dust.lag * dust.length * bend
-		const width = delta < 0 ? capWidth * dust.convex : (capWidth + dust.spread * dust.length * bend) * dust.concave
-		const along =
-			(xi > 0 ? (1 + xi / dust.scale) ** -dust.power : 1) *
-			(1 - smoothstep(dust.fadeFrom * dust.length, dust.length, xi)) *
-			smoothstep(-dust.rise * dust.cap, 0, xi) *
-			(dust.headKeep + (1 - dust.headKeep) * smoothstep(0, dust.headTo, xi))
-		out.dust = dust.peak * along * Math.exp(-((delta / width) ** 2))
-	}
-	// The ion tail: narrow rays from the head, widening downstream
-	out.ion = 0
-	for (const ray of ION_RAYS) {
-		const distance = xi * ray.cos - eta * ray.sin
-		if (distance <= 0 || distance >= ion.length) continue
-		const across = eta * ray.cos + xi * ray.sin
-		out.ion +=
-			ion.peak *
-			ray.share *
-			ionFalloff(distance) *
-			ionFade(distance) *
-			Math.exp(-((across / ionWidth(distance)) ** 2)) *
-			smoothstep(0, ion.rise, distance)
-	}
-}
-
-/** cometLight at the screen point `x` degrees right of the nucleus and `y` below it. */
-export function cometLightAt(x: number, y: number, out: CometLight): void {
-	cometLight(x * AXIS.x + y * AXIS.y, x * AXIS.y - y * AXIS.x, out)
-}
-
-/** One knot gliding outward along the ion tail: its place from the nucleus (CSS px), the unit vector of its ray, its light (0 to 1 of the knot sprite's) and its standard deviation along the ray and across it (CSS px). */
-export interface CometKnot {
-	x: number
-	y: number
-	dirX: number
-	dirY: number
-	light: number
-	long: number
-	wide: number
-}
-
-/** The golden ratio's fractional part: knots that far apart in phase never bunch up, however many there are. */
-const KNOT_PHASE = 0.618034
-
-/** The multiplier of the sine hash that gives each knot a brightness of its own, sin(n × KNOT_HASH)²: it makes neighbors differ, and is not a look number. */
-const KNOT_HASH = 12.9898
-
-/**
- * Writes where each of the ion tail's knots is at drift-clock time `clock` (s), for a window of `unit` CSS px a degree. A
- * knot is born near the head every COMET.knots.period s, glides outward faster and faster along one of the first rays,
- * fades in over COMET.knots.fadeIn of its period and out from COMET.knots.fadeOutFrom of it, well before the tail's end,
- * and has a brightness of its own (COMET.knots.floor to floor plus COMET.knots.spread of the peak). It is a pure
- * function of the clock, so a pause freezes it and a returning tab never jumps it, and it neither breathes nor twinkles:
- * only the stars do.
- */
-export function cometKnots(clock: number, unit: number, knots: CometKnot[]): void {
-	const config = COMET.knots
-	for (const [n, knot] of knots.entries()) {
-		const ray = ION_RAYS[n % config.rays]
-		if (!ray) continue
-		const tau = (clock / config.period + n * KNOT_PHASE) % 1
-		const age = tau * config.period
-		const distance = config.from + config.v0 * age + 0.5 * config.accel * age * age
-		knot.x = ray.dirX * distance * unit
-		knot.y = ray.dirY * distance * unit
-		knot.dirX = ray.dirX
-		knot.dirY = ray.dirY
-		knot.light =
-			config.peak *
-			smoothstep(0, config.fadeIn, tau) *
-			(1 - smoothstep(config.fadeOutFrom, 1, tau)) *
-			(config.floor + config.spread * Math.sin(n * KNOT_HASH) ** 2) *
-			ionFalloff(distance) *
-			ionFade(distance)
-		knot.long = config.long * unit * (1 + distance / config.stretch)
-		knot.wide = config.wide * ionWidth(distance) * unit
-	}
-}
-
-/** The least light that shows on the sky: one level of 255. */
-const SEEN = 1 / 255
-
-/** The step of the scan for the comet's extent, and the margin the box keeps around what shows (degrees). */
-const SCAN_STEP = 0.25
-
-/** What shows of the comet in degrees of the sky window from its nucleus, on screen axes (y down): a box around all of it and the place each tail shows farthest. */
-interface CometExtent {
-	box: Box
-	dustTip: Point
-	ionTip: Point
-}
-
-/** The comet's extent, found on first use: a visit with no comet never scans. */
-let extent: CometExtent | null = null
-
-/**
- * Where the comet's light shows, by scanning cometLight over a square that holds its longest reach: the box around every
- * place whose light adds to at least one level, padded by a step, and the farthest place each of the dust and the ion
- * tail shows at. It follows the config, so a changed tail or angle never leaves a stale box.
- */
-function cometExtent(): CometExtent {
-	if (extent) return extent
-	const { dust, ion } = COMET
-	const reach = Math.ceil(Math.max(ion.length, Math.hypot(dust.length, dust.lag * dust.length)))
-	const light: CometLight = { coma: 0, mint: 0, dust: 0, ion: 0 }
-	const box: Box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }
-	const dustTip = { x: 0, y: 0 }
-	const ionTip = { x: 0, y: 0 }
-	let dustFar = 0
-	let ionFar = 0
-	for (let y = -reach; y <= reach; y += SCAN_STEP) {
-		for (let x = -reach; x <= reach; x += SCAN_STEP) {
-			cometLightAt(x, y, light)
-			const far = Math.hypot(x, y)
-			if (light.dust >= SEEN && far > dustFar) {
-				dustFar = far
-				dustTip.x = x
-				dustTip.y = y
-			}
-			if (light.ion >= SEEN && far > ionFar) {
-				ionFar = far
-				ionTip.x = x
-				ionTip.y = y
-			}
-			if (light.coma + light.dust + light.ion < SEEN) continue
-			box.left = Math.min(box.left, x)
-			box.top = Math.min(box.top, y)
-			box.right = Math.max(box.right, x)
-			box.bottom = Math.max(box.bottom, y)
-		}
-	}
-	extent = { box: { left: box.left - SCAN_STEP, top: box.top - SCAN_STEP, right: box.right + SCAN_STEP, bottom: box.bottom + SCAN_STEP }, dustTip, ionTip }
-	return extent
-}
-
-/** The comet's size and extent relative to its nucleus (CSS px, y down), for one size of sky window. */
-export interface CometShape {
-	/** CSS px a degree of the comet's art spans: the sky window's, times the comet's size. The art and the box are drawn at this scale. */
-	unit: number
-	/** The box around everything that shows, which the placement and the clear-of-copy test use. */
-	box: Box
-	/** Where each tail shows farthest from the nucleus: with the nucleus, the places that copy coming near dims all of the comet from. */
-	dustTip: Point
-	ionTip: Point
-	/** How far its own drift carries it in a second of drift clock (CSS px): the sky window's pace, which does not shrink with the comet. */
-	driftX: number
-	driftY: number
-}
-
 /** Where a body is in its life. */
 export type BodyStatus = 'waiting' | 'showing' | 'gone'
 
@@ -278,6 +66,8 @@ export interface SkyBody {
 	y: number
 	/** Its size and extent, laid out for the sky window it was placed in; null until it shows. */
 	shape: CometShape | null
+	/** How far its own drift carries it in a second of drift clock (CSS px): the pace of the sky window it was placed in (cometDrift), the pace its path was swept at. Set once it shows. */
+	drift: Vec
 	/** When it began to show, on the twinkle clock. */
 	startedAt: number
 	/** The drift clock (Camera.clock, s) when it began to show: its own drift is what it has run since. */
@@ -301,6 +91,7 @@ export function createSkyBody(): SkyBody {
 		x: 0,
 		y: 0,
 		shape: null,
+		drift: { x: 0, y: 0 },
 		startedAt: 0,
 		startClock: 0,
 		knots: Array.from({ length: COMET.knots.count }, () => ({ x: 0, y: 0, dirX: 0, dirY: 0, light: 0, long: 0, wide: 0 })),
@@ -335,29 +126,6 @@ export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean
 	return body.status === 'waiting' && body.planned && inHero(gate) && gate.settled && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
 }
 
-/**
- * The comet laid out for a screen of this size: its parts scale with the sky window (SKY_WINDOW), so it looks the same
- * size on the sky at any screen size, times `size`, the share of its full size a window with too little room for all of it
- * gives it. Its own drift keeps the window's pace, whatever its size. The box is rounded out to whole CSS px, so the
- * pixels of the comet's art line up with the screen's and fall the same way about the nucleus in every window, which is
- * what its brightest pixel depends on.
- */
-export function cometShape(width: number, height: number, size = 1): CometShape {
-	const windowUnit = (skyWindow(width, height).focal * Math.PI) / 180
-	const unit = windowUnit * size
-	const { box, dustTip, ionTip } = cometExtent()
-	const pace = COMET.drift.speed * windowUnit
-	const heading = COMET.drift.heading * DEG
-	return {
-		unit,
-		box: { left: Math.floor(box.left * unit), top: Math.floor(box.top * unit), right: Math.ceil(box.right * unit), bottom: Math.ceil(box.bottom * unit) },
-		dustTip: { x: dustTip.x * unit, y: dustTip.y * unit },
-		ionTip: { x: ionTip.x * unit, y: ionTip.y * unit },
-		driftX: Math.cos(heading) * pace,
-		driftY: Math.sin(heading) * pace,
-	}
-}
-
 /** The line a zone's reach above About's header row (CSS px from the top of the screen) once the page has scrolled as far as a comet can still show; findPlace keeps the comet's box above it along its whole path. */
 function lowestBox(width: number, height: number): number {
 	let below = 0
@@ -377,15 +145,16 @@ const PATH_STEP = 2
 /**
  * Where the comet's nucleus is, relative to where it started, every PATH_STEP seconds of drift clock from `clock` for
  * `life` seconds (the first sample is the start): the camera law, BODY_NEARNESS times the drift's change, the other way,
- * plus its own drift. Both are functions of the drift clock, so the whole path is known when the comet starts.
+ * plus its own drift at the pace `drift` gives (cometDrift). Both are functions of the drift clock, so the whole path is
+ * known when the comet starts.
  */
-function cometPath(shape: CometShape, clock: number, life: number): Point[] {
+function cometPath(drift: Vec, clock: number, life: number): Point[] {
 	const from = driftAt(clock, { x: 0, y: 0 })
 	const now: Vec = { x: 0, y: 0 }
 	const path: Point[] = []
 	for (let t = 0; t <= life; t += PATH_STEP) {
 		driftAt(clock + t, now)
-		path.push({ x: shape.driftX * t - BODY_NEARNESS * (now.x - from.x), y: shape.driftY * t - BODY_NEARNESS * (now.y - from.y) })
+		path.push({ x: drift.x * t - BODY_NEARNESS * (now.x - from.x), y: drift.y * t - BODY_NEARNESS * (now.y - from.y) })
 	}
 	return path
 }
@@ -407,7 +176,7 @@ export function findPlace(field: SkyField, shape: CometShape, clock: number, lif
 	const y0 = METEOR.top + margin - top
 	const y1 = lowest - margin - bottom
 	if (y1 < y0) return null
-	const path = cometPath(shape, clock, life)
+	const path = cometPath(cometDrift(width, height), clock, life)
 	// A zone below the line of About's row reaches no box above it
 	const zones = field.quiet.filter((zone) => zone.y - ZONE_REACH <= lowest)
 	const anchorX = COMET.anchor[0] * width
@@ -499,13 +268,15 @@ export function updateBody(body: SkyBody, step: BodyStep): boolean {
 		return true
 	}
 	if (!bodyMayStart(body, gate, step.leaseHeld)) return false
-	const placed = placeComet(gate.field(), step.clock)
+	const field = gate.field()
+	const placed = placeComet(field, step.clock)
 	if (!placed) {
 		body.nextAt = gate.sinceReveal + COMET.retry
 		return false
 	}
 	body.status = 'showing'
 	body.shape = placed.shape
+	body.drift = cometDrift(field.width, field.height)
 	body.x = placed.place.x + BODY_NEARNESS * step.offset.x
 	body.y = placed.place.y + BODY_NEARNESS * step.offset.y
 	body.startedAt = step.twinkleTime
@@ -571,8 +342,8 @@ export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const { shape } = body
 	if (body.status !== 'showing' || !shape) return null
 	const flown = frame.clock - body.startClock
-	const x = body.x - BODY_NEARNESS * frame.offset.x + shape.driftX * flown
-	const y = body.y - BODY_NEARNESS * frame.offset.y + shape.driftY * flown
+	const x = body.x - BODY_NEARNESS * frame.offset.x + body.drift.x * flown
+	const y = body.y - BODY_NEARNESS * frame.offset.y + body.drift.y * flown
 	if (x + shape.box.left >= frame.width) {
 		body.status = 'gone'
 		return null

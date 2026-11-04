@@ -76,7 +76,7 @@ export interface MiamiFrame {
  * The landing scene's state in the sky worker: the stage measured from the page's layout, and what hangs on it. A stage
  * exists only where the page has a landing and Contact's copy above it, so everywhere else the sky is exactly the shared
  * sky's. The scene never takes the stars down with it: a stage that can't be measured, a build that throws or a draw that
- * throws leaves today's sky for the rest of the visit.
+ * throws leaves the plain sky for the rest of the visit.
  */
 export interface MiamiRuntime {
 	/** The current stage, for descentWindow and eventFloorY; null with none, and once the scene has failed on this visit. */
@@ -254,7 +254,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 		descentWindow: () => descent,
 		step(input) {
 			if (failed) return false
-			// A draw threw part way: today's sky replaces the half-drawn frame
+			// A draw threw part way: the plain sky replaces the half-drawn frame
 			if (shown?.failed) {
 				fail()
 				return true

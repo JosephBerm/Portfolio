@@ -693,7 +693,8 @@ function draw(now: number): void {
 		assets.comet.close()
 		assets.comet = null
 	}
-	// The landing scene is drawn after this reading, so adapt's steps, which are one way and cover the whole page, never count it
+	// The landing scene's silhouettes are drawn after this reading, so adapt's steps, which are one way and cover the whole page,
+	// never count them. Only the scene's ground, a bitmap and a fill drawn inside drawSky, counts
 	const skyMs = performance.now() - started
 	drawLandingScene(ctx, frame)
 	lastDrawAt = now

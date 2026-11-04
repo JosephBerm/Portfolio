@@ -603,8 +603,8 @@ export const METEOR_KINDS = {
 	 * Where a piece first lights and when follow from where it lies in the swarm (swarmPiece): `across` km to either side
 	 * of the swarm's center line (one standard deviation, drawn per burst: measured clusters run from tens of km to a few
 	 * hundred, and this is the compact end, so a swarm fits the clear sky) and behind its front by an exponential delay of
-	 * mean `delay` s (drawn per burst), so most arrive together and a few straggle. A piece that would light more than
-	 * `lastOnset` s after the swarm's center, or more than half of that before it, is drawn again. The center lies
+	 * mean `delay` s (drawn per burst), so most arrive together and a few straggle. A piece that would light outside
+	 * `firstOnset` to `lastOnset` s from the swarm's center is drawn again. The center lies
 	 * `radiantDistance` degrees from the radiant: nearer and the pieces would be stubs, farther and their paths would look
 	 * parallel. The radiant is the visit's shower's where it is that far from the center and its flights cross there at
 	 * `slowest` °/s or more (a slower swarm would crawl as stubs); elsewhere the burst has a radiant of its own, within
@@ -634,6 +634,7 @@ export const METEOR_KINDS = {
 		least: 4,
 		across: [8, 13],
 		delay: [0.3, 0.6],
+		firstOnset: -1.1,
 		lastOnset: 2.2,
 		radiantDistance: [22, 40],
 		slowest: 7,

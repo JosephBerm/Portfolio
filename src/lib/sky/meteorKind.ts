@@ -133,7 +133,7 @@ function planPiece(context: PlanContext, sky: VisitSky, x: number, y: number, op
  */
 function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: number): Meteor[] {
 	const { random, now, field } = context
-	const { across, delay, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
+	const { across, delay, firstOnset, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
 	const center = drawStart(random, startArea(field))
 	if (!clearStart(field, center.x, center.y)) return []
 	const radiant = own ? radiantOver(random, sky.window, center, radiantDistance, heading) : showerRadiantAt(sky, center, radiantDistance, slowest)
@@ -157,7 +157,7 @@ function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: num
 		for (let tries = 0; tries < PIECE_TRIES; tries++) {
 			const offset = { east: gaussian(random) * width, north: gaussian(random) * width, behind: exponential(random, meanDelay) }
 			const place = swarmPiece(sky.window, radiant, speed, center, offset)
-			if (place === null || place.delay > lastOnset || place.delay < -lastOnset / 2 || !insideGuards(field, place.x, place.y)) continue
+			if (place === null || place.delay > lastOnset || place.delay < firstOnset || !insideGuards(field, place.x, place.y)) continue
 			// A start within `laneGap` of another's line would put two pieces on nearly one path: the fan only widens downstream, so this is the closest they come
 			if (pieces.some((other) => Math.abs((place.x - other.startX) * other.dirY - (place.y - other.startY) * other.dirX) < laneGap)) continue
 			const piece = planPiece(context, sky, place.x, place.y, { ...course, peak, duration: [time, time] })

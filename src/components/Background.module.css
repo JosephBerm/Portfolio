@@ -1,5 +1,6 @@
 /* Night sky for <Background>: a fixed, decorative layer under #content (z-index 1). src/components/sky creates
-   the canvas and draws it in a Web Worker; these rules only place it, fade it in and hide it where it can't help. */
+   the canvas and draws it in a Web Worker; these rules only place it, fade it in and hide it where it can't help.
+   .landing is the empty room <SkyLanding> leaves between Contact and the footer, where the sky's landing scene shows. */
 
 .sky {
 	position: fixed;
@@ -23,9 +24,22 @@
 	opacity: 1;
 }
 
+/* svh keeps the label clear of the navbar with the URL bar showing, and neither unit changes as the bar moves */
+.landing {
+	height: clamp(130px, 100svh - 660px, 60lvh);
+}
+
+/* 140: on an iPhone with bars showing, the "05. Contact" line ends just above the screen instead of being cut in half at rest */
+@media (max-width: 640px) {
+	.landing {
+		height: clamp(140px, 100svh - 612px, 60lvh);
+	}
+}
+
 /* Forced colors replace the palette and print needs no sky: the plain background is the right answer */
 @media (forced-colors: active), print {
-	.sky {
+	.sky,
+	.landing {
 		display: none;
 	}
 }

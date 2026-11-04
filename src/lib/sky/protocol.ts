@@ -29,6 +29,12 @@ export interface SkyRect {
 	headroom: number
 }
 
+/** The box of the empty room at the page's end that the landing scene fills, in document coordinates (CSS px). */
+export interface LandingRect {
+	top: number
+	bottom: number
+}
+
 /**
  * How much the sky may change on its own:
  * - `full`: twinkle, drift, scroll parallax and its glide, pointer lean and transients
@@ -70,6 +76,8 @@ export type SkyMainMessage =
 			quiet: readonly SkyRect[]
 			/** Quiet rects of copy in fixed elements, in screen coordinates. */
 			pinned: readonly SkyRect[]
+			/** The landing's box, or null where the page has none (production, forced colors, print) or it has no box. */
+			landing: LandingRect | null
 	  }
 	/** The visitor is still here without scrolling (pointer, keys, focus); at most one a second. */
 	| { type: 'activity' }

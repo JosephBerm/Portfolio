@@ -43,6 +43,12 @@ const LEAN_POINTER_QUERY = '(hover: hover) and (pointer: fine)'
  */
 const QUIET_SELECTOR = '[data-sky-quiet]'
 
+/**
+ * The empty room between Contact and the footer where the landing scene is drawn (SkyLanding). It holds no copy, so it
+ * isn't quiet; its box tells the worker where the page's copy ends and the scene begins.
+ */
+const LANDING_SELECTOR = '[data-sky-landing]'
+
 /** Inside quiet copy, links and buttons count by their whole box (a bordered button reaches well past its text). */
 const QUIET_CONTROLS = 'a, button'
 
@@ -238,23 +244,27 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	let size = { width: 0, height: 0, dpr: 0 }
 	let flowRoots: Element[] = []
 	let pinnedRoots: Element[] = []
+	let landingRoot: Element | null = null
 	let lastLayout = ''
 	const headrooms = new Map<string, number>()
 	let lastScrollY = window.scrollY
 	let settleTimer: ReturnType<typeof setTimeout> | undefined
 	let destroyed = false
 
-	// Document height and quiet rects; runs after layout (observer callbacks, timers) and posts only when they changed
+	// Document height, quiet rects and the landing's box; runs after layout (observer callbacks, timers) and posts only when they changed
 	const measureLayout = () => {
 		if (offscreen || destroyed) return
 		const reader = copyReader(tokens, headrooms)
 		const pinned = pinnedRoots.flatMap((root) => quietRects(root, 0, reader)).slice(0, MAX_QUIET_RECTS)
 		const quiet = flowRoots.flatMap((root) => quietRects(root, window.scrollY, reader)).slice(0, MAX_QUIET_RECTS - pinned.length)
 		const documentHeight = document.documentElement.scrollHeight
-		const layout = JSON.stringify([documentHeight, quiet, pinned])
+		// An element with no box (display: none) has no client rects, but a zero-height one still has one: it is measured
+		const landingBox = landingRoot?.getClientRects().length ? landingRoot.getBoundingClientRect() : null
+		const landing = landingBox ? { top: landingBox.top + window.scrollY, bottom: landingBox.bottom + window.scrollY } : null
+		const layout = JSON.stringify([documentHeight, quiet, pinned, landing])
 		if (layout === lastLayout) return
 		lastLayout = layout
-		post({ type: 'layout', documentHeight, quiet, pinned })
+		post({ type: 'layout', documentHeight, quiet, pinned, landing })
 	}
 
 	// Entrances move copy without resizing anything: measure again once they have had time to settle
@@ -455,6 +465,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			pinnedRoots = roots.filter((root) => getComputedStyle(root).position === 'fixed')
 			flowRoots = roots.filter((root) => !pinnedRoots.includes(root))
 			for (const root of roots) layoutObserver.observe(root)
+			// The landing room, if the page has one
+			landingRoot = document.querySelector(LANDING_SELECTOR)
+			if (landingRoot) layoutObserver.observe(landingRoot)
 			settleLater()
 			void document.fonts.ready.then(measureLayout)
 		},

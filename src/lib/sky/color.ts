@@ -39,7 +39,7 @@ function linear(channel: number): number {
 }
 
 /** WCAG 2 relative luminance of an sRGB color (0-1). */
-function luminance(color: Rgb): number {
+export function luminance(color: Rgb): number {
 	return 0.2126 * linear(color[0]) + 0.7152 * linear(color[1]) + 0.0722 * linear(color[2])
 }
 

@@ -69,7 +69,7 @@ export interface PlanContext {
 	visit: VisitMemory
 	/** The ink lease is free, the crossing cooldown is over, nothing else is in the sky and no comet shows, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
 	nearCopy: boolean
-	/** Share of each rect's ink budget a transient may keep on the copy (the contrast preference's meteorInk): planMeteor's ink option. */
+	/** Share of each rect's ink budget a transient may keep on the copy (the contrast preference's meteorInk times the descent's inkShare): planMeteor's ink option. */
 	ink: number
 	/** A narrow screen (phones). */
 	narrow: boolean
@@ -128,7 +128,7 @@ export interface LaunchGate {
 	scrollY: number
 	/** The field to plan in, built afresh on each call, so the launch step builds it once, only for a due kind it may plan. */
 	field(): SkyField
-	/** The contrast preference's meteorInk (the worker's contrastLevels()): PlanContext.ink. */
+	/** The contrast preference's meteorInk (the worker's contrastLevels()) times the descent's inkShare (SceneLevels): PlanContext.ink. */
 	ink: number
 	/** The comet (bodies.ts) is showing: no shooting star is planned near the copy meanwhile, so the comet never shares the sky with the lease's bright moment. */
 	bodyShowing: boolean

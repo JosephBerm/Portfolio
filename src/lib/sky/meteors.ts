@@ -171,6 +171,25 @@ export function startArea(field: MeteorField): StartArea {
 	return { x0: width * METEOR.spawnX[0], x1: width * METEOR.spawnX[1], y0: height * METEOR.spawnY[0], y1: height * METEOR.spawnY[1] }
 }
 
+/** A start point drawn from `area`, x and then y; one drawn above METEOR.top, where the navbar is, moves down to it. */
+export function drawStart(random: Random, area: StartArea): Point {
+	return { x: between(random, area.x0, area.x1), y: Math.max(METEOR.top, between(random, area.y0, area.y1)) }
+}
+
+/**
+ * Whether a point lies inside the screen's guards for where a transient's key points may fall: METEOR's edge margin from
+ * each side, below METEOR.top and not below METEOR.maxEndY of the height. A flight's end, a flash, a swarm's pieces and
+ * a satellite's fade keep to them.
+ */
+export function insideGuards(field: MeteorField, x: number, y: number): boolean {
+	return x >= METEOR.edgeMargin && x <= field.width - METEOR.edgeMargin && y >= METEOR.top && y <= field.height * METEOR.maxEndY
+}
+
+/** Whether a point is a start in clear sky: inside the guards and past the reach of every padded quiet rect, as a flash and a swarm's center need. */
+export function clearStart(field: MeteorField, x: number, y: number): boolean {
+	return insideGuards(field, x, y) && quietAt(field.quiet, x, y) === 0
+}
+
 /** Does the segment a→b touch the rectangle grown by `margin` on every side? (Liang-Barsky clipping.) */
 function segmentTouches(a: Point, b: Point, rect: SkyRect, margin: number): boolean {
 	const dx = b.x - a.x
@@ -267,11 +286,11 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1, attempts = METEOR.attempts } = options
 	const minPath = (narrow ? METEOR.narrowMinPath : METEOR.path[0]) * (fallback ? METEOR.fallbackScale : 1)
 	const maxPath = narrow ? width * METEOR.narrowMaxPathShare : Math.min(METEOR.path[1], METEOR.pathShare * longSide)
-	const { x0, x1, y0, y1 } = options.starts ?? startArea(field)
+	const area = options.starts ?? startArea(field)
 	// The first of up to `attempts` candidates that fits and whose head spends at least `minBehind` of the flight visibly on copy
 	const fit = (minBehind: number): Fit | null => {
 		for (let attempt = 0; attempt < attempts; attempt++) {
-			const start = { x: between(random, x0, x1), y: Math.max(METEOR.top, between(random, y0, y1)) }
+			const start = drawStart(random, area)
 			const course = steer(random, start, fallback)
 			if (course === null) continue
 
@@ -285,7 +304,7 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 			const path = { startX: start.x, startY: start.y, dirX: course.dirX, dirY: course.dirY, length, drag: METEOR.drag }
 			const end = meteorPoint(path, 1)
 			// Both ends on screen keep the straight path on screen, and the end clears the navbar and the bottom corners
-			if (end.x < METEOR.edgeMargin || end.x > width - METEOR.edgeMargin || end.y < METEOR.top || end.y > height * METEOR.maxEndY) continue
+			if (!insideGuards(field, end.x, end.y)) continue
 			// Clear of the zones the caller keeps every path away from
 			if (clearOf.some((rect) => segmentTouches(start, end, rect, QUIET.feather))) continue
 			// Within a feather of the padded copy the veil may dim it, and only the rects it comes that close to can; a fireball is too bright to veil

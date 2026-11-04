@@ -7,6 +7,7 @@
 
 import { METEOR, SATELLITE } from './config'
 import { nextGap } from './gaps'
+import { insideGuards } from './meteors'
 import { segmentClear } from './quietIndex'
 import { skyWindow } from './radiants'
 import { between } from './random'
@@ -72,7 +73,7 @@ export function planSatellite(context: PlanContext): SatellitePass | null {
 		const length = speed * SATELLITE.life
 		const beyond = { x: left ? -METEOR.edgeMargin : width + METEOR.edgeMargin, y: between(random, top, bottom) }
 		const midSky = { x: beyond.x + (dusk ? dirX : -dirX) * length, y: beyond.y + (dusk ? dirY : -dirY) * length }
-		if (midSky.y < top || midSky.y > bottom || midSky.x < METEOR.edgeMargin || midSky.x > width - METEOR.edgeMargin) continue
+		if (!insideGuards(field, midSky.x, midSky.y)) continue
 		// The line as the satellite flies it: in from beyond its side at dusk, out through it at dawn
 		const start = dusk ? beyond : midSky
 		const end = dusk ? midSky : beyond

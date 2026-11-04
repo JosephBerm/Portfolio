@@ -1,7 +1,7 @@
 /**
- * Whether the home sky moves, as a small external store rather than React context: its readers are the pause control
- * in the navbar and mountSky, which isn't React. A page view is one mount of the home page: the last unsubscribe
- * forgets what was read and any Play pressed under reduced motion, so the next mount reads storage and the OS setting
+ * Whether the home sky moves, as a small external store rather than React context: its readers are the pause controls
+ * in the navbar and the right rail, and mountSky, which isn't React. A page view is one mount of the home page: the last
+ * unsubscribe forgets what was read and any Play pressed under reduced motion, so the next mount reads storage and the OS setting
  * afresh. Nothing here touches window, matchMedia or localStorage at module scope, so server-rendered client code can
  * import it.
  */
@@ -14,7 +14,7 @@ export type SkyPlayback = 'playing' | 'paused'
 /** localStorage key holding '1' while the visitor has paused the sky in this browser (WCAG 2.2.2's mechanism, remembered). */
 const PAUSED_KEY = 'sky-paused'
 
-/** Subscribers in this tab: the control and mountSky. */
+/** Subscribers in this tab: the controls and mountSky. */
 const listeners = new Set<() => void>()
 /** A sky is drawing (its worker has drawn a first frame); the control shows only then. */
 let running = false

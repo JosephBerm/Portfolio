@@ -1,3 +1,5 @@
+'use client'
+
 import { useSyncExternalStore } from 'react'
 import { PauseSVG, PlaySVG } from '@/components/icons'
 import { cn } from '@/lib'

@@ -35,9 +35,9 @@ export default function AppFooter() {
 						{name}
 					</p>
 				</a>
-				{/* Only where the right rail shows no control: below md, and in the short windows where the rail hides its own. The navbar has slid away by here, so without this a phone would have no pause at the page's end.
+				{/* Only where the right rail shows no control: below md, and in the short windows where the rail hides its own. The 386px is the rail's own limit in page.tsx, negated rather than written as a min-height, so no window height (a fractional one, say) shows both controls or neither; change the two together. The navbar has slid away by here, so without this a phone would have no pause at the page's end.
 				Absolute, so its late appearance shifts nothing; anchored to the link, so it clears the link at every width and moves with the text. After the link in the document, so Tab reaches it last in the footer */}
-				<SkyPauseButton className="absolute bottom-0 left-full ml-[24px] md:[@media(min-height:387px)]:hidden" />
+				<SkyPauseButton className="absolute bottom-0 left-full ml-[24px] md:not-[@media(max-height:386px)]:hidden" />
 			</div>
 		</MotionFooter>
 	)

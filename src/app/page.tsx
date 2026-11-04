@@ -39,7 +39,8 @@ export default function HomePage() {
 					<SkyPauseButton
 						// At the top of the page, in a window 386px tall or less, the navbar's 100px covers this control,
 						// which sits above the 286px of rail below it, so there it has no box and no tab stop, and the
-						// navbar's control is the one left
+						// navbar's control and the footer's are the ones left. The footer's control hides itself with this
+						// query negated (AppFooter.tsx), so change the 386px in both places together
 						className="[@media(max-height:386px)]:hidden"
 					/>
 					<a

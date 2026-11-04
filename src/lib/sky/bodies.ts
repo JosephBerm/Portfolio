@@ -6,7 +6,8 @@
  * the right edge. Then it is gone for the page view. It never lights the copy: it shows only where its whole box keeps
  * clear of every quiet zone's reach. This module is its model, pure functions over a body's state: where it hangs and
  * drifts, the light of its head, tails and knots, its fades, the box test and its start rule. The worker keeps the state
- * and feeds them what it knows, and renderSky draws what they return. It imports only types from transients.ts.
+ * and feeds them what it knows, renderSky draws what they return, and skyAssets paints the comet's bitmap from
+ * cometLightAt. It imports only types from transients.ts.
  */
 
 import { driftAt, type Vec } from './camera'
@@ -250,7 +251,7 @@ function cometExtent(): CometExtent {
 
 /** The comet's size and extent relative to its nucleus (CSS px, y down), for one size of sky window. */
 export interface CometShape {
-	/** CSS px a degree of the sky window spans: the art and the box are drawn at this scale. */
+	/** CSS px a degree of the comet's art spans: the sky window's, times the comet's size. The art and the box are drawn at this scale. */
 	unit: number
 	/** The box around everything that shows, which the placement and the clear-of-copy test use. */
 	box: Box

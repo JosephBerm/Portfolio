@@ -814,9 +814,9 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * `drift.heading` degrees clockwise from the right, right and a little down, 78 degrees from the tails as great comets
  * cross theirs, and away from the side the dust tail bends to. The knots keep the same factor: from about 0.02 degrees a
  * second at birth to 0.2 at the tail's end, the speeds of real ion-tail features (25 km/s near the head, 86 to 295 km/s
- * farther out) at a day a minute. Its place and its knots are functions of the drift clock (Camera.clock) alone, so they
- * stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and never
- * jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. Its tails keep their
+ * farther out) at a day a minute. Its own drift and its knots are functions of the drift clock (Camera.clock) alone, so
+ * they stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and
+ * never jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. Its tails keep their
  * direction, and it is gone once its whole box has left the screen, gliding off the right edge.
  *
  * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the

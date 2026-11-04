@@ -100,7 +100,7 @@ export function createStarField(): StarField {
 	}
 }
 
-/** Static drawing resources, rebuilt on resize or when the pixel ratio changes. */
+/** Drawing resources: the atlas follows the pixel ratio and the haze the size; the comet's bitmap is painted for each comet that shows. */
 export interface SkyAssets {
 	atlas: StarAtlas
 	haze: ImageBitmap | null

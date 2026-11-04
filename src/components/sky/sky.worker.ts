@@ -10,7 +10,7 @@
  * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there.
  */
 
-import { bodyFading, bodyShowing, bodyView, cancelBody, createSkyBody, dropBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
+import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
 import {
 	cameraOffset,
 	cameraSpeed,
@@ -843,6 +843,8 @@ scope.addEventListener('message', (event) => {
 			const t = now / 1000
 			const shown = hiddenAt === null ? t : hiddenAt / 1000
 			motionLevel = { from: easeAt(motionLevel, FRAME.motionEase, shown), to: message.motion === 'full' ? 1 : 0, since: t }
+			// The comet's hold begins and ends where the sky was last on screen, so a hidden stretch is no part of it
+			const seenAt = shown - hiddenTotal
 			if (message.motion === 'full') {
 				skyMoved = true
 				// A switch to full motion in a shown tab means the visitor is here, whether they pressed Play on this page or in
@@ -852,12 +854,15 @@ scope.addEventListener('message', (event) => {
 				holdTransients(transients, t)
 				// The sky keeps its place and follows the scroll from here, instead of leaping to wherever the page has scrolled to
 				resumeCamera(camera, scrollY)
+				// A comet whose fade-in the hold stopped goes on from where it stood
+				releaseBody(comet, seenAt)
 			}
 			motion = message.motion
-			// A shooting star or a satellite in flight fades out over TRANSIENTS.cancelFade instead of vanishing, and so does the comet
+			// A shooting star or a satellite in flight fades out over TRANSIENTS.cancelFade instead of vanishing. The comet stays,
+			// lit and still: its drift and knots stop with the drift clock
 			if (motion !== 'full') {
 				cancelTransients(transients, t)
-				cancelBody(comet, t)
+				holdBody(comet, seenAt)
 			}
 			needsDraw = true
 			break

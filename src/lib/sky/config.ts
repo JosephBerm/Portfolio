@@ -461,8 +461,9 @@ export const SKY_WINDOW = { fov: 60, elevation: 40, meteorHeightKm: 100, earthRa
  * within `nearRadiant` degrees of it a shower path may be as short as `nearRadiantPath` px, since meteors there are short
  * and slow. A stream shares a parent body and a speed, so its meteors look alike: a shower flight takes the visit's
  * shower spectrum (VisitSky.showerSpectrum) with odds `showerKeeps` and otherwise draws its spectrum from its speed
- * class like any other flight, which stands for the spread inside one stream; a burst's members and a point flash always
- * take it.
+ * class like any other flight, which stands for the spread inside one stream; a point flash always takes it. A burst is
+ * one broken-up body, so all its pieces share one spectrum: the shower's when the swarm flies the shower's radiant, else
+ * one drawn from the odds of the speed class the swarm flies at (METEOR_KINDS.burst).
  */
 export const RADIANTS = {
 	showerShare: 0.4,
@@ -596,12 +597,58 @@ export const METEOR_KINDS = {
 	 */
 	flash: { chance: 0.2, spacing: 60, after: 30, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
 	/**
-	 * Bursts: `members` faint shooting stars from the shower radiant, one after another `stagger` s apart (so no more than
-	 * 3 flashes a second), the whole burst at most TRANSIENTS.maxLife from first light to last: a member that would end
-	 * later is left out, and fewer than the least `members` is no burst. Every member flies in clear sky, so a burst never
-	 * takes the ink lease, and none has a flare or a train.
+	 * Bursts: a meteor cluster, the pieces of one meteoroid that broke up in space days before it reached Earth. They arrive
+	 * as a swarm on parallel lines at one speed, so every piece shares one radiant and their paths fan out on screen from
+	 * one vanishing point, each on a line of its own: a start lies at least `laneGap` px from every other piece's line.
+	 * Where a piece first lights and when follow from where it lies in the swarm (swarmPiece): `across` km to either side
+	 * of the swarm's center line (one standard deviation, drawn per burst: measured clusters run from tens of km to a few
+	 * hundred, and this is the compact end, so a swarm fits the clear sky) and behind its front by an exponential delay of
+	 * mean `delay` s (drawn per burst), so most arrive together and a few straggle. A piece that would light more than
+	 * `lastOnset` s after the swarm's center, or more than half of that before it, is drawn again. The center lies
+	 * `radiantDistance` degrees from the radiant: nearer and the pieces would be stubs, farther and their paths would look
+	 * parallel. The radiant is the visit's shower's where it is that far from the center and its flights cross there at
+	 * `slowest` °/s or more (a slower swarm would crawl as stubs); elsewhere the burst has a radiant of its own, within
+	 * `heading` degrees of straight above the swarm, and flies at the `speed` class (most measured clusters entered at 44
+	 * to 71 km/s).
+	 *
+	 * A burst has `members` pieces, fewer where clear sky runs out, and under `least` is no burst. The lead lies at the
+	 * swarm's center: the meteoroid's largest piece, which peaks at `leadPeak`, flies `leadFlight` times its class's mean
+	 * flight, leaves a wake of `leadWake` s and alone may leave a train. The piece ranked k by size peaks at k^-`rankPower`
+	 * of that, never under `faintest`: a measured cluster's pieces follow N(>m) ~ m^-0.85, which STAR_ALPHA's compression of
+	 * flux turns into k^-0.32 and plain display gamma into k^-0.54, and this lies between. It flies `flight` times the
+	 * class's mean flight, the faintest the shortest, since small pieces burn out sooner. Both run longer than the measured
+	 * ones (0.52 s for a lead, 0.16 to 0.28 s for the rest), so each stays on screen long enough to follow, as every flight
+	 * on this sky does.
+	 *
+	 * Pieces that arrive together light together: an arrival opens a pulse, at most `pulseMax` pieces share it, and the next
+	 * pulse opens at least a draw of `pulseGap` s later. The pieces of one pulse are one flash (their areas add, and stay far
+	 * under WCAG's limit) and pulses at least 0.35 s apart are at most 3 flashes a second. A piece that would end later than
+	 * TRANSIENTS.maxLife from the first light is left out, with all that come after it. Every piece flies in clear sky, so a
+	 * burst never takes the ink lease, and none has a flare.
 	 */
-	burst: { chance: 0.05, spacing: 90, after: 45, members: [2, 4], stagger: [0.35, 1.2] },
+	burst: {
+		chance: 0.05,
+		spacing: 90,
+		after: 45,
+		members: [6, 10],
+		least: 4,
+		across: [8, 13],
+		delay: [0.3, 0.6],
+		lastOnset: 2.2,
+		radiantDistance: [22, 40],
+		slowest: 7,
+		heading: 75,
+		speed: 'fast',
+		pulseGap: [0.35, 0.45],
+		pulseMax: 3,
+		leadPeak: [0.88, 1],
+		leadFlight: 1.7,
+		leadWake: 0.18,
+		rankPower: 0.42,
+		faintest: 0.3,
+		flight: [0.95, 1.4],
+		laneGap: 26,
+	},
 	/**
 	 * Earthgrazers: a long, slow, warm shooting star skimming the sky within `tilt` degrees of horizontal, as a meteor
 	 * entering at a shallow angle does. It runs at `angular` °/s of the sky window (SKY_WINDOW) for `duration` s, with the

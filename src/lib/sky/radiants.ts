@@ -2,7 +2,8 @@
  * Where a visit's shooting stars come from. The screen is a pinhole window on the sky (SKY_WINDOW), and each shooting
  * star is a straight path that seems to come from a radiant, the point of the sky all its parallel paths meet at. A visit
  * has one shower radiant and a few broad sporadic sources; this module places them and turns a start point on the
- * screen into a direction, a speed and a brightness for a shooting star launched there.
+ * screen into a direction, a speed and a brightness for a shooting star launched there. For a cluster, the pieces of one
+ * meteoroid flying as a swarm on parallel lines, it also puts each piece on the screen and in time.
  */
 
 import { METEOR, METEOR_BRIGHTNESS, NARROW_MAX_WIDTH, RADIANTS, SKY_WINDOW, SPEED_CLASSES, type SpectrumName, type SpectrumOdds, type SpeedClassName } from './config'
@@ -199,7 +200,7 @@ function speedAt(index: number): SpeedClassName {
 }
 
 /** A spectrum drawn with `odds`, each named one in its own share and in the order listed; the last takes whatever rounding leaves of the draw. */
-function drawSpectrum(random: Random, odds: SpectrumOdds): SpectrumName {
+export function drawSpectrum(random: Random, odds: SpectrumOdds): SpectrumName {
 	let roll = random()
 	let drawn: SpectrumName = 'plain'
 	for (const [name, share] of Object.entries(odds) as [SpectrumName, number][]) {
@@ -251,8 +252,6 @@ export function pickVisitSky(random: Random, field: MeteorField): VisitSky {
 export interface SteerOptions {
 	/** Every flight comes from the shower, not only RADIANTS.showerShare of them, and takes the shower's spectrum, not only RADIANTS.showerKeeps of them. */
 	shower?: boolean
-	/** Every flight is faint (METEOR_BRIGHTNESS.faint), not only METEOR_BRIGHTNESS.faintShare of them. */
-	faint?: boolean
 	/** Flights come from exactly this radiant, not one scattered about their source's: the pieces of a cluster fly parallel. */
 	radiant?: SkyDirection
 	/** Flights fly at this speed class, not their source's. */
@@ -298,7 +297,7 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 		const range = meteorRange(elevationAt(view, start.x, start.y))
 		const jitter = between(random, METEOR.speedJitter[0], METEOR.speedJitter[1])
 		const speed = (speedClass.angular * DEG * view.focal * motion.rate * jitter) / (range / centerRange)
-		const [dimmest, brightest] = options.faint || random() < METEOR_BRIGHTNESS.faintShare ? METEOR_BRIGHTNESS.faint : METEOR_BRIGHTNESS.normal
+		const [dimmest, brightest] = random() < METEOR_BRIGHTNESS.faintShare ? METEOR_BRIGHTNESS.faint : METEOR_BRIGHTNESS.normal
 		const peak = (options.peak ?? between(random, dimmest, brightest)) * Math.max(METEOR_BRIGHTNESS.rangeFloor, (nearestRange / range) ** 2)
 		let near = false
 		if (onScreen !== null) {

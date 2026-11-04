@@ -4,13 +4,13 @@
  * transients.ts, which reads their specs when it loads.
  */
 
-import { FAREWELL, METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, TRANSIENTS } from './config'
+import { FAREWELL, METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, RADIANTS, SPEED_CLASSES, TRANSIENTS } from './config'
 import { nextGap } from './gaps'
 import { meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions, type Steer } from './meteors'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH } from './quietIndex'
-import { pickVisitSky, pointNearRadiant, skyWindow, visitSteer, type VisitSky } from './radiants'
-import { between, type Random } from './random'
+import { drawSpectrum, pickVisitSky, pointNearRadiant, radiantOver, showerRadiantAt, skyWindow, swarmPiece, visitSteer, type SteerOptions, type VisitSky } from './radiants'
+import { between, gaussian, type Random } from './random'
 import { quietAt } from './scene'
 import type { PlanContext, SkyField, TransientSpec } from './transients'
 
@@ -111,47 +111,129 @@ export function planFlash(context: PlanContext): Meteor | null {
 	return null
 }
 
+/** Swarm centers tried on each of a burst's two passes, the shower's radiant and a radiant of its own. */
+const SWARM_TRIES = 12
+
+/** Places drawn for each piece of a swarm before the burst goes without it. */
+const PIECE_TRIES = 12
+
 /**
- * A plan for a burst: METEOR_KINDS.burst.members faint shooting stars from the shower radiant, the first at `now` and each
- * later one a stagger after the one before. Every member is planned in clear sky (the planner's `nearCopy` false) and
- * clear of the side rails, from a fresh steer of the shower, long flights on up to METEOR.radiantTries + 1 steers before
- * a shorter one, and has no flare and no train. A member that would end after TRANSIENTS.maxLife from the first light,
- * or that finds no path, ends the burst, so the whole burst never outlasts the limit; fewer than the least members is no
- * burst. The visit's sky is picked when there is none, and a failure leaves it, since clear sky alone failing says
- * nothing about it.
+ * One flight of a swarm from exactly (`x`, `y`) on the course in `options` (the swarm's radiant, speed class and spectrum,
+ * and the piece's own peak and flight time), in clear sky and clear of the side rails: a long flight where one fits there,
+ * else a short one. It has no flare and no train. Null when no path fits from there.
  */
-export function planBurst(context: PlanContext): Meteor | null {
-	const { random, now, field, visit } = context
-	const { members, stagger } = METEOR_KINDS.burst
-	const memory = visit.meteor
-	const sky = memory.sky ?? pickVisitSky(random, field)
-	memory.sky = sky
-	const count = members[0] + Math.floor(random() * (members[1] - members[0] + 1))
+function planPiece(context: PlanContext, sky: VisitSky, x: number, y: number, options: SteerOptions): Meteor | null {
+	const { random, now, field, ink } = context
+	// A swarm flies like a shower (it never climbs), and its pieces near the radiant are short
+	const steer = visitSteer(random, sky, { shower: true, minPath: RADIANTS.nearRadiantPath, ...options })
+	const plan = planMeteor(random, field, now, { steer, ink, nearCopy: false, clearOf: field.pinned, starts: { x0: x, x1: x, y0: y, y1: y }, attempts: 1 })
+	return plan && { ...plan, flare: false, train: false, variant: 'burst' }
+}
+
+/**
+ * One try at a swarm of up to `count` pieces (METEOR_KINDS.burst): a center inside the guards, in the clear sky of the
+ * start area, a radiant for it (the visit's shower's, or with `own` one of the swarm's own) and the lead there, then each
+ * other piece where the swarm's spread puts it. A place outside the guards or the swarm's time window, or within `laneGap`
+ * of another piece's path, is drawn again, up to PIECE_TRIES times, and the piece is left out when none fits. One
+ * spectrum serves the whole swarm. Empty when the center gives no radiant or no lead. A piece's `startedAt` is its
+ * arrival, not yet gathered into pulses.
+ */
+function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: number): Meteor[] {
+	const { random, now, field } = context
+	const { across, delay, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
+	const { x0, x1, y0, y1 } = startArea(field)
+	const center = { x: between(random, x0, x1), y: Math.max(METEOR.top, between(random, y0, y1)) }
+	if (!insideGuards(field, center.x, center.y) || quietAt(field.quiet, center.x, center.y) > 0) return []
+	const radiant = own ? radiantOver(random, sky.window, center, radiantDistance, heading) : showerRadiantAt(sky, center, radiantDistance, slowest)
+	if (radiant === null) return []
+	const speed = own ? ownSpeed : sky.shower.speed
+	const spectrum = own ? drawSpectrum(random, SPEED_CLASSES[speed].spectra) : sky.showerSpectrum
+	const course = { radiant, speed, spectrum }
+	const [shortest, longest] = SPEED_CLASSES[speed].duration
+	const meanFlight = (shortest + longest) / 2
+	const brightest = between(random, leadPeak[0], leadPeak[1])
+	const leadTime = meanFlight * leadFlight
+	const lead = planPiece(context, sky, center.x, center.y, { ...course, peak: brightest, duration: [leadTime, leadTime] })
+	if (lead === null) return []
+	const pieces: Meteor[] = [{ ...lead, wake: leadWake, train: SPEED_CLASSES[speed].train && random() < METEOR.trainChance }]
+	const width = between(random, across[0], across[1])
+	const meanDelay = between(random, delay[0], delay[1])
+	for (let rank = 2; rank <= count; rank++) {
+		const peak = Math.max(faintest, brightest * rank ** -rankPower)
+		const time = meanFlight * (flight[0] + ((flight[1] - flight[0]) * (peak - faintest)) / (brightest - faintest))
+		for (let tries = 0; tries < PIECE_TRIES; tries++) {
+			// Behind the front by an exponential delay (log of 1 - random() is finite, as in gaussian)
+			const offset = { east: gaussian(random) * width, north: gaussian(random) * width, behind: -meanDelay * Math.log(1 - random()) }
+			const place = swarmPiece(sky.window, radiant, speed, center, offset)
+			if (place === null || place.delay > lastOnset || place.delay < -lastOnset / 2 || !insideGuards(field, place.x, place.y)) continue
+			// A start within `laneGap` of another's line would put two pieces on nearly one path: the fan only widens downstream, so this is the closest they come
+			if (pieces.some((other) => Math.abs((place.x - other.startX) * other.dirY - (place.y - other.startY) * other.dirX) < laneGap)) continue
+			const piece = planPiece(context, sky, place.x, place.y, { ...course, peak, duration: [time, time] })
+			if (piece === null) continue
+			pieces.push({ ...piece, startedAt: now + place.delay })
+			break
+		}
+	}
+	return pieces
+}
+
+/**
+ * The burst of a swarm's pieces: they light in pulses from `now`, the earliest arrival first (METEOR_KINDS.burst). A piece
+ * that would end later than TRANSIENTS.maxLife from the first light is left out, with all that come after it.
+ */
+function gatherPulses(context: PlanContext, pieces: readonly Meteor[]): Meteor | null {
+	const { random, now } = context
+	const { pulseGap, pulseMax } = METEOR_KINDS.burst
+	const arrivals = [...pieces].sort((a, b) => a.startedAt - b.startedAt)
+	const first = arrivals[0]?.startedAt ?? now
+	// The open pulse: when it began (s after the first arrival), how many pieces share it and the least gap before the next
+	let pulseAt = 0
+	let inPulse = 0
+	let gap = between(random, pulseGap[0], pulseGap[1])
 	let burst: Meteor | null = null
-	let startedAt = now
-	for (let member = 0; member < count; member++) {
-		if (member > 0) startedAt += between(random, stagger[0], stagger[1])
-		const planned = planMember(random, context, sky)
-		if (planned === null) break
-		const timed: Meteor = { ...planned, flare: false, train: false, startedAt, variant: 'burst' }
+	for (const piece of arrivals) {
+		const arrival = piece.startedAt - first
+		// A piece opens the next pulse when the open one is full or its gap has run out, and never sooner than that gap
+		if (inPulse >= pulseMax || arrival >= pulseAt + gap) {
+			pulseAt = Math.max(arrival, pulseAt + gap)
+			inPulse = 0
+			gap = between(random, pulseGap[0], pulseGap[1])
+		}
+		inPulse++
+		const timed: Meteor = { ...piece, startedAt: now + pulseAt }
 		const grown: Meteor = burst === null ? timed : { ...burst, followers: [...(burst.followers ?? []), timed] }
 		if (meteorLifetime(grown) > TRANSIENTS.maxLife) break
 		burst = grown
 	}
-	return burst !== null && 1 + (burst.followers?.length ?? 0) >= members[0] ? burst : null
+	return burst
 }
 
-/** One member of a burst: a faint flight from the shower in clear sky, long before short, on fresh steers. */
-function planMember(random: Random, context: PlanContext, sky: VisitSky): Meteor | null {
-	const { now, field, ink } = context
-	for (const flights of ['long', 'short'] as const) {
-		for (let tries = 0; tries < 1 + METEOR.radiantTries; tries++) {
-			const steer = visitSteer(random, sky, { shower: true, faint: true })
-			const plan = planMeteor(random, field, now, { steer, flights, ink, nearCopy: false, clearOf: field.pinned })
-			if (plan) return plan
+/**
+ * A plan for a burst, a meteor cluster (METEOR_KINDS.burst): up to SWARM_TRIES swarms on the visit's shower radiant,
+ * stopping at one with all its pieces, and where the fullest has fewer than `least` up to as many on a radiant of their
+ * own (the shower's radiant seldom lies at the right distance, and a cluster needs no shower). The fullest flies,
+ * gathered into pulses; under `least` pieces is no burst. Every piece is planned in clear sky (the planner's `nearCopy`
+ * false) and clear of the side rails, so a burst never takes the ink lease. The visit's sky is picked when there is none,
+ * and a failure leaves it, since clear sky alone failing says nothing about it.
+ */
+export function planBurst(context: PlanContext): Meteor | null {
+	const { random, field, visit } = context
+	const { members, least } = METEOR_KINDS.burst
+	const memory = visit.meteor
+	const sky = memory.sky ?? pickVisitSky(random, field)
+	memory.sky = sky
+	const count = members[0] + Math.floor(random() * (members[1] - members[0] + 1))
+	let fullest: Meteor[] = []
+	for (const own of [false, true]) {
+		for (let tries = 0; tries < SWARM_TRIES && fullest.length < count; tries++) {
+			const pieces = planSwarm(context, sky, own, count)
+			if (pieces.length > fullest.length) fullest = pieces
 		}
+		if (fullest.length >= least) break
 	}
-	return null
+	if (fullest.length < least) return null
+	const burst = gatherPulses(context, fullest)
+	return burst !== null && 1 + (burst.followers?.length ?? 0) >= least ? burst : null
 }
 
 /** Radians per degree. */

@@ -52,7 +52,7 @@ export interface Meteor extends MeteorPath {
 	startedAt: number
 	/** Which variant this is, if one: it flies in clear sky only, never takes the ink lease and is drawn with CLEAR_SKY_KEEPS. */
 	variant?: MeteorVariant
-	/** The later members of a burst: this shooting star is its first, and each of these starts (`startedAt`) after it, in order. */
+	/** The other pieces of a burst: this shooting star is its first, and each of these starts (`startedAt`) with it or after it, in order. */
 	followers?: readonly Meteor[]
 	/** A fireball's flight: everything it does beyond its path, drawn at launch (planFireballShow). Only a fireball has one, and it is drawn by drawFireball. */
 	show?: FireballShow

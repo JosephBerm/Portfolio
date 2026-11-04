@@ -292,6 +292,7 @@ export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions 
 			peak,
 			spectrum,
 			train: speedClass.train,
+			speedClass: source.speed,
 		}
 	}
 }

@@ -578,15 +578,16 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
  */
 export const METEOR_KINDS = {
 	/**
-	 * Fireballs (brighter than Venus) stay in clear sky, last `duration` s at METEOR.fireballSpeedScale of the normal speed,
-	 * and with a 2.4 s train stay under 5 s. The real sky shows about one fireball per 100 to 200 meteors; this sky shows
-	 * them far more often by design, about one every 90 s over a visit's first 5 minutes and one every 110 s over the next
-	 * 5. The spacing is a range, drawn afresh after each fireball and kept in the visit's memory, so no two come closer
-	 * than its low end and the gaps vary; `chance` is high because launches come further apart as a visit goes on
-	 * (TRANSIENTS.longVisit), and with fewer launches to decide on, lower odds would leave more than 2 minutes between
-	 * fireballs.
+	 * Fireballs (brighter than Venus) stay in clear sky and fly at METEOR.fireballSpeedScale of their speed class's speed
+	 * for `duration` s by that class, the slower the longer: 1.5 to 2.9 s, against at most 1.15 s for a shooting star. How
+	 * they brake, flare and look is FIREBALL's, and with their train they last at most FIREBALL.life. The real sky shows
+	 * about one fireball per 100 to 200 meteors; this sky shows them far more often by design, about one every 90 s over
+	 * a visit's first 5 minutes and one every 110 s over the next 5. The spacing is a range, drawn afresh after each
+	 * fireball and kept in the visit's memory, so no two come closer than its low end and the gaps vary; `chance` is high
+	 * because launches come further apart as a visit goes on (TRANSIENTS.longVisit), and with fewer launches to decide on,
+	 * lower odds would leave more than 2 minutes between fireballs.
 	 */
-	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: [1.8, 2.5] },
+	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: { slow: [2.4, 2.9], medium: [2, 2.6], fast: [1.5, 2] } },
 	/**
 	 * Point flashes: a meteor coming straight at the viewer shows as a point at the shower radiant, with no length and no
 	 * movement, that brightens and fades in `duration` s at a `peak` of at most 0.7. They need the radiant on screen (on
@@ -604,7 +605,7 @@ export const METEOR_KINDS = {
 	/**
 	 * Earthgrazers: a long, slow, warm shooting star skimming the sky within `tilt` degrees of horizontal, as a meteor
 	 * entering at a shallow angle does. It runs at `angular` °/s of the sky window (SKY_WINDOW) for `duration` s, with the
-	 * wake of a fireball (about 4 s in all), across at least `widthShare` of the screen's width: about 20° of the window,
+	 * wake METEOR.grazerWake (about 4 s in all), across at least `widthShare` of the screen's width: about 20° of the window,
 	 * since 4 to 6°/s for 2.5 to 3.5 s spans 21° at most, so a larger share could never fit. It flies in clear sky, so it
 	 * never takes the ink lease, and is skipped silently where no band of clear sky is long enough. Screens narrower than
 	 * `minWidth` px have none.
@@ -659,13 +660,13 @@ export const METEOR = {
 	/** Wake afterglow (s): each point of the path dims to 1/e this long after the head passes; drawn for `wakeSpan` of these. */
 	wake: 0.13,
 	wakeSpan: 3,
-	/** Fireballs (long flights only; METEOR_KINDS.fireball has their odds and timing): longer, slower and brighter, with more drag and a longer wake. */
+	/** Fireballs (long flights only; METEOR_KINDS.fireball has their odds and timing, FIREBALL how they brake and look) fly this share of their speed class's speed. */
 	fireballSpeedScale: 0.6,
-	fireballDrag: 0.15,
-	fireballWake: 0.18,
-	/** A late flare on some flights. */
+	/** An earthgrazer's wake (s), in place of `wake`: it is long and slow, so its wake lingers (about 4 s in all with its flight). */
+	grazerWake: 0.18,
+	/** A late flare on some flights (a fireball's flares are its own, FIREBALL.flares). */
 	flareChance: 0.12,
-	/** A faint persistent train behind some fireballs and fast flights (SPEED_CLASSES' `train`). */
+	/** A faint persistent train behind some fast flights (SPEED_CLASSES' `train`); a fireball's odds are its tier's (FIREBALL_TIERS). */
 	trainChance: 0.15,
 } as const
 
@@ -818,13 +819,14 @@ export const SCROLL_CANCEL = { from: 12, to: 24 } as const
 export const METEOR_LIGHT = { skew: 0.868, sharpness: 1.2, flare: 0.55, flareAt: 0.86, flareWidth: 0.035, flareClearWidths: 2, flareGlow: 1.3, flareGlowFrom: 0.8 } as const
 
 /**
- * How a shooting star is drawn: head core and glow sigma, glow alpha (bigger for fireballs); the wake tapers from
- * the head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. An ordinary meteor is thin,
- * as it looks to the eye: a point with a halo too faint to read as a disc, trailing a hair of wake, and the soft pass is
- * what lets a tint read on a line that fine. From the head the wake cools from white to its tint over `coolBy` of its
- * length, so the first fifth stays white-hot and the rest carries the color, and its far half thins to `tailKeep` at the
- * end. The tint is the wake color of the flight's spectrum (METEOR_SPECTRA), as much of it as the meteor's brightness
- * shows (METEOR_CHROMA).
+ * How a shooting star is drawn: head core and glow sigma, glow alpha (`fireballGlow` times it for a body marked as a
+ * fireball that drawMeteor draws, which a fireball with a show never is: FIREBALL has its own); the wake tapers from the
+ * head width to the tail width, with a soft pass `softWidth` times wider at `softAlpha`. An ordinary meteor is thin, as it
+ * looks to the eye: a point with a halo too faint to read as a disc, trailing a hair of wake, and the soft pass is what
+ * lets a tint read on a line that fine. From the head the wake cools from white to its tint over `coolBy` of its length,
+ * so the first fifth stays white-hot and the rest carries the color, and its far half thins to `tailKeep` at the end. The
+ * tint is the wake color of the flight's spectrum (METEOR_SPECTRA), as much of it as the meteor's brightness shows
+ * (METEOR_CHROMA).
  */
 export const METEOR_LOOK = {
 	core: 0.62,
@@ -852,8 +854,12 @@ interface MeteorSpectrum {
 	wake: Rgb | null
 	/** The color of the glow round the head (METEOR_SHEATH), mixed the same way; null draws none. */
 	sheath: Rgb | null
-	/** The persistent train's color by share of TRAIN.life since the flight ended. */
+	/** The persistent train's color by share of its life (TRAIN.life for a shooting star's, its own for a fireball's) since the flight ended or, along a fireball's train, since the head passed. */
 	train: ColorStops
+	/** The color of a fireball's head by flight progress, 0 to 1, at full strength: only the center of the head stays white. Only a spectrum a fireball can burn in has one. */
+	arc?: ColorStops
+	/** The color a fireball's wake and sparks cool to. Only a spectrum a fireball can burn in has one. */
+	cool?: Rgb
 }
 
 /**
@@ -865,7 +871,11 @@ interface MeteorSpectrum {
  * and speed, not a claim about one meteor: broadband color cannot tell the spectral classes apart, iron aside. Each has
  * the color its wake cools to (`wake`), the color of the glow round the head (`sheath`) and the color of its persistent
  * train as it ages (`train`: oxygen first where the flight was fast and high, sodium and iron oxide after). `plain` is
- * the eye's white, where the lines blend: a wake that stays white and no sheath.
+ * the eye's white, where the lines blend: a wake that stays white and no sheath. A fireball is bright enough to show the
+ * whole color, so each spectrum it can burn in also has the color of its head along the flight (`arc`: oxygen's green
+ * high up gives way to sodium's yellow and orange lower down, and iron burns blue until iron oxide turns its last moments
+ * orange) and the color its wake and sparks cool to (`cool`). `plain` has neither: a fireball that drew it burns as
+ * `normal`.
  */
 export const METEOR_SPECTRA = {
 	/** The eye's white. */
@@ -879,9 +889,27 @@ export const METEOR_SPECTRA = {
 			[0.6, [150, 220, 125]],
 			[1, [190, 205, 120]],
 		],
+		arc: [
+			[0, [150, 255, 120]],
+			[0.18, [70, 250, 180]],
+			[0.75, [60, 250, 175]],
+			[1, [130, 250, 150]],
+		],
+		cool: [45, 215, 150],
 	},
 	/** Chondritic, medium to fast (about 35 km/s): green. */
-	normal: { wake: [150, 250, 150], sheath: [110, 250, 125], train: OXYGEN_TRAIN },
+	normal: {
+		wake: [150, 250, 150],
+		sheath: [110, 250, 125],
+		train: OXYGEN_TRAIN,
+		arc: [
+			[0, [130, 255, 140]],
+			[0.45, [165, 252, 130]],
+			[0.75, [250, 225, 95]],
+			[1, [255, 150, 55]],
+		],
+		cool: [255, 160, 60],
+	},
 	/** Chondritic and slower (25 to 30 km/s): sodium turns the green yellow. */
 	normalSlow: {
 		wake: [235, 240, 105],
@@ -890,6 +918,13 @@ export const METEOR_SPECTRA = {
 			[0, [235, 225, 110]],
 			[1, [230, 165, 100]],
 		],
+		arc: [
+			[0, [225, 245, 110]],
+			[0.5, [250, 225, 85]],
+			[0.8, [255, 180, 65]],
+			[1, [255, 130, 50]],
+		],
+		cool: [255, 140, 50],
 	},
 	/** Slow (15 to 25 km/s) or sodium-enhanced: amber. */
 	naEnhanced: {
@@ -899,6 +934,13 @@ export const METEOR_SPECTRA = {
 			[0, [255, 180, 90]],
 			[1, [225, 135, 90]],
 		],
+		arc: [
+			[0, [255, 220, 110]],
+			[0.5, [255, 190, 70]],
+			[0.85, [255, 145, 50]],
+			[1, [255, 115, 45]],
+		],
+		cool: [255, 110, 40],
 	},
 	/** Very slow (under 15 km/s) or sodium-rich: orange. */
 	naRich: {
@@ -908,6 +950,12 @@ export const METEOR_SPECTRA = {
 			[0, [255, 160, 80]],
 			[1, [210, 120, 85]],
 		],
+		arc: [
+			[0, [255, 185, 70]],
+			[0.5, [255, 150, 45]],
+			[1, [255, 105, 40]],
+		],
+		cool: [255, 95, 35],
 	},
 	/** Iron's lines alone, or fast and hot: blue. */
 	blue: {
@@ -917,11 +965,21 @@ export const METEOR_SPECTRA = {
 			[0, [170, 230, 190]],
 			[1, [210, 175, 130]],
 		],
+		arc: [
+			[0, [140, 215, 255]],
+			[0.6, [110, 200, 255]],
+			[0.9, [190, 225, 250]],
+			[1, [255, 205, 140]],
+		],
+		cool: [70, 160, 255],
 	},
 } as const satisfies Record<string, MeteorSpectrum>
 
 /** A key of METEOR_SPECTRA. */
 export type SpectrumName = keyof typeof METEOR_SPECTRA
+
+/** A spectrum a fireball can burn in: every one with an `arc` and a `cool` color, which is all but `plain`. */
+export type FireballSpectrumName = { [K in SpectrumName]: (typeof METEOR_SPECTRA)[K] extends { arc: unknown; cool: unknown } ? K : never }[SpectrumName]
 
 /**
  * How much of its spectrum's color a shooting star shows, by its peak brightness: the eye sees color only in bright
@@ -952,11 +1010,328 @@ export const METEOR_SHEATH = {
 	],
 } as const
 
+/** The timing and width of a persistent train: the keys of TRAIN, which a fireball gives by its motion (FIREBALL_MOTION). */
+export interface TrainSpec {
+	peak: number
+	onset: number
+	rise: number
+	decay: number
+	life: number
+	fadeOut: number
+	width: readonly [number, number]
+	widen: number
+}
+
 /**
- * Persistent train: a faint line along the path, in the colors of its spectrum (METEOR_SPECTRA), that starts to brighten
- * `onset` of the way through the flight (time constant `rise`), lingers and fades (`decay`), widening from `width[0]`
- * to `width[1]` over `widen` seconds after the flight. At its `peak` a hue reads on navy (a train at 0.12 reads gray
- * whatever its color). Gone `life` seconds after the flight, easing out over the last `fadeOut` seconds, so a fireball
- * and its train last under 5 s (WCAG 2.2.2).
+ * Persistent train of a shooting star: a faint line along the path, in the colors of its spectrum (METEOR_SPECTRA), that
+ * starts to brighten `onset` of the way through the flight (time constant `rise`), lingers and fades (`decay`), widening
+ * from `width[0]` to `width[1]` over `widen` seconds after the flight. At its `peak` a hue reads on navy (a train at 0.12
+ * reads gray whatever its color). Gone `life` seconds after the flight, easing out over the last `fadeOut` seconds, so a
+ * flight and its train last under 5 s (WCAG 2.2.2). A fireball's train has its own (FIREBALL_MOTION).
  */
-export const TRAIN = { peak: 0.18, onset: 0.3, rise: 0.15, decay: 1.3, life: 2.4, fadeOut: 0.8, width: [1, 3], widen: 2 } as const
+export const TRAIN = { peak: 0.18, onset: 0.3, rise: 0.15, decay: 1.3, life: 2.4, fadeOut: 0.8, width: [1, 3], widen: 2 } as const satisfies TrainSpec
+
+/** How a body flies and burns as a fireball. The colors of its light are its spectrum's (METEOR_SPECTRA). */
+export interface FireballMotion {
+	/** The speed law (brakedShare): at flight progress p the speed is 1 - c k e^(kp) of the entry speed, and it falls to `end` of it at the end of the flight. */
+	brake: { readonly k: number; readonly end: number }
+	/** Flight progress where the light peaks, before any flare. */
+	peakAt: number
+	/** Wake afterglow time constant (s): each point of the wake dims to 1/e this long after the head passes. */
+	wake: number
+	/** The persistent train it may leave. */
+	train: TrainSpec
+}
+
+/**
+ * A slow fireball: a stony body entering at 15 to 25 km/s, which brakes hard, peaks late and leaves a long wake and a
+ * short train. The speed law is fit to the Zdar bolide, which held 0.88 of its entry speed to about two thirds of its
+ * flight and ended at 0.22 of it.
+ */
+const SLOW_FLIGHT = {
+	brake: { k: 5.1, end: 0.24 },
+	peakAt: 0.78,
+	wake: 0.46,
+	train: { peak: 0.2, onset: 0.35, rise: 0.3, decay: 0.8, life: 1.5, fadeOut: 0.7, width: [1.6, 4], widen: 1.4 },
+} as const satisfies FireballMotion
+
+/** A medium fireball, 25 to 40 km/s: it keeps its speed through the first half of its flight and ends at under half of it. */
+const MEDIUM_FLIGHT = {
+	brake: { k: 5.5, end: 0.45 },
+	peakAt: 0.72,
+	wake: 0.36,
+	train: { peak: 0.2, onset: 0.32, rise: 0.3, decay: 1.2, life: 2, fadeOut: 0.8, width: [1.6, 5], widen: 2 },
+} as const satisfies FireballMotion
+
+/** A fast fireball, 60 km/s or so: it barely brakes, peaks early, has the shortest wake and the longest train. */
+const FAST_FLIGHT = {
+	brake: { k: 6, end: 0.82 },
+	peakAt: 0.62,
+	wake: 0.26,
+	train: { peak: 0.22, onset: 0.3, rise: 0.3, decay: 1.5, life: 2.5, fadeOut: 0.9, width: [1.6, 6], widen: 2.2 },
+} as const satisfies FireballMotion
+
+/** An iron fireball, medium or fast: it is dense, so it keeps more of its speed than a stony body of its entry speed does. */
+const IRON_FLIGHT = {
+	brake: { k: 5.5, end: 0.55 },
+	peakAt: 0.7,
+	wake: 0.3,
+	train: { peak: 0.2, onset: 0.32, rise: 0.3, decay: 1.2, life: 2, fadeOut: 0.8, width: [1.6, 4.6], widen: 2 },
+} as const satisfies FireballMotion
+
+/**
+ * How a fireball flies and burns, by the spectrum of its light (METEOR_SPECTRA), which says how fast it flies and what it
+ * is made of: the sodium-rich and sodium-enhanced spectra are slow bodies, the chondritic ones medium, the sodium-poor
+ * ones fast and the blue ones iron. The speed laws follow Whipple and Jacchia's model, in which the braking follows the
+ * air's density, which grows exponentially on the way down, so a body holds its speed and then loses it late. Nothing
+ * here is a color: the colors of a fireball are its spectrum's.
+ */
+export const FIREBALL_MOTION = {
+	naPoor: FAST_FLIGHT,
+	normal: MEDIUM_FLIGHT,
+	normalSlow: MEDIUM_FLIGHT,
+	naEnhanced: SLOW_FLIGHT,
+	naRich: SLOW_FLIGHT,
+	blue: IRON_FLIGHT,
+} as const satisfies Record<FireballSpectrumName, FireballMotion>
+
+/** One brightness tier of fireball. Lengths in CSS px. */
+export interface FireballTier {
+	/** The share of fireballs of this tier; the shares add up to 1. */
+	share: number
+	/** Radius of the white-hot core at full light. */
+	head: number
+	/** The glare about the head: how far it reaches, the radius of its bright middle and its light at the center. */
+	glare: { readonly radius: number; readonly core: number; readonly alpha: number }
+	/** The sky lifting about a flare: how far it reaches and its light at the center. */
+	aureole: { readonly radius: number; readonly alpha: number }
+	/** How many flares, the terminal burst among them. */
+	flares: number
+	/** What the terminal burst adds to the light. */
+	burst: number
+	/** Sparks shed behind the head. */
+	sparks: number
+	/** Pieces of the terminal burst. */
+	pieces: number
+	/** Odds of a persistent train. */
+	trainChance: number
+}
+
+/**
+ * Brightness tiers, `bright` (about magnitude -4 to -6), `brilliant` (-6 to -9) and `great` (brighter than -9). The real
+ * sky has about a third as many fireballs in each brighter class (the AMS counts 69%, 23% and 8%); these shares lean
+ * brighter, so a short visit doesn't see only the faintest, and a fireball every 90 s stays varied: only the great ones,
+ * about one in seven, lift the sky much. The head sizes aim at a quarter to half of the Moon's width (0.5 degrees is 15
+ * px in the sky window), what a witness reports; the sizes, counts and odds are design values.
+ */
+export const FIREBALL_TIERS = {
+	bright: { share: 0.5, head: 2.5, glare: { radius: 90, core: 5, alpha: 0.9 }, aureole: { radius: 160, alpha: 0.025 }, flares: 1, burst: 0.6, sparks: 8, pieces: 2, trainChance: 0.6 },
+	brilliant: { share: 0.35, head: 3, glare: { radius: 120, core: 6, alpha: 0.95 }, aureole: { radius: 220, alpha: 0.04 }, flares: 2, burst: 0.85, sparks: 14, pieces: 3, trainChance: 0.85 },
+	great: { share: 0.15, head: 4, glare: { radius: 160, core: 8, alpha: 1 }, aureole: { radius: 300, alpha: 0.06 }, flares: 2, burst: 1.1, sparks: 22, pieces: 5, trainChance: 1 },
+} as const satisfies Record<string, FireballTier>
+
+/**
+ * How a fireball is planned (fireball.ts) and drawn (renderFireball.ts), beyond its path, its motion (FIREBALL_MOTION),
+ * its tier (FIREBALL_TIERS) and the colors of its spectrum (METEOR_SPECTRA): nothing here is a color. A fireball is a body of
+ * its own, not a shooting star drawn longer. Its head has a size and a glare, behind it burns a flame, its speed holds and
+ * then collapses, it flares as the body breaks (a flare rises and falls over at least 0.06 and 0.16 s, the real ones, 0.03
+ * to 0.3 s, slowed a little, and flares stay `flares.gap` s apart), it sheds sparks, ends in a burst of pieces strung along
+ * the path and may leave a train hanging. Lengths are CSS px, times seconds, shares 0 to 1, and the gradient stops follow
+ * their curves closely enough that none shows as a contour.
+ */
+export const FIREBALL = {
+	/** The most a fireball and its train last from first light to last (s), under TRANSIENTS.maxLife with room to spare: a train that would outlast it is cut short. */
+	life: 4.6,
+	/** The wake and the train are brightest where the flight was and uneven along their length: each of `knots` equal stretches of the flight has a light drawn from `knotLight`. */
+	knots: 16,
+	knotLight: [0.7, 1],
+	/**
+	 * The head's light over flight progress p: (p / peakAt)^`climb` up to the peak and (1 - (p - peakAt) / (1 - peakAt))^`burn`
+	 * after it, times `level`, times what the body keeps after the terminal burst (it loses `spent` of its light over
+	 * `spentOver` of the flight), plus each flare's strength times the least of 1 and that light plus `flareFloor`, so a flare
+	 * shows in dim light too. The head is drawn with at most `cap` of it, so a flare can take it past 1. A single stony body
+	 * peaks about 70% of the way through.
+	 */
+	light: { climb: 1.35, burn: 1.25, level: 0.86, flareFloor: 0.55, spent: 0.5, spentOver: 0.05, cap: 1.3 },
+	/**
+	 * The radius of the white-hot core as a share of its tier's `head`: `least` of it with no light, growing with the light
+	 * to the power `lightPower`, by `flareGrow` at a flare's full strength, and shrinking by `spentShrink` over `spentOver` of
+	 * the flight after the terminal burst.
+	 */
+	head: { least: 0.3, lightPower: 0.7, flareGrow: 0.45, spentShrink: 0.28, spentOver: 0.06 },
+	/** The core: a soft radial of `reach` core radii, white at the center, with no plateau to clip against; `stops` are [share of the radius, share of its light], and its light is `lightGain` times the head's. */
+	core: {
+		reach: 1.7,
+		lightGain: 1.4,
+		stops: [
+			[0, 1],
+			[0.2, 0.96],
+			[0.36, 0.8],
+			[0.52, 0.55],
+			[0.68, 0.28],
+			[0.84, 0.08],
+			[1, 0],
+		],
+	},
+	/**
+	 * The glare: 1 / (1 + (r / core)^2), whose wings fall as r^-2, as the eye's own stray light and a bright source's aureole
+	 * in the air do. It has no plateau and no edge, which reads as brighter than the display's white, and its wings are the
+	 * sky's brightening about the head. `at` are the shares of its radius the gradient has a stop at, crowded near the
+	 * center, where it falls fastest. Its radius grows by `flareReach` at a flare's full strength and its bright middle (the
+	 * tier's `core`) is `coreLight` of full with no light, growing with the light, and by `coreFlare` at a flare. Its light is
+	 * the tier's `alpha` times `lightGain` times the head's light plus `lightFloor`, and its color goes from the head's, at
+	 * the rim, `tint` of the way toward the theme's white at the center.
+	 */
+	glare: {
+		at: [0, 0.012, 0.025, 0.04, 0.06, 0.085, 0.115, 0.15, 0.2, 0.26, 0.34, 0.44, 0.58, 0.76, 1],
+		flareReach: 0.3,
+		coreLight: 0.55,
+		coreFlare: 0.55,
+		lightGain: 1.15,
+		lightFloor: 0.1,
+		tint: 0.28,
+	},
+	/**
+	 * The sky lifting about a flare, in the head's color mixed `tint` toward white, drawn from a flare's strength `from` and
+	 * gone with it, at the tier's `alpha` times the flare's strength over the tier's `burst`; `stops` are [share of the radius,
+	 * share of its light].
+	 */
+	aureole: {
+		from: 0.03,
+		tint: 0.2,
+		stops: [
+			[0, 1],
+			[0.12, 0.74],
+			[0.25, 0.52],
+			[0.38, 0.35],
+			[0.5, 0.22],
+			[0.62, 0.13],
+			[0.75, 0.06],
+			[0.88, 0.018],
+			[1, 0],
+		],
+	},
+	/**
+	 * The flame: head and wake as one teardrop behind the head, from the flight's emission history as a shooting star's
+	 * wake is, `stops` of it, each point glowing from the moment the head passes it and fading with the motion's wake time
+	 * (drawn for METEOR.wakeSpan of them), cooling from the head's color then to the spectrum's `cool` with a time constant of
+	 * `coolOver` wake times, with a hot spine that goes from white to that color over `hotOver` wake times and fades with a
+	 * time constant of `hotFade`. Its half-width at distance s behind the head is `tip` + (`widthOfRadius` core radii - `tip`)
+	 * e^(-s / taper), the taper `taperOfRadius` core radii times `taperSpeed`[0] plus `taperSpeed`[1] times the head's speed
+	 * in path lengths per flight, outlined by `samples` segments a side (the nearer the head the shorter, by the power
+	 * `spacing`). Its light is `lightGain` times the head's light then plus `lightFloor`, at most `lightCap`. It is filled in
+	 * nested `passes`, widest and faintest first, each a share of the width at an alpha, the last the hot spine, so no pass
+	 * shows an edge.
+	 */
+	flame: {
+		stops: 13,
+		samples: 9,
+		spacing: 1.5,
+		tip: 0.42,
+		widthOfRadius: 1.75,
+		taperOfRadius: 16,
+		taperSpeed: [0.55, 0.45],
+		lightGain: 1.05,
+		lightFloor: 0.08,
+		lightCap: 1.1,
+		coolOver: 1.1,
+		hotOver: 0.9,
+		hotFade: 0.7,
+		passes: [
+			{ width: 1, alpha: 0.1, hot: false },
+			{ width: 0.72, alpha: 0.14, hot: false },
+			{ width: 0.5, alpha: 0.32, hot: false },
+			{ width: 0.32, alpha: 0.7, hot: false },
+			{ width: 0.2, alpha: 1, hot: true },
+		],
+	},
+	/**
+	 * The train, stroked in `strokes` (each a multiple of the train's width at an alpha, widest first) with a gradient of
+	 * `stops` along it: each point's light follows the flight's light then to the power `lightPower`, times the knot there,
+	 * and the point lights over the `lights` seconds after the head passes it, so the train is brightest where the flight was
+	 * and builds up behind the head. Its color follows its spectrum's train stops by the point's age over the train's life.
+	 */
+	train: {
+		stops: 16,
+		lightPower: 0.8,
+		lights: [0.1, 0.6],
+		strokes: [
+			{ width: 2.2, alpha: 0.22 },
+			{ width: 1.3, alpha: 0.34 },
+			{ width: 0.6, alpha: 0.6 },
+		],
+	},
+	/**
+	 * Flares: the terminal burst comes between `burstBetween` of the flight and at least `afterPeak` after the light's peak,
+	 * rising over `burstRise` and falling over `burstFall` seconds; the earlier flares come `gap` seconds or more before it
+	 * and each other, plus `earlier` of the flight, with a strength drawn from `gain` and rising and falling over `rise` and
+	 * `fall` seconds. No second holds more than two flares.
+	 */
+	flares: { afterPeak: 0.06, burstBetween: [0.78, 0.9], burstRise: 0.07, burstFall: 0.22, gap: 0.6, earlier: [0.03, 0.12], gain: [0.22, 0.42], rise: 0.06, fall: 0.16 },
+	/**
+	 * Sparks shed behind the head, `atFlares` of them at a flare (`afterFlare` of the flight after it), the rest anywhere from
+	 * `from` of the flight to the burst and never after `lastAt`. A spark starts at `lag` of the head's speed and brakes with
+	 * time constant `tau`, drifts `side` px/s across the path, lives `life` s, fades in over `fadeIn`, out by the power
+	 * `fadePower` and shrinks by `shrink` as it goes. It is a point of radius `size` with a tail of at least `tailMin` px,
+	 * `tailOfSpeed` of its speed in px/s, at a light drawn from `light`, in the head's color as it was shed whitened by
+	 * `whiten`, cooling to the spectrum's `cool` by `coolBy` of its life.
+	 */
+	sparks: {
+		atFlares: 0.75,
+		afterFlare: [-0.005, 0.07],
+		from: 0.35,
+		lastAt: 0.97,
+		tau: [0.16, 0.36],
+		side: [14, 56],
+		life: [0.28, 0.7],
+		size: [0.4, 0.95],
+		light: [0.5, 1],
+		lag: [0.84, 0.97],
+		fadeIn: 0.03,
+		fadePower: 1.1,
+		whiten: 0.45,
+		coolBy: 0.87,
+		shrink: 0.35,
+		tailMin: 1.2,
+		tailOfSpeed: 0.022,
+	},
+	/**
+	 * The pieces of the terminal burst, strung out along the path and not sprayed around it: they leave the burst at the
+	 * head's speed and brake with time constant `tau` (the smaller a piece, the sooner), drift `side` px/s across the path, fade in over
+	 * `fadeIn` and fade with time constant `decay`, and their light ends with the flight's, over `lingers` seconds from its
+	 * end. Each is a soft glow `glowOfSize` times its `size` wide at `glowAlpha`, a tailed point `bodyOfSize` of its size
+	 * with a tail of at least `tailMin` px, `tailOfSpeed` of its speed, and a white center `coreOfSize` of its size, in the
+	 * head's color at the burst whitened by `whiten` and cooling to the spectrum's `cool` over `coolOver` s.
+	 */
+	pieces: {
+		tau: [0.3, 1],
+		side: [3, 16],
+		size: [0.7, 1.25],
+		light: [0.6, 1],
+		decay: [0.2, 0.42],
+		fadeIn: 0.05,
+		coolOver: 0.5,
+		lingers: [-0.1, 0.3],
+		tailMin: 3,
+		tailOfSpeed: 0.09,
+		whiten: 0.3,
+		glowOfSize: 8,
+		glowAlpha: 0.7,
+		coreOfSize: 1.5,
+		bodyOfSize: 0.85,
+	},
+	/** The shape of a soft glow: exp(-r^2 / 2 sigma^2) out to three sigmas, its tail eased to exactly 0 at the rim, as [share of the radius, share of its light]. */
+	softGlow: [
+		[0, 1],
+		[0.1, 0.956],
+		[0.2, 0.835],
+		[0.3, 0.667],
+		[0.4, 0.487],
+		[0.5, 0.325],
+		[0.6, 0.198],
+		[0.7, 0.11],
+		[0.8, 0.056],
+		[0.9, 0.022],
+		[1, 0],
+	],
+} as const

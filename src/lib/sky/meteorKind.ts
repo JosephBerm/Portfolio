@@ -158,10 +158,10 @@ const DEG = Math.PI / 180
  * right, whichever leaves room for the least path (either, if both do), a speed in `angular` °/s of the sky window drawn
  * fast enough for the least path to fit in the longest `duration`, and a duration from the least that makes the path long
  * enough up to the longest. The planner flies it in clear sky (`nearCopy` false) and clear of the side rails, on long
- * flights only, and the earthgrazer has no flare or train and the wake of a fireball. The planner's longest path for ordinary
- * flights does not bind it: its length is its speed times its duration, and that is wider than 640 px on the widest
- * screens. It takes the sodium-enhanced spectrum, as slow meteors do. Returns null when no band of clear sky is long
- * enough, and then leaves the visit's sky as it was.
+ * flights only, and the earthgrazer has no flare or train and the wake METEOR.grazerWake. The planner's longest path for
+ * ordinary flights does not bind it: its length is its speed times its duration, and that is wider than 640 px on the
+ * widest screens. It takes the sodium-enhanced spectrum, as slow meteors do, and is of the slow speed class. Returns null
+ * when no band of clear sky is long enough, and then leaves the visit's sky as it was.
  */
 export function planGrazer(context: PlanContext): Meteor | null {
 	const { random, now, field, ink } = context
@@ -187,10 +187,11 @@ export function planGrazer(context: PlanContext): Meteor | null {
 			peak: between(random, METEOR_BRIGHTNESS.normal[0], METEOR_BRIGHTNESS.normal[1]),
 			spectrum: 'naEnhanced',
 			train: false,
+			speedClass: 'slow',
 		}
 	}
 	const plan = planMeteor(random, field, now, { steer, flights: 'long', ink, nearCopy: false, clearOf: field.pinned })
-	return plan && { ...plan, wake: METEOR.fireballWake, flare: false, train: false, variant: 'grazer' }
+	return plan && { ...plan, wake: METEOR.grazerWake, flare: false, train: false, variant: 'grazer' }
 }
 
 /** A kind of shooting star apart from the ordinary: a key of METEOR_KINDS. */
@@ -264,7 +265,7 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	lifetime: meteorLifetime,
 	moving: meteorMoving,
 	nearCopy: (meteor) => meteor.nearCopy || (meteor.followers?.some((follower) => follower.nearCopy) ?? false),
-	clearSky: (meteor) => meteor.variant !== undefined,
+	clearSky: (meteor) => meteor.variant !== undefined || meteor.fireball,
 	lastOnset: (meteor) => (meteor.followers?.at(-1)?.startedAt ?? meteor.startedAt) - meteor.startedAt,
 	lease: true,
 	phones: true,

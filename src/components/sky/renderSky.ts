@@ -29,6 +29,7 @@ import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
 import { budgetKeeps, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
+import { drawFireball } from './renderFireball'
 import { COMA_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
 /** Lazily generated cells of each layer's infinite plane, evicted by the frame they were last used in. */
@@ -462,13 +463,18 @@ function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAss
  * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A
  * shooting star is drawn with drawMeteor and then its sheath (drawMeteorSheath), which always keeps clear of copy. A burst
  * draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
- * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them.
+ * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them. A
+ * fireball, the one body with a show, has a drawer of its own (drawFireball), which always keeps clear of copy.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
 	const { kind, body } = transient
 	switch (kind) {
 		case 'meteor': {
+			if (body.show) {
+				drawFireball(ctx, assets, body, body.show, frame, fade)
+				return
+			}
 			const keeps = transient.clearSky ? CLEAR_SKY_KEEPS : undefined
 			drawShootingStar(ctx, assets, body, frame, fade, keeps)
 			if (body.followers) for (const follower of body.followers) drawShootingStar(ctx, assets, follower, frame, fade, keeps)

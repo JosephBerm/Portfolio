@@ -173,24 +173,26 @@ function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 	const { ripples, tileWidth } = assets.water
 	const { bands, crestBRate } = WATER.ripple
 	const k = frame.dpr
-	ripples.forEach((tile, layer) => {
+	for (let layer = 0; layer < ripples.length; layer++) {
+		const tile = ripples[layer]
+		if (!tile) continue
 		const rate = layer === 0 ? 1 : crestBRate
-		bands.forEach((band, b) => {
+		for (let b = 0; b < bands.length; b++) {
 			const first = layer === 0 ? rippleAlpha(b, clock, level) : 1 - rippleAlpha(b, clock, level)
 			const alpha = first * fade
-			if (alpha < MIN_STAR_ALPHA) return
+			if (alpha < MIN_STAR_ALPHA) continue
 			const p0 = Math.round((bands[b - 1] ?? 0) * tile.height)
-			const p1 = Math.round(band * tile.height)
+			const p1 = Math.round((bands[b] ?? 1) * tile.height)
 			const y0 = waterY + Math.round(p0 * k)
 			const y1 = waterY + Math.round(p1 * k)
-			if (p1 <= p0 || y1 <= 0 || y0 >= frame.deviceHeight) return
+			if (p1 <= p0 || y1 <= 0 || y0 >= frame.deviceHeight) continue
 			ctx.globalAlpha = alpha
 			const offset = rippleOffset(rippleBandDepth(b), rate, clock) % tileWidth
 			for (let x = offset > 0 ? offset - tileWidth : 0; x < frame.width; x += tileWidth) {
 				ctx.drawImage(tile, 0, p0, tileWidth, p1 - p0, x * k, y0, tileWidth * k, y1 - y0)
 			}
-		})
-	})
+		}
+	}
 }
 
 /**

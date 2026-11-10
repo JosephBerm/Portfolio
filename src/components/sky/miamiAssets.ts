@@ -787,14 +787,14 @@ function planSkyline(stage: MiamiStage): Skyline {
 	const { width: W, unit, sunX, sunR, tallest } = stage
 	const byWidth = stage.narrow ? 'narrow' : 'wide'
 	const edges = W >= EDGE_MIN_WIDTH
-	const cover = { left: edges ? EDGE_SHARE.left * W : 0, right: edges ? EDGE_SHARE.right * W : 0 }
+	const closed = { left: edges ? EDGE_SHARE.left * W : 0, right: edges ? EDGE_SHARE.right * W : 0 }
 
 	const towers: Tower[] = []
 	NEAR_TOWERS.forEach(([x, width, height, crown], index) => {
 		const left = sunX + x * unit
 		const right = left + width * unit
 		const middle = (left + right) / 2
-		if (right < 0 || left > W || middle < cover.left || middle > W - cover.right) return
+		if (right < 0 || left > W || middle < closed.left || middle > W - closed.right) return
 		towers.push({ left, right, height: height * unit, crown, seed: hashCell(index, 0, SKYLINE.base.seed) })
 	})
 	// The clusters at the edges, from the screen's edge inward, touching: each tower stands where the one before it ends
@@ -807,8 +807,8 @@ function planSkyline(stage: MiamiStage): Skyline {
 			edge += span
 		}
 	}
-	cluster(EDGE_LEFT, cover.left, false)
-	cluster(EDGE_RIGHT, cover.right, true)
+	cluster(EDGE_LEFT, closed.left, false)
+	cluster(EDGE_RIGHT, closed.right, true)
 
 	// The far towers: independent of the near ones so they show through their gaps, clear of the sun's gap and of the edges
 	const far: Tower[] = []

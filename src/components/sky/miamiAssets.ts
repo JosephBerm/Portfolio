@@ -127,7 +127,10 @@ const DITHER_TAPER = 8
 const BATCH_PIXELS = 8192
 
 /** Pixels of a plain conversion between two returns: a copy is cheaper than the bake's float work. */
-const COPY_PIXELS = 65536
+const COPY_PIXELS = 131072
+
+/** Pixels of the water's base baked between two returns: a pixel of it costs about a fifth of a pixel of the sky, so a batch is still under a millisecond. */
+const WATER_BATCH_PIXELS = 32768
 
 /** Columns of ripple dashes (each a sine and a power) a field draws between two returns: about a millisecond. */
 const LENS_PIXELS = 24000
@@ -1260,7 +1263,7 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 	const body = new Float32Array(3)
 	const trough = new Float32Array(3)
 
-	const rowsPerBatch = Math.max(1, Math.floor(BATCH_PIXELS / width))
+	const rowsPerBatch = Math.max(1, Math.floor(WATER_BATCH_PIXELS / width))
 	for (let start = 0; start < height; start += rowsPerBatch) {
 		for (let j = start; j < Math.min(height, start + rowsPerBatch); j++) {
 			const p = j + 0.5

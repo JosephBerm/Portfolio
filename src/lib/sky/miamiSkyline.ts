@@ -80,44 +80,45 @@ export const NEAR_TOWERS: readonly (readonly [x: number, width: number, height: 
 ]
 
 /**
- * The solid clusters that close the frame on each side, from the screen's edge inward: a tower's width, its height and its
- * crown, with no air between them. Each list is longer than the widest screen needs.
+ * The solid clusters that close the frame on each side, from the screen's edge inward: how far a tower's near edge stands
+ * from the screen's edge, its width, its height and its crown (drawing units), with no air between towers. Each list is
+ * longer than the widest screen needs.
  */
-export const EDGE_LEFT: readonly (readonly [width: number, height: number, crown: number])[] = [
-	[30, 85, 0],
-	[29, 98, 0],
-	[28, 75, 0],
-	[29, 66, 0],
-	[28, 88, 0],
-	[34, 78, 0],
-	[30, 97, 0],
-	[30, 72, 0],
-	[27, 100, 0],
-	[27, 80, 0],
-	[28, 112, 0],
-	[29, 90, 0],
-	[27, 78, 0],
-	[28, 111, 0],
-	[33, 72, 0],
-	[32, 94, 0],
-	[27, 77, 0],
+export const EDGE_LEFT: readonly (readonly [x: number, width: number, height: number, crown: number])[] = [
+	[0, 30, 85, 0],
+	[30, 29, 98, 0],
+	[59, 28, 75, 0],
+	[87, 29, 66, 0],
+	[116, 28, 88, 0],
+	[144, 34, 78, 0],
+	[178, 30, 97, 0],
+	[208, 30, 72, 0],
+	[238, 27, 100, 0],
+	[265, 27, 80, 0],
+	[292, 28, 112, 0],
+	[320, 29, 90, 0],
+	[349, 27, 78, 0],
+	[376, 28, 111, 0],
+	[404, 33, 72, 0],
+	[437, 32, 94, 0],
+	[469, 27, 77, 0],
 ]
 
-export const EDGE_RIGHT: readonly (readonly [width: number, height: number, crown: number])[] = [
-	[31, 106, 0],
-	[34, 89, 0],
-	[33, 65, 0],
-	[30, 94, 0],
-	[28, 71, 0],
-	[30, 80, 0],
-	[34, 100, 0],
-	[32, 67, 0],
-	[27, 78, 0],
-	[30, 87, 0],
-	[33, 109, 0],
-	[28, 71, 0],
-	[31, 109, 0],
-	[31, 76, 0],
-	[33, 103, 0],
-	[32, 93, 0],
+export const EDGE_RIGHT: readonly (readonly [x: number, width: number, height: number, crown: number])[] = [
+	[0, 31, 106, 0],
+	[31, 34, 89, 0],
+	[65, 33, 65, 0],
+	[98, 30, 94, 0],
+	[128, 28, 71, 0],
+	[156, 30, 80, 0],
+	[186, 34, 100, 0],
+	[220, 32, 67, 0],
+	[252, 27, 78, 0],
+	[279, 30, 87, 0],
+	[309, 33, 109, 0],
+	[342, 28, 71, 0],
+	[370, 31, 109, 0],
+	[401, 31, 76, 0],
+	[432, 33, 103, 0],
+	[465, 32, 93, 0],
 ]

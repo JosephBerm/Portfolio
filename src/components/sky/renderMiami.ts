@@ -1,6 +1,6 @@
 import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { BEACONS, BOAT, STAGE, SUN, WATER } from '@/lib/sky/miamiConfig'
-import { columnReach, glintAt, rippleAlpha, rippleBandDepth, rippleOffset, rowShift, type Glint, type RowShift } from '@/lib/sky/miamiWater'
+import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type RowShift } from '@/lib/sky/miamiWater'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import type { MiamiImage, MiamiWing } from './miamiAssets'
 import type { MiamiFrame } from './miamiRuntime'
@@ -10,7 +10,7 @@ import type { SkyFrame } from './renderSky'
 const WATER_OVERLAP = 2
 
 /** What a row of the water and a glint are moved by or lit by, reused so a frame makes no garbage. */
-const shift: RowShift = { x: 0, y: 0 }
+const shift: RowShift = { dx: 0, dy: 0 }
 const glint: Glint = { across: 0, depth: 0, alpha: 0, width: 0, height: 0 }
 
 /**
@@ -131,7 +131,7 @@ function drawCities(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, f
 
 /**
  * The water in strips a few device px tall that grow toward the viewer, cut from the base picture: each strip is shifted
- * sideways and in the picture's own rows by its own phase of the waves, so no part of the water moves as one sheet. Where the
+ * sideways and in the picture's own rows by its own point in the waves' cycles, so no part of the water moves as one sheet. Where the
  * strips end, under the page's end, the base's own rows go on and then its last row stretches to the bottom of the canvas,
  * so a pull past the end shows no gap.
  */
@@ -143,23 +143,21 @@ function drawWater(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 	// The strips are in the build's device px, and the canvas may have dropped to a lower ratio since
 	const share = frame.dpr / assets.dpr
 	ctx.globalAlpha = fade
-	let top = 0
-	for (let i = 0; i < water.rows.length; i++) {
-		const rows = water.rows[i] ?? 0
-		const y0 = waterY + Math.round(top * share)
-		const y1 = waterY + Math.round((top + rows) * share)
-		const sourceTop = top / assets.dpr
-		top += rows
+	let covered = 0
+	for (const row of water.rows) {
+		const y0 = waterY + Math.round(row.top * share)
+		const y1 = waterY + Math.round((row.top + row.height) * share)
+		covered = row.top + row.height
 		if (y1 <= 0 || y1 <= y0) continue
 		if (y0 >= frame.deviceHeight) return
-		rowShift(i, clock, level, water.depths[i] ?? 0, shift)
+		rowShift(row, clock, level, shift)
 		// A source rect above the picture would paint nothing, and the first rows' shifts reach up
-		ctx.drawImage(base.image, margin + shift.x, Math.max(0, sourceTop + shift.y), stage.width, rows / assets.dpr, 0, y0, frame.deviceWidth, y1 - y0)
+		ctx.drawImage(base.image, margin + shift.dx, Math.max(0, row.top / assets.dpr + shift.dy), stage.width, row.height / assets.dpr, 0, y0, frame.deviceWidth, y1 - y0)
 	}
-	const end = waterY + Math.round(top * share)
+	const end = waterY + Math.round(covered * share)
 	if (end >= frame.deviceHeight) return
 	const deep = Math.round(STAGE.water.overscan * frame.dpr)
-	ctx.drawImage(base.image, margin, top / assets.dpr, stage.width, base.height - top / assets.dpr, 0, end, frame.deviceWidth, deep)
+	ctx.drawImage(base.image, margin, covered / assets.dpr, stage.width, base.height - covered / assets.dpr, 0, end, frame.deviceWidth, deep)
 	const below = end + deep
 	if (below < frame.deviceHeight) ctx.drawImage(base.image, margin, base.height - 1, stage.width, 1, 0, below, frame.deviceWidth, frame.deviceHeight - below)
 }
@@ -171,15 +169,13 @@ function drawWater(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, waterY: number): void {
 	const { assets, clock, level, fade } = scene
 	const { ripples, tileWidth } = assets.water
-	const { bands, crestBRate } = WATER.ripple
+	const { bands } = WATER.ripple
 	const k = frame.dpr
 	for (let layer = 0; layer < ripples.length; layer++) {
 		const tile = ripples[layer]
 		if (!tile) continue
-		const rate = layer === 0 ? 1 : crestBRate
 		for (let b = 0; b < bands.length; b++) {
-			const first = layer === 0 ? rippleAlpha(b, clock, level) : 1 - rippleAlpha(b, clock, level)
-			const alpha = first * fade
+			const alpha = rippleAlpha(b, layer, clock, level) * fade
 			if (alpha < MIN_STAR_ALPHA) continue
 			const p0 = Math.round((bands[b - 1] ?? 0) * tile.height)
 			const p1 = Math.round((bands[b] ?? 1) * tile.height)
@@ -187,7 +183,7 @@ function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 			const y1 = waterY + Math.round(p1 * k)
 			if (p1 <= p0 || y1 <= 0 || y0 >= frame.deviceHeight) continue
 			ctx.globalAlpha = alpha
-			const offset = rippleOffset(rippleBandDepth(b), rate, clock) % tileWidth
+			const offset = rippleOffset(b, layer, clock) % tileWidth
 			for (let x = offset > 0 ? offset - tileWidth : 0; x < frame.width; x += tileWidth) {
 				ctx.drawImage(tile, 0, p0, tileWidth, p1 - p0, x * k, y0, tileWidth * k, y1 - y0)
 			}
@@ -208,11 +204,10 @@ function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 	const sunX = stage.sunX * (frame.width / stage.width)
 	const cell = assets.glitter
 	const count = WATER.glitter.count[stage.narrow ? 'narrow' : 'wide']
-	const time = level > 0 ? clock : WATER.stillClock
 	const footerY = view.end - stage.zFooterTop
 	ctx.globalCompositeOperation = 'lighter'
 	for (let slot = 0; slot < count; slot++) {
-		glintAt(slot, time, glint)
+		glintAt(slot, clock, level, glint)
 		const light = glint.alpha * open
 		if (light < MIN_STAR_ALPHA) continue
 		const x = sunX + glint.across * columnReach(glint.depth, stage.sunR)

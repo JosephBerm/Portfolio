@@ -4,7 +4,7 @@ import { BEACONS, BOAT, CLOUDS, RAMP, SKYLINE, STAGE, SUN, WATER, WING } from '@
 import { srgbToLinear } from '@/lib/sky/miamiRamp'
 import { CROWNS, EDGE_LEFT, EDGE_RIGHT, NEAR_TOWERS } from '@/lib/sky/miamiSkyline'
 import { placeBanks, rampFor, type MiamiStage, type PlacedBank, type RailSide } from '@/lib/sky/miamiStage'
-import { columnReach, rowDepths, waterRows } from '@/lib/sky/miamiWater'
+import { columnReach, waterRows, type WaterRow } from '@/lib/sky/miamiWater'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { hashCell, mulberry32 } from '@/lib/sky/random'
 import { smoothstep } from '@/lib/sky/scene'
@@ -64,9 +64,8 @@ export interface MiamiNear extends MiamiImage {
 export interface MiamiWater {
 	/** The base, in CSS px, `WATER.strips.margin` wider each side than the canvas and `STAGE.water.overscan` deeper than the page's end. */
 	base: MiamiImage
-	/** The strips' heights, in device px at the build's pixel ratio, and each one's depth in the water. */
-	rows: Int32Array
-	depths: Float32Array
+	/** The strips, from the waterline down: their places and heights are in device px at the build's pixel ratio. */
+	rows: readonly WaterRow[]
 	/** The ripple layers' tiles, one CSS px a pixel, from the waterline to the page's end, wrapping at the sides. */
 	ripples: readonly [ImageBitmap, ImageBitmap]
 	tileWidth: number
@@ -798,13 +797,12 @@ function planSkyline(stage: MiamiStage): Skyline {
 		towers.push({ left, right, height: height * unit, crown, seed: hashCell(index, 0, SKYLINE.base.seed) })
 	})
 	// The clusters at the edges, from the screen's edge inward, touching: each tower stands where the one before it ends
-	const cluster = (list: readonly (readonly [number, number, number])[], reach: number, mirror: boolean): void => {
-		let edge = 0
-		for (const [width, height, crown] of list) {
-			if (edge >= reach) break
-			const span = width * unit
-			towers.push({ left: mirror ? W - edge - span : edge, right: mirror ? W - edge : edge + span, height: height * unit, crown, seed: hashCell(Math.round(edge), height, SKYLINE.base.seed) })
-			edge += span
+	const cluster = (list: readonly (readonly [number, number, number, number])[], reach: number, mirror: boolean): void => {
+		for (const [x, width, height, crown] of list) {
+			if (x * unit >= reach) break
+			const near = x * unit
+			const far = (x + width) * unit
+			towers.push({ left: mirror ? W - far : near, right: mirror ? W - near : far, height: height * unit, crown, seed: hashCell(x, height, SKYLINE.base.seed) })
 		}
 	}
 	cluster(EDGE_LEFT, closed.left, false)
@@ -954,16 +952,16 @@ function drawCrane(mask: Uint8Array, width: number, height: number, x: number, a
 	strokeLine(mask, width, height, center, top, land, girder, light)
 }
 
-/** A palm's top on the low base: a thin trunk and a small crown of curved fronds, in device px. */
+/** A palm's top on the low base: a thin trunk and a small crown of curved leaves, in device px. */
 function drawPalmTop(mask: Uint8Array, width: number, height: number, palm: Palm, x: number, baseY: number, topY: number, dpr: number): void {
 	const roll = (salt: number) => hashCell(palm.seed, salt, 0x70616c6d) / 4294967296
 	const line = Math.max(1, dpr)
 	const tipX = x + roll(0) * 2 * dpr
 	strokeLine(mask, width, height, x, baseY, tipX, topY, line)
 	const radius = palm.radius * dpr
-	for (let frond = 0; frond < 9; frond++) {
-		const angle = ((-100 + frond * 25 + (roll(frond + 1) * 12 - 6)) * Math.PI) / 180
-		const length = radius * (0.75 + 0.25 * roll(frond + 20))
+	for (let leaf = 0; leaf < 9; leaf++) {
+		const angle = ((-100 + leaf * 25 + (roll(leaf + 1) * 12 - 6)) * Math.PI) / 180
+		const length = radius * (0.75 + 0.25 * roll(leaf + 20))
 		const points: number[] = []
 		for (let step = 0; step <= 6; step++) {
 			const s = step / 6
@@ -978,7 +976,7 @@ function drawPalmTop(mask: Uint8Array, width: number, height: number, palm: Palm
  * whole device pixels, the cranes, the low base with its palm tops, and the clusters at the edges, all in the near color.
  * Returns the band, with the beacons' places on it.
  */
-function* bakeNear(stage: MiamiStage, plan: Skyline, dpr: number): Generator<void, { pixels: ImageData; width: number; height: number; beacons: MiamiBeacon[] }, undefined> {
+function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<void, { pixels: ImageData; width: number; height: number; beacons: MiamiBeacon[] }, undefined> {
 	const width = deviceSize(stage.width, dpr)
 	const heightCss = Math.ceil(Math.max(CITY_TOP_UNITS * stage.unit, 60)) + 2
 	const height = Math.ceil(heightCss * dpr)
@@ -990,8 +988,8 @@ function* bakeNear(stage: MiamiStage, plan: Skyline, dpr: number): Generator<voi
 	let tallestBase = 0
 	for (let x = 0; x < width; x++) {
 		const at = (x + 0.5) / dpr
-		const i = Math.min(plan.base.length - 2, Math.floor(at))
-		const rise = lerp(plan.base[i] ?? 0, plan.base[i + 1] ?? 0, at - i) * dpr
+		const i = Math.min(skyline.base.length - 2, Math.floor(at))
+		const rise = lerp(skyline.base[i] ?? 0, skyline.base[i + 1] ?? 0, at - i) * dpr
 		whole[x] = Math.min(height, Math.floor(rise))
 		edge[x] = Math.round(255 * (rise - Math.floor(rise)))
 		tallestBase = Math.max(tallestBase, whole[x] ?? 0)
@@ -1010,7 +1008,7 @@ function* bakeNear(stage: MiamiStage, plan: Skyline, dpr: number): Generator<voi
 
 	// The towers, with rect edges on whole device px
 	let drawn = 0
-	for (const tower of plan.towers) {
+	for (const tower of skyline.towers) {
 		const x0 = Math.round(tower.left * dpr)
 		const x1 = Math.max(x0 + 1, Math.round(tower.right * dpr))
 		const top = height - Math.round(tower.height * dpr)
@@ -1019,9 +1017,9 @@ function* bakeNear(stage: MiamiStage, plan: Skyline, dpr: number): Generator<voi
 	}
 	yield
 
-	for (const crane of plan.cranes) drawCrane(mask, width, height, crane * dpr, SKYLINE.cranes.apex * stage.unit * dpr, dpr)
-	for (const palm of plan.palms) {
-		const baseTop = plan.base[Math.min(plan.base.length - 1, Math.round(palm.x))] ?? 0
+	for (const crane of skyline.cranes) drawCrane(mask, width, height, crane * dpr, SKYLINE.cranes.apex * stage.unit * dpr, dpr)
+	for (const palm of skyline.palms) {
+		const baseTop = skyline.base[Math.min(skyline.base.length - 1, Math.round(palm.x))] ?? 0
 		drawPalmTop(mask, width, height, palm, palm.x * dpr, height - baseTop * dpr, height - palm.top * dpr, dpr)
 	}
 	yield
@@ -1030,7 +1028,7 @@ function* bakeNear(stage: MiamiStage, plan: Skyline, dpr: number): Generator<voi
 	const beacons: MiamiBeacon[] = []
 	if (BEACONS.enabled) {
 		const count = BEACONS.count[stage.narrow ? 'narrow' : 'wide']
-		const candidates = plan.towers
+		const candidates = skyline.towers
 			.filter((tower) => {
 				const middle = (tower.left + tower.right) / 2
 				return middle > 0 && middle < stage.width && Math.abs(middle - stage.sunX) >= 90 && tower.height >= stage.tallest * 0.86
@@ -1057,13 +1055,13 @@ function skyColorAt(sky: SkyPixels, stage: MiamiStage, x: number, z: number): Rg
  * darker top to a hazier base that warms toward the sun, with a band of the local sky's color over its feet. It is baked at
  * half the device resolution (one pixel a CSS px at 2x, at most) and upscaled when drawn, so its edges are soft.
  */
-function* bakeFar(stage: MiamiStage, plan: Skyline, sky: SkyPixels, dpr: number): Generator<void, { pixels: ImageData; scale: number; width: number; height: number }, undefined> {
+function* bakeFar(stage: MiamiStage, skyline: Skyline, sky: SkyPixels, dpr: number): Generator<void, { pixels: ImageData; scale: number; width: number; height: number }, undefined> {
 	const scale = Math.min(1, dpr / 2)
 	const width = Math.max(1, Math.ceil(stage.width * scale))
 	const heightCss = Math.ceil(stage.tallest * SKYLINE.far.high * 1.08) + 2
 	const height = Math.max(1, Math.ceil(heightCss * scale))
 	const coverage = new Float32Array(width * height)
-	for (const tower of plan.far) {
+	for (const tower of skyline.far) {
 		const top = heightCss - tower.height
 		coverBox(coverage, width, height, tower.left * scale, top * scale, tower.right * scale, heightCss * scale)
 		if (tower.crown === 1) {
@@ -1210,10 +1208,10 @@ function* lensField(width: number, rows: number, zWater: number, seed: number, s
 }
 
 /** The skyline's height above the waterline at each column of the water's base (CSS px, the margin included), for the reflection: the tallest of the base, the near towers and the far ones, smoothed over 2 px. */
-function skylineProfile(plan: Skyline, width: number, margin: number): Float32Array {
+function skylineProfile(skyline: Skyline, width: number, margin: number): Float32Array {
 	const raw = new Float32Array(width)
-	for (let i = 0; i < width; i++) raw[i] = plan.base[Math.min(plan.base.length - 1, Math.max(0, i - margin))] ?? 0
-	for (const tower of [...plan.towers, ...plan.far]) {
+	for (let i = 0; i < width; i++) raw[i] = skyline.base[Math.min(skyline.base.length - 1, Math.max(0, i - margin))] ?? 0
+	for (const tower of [...skyline.towers, ...skyline.far]) {
 		const top = tower.height + crownRise(tower.crown, tower.height)
 		for (let i = Math.max(0, Math.floor(tower.left) + margin); i < Math.min(width, Math.ceil(tower.right) + margin); i++) raw[i] = Math.max(raw[i] ?? 0, top)
 	}
@@ -1236,7 +1234,7 @@ function skylineProfile(plan: Skyline, width: number, margin: number): Float32Ar
  * skyline's dark reflection under every tower and a hot sliver along the waterline, all capped in luminance for every row at or
  * below the footer. Rows past the page's end repeat the last, for a pull past it.
  */
-function* bakeWaterBase(stage: MiamiStage, plan: Skyline): Generator<void, { pixels: ImageData; width: number; height: number }, undefined> {
+function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { pixels: ImageData; width: number; height: number }, undefined> {
 	const { width: W, zWater, sunX, sunR } = stage
 	const margin = WATER.strips.margin
 	const width = Math.ceil(W) + 2 * margin
@@ -1250,7 +1248,7 @@ function* bakeWaterBase(stage: MiamiStage, plan: Skyline): Generator<void, { pix
 	const troughStops = linearStops(palette.trough)
 	const troughs = yield* lensField(width, height, zWater, WATER.ripple.seed ^ 0x74726f75, () => WATER.ripple.troughShare)
 	yield
-	const profile = skylineProfile(plan, width, margin)
+	const profile = skylineProfile(skyline, width, margin)
 	yield
 	let tallestProfile = 0
 	for (const h of profile) tallestProfile = Math.max(tallestProfile, h)
@@ -1385,7 +1383,7 @@ function bakeGlitter(dpr: number): { pixels: ImageData; cellWidth: number; cellH
 	const { data } = pixels
 	const cut = Math.exp(-4.5)
 	// A Gaussian that reaches exactly 0 at the cell's edge, so no dash shows a box
-	const window = (u: number) => Math.max(0, Math.exp(-4.5 * u * u) - cut) / (1 - cut)
+	const taper = (u: number) => Math.max(0, Math.exp(-4.5 * u * u) - cut) / (1 - cut)
 	for (let c = 0; c < GLITTER_CLASSES; c++) {
 		const depth = (c + 0.5) / GLITTER_CLASSES
 		let color: Rgb = colors[colors.length - 1]?.rgb ?? [255, 255, 255]
@@ -1399,7 +1397,7 @@ function bakeGlitter(dpr: number): { pixels: ImageData; cellWidth: number; cellH
 		}
 		for (let j = 0; j < cellHeight; j++) {
 			for (let i = 0; i < cellWidth; i++) {
-				const level = window(((i + 0.5) / cellWidth) * 2 - 1) * window(((j + 0.5) / cellHeight) * 2 - 1)
+				const level = taper(((i + 0.5) / cellWidth) * 2 - 1) * taper(((j + 0.5) / cellHeight) * 2 - 1)
 				const k = ((c * cellHeight + j) * cellWidth + i) * 4
 				data[k] = color[0] * level
 				data[k + 1] = color[1] * level
@@ -1506,7 +1504,7 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		yield
 
 		const clouds = yield* bakeClouds(stage, own)
-		const plan = planSkyline(stage)
+		const skyline = planSkyline(stage)
 		const disc = bakeDisc(stage, dpr)
 		const halo = bakeHalo(stage)
 		const dot = bakeBeacon(dpr)
@@ -1514,19 +1512,19 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		const beacon: MiamiImage = { image: own(dot.pixels), width: dot.width, height: dot.height }
 		yield
 
-		const nearBaked = yield* bakeNear(stage, plan, dpr)
+		const nearBaked = yield* bakeNear(stage, skyline, dpr)
 		const near: MiamiNear = { image: own(nearBaked.pixels), width: nearBaked.width / dpr, height: nearBaked.height / dpr, beacons: nearBaked.beacons }
 		yield
 		let far: MiamiImage | null = null
 		if (!stage.more) {
-			const farBaked = yield* bakeFar(stage, plan, baked, dpr)
+			const farBaked = yield* bakeFar(stage, skyline, baked, dpr)
 			far = { image: own(farBaked.pixels), width: farBaked.width / farBaked.scale, height: farBaked.height / farBaked.scale }
 		}
 		// The sky's pixels are not needed again
 		baked = null
 		yield
 
-		const base = yield* bakeWaterBase(stage, plan)
+		const base = yield* bakeWaterBase(stage, skyline)
 		const baseImage: MiamiImage = { image: own(base.pixels), width: base.width, height: base.height }
 		yield
 		const tileWidth = Math.round(Math.min(WATER.ripple.tileMax, Math.max(WATER.ripple.tileMin[stage.narrow ? 'narrow' : 'wide'], stage.width + 32)))
@@ -1534,8 +1532,7 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		const crestA = own(firstRipple)
 		const secondRipple = yield* bakeRippleTile(stage, tileWidth, WATER.ripple.seed ^ 0x5b5b5b5b)
 		const crestB = own(secondRipple)
-		const rows = waterRows(Math.round(stage.zWater * dpr))
-		const water: MiamiWater = { base: baseImage, rows, depths: rowDepths(rows), ripples: [crestA, crestB], tileWidth }
+		const water: MiamiWater = { base: baseImage, rows: waterRows(Math.round(stage.zWater * dpr)), ripples: [crestA, crestB], tileWidth }
 		yield
 
 		const dashes = bakeGlitter(dpr)

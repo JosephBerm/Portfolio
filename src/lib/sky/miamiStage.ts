@@ -327,7 +327,9 @@ export function viewAt(stage: MiamiStage, scrollY: number, documentHeight: numbe
 export interface PlacedBank {
 	/** The height above the page's end of its flat bottom. */
 	bottom: number
-	/** Its greatest height above the bottom, px: its top lies at or below the stage's copy floor. */
+	/** The height above the page's end of its highest point: at or below the stage's copy floor. */
+	top: number
+	/** Its greatest height above the bottom, px: `top` less `bottom`. */
 	height: number
 	/** Its center at clock 0 and its width, as shares of the canvas width. */
 	x: number
@@ -380,7 +382,7 @@ export function placeBanks(stage: MiamiStage): readonly PlacedBank[] {
 		}
 		if (top - bottom < minHeight - ROUNDING || tops.some((other) => Math.abs(top - other) < topGap - ROUNDING)) return
 		tops.push(top)
-		placed.push({ bottom, height: top - bottom, x: entry.x, width: entry.width, drift: entry.drift, seed: hashCell(index, 2, BANK_SEED), rim: false })
+		placed.push({ bottom, top, height: top - bottom, x: entry.x, width: entry.width, drift: entry.drift, seed: hashCell(index, 2, BANK_SEED), rim: false })
 	})
 	// The hot rim goes to the bank whose center is nearest the sun's column
 	const sunShare = SUN.x[byWidth]

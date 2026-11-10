@@ -4,12 +4,12 @@
  * port cranes stand in, and is scaled by the screen's `unit` (the tallest tower over 128) and cropped at its edges, never
  * stretched, so every screen shows the same picture of one city. The list was drawn once from a seeded set of rules (a
  * density that thins away from the sun, groups of two or three towers, heights in three bands that fall away toward both
- * ends into a low shoreline) and is fixed: edit the numbers freely, keeping the sun's gap and the crane window clear.
+ * ends into a low shoreline) and stays as it is: edit the numbers freely, keeping the sun's gap and the crane window clear.
  * No tower here is taken from a real building or from a photograph.
  */
 
 /**
- * The crown shapes, which a tower's last number indexes: flat, a small rooftop box, a two-step setback, a rounded shoulder, a
+ * The crown shapes, which a tower's last number indexes: flat, a small rooftop box, a two-step setback, a curved shoulder, a
  * thin mast, a stepped arc of three receding tiers and a slanted top. The last two are the skyline's two signature crowns.
  */
 export const CROWNS = ['flat', 'box', 'setback', 'round', 'mast', 'arc', 'angle'] as const

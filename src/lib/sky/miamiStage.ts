@@ -261,7 +261,7 @@ export interface MiamiView {
 	lift: number
 	/** The waterline: where the water starts, and what stands at it, on the canvas. */
 	horizonY: number
-	/** How far the near and far towers still stand below the waterline, hidden by the water: they rise to their full height as the page lands. */
+	/** How far the near and far towers still stand below the waterline, covered by the water: they rise to their full height as the page lands. */
 	nearDrop: number
 	farDrop: number
 	/** How far the foreground has moved up against the page. */
@@ -341,7 +341,7 @@ export interface PlacedBank {
 }
 
 /**
- * Where the cloud banks stand on this stage. A bank's flat bottom is its table height above the waterline in tallest towers,
+ * Where the cloud banks stand on this stage. A bank's flat bottom is its listed height above the waterline in tallest towers,
  * and its top may not rise above the stage's copy floor, or its warm underside would light the copy. A bank above it moves
  * down to it, less a seeded offset where the room allows, and a bank that would then sink under the least height above the
  * waterline (it would read as smoke on a tower) first shrinks, to at least CLOUDS.place.minHeight, and only then is dropped.

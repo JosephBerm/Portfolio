@@ -26,7 +26,7 @@ const WAVES = WATER.waves.map((wave, k) => ({ ...wave, phase: TAU * unit(k, 0, W
 
 /**
  * The strips the water is drawn in, as heights in device px from the waterline down. The first is `WATER.strips.firstDevicePx`
- * tall and each is `growth` times the one above (rounded to whole device px, and never under one), so rows near the horizon
+ * tall and each is `growth` times the one above (to the nearest whole device px, and never under one), so rows near the horizon
  * are thin and rows near the viewer thick, as in perspective. They add up to `band` exactly: the last one is cut short.
  */
 export function waterRows(band: number): Int32Array {

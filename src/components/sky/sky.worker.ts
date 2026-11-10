@@ -64,8 +64,8 @@ import {
 	updateTransients,
 	type LaunchGate,
 } from '@/lib/sky/transients'
-import { createMiamiRuntime } from './miamiRuntime'
-import { createStarField, drawComet, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
+import { createMiamiRuntime, type MiamiStep } from './miamiRuntime'
+import { createStarField, drawComet, drawLandingScene, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
 import { buildCometArt, buildHaze, buildStarAtlas, starPalette } from './skyAssets'
 
 /** The parts of DedicatedWorkerGlobalScope the sky uses (the project's TypeScript lib is DOM only). */
@@ -261,6 +261,37 @@ function quietEasing(t: number): boolean {
 	return layoutAt !== null && t - layoutAt < QUIET.ease
 }
 
+/** What the landing scene reads at this moment (reused, so a call makes no garbage). */
+const miamiStep: MiamiStep = {
+	now: 0,
+	scrollY: 0,
+	documentHeight: 0,
+	dpr: 1,
+	quality: 0,
+	narrow: false,
+	softwareFps: Infinity,
+	level: 0,
+	motionFull: false,
+	ambientOn: false,
+	quietEasing: false,
+}
+
+/** Fills the landing scene's input for `now` (ms). Every caller has run `gather` first, so the gates it reads are fresh. */
+function stepInput(now: number): MiamiStep {
+	miamiStep.now = now
+	miamiStep.scrollY = scrollY
+	miamiStep.documentHeight = documentHeight
+	miamiStep.dpr = dpr
+	miamiStep.quality = quality
+	miamiStep.narrow = narrowScreen
+	miamiStep.softwareFps = softwareFps
+	miamiStep.level = driftGate.level
+	miamiStep.motionFull = motion === 'full'
+	miamiStep.ambientOn = driftGate.on
+	miamiStep.quietEasing = quietEasing(now / 1000)
+	return miamiStep
+}
+
 /** What the frame clock sees now (reused). */
 const frameState: FrameState = {
 	live: false,
@@ -272,6 +303,9 @@ const frameState: FrameState = {
 	cameraCap: Infinity,
 	fading: false,
 	twinkleFps: 0,
+	sceneFps: 0,
+	sceneCap: Infinity,
+	sceneOnScreen: false,
 }
 
 /**
@@ -305,6 +339,12 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 		bodyFading(comet, t, t - hiddenTotal)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
 	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
+	// The landing scene's own frames, and the fade frames of an ease in or a rebuild, which would otherwise wait for the next input
+	const sceneDemand = miami.demand(stepInput(now))
+	frameState.sceneFps = sceneDemand.fps
+	frameState.sceneCap = sceneDemand.cap
+	frameState.sceneOnScreen = sceneDemand.onScreen
+	frameState.fading ||= sceneDemand.easing || sceneDemand.rebuilding
 	return frameDemand(frameState)
 }
 
@@ -504,6 +544,8 @@ function tick(now: number): void {
 	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, drawnAt) || easeEnded(thinnedAt, ADAPT.thinFade, now / 1000, drawnAt)) needsDraw = true
 	updateCamera(now, scene)
 	updateComet(now)
+	// The landing scene's bitmaps are built here, in slices, and never inside a draw, so adapt never counts them
+	if (miami.step(stepInput(now))) needsDraw = true
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
 	// display: until the relay starts, each of its frames is drawn, divided only by a demand's cap. The page's relayed
@@ -603,6 +645,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const contrast = contrastLevels()
 	const density = densityKeep(width, height)
 	const thinLevel = fadeOutAt(thinnedAt, ADAPT.thinFade, t)
+	const landing = miami.frame(stepInput(now))
 	return {
 		time: t,
 		twinkleTime: t - hiddenTotal,
@@ -623,6 +666,11 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		quiet: quietBlend(t),
 		meteorInk: contrast.meteorInk * scene.inkShare,
 		snap: !skyMoved,
+		miami: landing,
+		// Locked to the page's end: the camera moves each star by its own share, but the floor stays with the page
+		starFloorY: landing ? landing.view.end - landing.stage.zStarOut : Infinity,
+		starFullY: landing ? landing.view.end - landing.stage.zStarFull : Infinity,
+		starFloorFade: landing ? landing.fade : 0,
 	}
 }
 
@@ -645,13 +693,20 @@ function draw(now: number): void {
 		assets.comet.close()
 		assets.comet = null
 	}
+	// The landing scene's silhouettes are drawn after this reading, so adapt's steps, which are one way and cover the whole page,
+	// never count them. Only the scene's ground, a bitmap and a fill drawn inside drawSky, counts
+	const skyMs = performance.now() - started
+	drawLandingScene(ctx, frame)
 	lastDrawAt = now
 	needsDraw = false
+	// A scene that threw part way left half a frame: the next tick replaces it with the plain sky. Under reduced motion at rest
+	// nothing else would ask for one
+	if (frame.miami?.failed) needsDraw = true
 	if (!ready) {
 		ready = true
 		scope.postMessage({ type: 'ready' })
 	}
-	adapt(performance.now() - started, now)
+	adapt(skyMs, now)
 }
 
 /** Counts slow frames (JS over ADAPT.slowFrameMs) net of fast ones and steps quality down once they pile up. */

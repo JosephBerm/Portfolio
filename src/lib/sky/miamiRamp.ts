@@ -25,7 +25,7 @@ export interface RampLut {
 const LUMINANCE_WEIGHTS = [0.2126, 0.7152, 0.0722] as const
 
 /** sRGB channel (0-255) to linear light (0-1). */
-function srgbToLinear(channel: number): number {
+export function srgbToLinear(channel: number): number {
 	const c = channel / 255
 	return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
 }

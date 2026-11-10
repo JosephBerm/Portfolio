@@ -1,9 +1,9 @@
 import { luminance } from './color'
 import { NARROW_MAX_WIDTH } from './config'
-import { BOAT, CLOUDS, RAMP, SKYLINE, STAGE, SUN } from './miamiConfig'
+import { BOAT, CLOUDS, RAMP, SKYLINE, STAGE, SUN, WING } from './miamiConfig'
 import { buildRampLut, rampTForLuminance, type RampLut } from './miamiRamp'
 import type { LandingRect, Rgb, SkyRect, SkyTokens } from './protocol'
-import type { DescentWindow } from './scene'
+import { smoothstep, type DescentWindow } from './scene'
 
 /**
  * Everything the stage is measured from. Rects are CSS px: `quiet` in document coordinates, `pinned` (copy in the fixed
@@ -90,8 +90,8 @@ function rampStops(): typeof RAMP.stops.A | typeof RAMP.stops.B {
 	return STAGE.direction === 'A' ? RAMP.stops.A : RAMP.stops.B
 }
 
-/** The sky's ramp for this navy. */
-function rampFor(navy: Rgb): RampLut {
+/** The sky's ramp for this navy. The stage's fit and the sky's bake read the same one. */
+export function rampFor(navy: Rgb): RampLut {
 	const key = `${STAGE.direction}|${navy.join(',')}`
 	if (rampMemo?.key !== key) rampMemo = { key, lut: buildRampLut(rampStops(), navy) }
 	return rampMemo.lut
@@ -244,4 +244,53 @@ export function descentWindow(stage: MiamiStage): DescentWindow {
 /** The canvas y below which no sky event may fly; Infinity with no stage. */
 export function eventFloorY(stage: MiamiStage | null, scrollY: number, documentHeight: number): number {
 	return stage ? documentHeight - scrollY - stage.zEventFloor : Infinity
+}
+
+/** Where the scene's parts stand at one scroll position, in CSS px on the canvas (y down). `viewAt` fills it, so a frame makes no garbage. */
+export interface MiamiView {
+	/** The page's end on the canvas: the document's height less the scroll, not clamped, so a pull past the end moves it. */
+	end: number
+	/** The scroll left before the canvas bottom reaches the page's end. */
+	lift: number
+	/** The waterline: where the water starts, and what stands at it, on the canvas. */
+	horizonY: number
+	/** How far the foreground has moved up against the page. */
+	palmShift: number
+	/** How much of each side's wing is on, 0 to 1. */
+	wingLeft: number
+	wingRight: number
+	/** The y at which each wing's top feather starts. */
+	wingTopLeft: number
+	wingTopRight: number
+	/** Some of the scene is on the canvas: the lift is under `zShow`. */
+	onScreen: boolean
+	/** Something of the scene moves against the page: the lift is under the larger of the warm band's top and the waterline's entry. */
+	moving: boolean
+}
+
+/**
+ * The scene's view at a scroll position. `motionShare` is 1 under full motion and 0 under reduced motion, and moves the
+ * waterline and the foreground against the page: at 0 the whole scene is a picture that scrolls with the page. The sky
+ * always moves with the page, so it has no term here; it sits at `end - z`.
+ */
+export function viewAt(stage: MiamiStage, scrollY: number, documentHeight: number, motionShare: number, out: MiamiView): MiamiView {
+	const end = documentHeight - scrollY
+	const lift = Math.max(0, end - stage.height)
+	const rate = 1 - (1 - STAGE.horizonRate) * motionShare
+	const { left, right } = stage.rail
+	// The wings' tops ride the warm rows, so a wing is never on navy; under `more` the warm band is too thin to cover the
+	// rail, and they ride the ramp's top
+	const wingTop = end - (stage.more ? stage.zReach : stage.zWarmTop)
+	out.end = end
+	out.lift = lift
+	out.horizonY = Math.min(stage.height, end) + rate * lift - stage.zWater
+	out.palmShift = (STAGE.palmRate - 1) * lift * motionShare
+	// A wing is full from its side's `need` down, and eases off over WING.ease px of scroll above it
+	out.wingLeft = left ? 1 - smoothstep(left.need, left.need + WING.ease, lift) : 0
+	out.wingRight = right ? 1 - smoothstep(right.need, right.need + WING.ease, lift) : 0
+	out.wingTopLeft = left ? Math.max(left.top - WING.topFeather, wingTop) : 0
+	out.wingTopRight = right ? Math.max(right.top - WING.topFeather, wingTop) : 0
+	out.onScreen = lift < stage.zShow
+	out.moving = lift < Math.max(stage.zWarmTop, stage.horizonEnter)
+	return out
 }

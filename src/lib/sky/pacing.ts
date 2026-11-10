@@ -14,10 +14,10 @@ export interface FrameDemand {
 /** Nothing to draw. */
 export const NO_FRAMES: FrameDemand = { fps: 0, vsync: false, cap: Infinity }
 
-/** Every display refresh: a moving transient, scrolling under full motion. */
+/** Every display refresh: a moving transient, scrolling under full motion or, with the landing scene's silhouettes on screen, at any motion level. */
 export const EVERY_FRAME: FrameDemand = { fps: Infinity, vsync: true, cap: Infinity }
 
-/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion, the motion level easing, the stars a quality step thins out, the comet fading in or out). */
+/** Slow changes that don't move (the dusk, a lingering train, the quiet ease, scrolling under reduced motion while the landing scene's silhouettes are off screen, the motion level easing, the stars a quality step thins out, the comet fading in or out, the landing scene easing in or rebuilding). */
 export const FADE_FRAMES: FrameDemand = { fps: FRAME.fadeFps, vsync: false, cap: Infinity }
 
 /**
@@ -64,10 +64,16 @@ export interface FrameState {
 	cameraSpeed: number
 	/** Most frames per second the camera's motion may draw: the drift's cap (driftCap) while the drift is wanted or the lean moves, else Infinity, so a scroll glide alone is never cut to a crawl. */
 	cameraCap: number
-	/** A slow change runs: the dusk, the quiet ease, the motion ease, the thin fade or a fade of the comet. */
+	/** A slow change runs: the dusk, the quiet ease, the motion ease, the thin fade, a fade of the comet, the landing scene easing in or rebuilding. */
 	fading: boolean
 	/** Twinkle's timer rate while it may change (full motion, the visitor not idle and a twinkling scene), else 0. */
 	twinkleFps: number
+	/** The landing scene's ambient motion: frames a second while it is on screen and running, else 0. */
+	sceneFps: number
+	/** Most frames a second the scene may draw: the drift's cap, and a third of a software canvas's budget. */
+	sceneCap: number
+	/** The scene's silhouettes are on screen: scrolling draws every refresh at any motion level, so the picture stays with the page. */
+	sceneOnScreen: boolean
 }
 
 /** The strictest demand of every part of the sky this tick. */
@@ -75,7 +81,8 @@ export function frameDemand(state: FrameState): FrameDemand {
 	if (!state.live) return NO_FRAMES
 	return combineDemands(
 		state.transientDemand,
-		state.scrolling ? (state.full ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES,
+		state.scrolling ? (state.full || state.sceneOnScreen ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES,
+		state.sceneFps > 0 ? { fps: state.sceneFps, vsync: true, cap: state.sceneCap } : NO_FRAMES,
 		state.cameraActive ? { fps: motionFps(state.cameraSpeed), vsync: true, cap: state.cameraCap } : NO_FRAMES,
 		state.fading ? FADE_FRAMES : NO_FRAMES,
 		state.twinkleFps > 0 ? { fps: state.twinkleFps, vsync: false, cap: Infinity } : NO_FRAMES

@@ -84,10 +84,11 @@ export const STAGE = {
  * - `bloom`: the glow around the sun, added to the sky. A near and a far term, each with a strength and a width as a
  *   share of the warm band's height, stretched `xStretch` times wider than tall, in `color` mixed `whiterShare` of the way
  *   toward `whiter`.
- * - `limb`: a faint curved line of glow, like the edge of the Earth seen from space. The ramp's isolines arc by a sagitta
- *   of the lesser of `sagitta.height` of the canvas height and `sagitta.width` of its width, flat below t = `fromT` and
- *   fully arced from `fullT`, and a hairline of `color` at strength `hairline` lies about t = `hairlineT`, `hairlineWidth`
- *   wide in t. Set `hairline` to 0 to cut it if it draws attention.
+ * - `limb`: the Earth's edge seen from space. The ramp's isolines arc by a sagitta of the lesser of `sagitta.height` of the
+ *   canvas height and `sagitta.width` of its width, flat below t = `fromT` and fully arced from `fullT`. A hairline of
+ *   `color` at strength `hairline` lies about t = `hairlineT`, `hairlineWidth` wide in t. It is off (0): at 0.08 it was a
+ *   band 30 to 70 px tall and nearly twice as bright as the sky on both sides, so it read as a floating ring, not as the
+ *   Earth's edge.
  * - `moreGlow`: the share of the bloom kept under prefers-contrast: more.
  */
 export const RAMP = {
@@ -103,7 +104,7 @@ export const RAMP = {
 	bend: { sigma: { wide: 0.46, narrow: 0.62 }, a: 0.66, b: 0.34, c: 0.2 },
 	edge: { keep: 0.5, reach: { wide: 0.14, narrow: 0.07 }, goneT: 1.3 },
 	bloom: { near: 0.42, nearWidth: 0.12, far: 0.18, farWidth: 0.3, xStretch: 2.3, color: '#FFB347', whiter: '#FFE7A8', whiterShare: 0.28 },
-	limb: { sagitta: { height: 0.12, width: 0.04 }, fromT: 1.2, fullT: 2, hairline: 0.08, hairlineT: 2.25, hairlineWidth: 0.05, color: '#3A5AA0' },
+	limb: { sagitta: { height: 0.12, width: 0.04 }, fromT: 1.2, fullT: 2, hairline: 0, hairlineT: 2.25, hairlineWidth: 0.05, color: '#3A5AA0' },
 	moreGlow: 0.7,
 } as const
 

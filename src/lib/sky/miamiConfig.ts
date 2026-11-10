@@ -45,6 +45,9 @@ export const DESCENT = {
  *   take to settle when the motion changes (1.5 to 2).
  * - `drop`: how far the near and far towers sink behind the water while the page is still coming down, as a share of the
  *   tallest tower (0 to 0.35); they rise to their full height as the page lands.
+ * - `farFade`: the far city's colors are hazy and light, made for the sky behind it where it lands. While the page comes down
+ *   the horizon group climbs against the page-locked sky, into rows that are darker than they are, and there it would show as
+ *   lighter than its sky. It fades out as that climb grows from the first to the second share of the warm band's height.
  * - `copyClear` and `copyClearMin`: the clearance kept between the lowest copy's bottom and bright clouds, and the least it
  *   falls to where the banks need the room.
  * - `bakeAhead`: canvas heights of scroll before the scene shows at which its bitmaps start to build.
@@ -60,6 +63,7 @@ export const STAGE = {
 	palmRate: 1.15,
 	rateEase: 2,
 	drop: { near: 0.28, far: 0.14 },
+	farFade: [0.08, 0.17],
 	copyClear: 68,
 	copyClearMin: 16,
 	bakeAhead: 1.2,
@@ -147,7 +151,7 @@ export const SUN = {
 export const CLOUDS = {
 	streaks: [
 		{ t: 0.13, x: 0.3, color: '#A8501C', width: 0.7, height: 8, drift: 0.8, alpha: 0.55 },
-		{ t: 0.3, x: 0.72, color: '#8E3F20', width: 0.5, height: 10, drift: 1, alpha: 0.5 },
+		{ t: 0.3, x: 0.86, color: '#8E3F20', width: 0.4, height: 10, drift: 1, alpha: 0.5 },
 		{ t: 0.52, x: 0.4, color: '#6E3424', width: 0.6, height: 14, drift: 1.6, alpha: 0.45 },
 		{ t: 0.78, x: 0.66, color: '#3F2A30', width: 0.4, height: 6, drift: 2.2, alpha: 0.35 },
 	],
@@ -231,7 +235,7 @@ export const WATER = {
 	capGap: 24,
 	capFeather: 40,
 	glow: { strength: 0.55, reach: [1.5, 4.2, 0.85], fade: [0.04, 0.95, 0.9], color: '#FFBE66' },
-	reflection: { core: '#2A120C', strength: 0.86, from: 0.36, to: 0.58 },
+	reflection: { core: '#2A120C', strength: 0.55, from: 0.36, to: 0.58 },
 	sliver: { color: '#F7A23F', height: 2.5 },
 	strips: { firstDevicePx: 1, growth: 1.05, margin: 16 },
 	waves: [{ period: 4.3, rows: 17, share: 0.5 }, { period: 3.1, rows: 11, share: 0.3 }, { period: 2.2, rows: 7, share: 0.2 }],

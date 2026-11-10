@@ -1,7 +1,8 @@
 import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { BEACONS, BOAT, STAGE, SUN, WATER } from '@/lib/sky/miamiConfig'
-import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type RowShift } from '@/lib/sky/miamiWater'
+import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type GlintField, type RowShift } from '@/lib/sky/miamiWater'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
+import { smoothstep } from '@/lib/sky/scene'
 import type { MiamiImage, MiamiWing } from './miamiAssets'
 import type { MiamiFrame } from './miamiRuntime'
 import type { SkyFrame } from './renderSky'
@@ -9,9 +10,15 @@ import type { SkyFrame } from './renderSky'
 /** CSS px of sky kept under the waterline: the water is drawn over them, so rounding the waterline to a whole device pixel never opens a gap. */
 const WATER_OVERLAP = 2
 
+/** CSS px over which a beacon fades out as it rises toward the copy, so none of its light comes within the sun's margin of the copy's lowest edge. */
+const BEACON_FEATHER = 12
+
 /** What a row of the water and a glint are moved by or lit by, reused so a frame makes no garbage. */
 const shift: RowShift = { dx: 0, dy: 0 }
 const glint: Glint = { across: 0, depth: 0, alpha: 0, width: 0, height: 0 }
+
+/** The glitter's two fields, in the order they are drawn. */
+const GLINT_FIELDS: readonly GlintField[] = ['still', 'live']
 
 /**
  * Puts the context back as the rest of the frame expects it after a draw threw part way: drawSky resets only the blend and
@@ -111,21 +118,26 @@ function drawWrap(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fra
 function drawCities(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, waterY: number): void {
 	const { view, assets, fade } = scene
 	const k = frame.dpr
-	ctx.globalAlpha = fade
 	const { far, near } = assets
-	if (far) {
+	if (far && view.farAlpha > 0) {
 		const height = far.height * k
+		ctx.globalAlpha = fade * view.farAlpha
 		ctx.drawImage(far.image, 0, waterY + Math.round(view.farDrop * k) - height, frame.deviceWidth, height)
 	}
+	ctx.globalAlpha = fade
 	const nearBottom = waterY + Math.round(view.nearDrop * k)
 	const nearHeight = Math.round(near.height * k)
 	ctx.drawImage(near.image, 0, nearBottom - nearHeight, frame.deviceWidth, nearHeight)
-	// Beacons burn steadily at their still level; they sink with their towers
+	// Beacons burn steadily at their still level and sink with their towers. A beacon is light on a dark tower, and the towers climb
+	// against the page toward the copy as it comes down, so each fades out before its dot comes within the sun's margin of the copy's
+	// lowest edge, and stays out above it: none of its light is ever behind the copy
 	const xs = frame.width / scene.stage.width
-	const alpha = BEACONS.still * fade
+	const radius = assets.beacon.height / 2
+	const ceiling = scene.stage.zButtonBottom - SUN.gateMargin
 	for (const beacon of near.beacons) {
 		const y = view.horizonY + view.nearDrop - beacon.z
-		drawCentered(ctx, assets.beacon, beacon.x * xs, y, 1, alpha, k)
+		const room = ceiling - (view.end - y + radius)
+		drawCentered(ctx, assets.beacon, beacon.x * xs, y, 1, BEACONS.still * fade * smoothstep(0, BEACON_FEATHER, room), k)
 	}
 }
 
@@ -194,7 +206,8 @@ function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 /**
  * The glitter under the sun: a set number of slots, each a short dash of light at a place and time of its own, added to
  * the water through the quiet zones of the copy, which take all of it away inside their padding. At rest the field stands at
- * its still clock; under the contrast preference the rows at and below the footer take none.
+ * its still clock. While the level eases, a glint can't move from one place to another, so the frozen field fades out as the
+ * live one fades in and both are drawn; under the contrast preference the rows at and below the footer take none.
  */
 function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex): void {
 	const { view, assets, stage, clock, level, fade } = scene
@@ -207,17 +220,21 @@ function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 	const footerY = view.end - stage.zFooterTop
 	ctx.globalCompositeOperation = 'lighter'
 	for (let slot = 0; slot < count; slot++) {
-		glintAt(slot, clock, level, glint)
-		const light = glint.alpha * open
-		if (light < MIN_STAR_ALPHA) continue
-		const x = sunX + glint.across * columnReach(glint.depth, stage.sunR)
-		const y = view.horizonY + glint.depth * stage.zWater
-		if (x < 0 || x > frame.width || y > frame.height || (stage.more && y >= footerY)) continue
-		const kept = quiet.empty ? 1 : quiet.factor(x, y, CLEAR_SKY_KEEPS)
-		if (light * kept < MIN_STAR_ALPHA) continue
-		ctx.globalAlpha = light * kept
-		const row = Math.min(cell.classes - 1, Math.floor(glint.depth * cell.classes))
-		ctx.drawImage(cell.atlas, 0, row * cell.cellHeight, cell.cellWidth, cell.cellHeight, (x - glint.width / 2) * k, (y - glint.height / 2) * k, glint.width * k, glint.height * k)
+		for (const field of GLINT_FIELDS) {
+			// The frozen field is drawn until the motion has all the level, the live one from the first of it
+			if (field === 'still' ? level >= 1 : level <= 0) continue
+			glintAt(slot, clock, level, field, glint)
+			const light = glint.alpha * open
+			if (light < MIN_STAR_ALPHA) continue
+			const x = sunX + glint.across * columnReach(glint.depth, stage.sunR)
+			const y = view.horizonY + glint.depth * stage.zWater
+			if (x < 0 || x > frame.width || y > frame.height || (stage.more && y >= footerY)) continue
+			const kept = quiet.empty ? 1 : quiet.factor(x, y, CLEAR_SKY_KEEPS)
+			if (light * kept < MIN_STAR_ALPHA) continue
+			ctx.globalAlpha = light * kept
+			const row = Math.min(cell.classes - 1, Math.floor(glint.depth * cell.classes))
+			ctx.drawImage(cell.atlas, 0, row * cell.cellHeight, cell.cellWidth, cell.cellHeight, (x - glint.width / 2) * k, (y - glint.height / 2) * k, glint.width * k, glint.height * k)
+		}
 	}
 	ctx.globalCompositeOperation = 'source-over'
 }

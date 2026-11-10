@@ -264,6 +264,8 @@ export interface MiamiView {
 	/** How far the near and far towers still stand below the waterline, covered by the water: they rise to their full height as the page lands. */
 	nearDrop: number
 	farDrop: number
+	/** How much of the far city shows, 0 to 1: its hazy colors are lighter than the sky above the place it climbs into, so it gives way over the climb. */
+	farAlpha: number
 	/** How far the foreground has moved up against the page. */
 	palmShift: number
 	/** How much of the sun's disc, halo and wrapped light is shown, 0 to 1: it comes in once it has climbed clear of the copy's room. */
@@ -308,6 +310,9 @@ export function viewAt(stage: MiamiStage, scrollY: number, documentHeight: numbe
 	const sunk = smoothstep(0, stage.horizonEnter, lift) * motionShare * stage.tallest
 	out.nearDrop = STAGE.drop.near * sunk
 	out.farDrop = STAGE.drop.far * sunk
+	// The far towers' colors suit the sky behind them where they land, and the group climbs against the page-locked sky as it comes
+	// down, into rows that are darker than they are: they fade out over the climb, which is none when the picture moves with the page
+	out.farAlpha = 1 - smoothstep(STAGE.farFade[0] * stage.warmArt, STAGE.farFade[1] * stage.warmArt, (1 - rate) * lift)
 	out.palmShift = (STAGE.palmRate - 1) * lift * motionShare
 	// A function of how far the sun has climbed against the page, so Pause and Play leave no step in it
 	out.sunAlpha = 1 - smoothstep(SUN.fade * g, g, motionShare * lift)

@@ -135,16 +135,25 @@ export interface Glint {
 	height: number
 }
 
+/** The glitter's two fields of glints: the frozen one of the still pose, and the live one that runs on the clock. */
+export type GlintField = 'still' | 'live'
+
 /**
- * Glint number `slot` at `clock`, or at `WATER.stillClock` while `level` is 0, the frozen field of the still pose. A slot is
- * born again every few seconds at a new place, brightening and fading with a smooth envelope (under 1.25 flashes a second),
- * and where it stands, and the length of its own life, follow from the slot's number alone. Places are weighted toward the
- * horizon and thin out away from the sun's column.
+ * Glint number `slot` of one of the glitter's two fields: the `still` one is frozen at `WATER.stillClock` whatever the clock
+ * is, and the `live` one runs on `clock`. A glint can't move from one place to another, so while `level` (how much of the
+ * motion shows, 0 to 1) eases, on a Play, a Pause or the rest after idle, the still field fades out as the live one fades in:
+ * each field's alpha is its own times its share of the level, `1 - level` for the still one and `level` for the live one, and
+ * a caller draws both while the level is between 0 and 1. At 0 only the still field has any light, at 1 only the live one.
+ * A slot is born again every few seconds at a new place, brightening and fading with a smooth envelope (under 1.25 flashes a
+ * second), and where it stands, and the length of its own life, follow from the slot's number alone. Places are weighted toward
+ * the horizon and thin out away from the sun's column.
  */
-export function glintAt(slot: number, clock: number, level: number, out: Glint): Glint {
+export function glintAt(slot: number, clock: number, level: number, field: GlintField, out: Glint): Glint {
 	const { life, width, height, peak } = WATER.glitter
 	const { fade } = WATER.glow
-	const time = level > 0 ? clock : WATER.stillClock
+	const live = field === 'live'
+	const time = live ? clock : WATER.stillClock
+	const share = Math.min(1, Math.max(0, live ? level : 1 - level))
 	const cycle = life[0] + (life[1] - life[0]) * unit(slot, -1, LIFE_SALT)
 	const age = time / cycle + unit(slot, -2, LIFE_SALT)
 	const born = Math.floor(age)
@@ -155,7 +164,7 @@ export function glintAt(slot: number, clock: number, level: number, out: Glint):
 	out.across = Math.max(-3, Math.min(3, deviate)) / Math.SQRT2
 	out.depth = depth
 	const envelope = Math.sin(Math.PI * lifeShare)
-	out.alpha = peak * envelope * envelope * (1 - smoothstep(fade[0], fade[1], depth)) ** fade[2]
+	out.alpha = share * peak * envelope * envelope * (1 - smoothstep(fade[0], fade[1], depth)) ** fade[2]
 	out.width = width[0] + (width[1] - width[0]) * depth
 	out.height = height[0] + (height[1] - height[0]) * depth
 	return out

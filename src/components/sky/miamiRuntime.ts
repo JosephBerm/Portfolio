@@ -161,6 +161,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 		horizonY: 0,
 		nearDrop: 0,
 		farDrop: 0,
+		farAlpha: 0,
 		palmShift: 0,
 		sunAlpha: 0,
 		haloScale: 0,

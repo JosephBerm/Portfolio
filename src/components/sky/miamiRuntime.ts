@@ -1,6 +1,7 @@
 import { HAZE_REBUILD_MS, SCENE } from '@/lib/sky/config'
 import { STAGE } from '@/lib/sky/miamiConfig'
 import { descentWindow as descentWindowOf, sameStage, stageFrom, viewAt, type MiamiStage, type MiamiView } from '@/lib/sky/miamiStage'
+import { easeAt, easeEnded, easing, type Ease } from '@/lib/sky/pacing'
 import type { LandingRect, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import { smoothstep, type DescentWindow } from '@/lib/sky/scene'
 import { buildMiamiAssets, closeMiamiAssets, type MiamiAssets } from './miamiAssets'
@@ -146,12 +147,24 @@ export function createMiamiRuntime(): MiamiRuntime {
 	let easeSince: number | null = null
 	/** The clock (s) of the last frame handed to a draw. */
 	let shownAt = -Infinity
+	/**
+	 * How much the horizon and the foreground move against the page: 1 under full motion and 0 under reduced, easing over
+	 * STAGE.rateEase from where it stood whenever the motion changes, so a Pause or a Play with the page standing still
+	 * settles the picture instead of throwing it. Null until the first step seeds it at its motion's own value, so a page
+	 * loaded part way down doesn't slide.
+	 */
+	let rate: Ease | null = null
 
 	const view: MiamiView = {
 		end: 0,
 		lift: 0,
 		horizonY: 0,
+		nearDrop: 0,
+		farDrop: 0,
 		palmShift: 0,
+		sunAlpha: 0,
+		haloScale: 0,
+		glitterOpen: 0,
 		wingLeft: 0,
 		wingRight: 0,
 		wingTopLeft: 0,
@@ -165,6 +178,15 @@ export function createMiamiRuntime(): MiamiRuntime {
 
 	/** Whether a build made for `key` no longer fits what the runtime knows now. */
 	const outOfDate = (key: BakeKey): boolean => stage === null || !sameStage(key.stage, stage) || key.navy !== navy || dprStale
+
+	/** The motion share at this step, 0 to 1: the first step seeds it, and a change of motion eases it from the value it has. */
+	const motionShare = (input: MiamiStep): number => {
+		const t = input.now / 1000
+		const goal = input.motionFull ? 1 : 0
+		if (rate === null) rate = { from: goal, to: goal, since: -Infinity }
+		else if (rate.to !== goal) rate = { from: easeAt(rate, STAGE.rateEase, t), to: goal, since: t }
+		return easeAt(rate, STAGE.rateEase, t)
+	}
 
 	/** Ends a build under way, closing the bitmaps it had made so far. */
 	const abort = (): void => {
@@ -253,6 +275,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 		},
 		descentWindow: () => descent,
 		step(input) {
+			motionShare(input)
 			if (failed) return false
 			// A draw threw part way: the plain sky replaces the half-drawn frame
 			if (shown?.failed) {
@@ -266,8 +289,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 				return false
 			}
 			let redraw = false
+			const lift = Math.max(0, input.documentHeight - input.scrollY - size.height)
 			try {
-				const lift = Math.max(0, input.documentHeight - input.scrollY - size.height)
 				// The scene shows now, and a bake not ready for it must be finished at once
 				const needed = lift < current.zShow
 				// The bake starts ahead of the scene, but not inside the hero
@@ -303,9 +326,12 @@ export function createMiamiRuntime(): MiamiRuntime {
 				if (shownAt - easeSince < STAGE.jumpEase) redraw = true
 				easeSince = null
 			}
+			// The horizon's own ease has run out: if the scene was on screen for it, one more frame shows where it ended
+			if (lift < current.zShow && easeEnded(rate?.since ?? null, STAGE.rateEase, input.now / 1000, shownAt)) redraw = true
 			return redraw
 		},
 		demand(input) {
+			motionShare(input)
 			demanded.fps = 0
 			demanded.cap = Infinity
 			demanded.onScreen = false
@@ -316,11 +342,14 @@ export function createMiamiRuntime(): MiamiRuntime {
 			demanded.onScreen = lift < Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 			// Frames until the bitmaps for what shows are in place, even when the worker would sleep, or they would wait for the next input
 			demanded.rebuilding = lift < stage.zShow && (building !== null || !baked || outOfDate(baked.key))
+			// The horizon slides to its new pace over a couple of seconds, and a page standing still draws nothing unless asked: a landed scene moves with nothing to ease
+			if (lift > 0 && lift < stage.zShow && easing(rate?.since ?? null, STAGE.rateEase, input.now / 1000)) demanded.easing = true
 			return demanded
 		},
 		frame(input) {
+			const share = motionShare(input)
 			if (!stage || !baked) return null
-			viewAt(baked.key.stage, input.scrollY, input.documentHeight, input.motionFull ? 1 : 0, view)
+			viewAt(baked.key.stage, input.scrollY, input.documentHeight, share, view)
 			if (!view.onScreen) return null
 			shownAt = input.now / 1000
 			const fade = easeSince === null ? 1 : smoothstep(0, STAGE.jumpEase, shownAt - easeSince)

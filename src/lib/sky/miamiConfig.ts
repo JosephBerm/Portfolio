@@ -340,8 +340,9 @@ export const PALMS = {
  * second mode (period divided by `second`, at `secondShare` of the amplitude), displacement along the trunk growing as
  * `power` and its crown tilting at most `tilt` degrees. A `frond` swings with its own `period` by `upper`, `side` or
  * `hanging` degrees by how it hangs, times `gain[0] + gain[1] e`, leans `bias` degrees downwind by `e`, swings
- * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. `flutter`
- * is the tip's small, fast shear (`amount` px).
+ * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. These
+ * are the angles of a palm whose fronds are `fullLength` px long: a palm with longer fronds moves by that much less, so no
+ * tip moves faster than a palm of that size's. `flutter` is the tip's small, fast shear (`amount` px).
  */
 export const WIND = {
 	rest: [0.22, 0.36],
@@ -349,7 +350,7 @@ export const WIND = {
 	stillGust: 0.3,
 	gust: { gap: [9, 22], rise: 1.4, hold: [0.5, 1.2], fall: 4, peak: [0.7, 1], travel: 180, loop: 300, seed: 0x47555354 },
 	trunk: { period: [7, 9.5], sway: [0.004, 0.007], lean: [0.004, 0.012], second: 2.7, secondShare: 0.25, power: 1.8, tilt: 1 },
-	frond: { period: [3.5, 6], upper: [0.8, 1.3], side: [1.2, 2], hanging: [1.5, 2.6], gain: [0.75, 0.7], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.7 },
+	frond: { period: [3.5, 6], upper: [0.8, 1.3], side: [1.2, 2], hanging: [1.5, 2.6], gain: [0.75, 0.7], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.7, fullLength: 172 },
 	flutter: { period: [0.7, 1.2], amount: 1.2 },
 } as const
 

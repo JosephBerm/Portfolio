@@ -133,6 +133,8 @@ export interface WindPalm {
 	seed: number
 	/** The trunk's length from its foot to the crown, px: the crown's sway and lean are shares of it. */
 	height: number
+	/** How long the palm's fronds are, px: past `WIND.frond.fullLength` a bigger palm moves by less, so its tips never move faster than a palm of that size's. */
+	frond: number
 	/** Each frond's rest angle in degrees from straight up, downwind (right) positive: the hinged fronds first, then the rigid ones behind them. */
 	angles: readonly number[]
 	/** How many of `angles` are hinged; the rest turn as one piece. */
@@ -164,11 +166,14 @@ export function createPalmPose(): PalmPose {
  * Poses `palm` for gust level `e` at `clock` seconds, scaled by `level`. A frond's swing has its own period and its own start,
  * seeded, and an amplitude by how it hangs (standing up, arching out or hanging), raised with the gust and held back on the
  * upwind side, where the crown shelters it. The downwind lean of every frond rises with the gust and stays at `level` 0.
- * The outer part of a hinged frond swings the same way a little later and a little less, relative to the inner.
+ * The outer part of a hinged frond swings the same way a little later and a little less, relative to the inner. A palm
+ * whose fronds are longer than `WIND.frond.fullLength` moves by that much less, because a tip a given angle away from
+ * where it was is that much further from it: the tips of a big palm on a big screen move no faster than a small one's.
  */
 export function palmPose(palm: WindPalm, e: number, clock: number, level: number, out: PalmPose): PalmPose {
 	const { trunk, frond, flutter } = WIND
-	const gust = WIND.stillGust + (e - WIND.stillGust) * level
+	const move = level * Math.min(1, frond.fullLength / palm.frond)
+	const gust = WIND.stillGust + (e - WIND.stillGust) * move
 	const count = palm.angles.length
 	while (out.inner.length < count) {
 		out.inner.push(0)
@@ -177,16 +182,16 @@ export function palmPose(palm: WindPalm, e: number, clock: number, level: number
 	}
 	const lean = along(frond.bias, gust)
 	const gain = frond.gain[0] + frond.gain[1] * gust
-	const shear = flutter.amount * gust * gust * level
+	const shear = flutter.amount * gust * gust * move
 	for (let i = 0; i < count; i++) {
 		const angle = palm.angles[i] ?? 0
 		const share = Math.abs(angle) / palm.spread
 		const hanging = share < UPPER_SHARE ? frond.upper : share < SIDE_SHARE ? frond.side : frond.hanging
 		const amplitude = along(hanging, unit(palm.seed, i, AMPLITUDE_SALT)) * gain * (angle < 0 ? frond.windward : 1)
 		const turn = TAU * (clock / along(frond.period, unit(palm.seed, i, PERIOD_SALT)) + unit(palm.seed, i, PHASE_SALT))
-		out.inner[i] = lean + level * amplitude * Math.sin(turn)
+		out.inner[i] = lean + move * amplitude * Math.sin(turn)
 		if (i < palm.hinged) {
-			out.outer[i] = level * frond.outerShare * amplitude * Math.sin(turn - frond.lag)
+			out.outer[i] = move * frond.outerShare * amplitude * Math.sin(turn - frond.lag)
 			out.flutter[i] = shear * Math.sin(TAU * (clock / along(flutter.period, unit(palm.seed, i, FLUTTER_SALT)) + unit(palm.seed, i, PHASE_SALT + 1)))
 		} else {
 			out.outer[i] = 0
@@ -196,7 +201,7 @@ export function palmPose(palm: WindPalm, e: number, clock: number, level: number
 	const sway = Math.sin(TAU * (clock / along(trunk.period, unit(palm.seed, 0, TRUNK_SALT)) + unit(palm.seed, 1, TRUNK_SALT)))
 	const second = Math.sin(TAU * ((clock * trunk.second) / along(trunk.period, unit(palm.seed, 0, TRUNK_SALT)) + unit(palm.seed, 2, TRUNK_SALT)))
 	const swing = sway + trunk.secondShare * second
-	out.crownX = palm.height * along(trunk.lean, gust) + level * palm.height * along(trunk.sway, gust) * swing
-	out.tilt = (level * trunk.tilt * swing) / (1 + trunk.secondShare)
+	out.crownX = palm.height * along(trunk.lean, gust) + move * palm.height * along(trunk.sway, gust) * swing
+	out.tilt = (move * trunk.tilt * swing) / (1 + trunk.secondShare)
 	return out
 }

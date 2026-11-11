@@ -288,7 +288,7 @@ export function planCrown(palm: PlacedPalm, art: PalmArt = PALM_ART): CrownPlan 
 /** The wind's view of a palm and its crown. */
 export function windPalm(palm: PlacedPalm, plan: CrownPlan, art: PalmArt = PALM_ART): WindPalm {
 	const angles = [...plan.fronds.map((frond) => frond.angle), ...plan.back.map((frond) => frond.angle)]
-	return { seed: palm.seed, height: palm.length, angles, hinged: plan.fronds.length, spread: art.frond.spread }
+	return { seed: palm.seed, height: palm.length, frond: palm.frond, angles, hinged: plan.fronds.length, spread: art.frond.spread }
 }
 
 /** A frond's shape in its own px: +x along its chord from where it leaves the crown, +y toward the side it hangs on. */

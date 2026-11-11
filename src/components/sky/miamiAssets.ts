@@ -1,11 +1,11 @@
 import { mixRgb, parseHexColor } from '@/lib/sky/color'
 import { HAZE_MAX_PIXELS } from '@/lib/sky/config'
-import { BEACONS, BOAT, CLOUDS, KEY, RAMP, SKYLINE, STAGE, SUN, WATER, WING, WIND } from '@/lib/sky/miamiConfig'
+import { BEACONS, BOAT, CLOUDS, KEY, RAMP, SKYLINE, STAGE, SUN, WATER, WING } from '@/lib/sky/miamiConfig'
 import { srgbToLinear } from '@/lib/sky/miamiRamp'
 import { CROWNS, EDGE_LEFT, EDGE_RIGHT, NEAR_TOWERS } from '@/lib/sky/miamiSkyline'
 import { placeBanks, rampFor, type MiamiStage, type PlacedBank, type RailSide } from '@/lib/sky/miamiStage'
 import { columnReach, waterRows, type WaterRow } from '@/lib/sky/miamiWater'
-import { createPalmPose, palmPose, type PalmPose } from '@/lib/sky/miamiWind'
+import type { WindPalm } from '@/lib/sky/miamiWind'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { hashCell, mulberry32 } from '@/lib/sky/random'
 import { smoothstep } from '@/lib/sky/scene'
@@ -89,12 +89,12 @@ export interface MiamiBoat {
 	apex: { x: number; y: number }
 }
 
-/** One palm of the stage: where it stands, how its crown is laid out and how the wind holds it in the still frame. */
+/** One palm of the stage: where it stands, how its crown is laid out and what the wind needs to know of it to pose it. */
 export interface MiamiCrown {
 	palm: PlacedPalm
 	plan: CrownPlan
-	/** The still frame's pose: the crown's lean and each frond's turn at the gust the picture rests at, with no swing. */
-	rest: PalmPose
+	/** The palm as the wind sees it: its seed, its height and its fronds' rest angles, from which every frame's pose follows. */
+	wind: WindPalm
 	/** The knot at the crown, as flat x, y pairs around its center, CSS px. */
 	knot: Float32Array
 	/** The farthest a frond's end can lie from the crown, CSS px: a crown that far below the canvas is out of view. */
@@ -1554,15 +1554,14 @@ const KEY_STEP = 4
 /** How far a key's top strays from its smooth fall, as a share of its height, by broad swells and then by a finer roughness, each with the spacing (CSS px) of its noise. */
 const KEY_UNEVEN = { share: [0.2, 0.08], spacing: [48, 12] } as const
 
-/** The palms the stage shows, each with its crown laid out and held at the still frame's pose. */
+/** The palms the stage shows, each with its crown laid out and what the wind needs to know of it. */
 function plantPalms(stage: MiamiStage): MiamiCrown[] {
 	// A frond's farthest pixel from the crown, as a share of its chord: the tip, a chord along and its sag down, and a leaflet's length beyond it
 	const farthest = Math.hypot(1, variantDroop(PALM_ART.frond, PALM_ART.frond.variants - 1)) + PALM_ART.frond.leafLength
 	return placePalms(stage).map((palm) => {
 		const plan = planCrown(palm)
-		const rest = palmPose(windPalm(palm, plan), WIND.stillGust, 0, 0, createPalmPose())
 		const longest = Math.max(...plan.fronds.map((frond) => frond.length), ...plan.back.map((frond) => frond.length))
-		return { palm, plan, rest, knot: knotOutline(palm, PALM_ART.layout.knot * palm.frond, new Float32Array(0)), reach: farthest * longest }
+		return { palm, plan, wind: windPalm(palm, plan), knot: knotOutline(palm, PALM_ART.layout.knot * palm.frond, new Float32Array(0)), reach: farthest * longest }
 	})
 }
 

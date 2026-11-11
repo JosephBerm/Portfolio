@@ -349,8 +349,8 @@ export const WIND = {
 	stillGust: 0.3,
 	gust: { gap: [9, 22], rise: 1.4, hold: [0.5, 1.2], fall: 4, peak: [0.7, 1], travel: 180, loop: 300, seed: 0x47555354 },
 	trunk: { period: [7, 9.5], sway: [0.004, 0.007], lean: [0.004, 0.012], second: 2.7, secondShare: 0.25, power: 1.8, tilt: 1 },
-	frond: { period: [2.6, 4.4], upper: [1.5, 2.5], side: [2.5, 4], hanging: [3.5, 6], gain: [0.7, 0.9], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.75 },
-	flutter: { period: [0.5, 0.9], amount: 1.5 },
+	frond: { period: [3.5, 6], upper: [0.8, 1.3], side: [1.2, 2], hanging: [1.5, 2.6], gain: [0.75, 0.7], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.7 },
+	flutter: { period: [0.7, 1.2], amount: 1.2 },
 } as const
 
 /**

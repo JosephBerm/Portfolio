@@ -1,6 +1,7 @@
 import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND } from '@/lib/sky/miamiConfig'
 import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type GlintField, type RowShift, type WaterRow } from '@/lib/sky/miamiWater'
+import { createPalmPose, gustAt, palmPose } from '@/lib/sky/miamiWind'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep } from '@/lib/sky/scene'
 import type { MiamiImage, MiamiWing } from './miamiAssets'
@@ -27,6 +28,9 @@ const TRUNK_SAMPLES = { wide: 12, narrow: 8 } as const
 
 /** The trunk's outline, kept from frame to frame so a frame makes no garbage. */
 let trunkPoints: Float32Array = new Float32Array(0)
+
+/** The pose the wind gives the palm being drawn, reused so a frame makes no garbage. */
+const pose = createPalmPose()
 
 /** What a row of the water and a glint are moved by or lit by, reused so a frame makes no garbage. */
 const shift: RowShift = { dx: 0, dy: 0 }
@@ -335,10 +339,18 @@ function drawWing(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fra
 	if (body < frame.deviceHeight) ctx.drawImage(wing.image, 0, wing.feather, wing.image.width, 1, x, body, width, frame.deviceHeight - body)
 }
 
-/** Adds a polygon of `count` flat x, y pairs, moved by (x, y), to the path being built. */
-function addPolygon(ctx: OffscreenCanvasRenderingContext2D, points: Float32Array, count: number, x: number, y: number): void {
-	ctx.moveTo(x + (points[0] ?? 0), y + (points[1] ?? 0))
-	for (let i = 1; i < count; i++) ctx.lineTo(x + (points[i * 2] ?? 0), y + (points[i * 2 + 1] ?? 0))
+/**
+ * Adds a polygon of `count` flat x, y pairs, moved by (x, y), to the path being built, walked from its last point back to its first where
+ * `backwards` is set: polygons that overlap in one fill join up only where they turn the same way, and cut a hole where they turn
+ * opposite ways.
+ */
+function addPolygon(ctx: OffscreenCanvasRenderingContext2D, points: Float32Array, count: number, x: number, y: number, backwards = false): void {
+	const first = backwards ? count - 1 : 0
+	ctx.moveTo(x + (points[first * 2] ?? 0), y + (points[first * 2 + 1] ?? 0))
+	for (let n = 1; n < count; n++) {
+		const i = backwards ? first - n : first + n
+		ctx.lineTo(x + (points[i * 2] ?? 0), y + (points[i * 2 + 1] ?? 0))
+	}
 	ctx.closePath()
 }
 
@@ -374,12 +386,13 @@ function drawKey(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fram
 
 /**
  * The key and the palms, in front of everything, at the foreground's pace (the page's own, moved by `palmShift`): the key, then
- * each palm with its trunk, the knot at its crown and its fronds, all held at the pose the still frame rests in. A palm whose
- * farthest frond is still under the canvas is skipped, which it is for most of the descent. They only darken what is behind
- * them, so nothing here can lift the ground behind any copy. The context's transform is left for the caller to put back.
+ * each palm with its trunk, the knot at its crown and its fronds, posed by the wind at the clock. A gust crosses the scene at a pace of
+ * its own, so each palm is asked for the gust that reaches its own place. A palm whose farthest frond is still under the canvas is
+ * skipped, which it is for most of the descent. They only darken what is behind them, so nothing here can lift the ground behind
+ * any copy. The context's transform is left for the caller to put back.
  */
 function drawPalms(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void {
-	const { view, assets, stage } = scene
+	const { view, assets, stage, clock, level, tier } = scene
 	const k = frame.dpr
 	const xs = frame.width / stage.width
 	const samples = TRUNK_SAMPLES[stage.narrow ? 'narrow' : 'wide']
@@ -390,22 +403,22 @@ function drawPalms(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 	ctx.setTransform(k, 0, 0, k, 0, 0)
 	drawKey(ctx, scene, frame)
 	for (const crown of assets.crowns) {
-		const { palm, rest } = crown
+		const { palm } = crown
 		const crownY = view.end - palm.crownZ + view.palmShift
 		if (crownY - crown.reach >= frame.height) continue
 		const baseY = view.end - palm.baseZ + view.palmShift
-		// The crown stands downwind of where the trunk's curve ends, by the lean of the pose
 		const crownX = palm.crownX * xs
-		const x = crownX + rest.crownX
+		palmPose(crown.wind, gustAt(clock - crownX / WIND.gust.travel), clock, level, pose)
+		// The crown stands downwind of where the trunk's curve ends, by the lean and the sway of the pose
+		const x = crownX + pose.crownX
 		ctx.setTransform(k, 0, 0, k, 0, 0)
-		trunkPoints = trunkOutline(palm.baseX * xs, baseY, crownX, crownY, palm.bow, palm.trunk, rest.crownX, WIND.trunk.power, samples, trunkPoints)
+		trunkPoints = trunkOutline(palm.baseX * xs, baseY, crownX, crownY, palm.bow, palm.trunk, pose.crownX, WIND.trunk.power, samples, trunkPoints)
+		// The trunk and the knot at its top are one fill: the knot's outline turns the opposite way, so it is walked backwards to join the trunk's
 		ctx.beginPath()
 		addPolygon(ctx, trunkPoints, (samples + 1) * 2, 0, 0)
+		addPolygon(ctx, crown.knot, crown.knot.length / 2, x, crownY, true)
 		ctx.fill()
-		ctx.beginPath()
-		addPolygon(ctx, crown.knot, crown.knot.length / 2, x, crownY)
-		ctx.fill()
-		drawCrown(ctx, assets.palms, palm, crown.plan, rest, x, crownY, k)
+		drawCrown(ctx, assets.palms, palm, crown.plan, pose, x, crownY, k, tier)
 	}
 }
 

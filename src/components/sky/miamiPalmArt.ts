@@ -447,10 +447,12 @@ export interface PalmSprite {
 	height: number
 }
 
-/** One droop shape of a frond, split at the hinge. */
+/** One droop shape of a frond, split at the hinge, and whole for a scene that has stepped down as far as it goes. */
 export interface FrondSprites {
 	inner: PalmSprite
 	outer: PalmSprite
+	/** The frond in one piece: one draw instead of two, where the bend at the hinge is no longer drawn. */
+	whole: PalmSprite
 	/** The hinge in the frond's own coordinates, CSS px. */
 	hinge: { x: number; y: number }
 }
@@ -526,7 +528,9 @@ export function* bakePalmSprites(palms: readonly PlacedPalm[], dpr: number, art:
 			const inner = bake(innerShape)
 			yield
 			const outer = bake(frondShape(art.frond, droop, palm.frond, variant, 'outer', 1))
-			set.variants.push({ inner, outer, hinge: innerShape.hinge })
+			yield
+			const whole = bake(frondShape(art.frond, droop, palm.frond, variant, 'whole', 1))
+			set.variants.push({ inner, outer, whole, hinge: innerShape.hinge })
 			yield
 		}
 		for (let variant = 0; variant < BACK_VARIANTS; variant++) {
@@ -546,6 +550,7 @@ export function closePalmSprites(sprites: PalmSprites): void {
 		for (const variant of set.variants) {
 			variant.inner.image.close()
 			variant.outer.image.close()
+			variant.whole.image.close()
 		}
 		for (const back of set.back) back.image.close()
 	}
@@ -617,10 +622,12 @@ const matrix = new Float64Array(6)
 
 /**
  * Draws a crown: the short fronds behind it, then the hinged ones, each as its inner sprite and its outer sprite turned about the
- * hinge, in the near color. (`x`, `y`) is the crown in CSS px and `k` the device px to a CSS px. The trunk and the knot are the
- * caller's, so they can be drawn under a transform of their own. It leaves the context's transform set to the last frond's.
+ * hinge, in the near color. (`x`, `y`) is the crown in CSS px and `k` the device px to a CSS px. `tier` is how far the scene has stepped
+ * down for a slow canvas: only at the first does the outer part shear with the flutter, and at the last each hinged frond is drawn in
+ * one piece, which halves its draws and leaves its bend out. The trunk and the knot are the caller's, so they can be drawn under a
+ * transform of their own. It leaves the context's transform set to the last frond's.
  */
-export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmSprites, palm: PlacedPalm, plan: CrownPlan, pose: PalmPose, x: number, y: number, k: number, art: PalmArt = PALM_ART): void {
+export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmSprites, palm: PlacedPalm, plan: CrownPlan, pose: PalmPose, x: number, y: number, k: number, tier: number, art: PalmArt = PALM_ART): void {
 	const set = sprites[palm.set]
 	if (!set) return
 	const rest = plan.fronds.length
@@ -634,6 +641,10 @@ export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmS
 		const variant = set.variants[frond.variant]
 		if (!variant) return
 		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / set.length, matrix)
+		if (tier >= 2) {
+			ctx.drawImage(variant.whole.image, variant.whole.left, variant.whole.top, variant.whole.width, variant.whole.height)
+			return
+		}
 		ctx.drawImage(variant.inner.image, variant.inner.left, variant.inner.top, variant.inner.width, variant.inner.height)
 		// The outer part turns about the hinge by the extra degrees the wind gives it, and shears by the flutter; a frond on the left is mirrored, so its turn is too
 		const delta = (pose.outer[i] ?? 0) * frond.side * RADIANS
@@ -645,7 +656,7 @@ export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmS
 		const c2 = -a * sin + c * cos
 		const d2 = -b * sin + d * cos
 		const { x: hx, y: hy } = variant.hinge
-		const shear = (pose.flutter[i] ?? 0) / Math.max(1, frond.length * (1 - art.frond.hinge))
+		const shear = tier === 0 ? (pose.flutter[i] ?? 0) / Math.max(1, frond.length * (1 - art.frond.hinge)) : 0
 		ctx.setTransform(a2 + c2 * shear, b2 + d2 * shear, c2, d2, e + a * hx + c * hy - (a2 * hx + c2 * hy) - c2 * shear * hx, f + b * hx + d * hy - (b2 * hx + d2 * hy) - d2 * shear * hx)
 		ctx.drawImage(variant.outer.image, variant.outer.left, variant.outer.top, variant.outer.width, variant.outer.height)
 	})

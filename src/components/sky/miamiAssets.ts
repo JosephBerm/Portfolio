@@ -1,13 +1,15 @@
 import { mixRgb, parseHexColor } from '@/lib/sky/color'
 import { HAZE_MAX_PIXELS } from '@/lib/sky/config'
-import { BEACONS, BOAT, CLOUDS, RAMP, SKYLINE, STAGE, SUN, WATER, WING } from '@/lib/sky/miamiConfig'
+import { BEACONS, BOAT, CLOUDS, KEY, RAMP, SKYLINE, STAGE, SUN, WATER, WING, WIND } from '@/lib/sky/miamiConfig'
 import { srgbToLinear } from '@/lib/sky/miamiRamp'
 import { CROWNS, EDGE_LEFT, EDGE_RIGHT, NEAR_TOWERS } from '@/lib/sky/miamiSkyline'
 import { placeBanks, rampFor, type MiamiStage, type PlacedBank, type RailSide } from '@/lib/sky/miamiStage'
 import { columnReach, waterRows, type WaterRow } from '@/lib/sky/miamiWater'
+import { createPalmPose, palmPose, type PalmPose } from '@/lib/sky/miamiWind'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { hashCell, mulberry32 } from '@/lib/sky/random'
 import { smoothstep } from '@/lib/sky/scene'
+import { PALM_ART, bakePalmSprites, closePalmSprites, knotOutline, placePalms, planCrown, variantDroop, windPalm, type CrownPlan, type PalmSprites, type PlacedPalm } from './miamiPalmArt'
 import { toBitmap } from './skyAssets'
 
 /** A bitmap and the size it covers on the canvas, in CSS px: a bitmap baked at device resolution says how big that is. */
@@ -87,9 +89,37 @@ export interface MiamiBoat {
 	apex: { x: number; y: number }
 }
 
+/** One palm of the stage: where it stands, how its crown is laid out and how the wind holds it in the still frame. */
+export interface MiamiCrown {
+	palm: PlacedPalm
+	plan: CrownPlan
+	/** The still frame's pose: the crown's lean and each frond's turn at the gust the picture rests at, with no swing. */
+	rest: PalmPose
+	/** The knot at the crown, as flat x, y pairs around its center, CSS px. */
+	knot: Float32Array
+	/** The farthest a frond's end can lie from the crown, CSS px: a crown that far below the canvas is out of view. */
+	reach: number
+}
+
+/** One corner's key: the height of its top above the page's end (CSS px) at every `MiamiKey.step` px from the screen's edge, out to where it runs into the water. */
+export interface MiamiKeySide {
+	/** It stands in the bottom-right corner, running left from the edge. */
+	right: boolean
+	/** Its highest point above the page's end, CSS px. */
+	height: number
+	tops: Float32Array
+}
+
+/** The low dark land the palms grow from: a side for each corner that has a palm. */
+export interface MiamiKey {
+	/** CSS px between two heights of a side's top. */
+	step: number
+	sides: readonly MiamiKeySide[]
+}
+
 /** Everything the scene draws from, built for one stage at one pixel ratio and closed together. */
 export interface MiamiAssets {
-	/** The pixel ratio the device-resolution bitmaps (wings, sun, city, glitter, boat) were built at; the rest are built in CSS px. */
+	/** The pixel ratio the device-resolution bitmaps (wings, sun, city, glitter, boat, palm sprites) were built at; the rest are built in CSS px. */
 	dpr: number
 	sky: MiamiSky
 	/** A side with no rail copy has no wing. */
@@ -105,6 +135,11 @@ export interface MiamiAssets {
 	glitter: MiamiGlitter
 	/** None where the boat is left out. */
 	boat: MiamiBoat | null
+	key: MiamiKey
+	/** The palms the stage shows, in the config's order. */
+	crowns: readonly MiamiCrown[]
+	/** The sprites the crowns are drawn from. */
+	palms: PalmSprites
 }
 
 /** A baked picture before it becomes a bitmap, and the CSS px it will cover. */
@@ -1510,6 +1545,57 @@ function* bakeBoat(stage: MiamiStage, dpr: number): Generator<void, { hull: Bake
 	return { hull: { pixels, width, height, foot: above }, wake: { pixels: light, width: wakeWidth, height: wakeHeight, apexX, apexY } }
 }
 
+// ---- The key and the palms
+
+/** CSS px between two heights of a key's top. */
+const KEY_STEP = 4
+
+/** How far a key's top strays from its smooth fall, as a share of its height, by broad swells and then by a finer roughness, each with the spacing (CSS px) of its noise. */
+const KEY_UNEVEN = { share: [0.2, 0.08], spacing: [48, 12] } as const
+
+/** The palms the stage shows, each with its crown laid out and held at the still frame's pose. */
+function plantPalms(stage: MiamiStage): MiamiCrown[] {
+	// A frond's farthest pixel from the crown, as a share of its chord: the tip, a chord along and its sag down, and a leaflet's length beyond it
+	const farthest = Math.hypot(1, variantDroop(PALM_ART.frond, PALM_ART.frond.variants - 1)) + PALM_ART.frond.leafLength
+	return placePalms(stage).map((palm) => {
+		const plan = planCrown(palm)
+		const rest = palmPose(windPalm(palm, plan), WIND.stillGust, 0, 0, createPalmPose())
+		const longest = Math.max(...plan.fronds.map((frond) => frond.length), ...plan.back.map((frond) => frond.length))
+		return { palm, plan, rest, knot: knotOutline(palm, PALM_ART.layout.knot * palm.frond, new Float32Array(0)), reach: farthest * longest }
+	})
+}
+
+/**
+ * The key: a low mound of land in each bottom corner that has a palm, as tall as `KEY` says at the screen's edge and running out into
+ * the water over its reach. Its top falls in a curve that is steep at the edge and long at the end, with a seeded unevenness (broad
+ * swells with a fine roughness on them), so it reads as land and not as a ramp. It is drawn as a fill that runs on to the bottom of the
+ * canvas, so the trunks' feet stand inside it.
+ */
+function bakeKey(stage: MiamiStage, crowns: readonly MiamiCrown[]): MiamiKey {
+	const shares = stage.narrow ? KEY.narrow : KEY.wide
+	const sides: MiamiKeySide[] = []
+	for (const right of [false, true]) {
+		const share = right ? ('right' in shares ? shares.right : null) : shares.left
+		// A corner with no palm has no key
+		if (!share || !crowns.some((crown) => (crown.palm.baseX > stage.width / 2) === right)) continue
+		const edgeHeight = share[0] * stage.height
+		const reach = share[1] * stage.width
+		const tops = new Float32Array(Math.ceil(reach / KEY_STEP) + 1)
+		const seed = KEY.seed + (right ? 1 : 0)
+		let height = 0
+		for (let i = 0; i < tops.length; i++) {
+			const x = i * KEY_STEP
+			const fall = (1 - Math.min(1, x / reach)) ** 1.5
+			const swell = KEY_UNEVEN.share[0] * (2 * valueNoise(x, KEY_UNEVEN.spacing[0], seed) - 1)
+			const rough = KEY_UNEVEN.share[1] * (2 * valueNoise(x, KEY_UNEVEN.spacing[1], seed ^ 0x5bd1e995) - 1)
+			tops[i] = edgeHeight * fall * Math.max(0, 1 + swell + rough)
+			height = Math.max(height, tops[i] ?? 0)
+		}
+		sides.push({ right, height, tops })
+	}
+	return { step: KEY_STEP, sides }
+}
+
 /**
  * Uploads pixels as an immutable bitmap, as `toBitmap` does, but copies them into the canvas a band of rows at a time and
  * returns after each band but the last: converting a picture of several megabytes in one go takes several milliseconds.
@@ -1611,8 +1697,19 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 				apex: { x: drawn.wake.apexX / dpr, y: drawn.wake.apexY / dpr },
 			}
 		}
+		yield
 
-		const assets: MiamiAssets = { dpr, sky, wings: { left, right }, clouds, sun, far, near, beacon, water, glitter, boat }
+		// The palms' sprites come a few at a time, each a step of its own, and the bitmaps they make are closed with the rest if the build is dropped
+		const crowns = plantPalms(stage)
+		const key = bakeKey(stage, crowns)
+		const palms = yield* bakePalmSprites(
+			crowns.map((crown) => crown.palm),
+			dpr,
+			PALM_ART,
+			(bitmap) => made.push(bitmap)
+		)
+
+		const assets: MiamiAssets = { dpr, sky, wings: { left, right }, clouds, sun, far, near, beacon, water, glitter, boat, key, crowns, palms }
 		// The assets own the bitmaps now
 		made.length = 0
 		return assets
@@ -1637,4 +1734,5 @@ export function closeMiamiAssets(assets: MiamiAssets): void {
 	assets.glitter.atlas.close()
 	assets.boat?.hull.image.close()
 	assets.boat?.wake.image.close()
+	closePalmSprites(assets.palms)
 }

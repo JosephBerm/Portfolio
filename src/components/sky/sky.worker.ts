@@ -59,6 +59,7 @@ import {
 	nextLaunchAt,
 	retryTransients,
 	revealTransients,
+	skyField,
 	transientDemand,
 	transientFade,
 	updateTransients,
@@ -99,6 +100,8 @@ let scrollY = 0
 let documentHeight = 0
 let quiet: readonly SkyRect[] = []
 let pinned: readonly SkyRect[] = []
+// Reading copy, as the last layout measured it: what flies answers to it at once, with no ease
+let reading: readonly SkyRect[] = []
 // The rects a new layout eases in from (none before the first)
 let quietBefore: readonly SkyRect[] = []
 let pinnedBefore: readonly SkyRect[] = []
@@ -128,12 +131,8 @@ const gate: LaunchGate = {
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
-	// Built afresh on each call: the scheduler asks only for a due kind that may plan. The rails are padded once and the very
-	// same objects go in both lists, so a reader can tell them apart from the copy in the page's flow by identity
-	field: () => {
-		const rails = screenQuietZones([], scrollY, pinned)
-		return { width, height, quiet: [...screenQuietZones(quiet, scrollY), ...rails], pinned: rails }
-	},
+	// Built afresh on each call: the scheduler asks only for a due kind that may plan
+	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading }),
 	ink: 1,
 	bodyShowing: false,
 }
@@ -971,6 +970,7 @@ scope.addEventListener('message', (event) => {
 		case 'layout': {
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
+			reading = message.reading
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
 			// near it fade instead of changing in one frame. A change mid-ease waits for the ease to end.
 			const latest = pendingLayout ?? { quiet, pinned }

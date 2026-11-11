@@ -264,6 +264,17 @@ export const QUIET = { padding: 32, feather: 40, ease: 0.6 } as const
 export const QUIET_REACH = QUIET.padding + QUIET.feather
 
 /**
+ * Reading copy: everything in the page's flow that isn't quiet copy. The sky plans around it and never lights it, so it
+ * has no budget and no veil. Nothing flies within QUIET.feather of a rect grown by `padding` px on every side: QUIET_REACH
+ * from the words, as clear-sky flights keep from quiet copy, or on narrow screens, whose copy fills the width and leaves
+ * no sky that far from it, `narrowPadding`: QUIET.feather from the words, which is still more than a flight's light reaches
+ * (METEOR_SHEATH.radius). Copy that scrolls or reflows under something in the sky takes its light over the same distance
+ * (readingKept). Rects more than `margin` px off the screen are left out of the zones, so a page's worth of them costs a
+ * plan and a frame nothing: it is QUIET_REACH and the 24 px past the screen where stars still draw, and 32 px to spare.
+ */
+export const READING = { padding: QUIET.padding, narrowPadding: 0, margin: QUIET_REACH + 56 } as const
+
+/**
  * Scroll narrative: the full sky in the hero, a dimmer and calmer sky while reading (no twinkle, the drift at about a
  * third), and a bookend near the end of the page. Levels blend continuously with scroll, so the narrative needs no
  * clock of its own. Star levels are per layer: while reading the brighter layers dim most, so no star behind body copy
@@ -666,7 +677,8 @@ export const METEOR_KINDS = {
  * and brightness come from the visit's sky (RADIANTS, SPEED_CLASSES, METEOR_BRIGHTNESS) and rates from METEOR_RATE. Each
  * lights up and peaks in clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL,
  * INK_BUDGET). Its layout guards keep every transient below the navbar (`top`), inside the edges (`edgeMargin`) and clear
- * of the bottom corners (`maxEndY`), and a shooting star also clear of the side rails (planMeteor's `clearOf`).
+ * of the bottom corners (`maxEndY`), and a shooting star also clear of the side rails and reading copy (planMeteor's
+ * `clearOf`).
  */
 export const METEOR = {
 	/** Seconds after the page reveal before the first one, once the hero entrance and side rails have settled. */
@@ -743,8 +755,8 @@ export const FAREWELL = { gap: { floor: 8, mean: 14, cap: 45 }, limit: 2 } as co
  * `gain` times that, clipped at full light, so the dimmest pass adds 0.875, over the brightest star's 0.78, and a pass of
  * 0.8 or more saturates its core. The dot (`dot`, CSS px) is a bright core of Gaussian sigma `core` (the brightest
  * stars' is 0.85) and a faint glow of `glow` times the core's peak at Gaussian sigma `glowSigma`, both lowered so that
- * the dot ends in nothing at `radius`: still one small point. Clear sky only (every point clear of every padded quiet
- * rect's reach, ZONE_REACH), never within `minTilt` degrees of vertical (a vertical glide reads as scrolling), one at a
+ * the dot ends in nothing at `radius`: still one small point. Clear sky only (every point clear of the reach of every
+ * padded zone of copy, ZONE_REACH), never within `minTilt` degrees of vertical (a vertical glide reads as scrolling), one at a
  * time, wide screens only, on their own clock: the first attempt `first` after the reveal and then `gap` after each
  * pass (GapLaw: 24 s and 36 s on average, the gaps stretched on long visits), so 93% of visits get a first pass within
  * 45 s and a visit's first 5 minutes hold about 6.6 passes, about 45 s apart. Up to `attempts` candidate passes per

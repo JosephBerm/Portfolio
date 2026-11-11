@@ -11,7 +11,7 @@ import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from
 import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
 import { SATELLITE_SPEC, type SatellitePass } from './satellites'
-import { scrollKept, type LaunchScene } from './scene'
+import { readingPadding, screenQuietZones, screenReadingZones, scrollKept, type LaunchScene } from './scene'
 
 /** The model behind each kind: what its planner returns and its drawing reads. */
 export interface TransientBodies {
@@ -26,13 +26,34 @@ export type TransientKind = keyof TransientBodies
 /** Every kind, in the order the scheduler checks them for a launch (shooting stars first: they are the most frequent). */
 export const TRANSIENT_KINDS = ['meteor', 'satellite', 'farewell'] as const satisfies readonly TransientKind[]
 
-/** Where transients may fly: the viewport and the padded quiet rects on screen (CSS px), the field every kind plans in. */
+/** Where transients may fly: the viewport and the padded zones of copy on screen (CSS px), the field every kind plans in. */
 export interface SkyField extends MeteorField {
-	/**
-	 * The padded zones of copy pinned to the screen (the side rails), which shooting stars keep clear of (planMeteor's
-	 * clearOf): the very objects `quiet` holds for the rails, so `quiet` without them is the copy in the page's flow.
-	 */
+	/** The padded zones of copy pinned to the screen (the side rails): the very objects `quiet` holds, so `quiet` without them is the copy in the page's flow. */
 	pinned: readonly SkyRect[]
+	/** What no shooting star comes within QUIET.feather of, wherever else it may go (planMeteor's clearOf): the side rails and reading copy. */
+	noFly: readonly SkyRect[]
+	/** All copy, quiet and reading: what a plan that stays in clear sky keeps out of reach of. */
+	clearSky: readonly SkyRect[]
+}
+
+/** What the field is built from: the screen, the scroll and the copy as the last layout measured it (document coordinates, `pinned` screen coordinates). */
+export interface FieldInput {
+	width: number
+	height: number
+	narrow: boolean
+	scrollY: number
+	quiet: readonly SkyRect[]
+	pinned: readonly SkyRect[]
+	reading: readonly SkyRect[]
+}
+
+/** The field every kind plans in now. The rails are padded once and the very same objects go in each list. */
+export function skyField(input: FieldInput): SkyField {
+	const { width, height, narrow, scrollY } = input
+	const rails = screenQuietZones([], scrollY, input.pinned)
+	const quiet = [...screenQuietZones(input.quiet, scrollY), ...rails]
+	const reading = screenReadingZones(input.reading, scrollY, height, readingPadding(narrow))
+	return { width, height, quiet, pinned: rails, noFly: [...rails, ...reading], clearSky: [...quiet, ...reading] }
 }
 
 /** What the scheduler tracks for a transient of kind K. Times are seconds on the worker clock. */

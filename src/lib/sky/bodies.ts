@@ -253,11 +253,10 @@ function blockedPlaces(zones: readonly SkyRect[], path: readonly Point[], box: C
  * Where the comet's nucleus goes on screen, or null when no place fits, for a comet that starts at drift clock `clock`
  * and keeps clear for `life` seconds of it. Its path is known (cometPath), so its box is swept along it, grown by
  * COMET.clearance and the pointer's lean (LEAN_REACH, either way), and at every sample must keep clear of the reach of
- * every zone of the field (the padded hero, Contact and footer copy and the side rails), lie below the navbar
- * (METEOR.top) and above About's header row, copy the zones know nothing of, and keep its head inside the screen
- * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how the comet leaves. Of the
- * places on a COMET.step grid that fit, it takes the one nearest COMET.anchor, and the first of them (rows from the top,
- * each from the left) where two are as near.
+ * all copy (the field's `clearSky`), lie below the navbar (METEOR.top) and above About's header row at the scroll where a
+ * comet last starts, and keep its head inside the screen (METEOR.edgeMargin). The box may overflow the right edge, where no
+ * copy lies, which is how the comet leaves. Of the places on a COMET.step grid that fit, it takes the one nearest
+ * COMET.anchor, and the first of them (rows from the top, each from the left) where two are as near.
  *
  * A field may hold hundreds of zones, a grid thousands of places and a path dozens of samples, so a place is not tried
  * against all of them. The screen's edge, the navbar and About's row are settled for every place at once from the samples
@@ -289,7 +288,7 @@ export function findPlace(field: SkyField, shape: CometShape, clock: number, lif
 		if (y + travel.minY + top - margin >= METEOR.top) rows.push(y)
 	}
 	// A zone that reaches no box of the sweep takes no part, nor does one below the line of About's row
-	const zones = field.quiet.filter((zone) => zoneReaches(zone, x0 + travel.minX + left - margin, y0 + travel.minY + top - margin, x1 + travel.maxX + right + margin, lowest))
+	const zones = field.clearSky.filter((zone) => zoneReaches(zone, x0 + travel.minX + left - margin, y0 + travel.minY + top - margin, x1 + travel.maxX + right + margin, lowest))
 	const { counts, stride } = blockedPlaces(zones, path, shape.box, margin, columns, rows)
 	const staysClear = (x: number, y: number) => {
 		for (const zone of zones) {

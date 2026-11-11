@@ -30,24 +30,30 @@ export function createMeteorMemory(): MeteorMemory {
 	return { sky: null, from: { fireball: -Infinity, flash: -Infinity, burst: -Infinity, grazer: -Infinity } }
 }
 
+/** The visit's sky, picked when there is none: a radiant on screen lies in clear sky, away from all copy. */
+function visitSkyOf(context: PlanContext): VisitSky {
+	const { random, field, visit } = context
+	visit.meteor.sky ??= pickVisitSky(random, { ...field, quiet: field.clearSky })
+	return visit.meteor.sky
+}
+
 /**
  * A plan for one launch. The visit's sky is picked when there is none, and a steer from it gives the launch its source
  * and scatter. The steers are drawn first, the first and then METEOR.radiantTries fresh ones (one on narrow screens), each
  * a new source and scatter; long flights come first on every steer, and a shorter fallback on the same steers only when
  * none has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on
- * copy, whether the plan may pass near copy at all, and to keep clear of the side rails (the field's `pinned` zones, which
- * a `clearOf` in `options` adds to). Returns null when nothing fits, and then drops the visit's sky, unless the plan was
- * kept in clear sky (the context's `nearCopy` is false): clear sky alone failing says nothing about the sky. `options`
- * adds to every planner call, and its `flights: 'long'` leaves out the shorter fallback, which a fireball's try needs:
- * the fallback would fly an ordinary short flight in its place.
+ * copy, whether the plan may pass near copy at all, and to keep clear of the side rails and reading copy (the field's
+ * `noFly` zones, which a `clearOf` in `options` adds to). Returns null when nothing fits, and then drops the visit's sky,
+ * unless the plan was kept in clear sky (the context's `nearCopy` is false): clear sky alone failing says nothing about the
+ * sky. `options` adds to every planner call, and its `flights: 'long'` leaves out the shorter fallback, which a fireball's
+ * try needs: the fallback would fly an ordinary short flight in its place.
  */
 export function planMeteorTransient(context: PlanContext, options: Omit<PlanOptions, 'steer' | 'nearCopy' | 'ink'> = {}): Meteor | null {
 	const { random, now, field, visit, nearCopy, ink, narrow } = context
 	const { flights = 'both' } = options
-	const clearOf = options.clearOf ? [...field.pinned, ...options.clearOf] : field.pinned
+	const clearOf = options.clearOf ? [...field.noFly, ...options.clearOf] : field.noFly
 	const memory = visit.meteor
-	const sky = memory.sky ?? pickVisitSky(random, field)
-	memory.sky = sky
+	const sky = visitSkyOf(context)
 	const steers = Array.from({ length: 1 + (narrow ? 1 : METEOR.radiantTries) }, () => visitSteer(random, sky))
 	for (const pass of ['long', 'short'] as const) {
 		if (flights !== 'both' && flights !== pass) continue
@@ -67,9 +73,9 @@ const FLASH_TRIES = 20
  * A plan for a point flash: a meteor coming straight at the viewer, which shows as a point near the shower radiant with
  * no length and no movement, and brightens and fades in METEOR_KINDS.flash.duration s. It needs the radiant on screen
  * and a point within METEOR_KINDS.flash.radius degrees of it that lies inside the screen's guards (METEOR's edge margin
- * and top, and the height under METEOR.maxEndY) and in clear sky, past the reach of every padded quiet rect, so it takes
- * no ink lease and a layout that moves copy under it takes its light away (CLEAR_SKY_KEEPS). It has the shower's
- * spectrum, as it is a meteor of the stream. Returns null when the radiant is off screen or no point fits.
+ * and top, and the height under METEOR.maxEndY) and in clear sky, past the reach of all copy, so it takes no ink lease
+ * and a layout that moves copy under it takes its light away (CLEAR_SKY_KEEPS). It has the shower's spectrum, as it is a
+ * meteor of the stream. Returns null when the radiant is off screen or no point fits.
  */
 export function planFlash(context: PlanContext): Meteor | null {
 	const { random, now, field, visit } = context
@@ -79,7 +85,7 @@ export function planFlash(context: PlanContext): Meteor | null {
 	for (let tries = 0; tries < FLASH_TRIES; tries++) {
 		const point = pointNearRadiant(random, sky, radius)
 		if (point === null) return null
-		if (!clearStart(field, point.x, point.y)) continue
+		if (!clearStart(field, field.clearSky, point.x, point.y)) continue
 		return {
 			startX: point.x,
 			startY: point.y,
@@ -112,14 +118,14 @@ const PIECE_TRIES = 12
 
 /**
  * One flight of a swarm from exactly (`x`, `y`) on the course in `options` (the swarm's radiant, speed class and spectrum,
- * and the piece's own peak and flight time), in clear sky and clear of the side rails: a long flight where one fits there,
- * else a short one. It has no flare and no train. Null when no path fits from there.
+ * and the piece's own peak and flight time), in clear sky and clear of the side rails and reading copy: a long flight where
+ * one fits there, else a short one. It has no flare and no train. Null when no path fits from there.
  */
 function planPiece(context: PlanContext, sky: VisitSky, x: number, y: number, options: SteerOptions): Meteor | null {
 	const { random, now, field, ink } = context
 	// A swarm flies like a shower (it never climbs), and its pieces near the radiant are short
 	const steer = visitSteer(random, sky, { shower: true, minPath: RADIANTS.nearRadiantPath, ...options })
-	const plan = planMeteor(random, field, now, { steer, ink, nearCopy: false, clearOf: field.pinned, starts: { x0: x, x1: x, y0: y, y1: y }, attempts: 1 })
+	const plan = planMeteor(random, field, now, { steer, ink, nearCopy: false, clearOf: field.noFly, starts: { x0: x, x1: x, y0: y, y1: y }, attempts: 1 })
 	return plan && { ...plan, flare: false, train: false, variant: 'burst' }
 }
 
@@ -135,7 +141,7 @@ function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: num
 	const { random, now, field } = context
 	const { across, delay, firstOnset, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
 	const center = drawStart(random, startArea(field))
-	if (!clearStart(field, center.x, center.y)) return []
+	if (!clearStart(field, field.clearSky, center.x, center.y)) return []
 	const radiant = own ? radiantOver(random, sky.window, center, radiantDistance, heading) : showerRadiantAt(sky, center, radiantDistance, slowest)
 	if (radiant === null) return []
 	const speed = own ? ownSpeed : sky.shower.speed
@@ -205,15 +211,13 @@ function gatherPulses(context: PlanContext, pieces: readonly Meteor[]): Meteor |
  * stopping at one with all its pieces, and where the fullest has fewer than `least` up to as many on a radiant of their
  * own (the shower's radiant seldom lies at the right distance, and a cluster needs no shower). The fullest flies,
  * gathered into pulses; under `least` pieces is no burst. Every piece is planned in clear sky (the planner's `nearCopy`
- * false) and clear of the side rails, so a burst never takes the ink lease. The visit's sky is picked when there is none,
- * and a failure leaves it, since clear sky alone failing says nothing about it.
+ * false) and clear of the side rails and reading copy, so a burst never takes the ink lease. The visit's sky is picked when
+ * there is none, and a failure leaves it, since clear sky alone failing says nothing about it.
  */
 export function planBurst(context: PlanContext): Meteor | null {
-	const { random, field, visit } = context
+	const { random } = context
 	const { members, least } = METEOR_KINDS.burst
-	const memory = visit.meteor
-	const sky = memory.sky ?? pickVisitSky(random, field)
-	memory.sky = sky
+	const sky = visitSkyOf(context)
 	const count = members[0] + Math.floor(random() * (members[1] - members[0] + 1))
 	let fullest: Meteor[] = []
 	for (const own of [false, true]) {
@@ -236,10 +240,10 @@ const DEG = Math.PI / 180
  * crosses at least `widthShare` of the screen's width. Each start the planner draws gets a heading to the left or the
  * right, whichever leaves room for the least path (either, if both do), a speed in `angular` °/s of the sky window drawn
  * fast enough for the least path to fit in the longest `duration`, and a duration from the least that makes the path long
- * enough up to the longest. The planner flies it in clear sky (`nearCopy` false) and clear of the side rails, on long
- * flights only, and the earthgrazer has no flare or train and the wake METEOR.grazerWake. The planner's longest path for
- * ordinary flights does not bind it: its length is its speed times its duration, and that is wider than 640 px on the
- * widest screens. It takes the sodium-enhanced spectrum, as slow meteors do, and is of the slow speed class. Returns null
+ * enough up to the longest. The planner flies it in clear sky (`nearCopy` false) and clear of the side rails and reading
+ * copy, on long flights only, and the earthgrazer has no flare or train and the wake METEOR.grazerWake. The planner's longest
+ * path for ordinary flights does not bind it: its length is its speed times its duration, and that is wider than 640 px on
+ * the widest screens. It takes the sodium-enhanced spectrum, as slow meteors do, and is of the slow speed class. Returns null
  * when no band of clear sky is long enough, and then leaves the visit's sky as it was.
  */
 export function planGrazer(context: PlanContext): Meteor | null {
@@ -269,7 +273,7 @@ export function planGrazer(context: PlanContext): Meteor | null {
 			speedClass: 'slow',
 		}
 	}
-	const plan = planMeteor(random, field, now, { steer, flights: 'long', ink, nearCopy: false, clearOf: field.pinned })
+	const plan = planMeteor(random, field, now, { steer, flights: 'long', ink, nearCopy: false, clearOf: field.noFly })
 	return plan && { ...plan, wake: METEOR.grazerWake, flare: false, train: false, variant: 'grazer' }
 }
 

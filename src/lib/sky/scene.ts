@@ -1,4 +1,4 @@
-import { EMERGENCE, INK_BUDGET, QUIET, SCENE, SCROLL_CANCEL, STAR_INK_PEAK, type SkyLayer } from './config'
+import { EMERGENCE, INK_BUDGET, QUIET, READING, SCENE, SCROLL_CANCEL, STAR_INK_PEAK, type SkyLayer } from './config'
 import { DESCENT } from './miamiConfig'
 import type { SkyRect } from './protocol'
 
@@ -87,19 +87,35 @@ export function emergenceDone(seconds: number): boolean {
 	return seconds >= Math.max(EMERGENCE.maxDelay + EMERGENCE.fade, EMERGENCE.haze[1])
 }
 
+/** A rect moved up by `offsetY` (the scroll offset, for document coordinates) and grown by `padding` on every side. Keeps its `headroom`. */
+function padded(zone: SkyRect, offsetY: number, padding: number): SkyRect {
+	return { ...zone, x: zone.x - padding, y: zone.y - offsetY - padding, width: zone.width + 2 * padding, height: zone.height + 2 * padding }
+}
+
 /**
  * Quiet rects in screen coordinates, padded: the document rects moved by the scroll offset, then the pinned ones
  * (copy in fixed elements such as the side rails), which are already on screen. Each keeps its `headroom`.
  */
 export function screenQuietZones(zones: readonly SkyRect[], scrollY: number, pinned: readonly SkyRect[] = []): SkyRect[] {
-	const pad = (zone: SkyRect, offsetY: number): SkyRect => ({
-		...zone,
-		x: zone.x - QUIET.padding,
-		y: zone.y - offsetY - QUIET.padding,
-		width: zone.width + 2 * QUIET.padding,
-		height: zone.height + 2 * QUIET.padding,
-	})
-	return [...zones.map((zone) => pad(zone, scrollY)), ...pinned.map((zone) => pad(zone, 0))]
+	return [...zones.map((zone) => padded(zone, scrollY, QUIET.padding)), ...pinned.map((zone) => padded(zone, 0, QUIET.padding))]
+}
+
+/** How far reading copy's zones grow on a screen this wide (READING). */
+export function readingPadding(narrow: boolean): number {
+	return narrow ? READING.narrowPadding : READING.padding
+}
+
+/**
+ * Copy near the screen in screen coordinates, grown by `padding`: the document rects moved by the scroll offset, leaving
+ * out those over READING.margin px off a screen `height` px tall.
+ */
+export function screenReadingZones(rects: readonly SkyRect[], scrollY: number, height: number, padding: number): SkyRect[] {
+	const zones: SkyRect[] = []
+	for (const rect of rects) {
+		const y = rect.y - scrollY
+		if (y + rect.height >= -READING.margin && y <= height + READING.margin) zones.push(padded(rect, scrollY, padding))
+	}
+	return zones
 }
 
 /** True when two lists hold the same rects (a layout message may change only the document height). */

@@ -95,10 +95,10 @@ export interface PlanOptions {
 	/** Where shooting stars go from each start point: a Course, or null where none starts there. */
 	steer: Steer
 	/**
-	 * Padded zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose
-	 * links change color on hover and focus, which their measured headroom misses until the next measurement; for farewell
-	 * meteors, also the sky above the highest quiet copy on screen at the foot of the page, where copy the sky has no rect
-	 * for shows. Default none.
+	 * Zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose links change
+	 * color on hover and focus, which their measured headroom misses until the next measurement, and reading copy, which
+	 * nothing lights; for farewell meteors, also the sky above the highest quiet copy on screen at the foot of the page.
+	 * Default none.
 	 */
 	clearOf?: readonly SkyRect[]
 	/**
@@ -185,9 +185,9 @@ export function insideGuards(field: MeteorField, x: number, y: number): boolean 
 	return x >= METEOR.edgeMargin && x <= field.width - METEOR.edgeMargin && y >= METEOR.top && y <= field.height * METEOR.maxEndY
 }
 
-/** Whether a point is a start in clear sky: inside the guards and past the reach of every padded quiet rect, as a flash and a swarm's center need. */
-export function clearStart(field: MeteorField, x: number, y: number): boolean {
-	return insideGuards(field, x, y) && quietAt(field.quiet, x, y) === 0
+/** Whether a point is a start in clear sky: inside the guards and past the reach of every zone of `clearSky`, as a flash and a swarm's center need. */
+export function clearStart(field: MeteorField, clearSky: readonly SkyRect[], x: number, y: number): boolean {
+	return insideGuards(field, x, y) && quietAt(clearSky, x, y) === 0
 }
 
 /** Does the segment a→b touch the rectangle grown by `margin` on every side? (Liang-Barsky clipping.) */

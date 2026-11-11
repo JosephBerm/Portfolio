@@ -105,15 +105,17 @@ export function rippleOffset(band: number, layer: number, clock: number): number
 /**
  * The share of its light that layer `layer` of the ripples has in band `band`, 0 to 1. In motion the two layers trade places
  * (their shares add up to 1) over each band's own life, which is longer toward the viewer and starts at a seeded point of its
- * cycle in every band, so crests fade in and out with no pop and the bands never slide as rigid sheets. At `level` 0 both have
- * `WATER.ripple.stillAlpha` of it, in every band.
+ * cycle in every band, so crests fade in and out with no pop and the bands never slide as rigid sheets. At `level` 0 they hold
+ * the same split in every band, `WATER.ripple.stillAlpha` for the first layer and the rest for the second, so the two still add
+ * up to 1: a still frame carries as much crest light as a moving one, and a Play doesn't dim the water.
  */
 export function rippleAlpha(band: number, layer: number, clock: number, level: number): number {
 	const { life, stillAlpha } = WATER.ripple
-	if (level <= 0) return stillAlpha
+	const still = layer === 0 ? stillAlpha : 1 - stillAlpha
+	if (level <= 0) return still
 	const cycle = life[0] + (life[1] - life[0]) * rippleBandDepth(band)
 	const first = 0.5 - 0.5 * Math.cos(TAU * (clock / cycle + unit(band, 0, BAND_SALT)))
-	return stillAlpha + ((layer === 0 ? first : 1 - first) - stillAlpha) * level
+	return still + ((layer === 0 ? first : 1 - first) - still) * level
 }
 
 /** The half-width (CSS px) of the sun's glow column at `depth` in the water, for a sun of radius `sunR`: the column widens as it comes toward the viewer. */

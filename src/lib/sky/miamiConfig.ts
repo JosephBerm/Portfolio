@@ -290,28 +290,40 @@ export const KEY = { wide: { left: [0.062, 0.26], right: [0.04, 0.09] }, narrow:
  * `minWidth` the narrowest screen that shows the palm. `scale` multiplies the wide sizes by the canvas height over `per`,
  * clamped to `min` and `max`. Under `shortHeight` px tall only the shorter entry (the second of `wide`) shows. A frond is
  * at least `frondFromTrunk` of its trunk's length, and a crown lies at least `onScreen` of a frond's length below the top
- * of the canvas. `layout` gathers the fronds into `clusters` seeded clumps with `jitter` (a share of the even spacing),
- * and adds a back layer of short fronds (`count`, and their `length` as a share of a frond's). A frond fans `spread`
- * degrees either side of straight up; its length is a seeded share (`length`) of the palm's, grown toward the sides by
- * `shape`, and its droop follows `droop`, one of `variants` baked shapes. `hinge` splits it into an inner and an outer
- * sprite, `midrib` and `core` give it body (core as a share of its length), and the leaflets run `leafLength` of its
- * length at `leafAngle` degrees off the midrib, sagging by `leafSag`, `leafWidth` px at the root and the tip.
+ * of the canvas.
+ *
+ * `layout` is how a crown is put together. Its fronds gather into `clusters` clumps (the fewest and the most): the space
+ * between two neighbors strays from even by `jitter`, and the space between two clumps is `clump` times as wide as one inside
+ * a clump, so the crown is a burst with sky between its clumps and not an even fan. The wind streams the fronds that point
+ * nearest to level: downwind they run `stream` longer and flatter, upwind shorter and fuller. The oldest fronds, which hang,
+ * are `aged` shorter. `knot` is the radius of the knot at the crown as a share of a frond's length. Behind the fronds stands
+ * a back layer of short, heavy fronds: how many (`count`), their `length` as a share of a frond's and their `weight` against
+ * a frond's. Two hang round the trunk's top and the rest stand in the widest gaps between the fronds in front, which makes
+ * the heart solid.
+ *
+ * `frond` is how one frond is drawn. It fans `spread` degrees either side of straight up; its length is a seeded share
+ * (`length`) of the palm's, longer toward the sides by `shape`, and its droop follows `droop`, one of `variants` baked shapes.
+ * `hinge` splits it into an inner and an outer sprite. `midrib` (px), `core` and `hub` give it body: the midrib's width, the
+ * solid band under it and the broad foot, the last two as shares of the frond's length. Each side carries `leaflets` of
+ * them, from `leafFrom` of the way along the frond, up to `leafLength` of its length at `leafAngle` degrees off the midrib
+ * (at its foot and at its tip), sagging by `leafSag`, `leafWidth` px at the root and the tip.
  */
 export const PALMS = {
 	wide: [
-		{ crown: [0.058, 0.62], base: 0.075, bow: 34, trunk: [18, 10], frond: 172, fronds: 13, set: 'large', minWidth: 0 },
-		{ crown: [0.172, 0.34], base: 0.15, bow: -14, trunk: [16, 9], frond: 128, fronds: 12, set: 'small', minWidth: 0 },
-		{ crown: [0.978, 0.32], base: 0.962, bow: 12, trunk: [14, 8], frond: 104, fronds: 11, set: 'small', minWidth: 1100 },
+		{ crown: [0.058, 0.62], base: 0.075, bow: 34, trunk: [18, 10], frond: 172, fronds: 11, set: 'large', minWidth: 0 },
+		{ crown: [0.172, 0.34], base: 0.15, bow: -14, trunk: [16, 9], frond: 128, fronds: 11, set: 'small', minWidth: 0 },
+		{ crown: [0.978, 0.32], base: 0.962, bow: 12, trunk: [14, 8], frond: 104, fronds: 10, set: 'small', minWidth: 1100 },
 	],
-	narrow: [{ crown: [0.085, 0.52], base: 0.03, bow: -18, trunk: [13, 7.5], frond: 100, fronds: 12, set: 'large', minWidth: 0 }],
+	narrow: [{ crown: [0.085, 0.52], base: 0.03, bow: -18, trunk: [13, 7.5], frond: 100, fronds: 11, set: 'large', minWidth: 0 }],
 	scale: { per: 900, min: 0.82, max: 1.25 },
 	shortHeight: 500,
 	frondFromTrunk: 0.3,
 	onScreen: 0.8,
-	layout: { clusters: [2, 3], jitter: 0.5, back: { count: [4, 6], length: 0.5 } },
+	layout: { clusters: [2, 3], jitter: 0.5, clump: 3.9, back: { count: [5, 6], length: 0.5, weight: 1.4 }, stream: 0.28, aged: 0.22, knot: 0.13 },
 	frond: {
-		spread: 122, length: [0.86, 1.06], shape: [0.72, 0.34, 1.4], droop: [0.26, 0.46, 1.25, 0.04],
-		variants: 5, hinge: 0.48, midrib: 2, core: 0.05, leafLength: 0.17, leafAngle: [30, 48], leafSag: 0.5, leafWidth: [2.4, 1.5],
+		spread: 124, length: [0.86, 1.06], shape: [0.66, 0.42, 1.3], droop: [0.24, 0.4, 1.3, 0.04],
+		variants: 5, hinge: 0.48, midrib: 2, core: 0.05, hub: 0.15, leafLength: 0.17, leafAngle: [30, 48], leafSag: 0.5, leafWidth: [2.4, 1.6],
+		leaflets: 34, leafFrom: 0.15,
 	},
 	seed: 0x50414c4d,
 } as const

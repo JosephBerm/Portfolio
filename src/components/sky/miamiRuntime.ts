@@ -1,7 +1,7 @@
-import { HAZE_REBUILD_MS, SCENE } from '@/lib/sky/config'
-import { STAGE } from '@/lib/sky/miamiConfig'
+import { ADAPT, DRIFT, HAZE_REBUILD_MS, PACING, SCENE } from '@/lib/sky/config'
+import { SCENE_PACING, STAGE } from '@/lib/sky/miamiConfig'
 import { descentWindow as descentWindowOf, sameStage, stageFrom, viewAt, type MiamiStage, type MiamiView } from '@/lib/sky/miamiStage'
-import { easeAt, easeEnded, easing, type Ease } from '@/lib/sky/pacing'
+import { driftCap, easeAt, easeEnded, easing, fadeOutAt, type Ease } from '@/lib/sky/pacing'
 import type { LandingRect, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import { smoothstep, type DescentWindow } from '@/lib/sky/scene'
 import { buildMiamiAssets, closeMiamiAssets, type MiamiAssets } from './miamiAssets'
@@ -61,15 +61,15 @@ export interface MiamiFrame {
 	stage: MiamiStage
 	view: MiamiView
 	assets: MiamiAssets
-	/** Seconds of ambient motion the scene has run. */
+	/** Seconds of ambient motion the scene has run: everything that moves on its own is a function of it, so a scene that stops stands where it is and goes on from there. */
 	clock: number
-	/** How much of its ambient motion the scene shows, 0 to 1. */
+	/** How much of its ambient motion the scene shows, 0 to 1: the presence and motion level, and 0 on a canvas too slow to run it. At 0 it rests in its still pose. */
 	level: number
-	/** How much the scene has stepped down for a slow canvas. */
+	/** How far the scene has stepped down for a slow canvas: 0, 1 or 2. A narrow screen starts at 1. */
 	tier: 0 | 1 | 2
 	/** How far the scene has eased in after a jump to the page's end, 0 to 1. */
 	fade: number
-	/** How much of the light a step down takes away the scene still shows, 1 before any step. */
+	/** How much of the light the last step down took away still shows: 1 as the step is taken, then falling to 0 over ADAPT.thinFade, and 0 at all other times. */
 	thin: number
 	/** A draw threw: the next step ends the scene, and the plain sky replaces the half-drawn frame. */
 	failed: boolean
@@ -94,12 +94,24 @@ export interface MiamiRuntime {
 	dropAssets(): void
 	/** Where the descent runs, for sceneAt; null with no stage. The same object until the stage changes. */
 	descentWindow(): DescentWindow | null
-	/** Advances the build. True when a frame must draw (a build finished, an ease ended, the scene failed). */
+	/** Advances the clock and the build. True when a frame must draw (a build finished, an ease ended, the scene failed). */
 	step(input: MiamiStep): boolean
 	/** Demand for this moment (reused object). */
 	demand(input: MiamiStep): MiamiDemand
 	/** Null while the scene is off screen, unbuilt or failed. */
 	frame(input: MiamiStep): MiamiFrame | null
+	/**
+	 * What the scene's own draws took (ms) in a frame drawn with the scene on screen. Slow frames add up as the sky's do (more
+	 * than ADAPT.slowFrameMs, net of fast ones, ADAPT.slowFrames times), and each time they do the scene steps down one
+	 * tier, never back up: it draws less light, then fewer frames. It never touches adaptive quality, which steps the stars.
+	 */
+	noteSceneMs(milliseconds: number): void
+	/**
+	 * The scene is on screen on a canvas too slow to run it (a scene frame costs about SCENE_PACING.softwareCost sky frames,
+	 * and the canvas can't draw that many at PACING.minFps), so it holds still: nothing else of the sky may ask for frames
+	 * there, or each would draw the scene's whole ground again for nothing.
+	 */
+	stillOnScreen(scrollY: number, documentHeight: number, softwareFps: number): boolean
 }
 
 /** What a set of bitmaps was built from; a bake is out of date once the runtime's own differ. */
@@ -125,6 +137,14 @@ interface Building {
 
 /** The demand of a scene that draws nothing. */
 const NO_DEMAND: MiamiDemand = { fps: 0, cap: Infinity, onScreen: false, easing: false, rebuilding: false }
+
+type Tier = 0 | 1 | 2
+
+/** Whether a canvas is too slow to run the scene: one scene frame costs about SCENE_PACING.softwareCost sky frames, and it must really stand still there. */
+const isStill = (softwareFps: number): boolean => softwareFps / SCENE_PACING.softwareCost < PACING.minFps
+
+/** The lift below which the scene's own motion is on screen: the horizon group moves against the page from the waterline's entry, and the warm band carries the clouds. */
+const movesBelow = (stage: MiamiStage): number => Math.max(stage.zWarmTop, stage.horizonEnter)
 
 /** The runtime for one worker: its pieces arrive by message, in any order, and the stage follows whatever it has. */
 export function createMiamiRuntime(): MiamiRuntime {
@@ -158,6 +178,22 @@ export function createMiamiRuntime(): MiamiRuntime {
 	 * loaded part way down doesn't slide.
 	 */
 	let rate: Ease | null = null
+	/**
+	 * Seconds of ambient motion the scene has run. It advances only while the scene's moving parts are on screen, by the
+	 * level times the time since the last step (at most DRIFT.maxStep of it, so a stalled frame or a tab that has just come
+	 * back never jumps the water), which is why a pause, an idle stretch, a hidden tab and a stretch scrolled away from the
+	 * water all leave it where it was.
+	 */
+	let clock = 0
+	/** When (worker-clock ms) the last step ran; null before the first. */
+	let steppedAt: number | null = null
+	/** The scene's own slow frames, net of fast ones, and the steps down they have made: 0 to 2, one way, apart from adaptive quality's. */
+	let sceneSlow = 0
+	let sceneTier = 0
+	/** The tier the last call used, to see a step up; null before the first, which only seeds it. */
+	let seenTier: Tier | null = null
+	/** When (s) the last step up began, which the light it takes away fades from; null where none has. */
+	let thinSince: number | null = null
 
 	const view: MiamiView = {
 		end: 0,
@@ -192,6 +228,22 @@ export function createMiamiRuntime(): MiamiRuntime {
 		else if (rate.to !== goal) rate = { from: easeAt(rate, STAGE.rateEase, t), to: goal, since: t }
 		return easeAt(rate, STAGE.rateEase, t)
 	}
+
+	/**
+	 * The tier at this step: how far the scene has stepped down, which is the stricter of adaptive quality's steps and the scene's
+	 * own, and never above the last; a narrow screen starts at the second. A step up starts the fade of the light it takes away.
+	 * A fall (a resize across the narrow limit) starts none, because adding light needs no fade, and the first call only seeds it.
+	 */
+	const tierOf = (input: MiamiStep): Tier => {
+		const tier = Math.min(2, Math.max(input.quality, sceneTier, input.narrow ? 1 : 0)) as Tier
+		if (seenTier !== null && tier > seenTier) thinSince = input.now / 1000
+		else if (seenTier !== null && tier < seenTier) thinSince = null
+		seenTier = tier
+		return tier
+	}
+
+	/** How much of the light the last step up took away still shows at `t` (s): 1 as it is taken, 0 once it has faded and while no step has been. */
+	const thinAt = (t: number): number => (thinSince === null ? 0 : fadeOutAt(thinSince, ADAPT.thinFade, t))
 
 	/** Ends a build under way, closing the bitmaps it had made so far. */
 	const abort = (): void => {
@@ -296,6 +348,9 @@ export function createMiamiRuntime(): MiamiRuntime {
 		descentWindow: () => descent,
 		step(input) {
 			motionShare(input)
+			tierOf(input)
+			const elapsed = steppedAt === null ? 0 : Math.min(DRIFT.maxStep, Math.max(0, (input.now - steppedAt) / 1000))
+			steppedAt = input.now
 			if (failed) return false
 			// A draw threw part way: the plain sky replaces the half-drawn frame
 			if (shown?.failed) {
@@ -310,6 +365,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 			}
 			let redraw = false
 			const lift = Math.max(0, input.documentHeight - input.scrollY - size.height)
+			// What moves of its own runs only while its moving parts are on screen, and not at all on a canvas too slow for it
+			if (lift < movesBelow(current) && !isStill(input.softwareFps)) clock += input.level * elapsed
 			try {
 				// The scene shows now, and a bake not ready for it must be finished at once
 				const needed = lift < current.zShow
@@ -362,8 +419,20 @@ export function createMiamiRuntime(): MiamiRuntime {
 			demanded.onScreen = lift < Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 			// Frames until the bitmaps for what shows are in place, even when the worker would sleep, or they would wait for the next input
 			demanded.rebuilding = lift < stage.zShow && (building !== null || !baked || outOfDate(baked.key))
-			// The horizon slides to its new pace over a couple of seconds, and a page standing still draws nothing unless asked: a landed scene moves with nothing to ease
-			if (lift > 0 && lift < stage.zShow && easing(rate?.since ?? null, STAGE.rateEase, input.now / 1000)) demanded.easing = true
+			const still = isStill(input.softwareFps)
+			// Ambient motion asks for frames only while it shows: its moving parts on screen, full motion and a visitor who is here, on a canvas that can afford it.
+			// A step down, adaptive quality's or the scene's own, takes the pace from SCENE_PACING.fps (SCENE_PACING.narrowFps on a narrow screen) to its slowFps
+			if (lift < movesBelow(stage) && input.ambientOn && !still) {
+				demanded.fps = Math.max(input.quality, sceneTier) > 0 ? SCENE_PACING.slowFps : input.narrow ? SCENE_PACING.narrowFps : SCENE_PACING.fps
+			}
+			// The drift's caps, and a third of what a software canvas can draw, since a scene frame costs about that many sky frames there
+			demanded.cap = Math.min(driftCap(input.narrow, input.quality > 0, input.softwareFps), input.softwareFps / SCENE_PACING.softwareCost)
+			// The horizon slides to its new pace over a couple of seconds, and a page standing still draws nothing unless asked: a landed scene moves with nothing to ease.
+			// The glide asks for frames on display refreshes, at the scene's own pace at least, so it lands on them and steps no more than it must
+			if (lift > 0 && lift < stage.zShow && easing(rate?.since ?? null, STAGE.rateEase, input.now / 1000)) {
+				demanded.easing = true
+				if (!still) demanded.fps = Math.max(demanded.fps, SCENE_PACING.fps)
+			}
 			return demanded
 		},
 		frame(input) {
@@ -371,14 +440,29 @@ export function createMiamiRuntime(): MiamiRuntime {
 			if (!stage || !baked) return null
 			viewAt(baked.key.stage, input.scrollY, input.documentHeight, share, view)
 			if (!view.onScreen) return null
+			const tier = tierOf(input)
 			shownAt = input.now / 1000
 			const fade = easeSince === null ? 1 : smoothstep(0, STAGE.jumpEase, shownAt - easeSince)
-			// The scene holds still: no clock runs, nothing moves in the wind or the water, it is on its first tier and nothing is thinned out
-			shown ??= { stage: baked.key.stage, view, assets: baked.assets, clock: 0, level: 0, tier: 0, fade, thin: 1, failed: false }
+			shown ??= { stage: baked.key.stage, view, assets: baked.assets, clock, level: 0, tier, fade, thin: 0, failed: false }
 			shown.stage = baked.key.stage
 			shown.assets = baked.assets
 			shown.fade = fade
+			shown.clock = clock
+			shown.level = isStill(input.softwareFps) ? 0 : input.level
+			shown.tier = tier
+			shown.thin = thinAt(shownAt)
 			return shown
+		},
+		noteSceneMs(milliseconds) {
+			// Adaptive quality's law, on the scene's own time: slow frames net of fast ones, one step down at a time, never back up
+			sceneSlow = milliseconds > ADAPT.slowFrameMs ? sceneSlow + 1 : Math.max(0, sceneSlow - 1)
+			if (sceneSlow < ADAPT.slowFrames || sceneTier >= 2) return
+			sceneTier++
+			sceneSlow = 0
+		},
+		stillOnScreen(scrollY, documentHeight, softwareFps) {
+			if (!stage || !size || !isStill(softwareFps)) return false
+			return Math.max(0, documentHeight - scrollY - size.height) < stage.zShow
 		},
 	}
 }

@@ -37,8 +37,10 @@ export interface LandingRect {
 
 /**
  * How much the sky may change on its own:
- * - `full`: twinkle, drift, scroll parallax and its glide, pointer lean and transients
- * - `reduced`: prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only
+ * - `full`: twinkle, drift, scroll parallax and its glide, pointer lean and transients, and the landing scene's water,
+ *   clouds, sun and beacons
+ * - `reduced`: prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only, and the
+ *   landing scene rests in its still pose
  * - `off`: forced colors hide the sky, so nothing is drawn
  */
 export type SkyMotion = 'full' | 'reduced' | 'off'

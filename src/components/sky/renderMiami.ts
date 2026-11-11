@@ -1,9 +1,10 @@
 import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
-import { BEACONS, BOAT, STAGE, SUN, WATER } from '@/lib/sky/miamiConfig'
+import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND } from '@/lib/sky/miamiConfig'
 import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type GlintField, type RowShift } from '@/lib/sky/miamiWater'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep } from '@/lib/sky/scene'
 import type { MiamiImage, MiamiWing } from './miamiAssets'
+import { drawCrown, trunkOutline } from './miamiPalmArt'
 import type { MiamiFrame } from './miamiRuntime'
 import type { SkyFrame } from './renderSky'
 
@@ -12,6 +13,15 @@ const WATER_OVERLAP = 2
 
 /** CSS px over which a beacon fades out as it rises toward the copy, so none of its light comes within the sun's margin of the copy's lowest edge. */
 const BEACON_FEATHER = 12
+
+/** CSS px by which the key's fill runs past the canvas's edges, so no seam of antialiasing shows along them. */
+const KEY_OVERHANG = 2
+
+/** Points along a trunk, for each side of it: a few fewer on a phone, where the trunk is short and narrow. */
+const TRUNK_SAMPLES = { wide: 12, narrow: 8 } as const
+
+/** The trunk's outline, kept from frame to frame so a frame makes no garbage. */
+let trunkPoints: Float32Array = new Float32Array(0)
 
 /** What a row of the water and a glint are moved by or lit by, reused so a frame makes no garbage. */
 const shift: RowShift = { dx: 0, dy: 0 }
@@ -274,12 +284,86 @@ function drawWing(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fra
 	if (body < frame.deviceHeight) ctx.drawImage(wing.image, 0, wing.feather, wing.image.width, 1, x, body, width, frame.deviceHeight - body)
 }
 
+/** Adds a polygon of `count` flat x, y pairs, moved by (x, y), to the path being built. */
+function addPolygon(ctx: OffscreenCanvasRenderingContext2D, points: Float32Array, count: number, x: number, y: number): void {
+	ctx.moveTo(x + (points[0] ?? 0), y + (points[1] ?? 0))
+	for (let i = 1; i < count; i++) ctx.lineTo(x + (points[i * 2] ?? 0), y + (points[i * 2 + 1] ?? 0))
+	ctx.closePath()
+}
+
+/**
+ * The key: the land in each bottom corner that has a palm, at the foreground's pace. Its fill runs from its top down past the
+ * canvas's bottom, wherever the page's end is, so the trunks' feet stand inside it even while a pull past the page's end has
+ * moved the page up. Drawn in CSS px under the context's transform.
+ */
+function drawKey(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void {
+	const { view, assets, stage } = scene
+	const { key } = assets
+	// A side's heights are above the page's end, and a CSS px of the key's reach is a share of the width it was built for
+	const xs = frame.width / stage.width
+	const top = view.end + view.palmShift
+	const bottom = frame.height + KEY_OVERHANG
+	let drawn = false
+	ctx.beginPath()
+	for (const side of key.sides) {
+		// Its highest point is still under the canvas
+		if (top - side.height >= frame.height) continue
+		const edge = side.right ? frame.width + KEY_OVERHANG : -KEY_OVERHANG
+		const run = (side.right ? -key.step : key.step) * xs
+		ctx.moveTo(edge, bottom)
+		ctx.lineTo(edge, top - (side.tops[0] ?? 0))
+		let x = side.right ? frame.width : 0
+		for (let i = 0; i < side.tops.length; i++, x += run) ctx.lineTo(x, top - (side.tops[i] ?? 0))
+		ctx.lineTo(x - run, bottom)
+		ctx.closePath()
+		drawn = true
+	}
+	if (drawn) ctx.fill()
+}
+
+/**
+ * The key and the palms, in front of everything, at the foreground's pace (the page's own, moved by `palmShift`): the key, then
+ * each palm with its trunk, the knot at its crown and its fronds, all held at the pose the still frame rests in. A palm whose
+ * farthest frond is still under the canvas is skipped, which it is for most of the descent. They only darken what is behind
+ * them, so nothing here can lift the ground behind any copy. The context's transform is left for the caller to put back.
+ */
+function drawPalms(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void {
+	const { view, assets, stage } = scene
+	const k = frame.dpr
+	const xs = frame.width / stage.width
+	const samples = TRUNK_SAMPLES[stage.narrow ? 'narrow' : 'wide']
+	// Whatever the layers before left set, these only darken
+	ctx.globalCompositeOperation = 'source-over'
+	ctx.globalAlpha = scene.fade
+	ctx.fillStyle = SKYLINE.near
+	ctx.setTransform(k, 0, 0, k, 0, 0)
+	drawKey(ctx, scene, frame)
+	for (const crown of assets.crowns) {
+		const { palm, rest } = crown
+		const crownY = view.end - palm.crownZ + view.palmShift
+		if (crownY - crown.reach >= frame.height) continue
+		const baseY = view.end - palm.baseZ + view.palmShift
+		// The crown stands downwind of where the trunk's curve ends, by the lean of the pose
+		const crownX = palm.crownX * xs
+		const x = crownX + rest.crownX
+		ctx.setTransform(k, 0, 0, k, 0, 0)
+		trunkPoints = trunkOutline(palm.baseX * xs, baseY, crownX, crownY, palm.bow, palm.trunk, rest.crownX, WIND.trunk.power, samples, trunkPoints)
+		ctx.beginPath()
+		addPolygon(ctx, trunkPoints, (samples + 1) * 2, 0, 0)
+		ctx.fill()
+		ctx.beginPath()
+		addPolygon(ctx, crown.knot, crown.knot.length / 2, x, crownY)
+		ctx.fill()
+		drawCrown(ctx, assets.palms, palm, crown.plan, rest, x, crownY, k)
+	}
+}
+
 /**
  * The scene's silhouettes and the water, drawn over the stars and the sky's events, back to front: the clouds, the sun's halo
  * and disc, the far city, the near city with its beacons, the sun's light wrapped round them, the water in strips, the ripples,
- * the glitter, the boat and its wake, and the wings that keep the rails' copy readable over the warm sky. It sets the blend it
- * needs (drawSky leaves a different one) and puts the blend, the alpha and the smoothing back at the end. `quiet` is the
- * copy's quiet zones, which the glitter keeps clear of.
+ * the glitter, the boat and its wake, the wings that keep the rails' copy readable over the warm sky, and in front of all of it
+ * the key and the palms. It sets the blend it needs (drawSky leaves a different one) and puts the blend, the alpha, the
+ * smoothing and the transform back at the end. `quiet` is the copy's quiet zones, which the glitter keeps clear of.
  */
 export function drawMiamiScene(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex): void {
 	const composite = ctx.globalCompositeOperation
@@ -303,10 +387,12 @@ export function drawMiamiScene(ctx: OffscreenCanvasRenderingContext2D, scene: Mi
 		drawBoat(ctx, scene, frame)
 		drawWing(ctx, scene, frame, assets.wings.left, view.wingLeft, view.wingTopLeft, true)
 		drawWing(ctx, scene, frame, assets.wings.right, view.wingRight, view.wingTopRight, false)
+		if (scene.fade > 0) drawPalms(ctx, scene, frame)
 	} catch {
 		recover(ctx, scene)
 		return
 	}
+	ctx.setTransform(1, 0, 0, 1, 0, 0)
 	ctx.globalAlpha = 1
 	ctx.imageSmoothingEnabled = smoothing
 	ctx.globalCompositeOperation = composite

@@ -3,7 +3,7 @@ import { hashCell } from './random'
 
 /**
  * How the wind poses a palm, as a pure function of the gust level `e`, a clock and a `level`, so any frame can be reproduced
- * from those three numbers alone. `phase` is the seconds the swing periods divide, which is the scene's clock. At `level` 0
+ * from those three numbers alone. The clock is the seconds that the swing periods divide, which is the scene's own. At `level` 0
  * every swing is zero and the gust holds at `WIND.stillGust`, whatever `e` is: the art-directed frame, a crown already
  * blown downwind and standing still. Time is never scaled by the gust, only the amplitudes are, so a gust arriving moves
  * nothing that was already swinging.
@@ -66,12 +66,12 @@ export function createPalmPose(): PalmPose {
 }
 
 /**
- * Poses `palm` for gust level `e` at `phase` seconds, scaled by `level`. A frond's swing has its own period and its own start,
+ * Poses `palm` for gust level `e` at `clock` seconds, scaled by `level`. A frond's swing has its own period and its own start,
  * seeded, and an amplitude by how it hangs (standing up, arching out or hanging), raised with the gust and held back on the
  * upwind side, where the crown shelters it. The downwind lean of every frond rises with the gust and stays at `level` 0.
  * The outer part of a hinged frond swings the same way a little later and a little less, relative to the inner.
  */
-export function palmPose(palm: WindPalm, e: number, phase: number, level: number, out: PalmPose): PalmPose {
+export function palmPose(palm: WindPalm, e: number, clock: number, level: number, out: PalmPose): PalmPose {
 	const { trunk, frond, flutter } = WIND
 	const gust = WIND.stillGust + (e - WIND.stillGust) * level
 	const count = palm.angles.length
@@ -88,18 +88,18 @@ export function palmPose(palm: WindPalm, e: number, phase: number, level: number
 		const share = Math.abs(angle) / palm.spread
 		const hanging = share < UPPER_SHARE ? frond.upper : share < SIDE_SHARE ? frond.side : frond.hanging
 		const amplitude = along(hanging, unit(palm.seed, i, AMPLITUDE_SALT)) * gain * (angle < 0 ? frond.windward : 1)
-		const turn = TAU * (phase / along(frond.period, unit(palm.seed, i, PERIOD_SALT)) + unit(palm.seed, i, PHASE_SALT))
+		const turn = TAU * (clock / along(frond.period, unit(palm.seed, i, PERIOD_SALT)) + unit(palm.seed, i, PHASE_SALT))
 		out.inner[i] = lean + level * amplitude * Math.sin(turn)
 		if (i < palm.hinged) {
 			out.outer[i] = level * frond.outerShare * amplitude * Math.sin(turn - frond.lag)
-			out.flutter[i] = shear * Math.sin(TAU * (phase / along(flutter.period, unit(palm.seed, i, FLUTTER_SALT)) + unit(palm.seed, i, PHASE_SALT + 1)))
+			out.flutter[i] = shear * Math.sin(TAU * (clock / along(flutter.period, unit(palm.seed, i, FLUTTER_SALT)) + unit(palm.seed, i, PHASE_SALT + 1)))
 		} else {
 			out.outer[i] = 0
 			out.flutter[i] = 0
 		}
 	}
-	const sway = Math.sin(TAU * (phase / along(trunk.period, unit(palm.seed, 0, TRUNK_SALT)) + unit(palm.seed, 1, TRUNK_SALT)))
-	const second = Math.sin(TAU * ((phase * trunk.second) / along(trunk.period, unit(palm.seed, 0, TRUNK_SALT)) + unit(palm.seed, 2, TRUNK_SALT)))
+	const sway = Math.sin(TAU * (clock / along(trunk.period, unit(palm.seed, 0, TRUNK_SALT)) + unit(palm.seed, 1, TRUNK_SALT)))
+	const second = Math.sin(TAU * ((clock * trunk.second) / along(trunk.period, unit(palm.seed, 0, TRUNK_SALT)) + unit(palm.seed, 2, TRUNK_SALT)))
 	const swing = sway + trunk.secondShare * second
 	out.crownX = palm.height * along(trunk.lean, gust) + level * palm.height * along(trunk.sway, gust) * swing
 	out.tilt = (level * trunk.tilt * swing) / (1 + trunk.secondShare)

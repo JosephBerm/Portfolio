@@ -271,8 +271,7 @@ export function budgetKeeps(white: number, quietKeep: number, ink = 1): QuietKee
 
 /**
  * Share of its light a moving transient keeps once the page has scrolled from `launchScrollY` to `scrollY` (px): the
- * ramp of SCROLL_CANCEL, times `fade` (0-1), the caller's own fade state (a pause, say), which can only dim. It is what
- * drawMeteor takes as its `fade`.
+ * ramp of SCROLL_CANCEL, times `fade` (0-1), the caller's own fade state (a pause, say), which can only dim.
  */
 export function scrollKept(launchScrollY: number, scrollY: number, fade = 1): number {
 	return Math.min(1, Math.max(0, fade)) * (1 - smoothstep(SCROLL_CANCEL.from, SCROLL_CANCEL.to, Math.abs(scrollY - launchScrollY)))

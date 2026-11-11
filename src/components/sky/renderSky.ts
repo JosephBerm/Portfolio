@@ -6,6 +6,7 @@ import {
 	CELL_SIZE,
 	CLEAR_SKY_KEEPS,
 	COMET,
+	HAZE_BRIGHT,
 	LAYERS,
 	METEOR,
 	METEOR_LIGHT,
@@ -106,6 +107,7 @@ export function createStarField(): StarField {
 /** Drawing resources: the atlas follows the pixel ratio and the haze the size; the comet's bitmap is painted for each comet that shows. */
 export interface SkyAssets {
 	atlas: StarAtlas
+	/** The bitmap each frame blits, replaced as the drift clock moves. */
 	haze: ImageBitmap | null
 	/** The comet's coma and tails as one bitmap of light (buildCometArt), painted when it starts to show and closed once it is gone; null while none shows. */
 	comet: ImageBitmap | null
@@ -142,7 +144,7 @@ export interface SkyFrame {
 	dusk: number
 	/** Twinkle strength multiplier; 0 draws every star at its resting alpha. */
 	twinkle: number
-	/** Haze alpha: scene × contrast × its own emergence. */
+	/** The nebula's level: scene × contrast × its own emergence. It draws at this over HAZE_BRIGHT. */
 	haze: number
 	/** Padded quiet rects in screen coordinates, easing from the previous measurement to the current one. */
 	quiet: QuietBlend
@@ -260,7 +262,7 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 	if (assets.haze && frame.haze > MIN_STAR_ALPHA) {
 		// Nearest-neighbor keeps the dither grain intact when the haze buffer is scaled up
 		ctx.imageSmoothingEnabled = false
-		ctx.globalAlpha = frame.haze
+		ctx.globalAlpha = frame.haze / HAZE_BRIGHT
 		ctx.drawImage(assets.haze, 0, 0, frame.deviceWidth, frame.deviceHeight)
 		ctx.imageSmoothingEnabled = true
 	}

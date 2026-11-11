@@ -1,19 +1,6 @@
 import { mixRgb } from '@/lib/sky/color'
 import { cometLightAt, type CometLight, type CometShape } from '@/lib/sky/comet'
-import {
-	COMET,
-	HAZE_MAX_PIXELS,
-	HAZE_NARROW_SCALE,
-	HAZE_POOLS,
-	HAZE_TOP_FADE,
-	METEOR_LOOK,
-	MIN_CORE_SIGMA_DEVICE_PX,
-	NARROW_MAX_WIDTH,
-	PLANET,
-	STAR_PHASES,
-	STAR_SHAPES,
-	STAR_TINTS,
-} from '@/lib/sky/config'
+import { COMET, METEOR_LOOK, MIN_CORE_SIGMA_DEVICE_PX, PLANET, STAR_PHASES, STAR_SHAPES, STAR_TINTS } from '@/lib/sky/config'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { smoothstep } from '@/lib/sky/scene'
 
@@ -193,72 +180,6 @@ export function buildStarAtlas(dpr: number, tokens: SkyTokens): StarAtlas {
 	paintSprite(pixels, cometKnot, palette[COMET.ion.tint] ?? tokens.white, knot)
 
 	return { image: toBitmap(pixels), stars, meteorCore, meteorGlow, cometKnot }
-}
-
-/**
- * The haze as light to add over navy: soft Gaussian pools in the card hues with triangular dither, so the 8-bit
- * gradients never band. Black where there is no haze (it is drawn additively), and none under the glass navbar.
- */
-export function buildHaze(width: number, height: number, tokens: SkyTokens): ImageBitmap {
-	const scale = Math.min(1, Math.sqrt(HAZE_MAX_PIXELS / Math.max(1, width * height)))
-	const w = Math.max(1, Math.round(width * scale))
-	const h = Math.max(1, Math.round(height * scale))
-	const longSide = Math.max(w, h)
-	const level = width <= NARROW_MAX_WIDTH ? HAZE_NARROW_SCALE : 1
-	const red = new Float32Array(w * h)
-	const green = new Float32Array(w * h)
-	const blue = new Float32Array(w * h)
-	// Rows under the navbar get no haze; it eases in below it (buffer rows map back to CSS px through `scale`)
-	const topFade = Float32Array.from({ length: h }, (_, j) => smoothstep(HAZE_TOP_FADE[0], HAZE_TOP_FADE[1], (j + 0.5) / scale))
-
-	for (const pool of HAZE_POOLS) {
-		const color = tokens[pool.color]
-		const sigma = (pool.radius * longSide) / 2
-		const cx = pool.x * w
-		const cy = pool.y * h
-		// Separable Gaussian: one exp per column and one per row
-		const gx = Float32Array.from({ length: w }, (_, i) => Math.exp(-((i + 0.5 - cx) ** 2) / (2 * sigma * sigma)))
-		const gy = Float32Array.from({ length: h }, (_, j) => Math.exp(-((j + 0.5 - cy) ** 2) / (2 * sigma * sigma)))
-		for (let j = 0; j < h; j++) {
-			const rowWeight = (gy[j] ?? 0) * (topFade[j] ?? 0) * pool.peak * level
-			if (rowWeight < 1e-4) continue
-			// The pool's color at full row weight; each column scales it
-			const r = color[0] * rowWeight
-			const g = color[1] * rowWeight
-			const b = color[2] * rowWeight
-			const row = j * w
-			for (let i = 0; i < w; i++) {
-				const weight = gx[i] ?? 0
-				const k = row + i
-				red[k] = (red[k] ?? 0) + r * weight
-				green[k] = (green[k] ?? 0) + g * weight
-				blue[k] = (blue[k] ?? 0) + b * weight
-			}
-		}
-	}
-
-	const pixels = new ImageData(w, h)
-	const { data } = pixels
-	let seed = 0x9e3779b9
-	// xorshift32; the two 16-bit halves of one draw summed give triangular noise in [-1, 1)
-	const noise = () => {
-		seed ^= seed << 13
-		seed ^= seed >>> 17
-		seed ^= seed << 5
-		return ((seed & 0xffff) + (seed >>> 16)) / 65536 - 1
-	}
-	// The clamped array rounds to the nearest level and stops at 0; pixels with no haze stay black
-	for (let k = 0; k < w * h; k++) {
-		const offset = k * 4
-		const r = red[k] ?? 0
-		const g = green[k] ?? 0
-		const b = blue[k] ?? 0
-		if (r >= 0.02) data[offset] = r + noise()
-		if (g >= 0.02) data[offset + 1] = g + noise()
-		if (b >= 0.02) data[offset + 2] = b + noise()
-		data[offset + 3] = 255
-	}
-	return toBitmap(pixels)
 }
 
 /** A xorshift32 generator of triangular noise in [-1, 1): the dither that lets faint, smooth light step through the 8-bit levels without banding. */

@@ -6,6 +6,8 @@
 	position: fixed;
 	inset: 0 0 auto;
 	z-index: 0;
+	/* The whole window: a classic scrollbar appearing at the reveal must not resize (and rebuild) the sky */
+	width: 100vw;
 	/* Large viewport height: the mobile URL bar showing or hiding never resizes (and redraws) the sky */
 	height: 100lvh;
 	pointer-events: none;

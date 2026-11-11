@@ -146,36 +146,38 @@ export const SUN = {
  * `width` the length, both as shares of the canvas width, `height` and `alpha` the band's, and `drift` the px a second it
  * moves right. `banks` are the heavy clouds with flat bottoms, by width class: `above` is the bottom's height above the
  * waterline in tallest towers (the top is that plus `height` px), `x` and `width` as for the streaks. `shape` makes a bank's
- * top lumpy: noise stretched `stretch`:1 horizontally, `octaves` of it, and a top edge blurred by at most `blur` px.
- * `place` settles banks that don't fit: one shrinks to at least `minHeight` px before it is dropped, a bank moved down
- * to fit sits a seeded `offset` px lower where the room allows, and tops stay at least `topGap` apart, so they never
- * align. `top` and `topHigh` color a bank's top (lower and higher banks), `under` its underside on the sun's side
- * (`near`) and away from it (`far`), and `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun.
+ * top: noise stretched `stretch`:1 horizontally, `octaves` of it, and a top edge blurred by at most `blur` px. The stretch is
+ * long and the edge soft because short lumps with a crisp edge read as a mountain range, not as cloud, and for the same
+ * reason the banks are low. `place` settles banks that don't fit: one shrinks to at least `minHeight` px before it is
+ * dropped, a bank moved down to fit sits a seeded `offset` px lower where the room allows, and tops stay at least `topGap`
+ * apart, so they never align. `top` and `topHigh` color a bank's top (lower and higher banks), `under` its underside on
+ * the sun's side (`near`) and away from it (`far`), as light as the sky just below the bank so that it reads as lit from
+ * below and not as haze, and `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun.
  */
 export const CLOUDS = {
 	streaks: [
 		{ t: 0.13, x: 0.3, color: '#A8501C', width: 0.7, height: 8, drift: 0.8, alpha: 0.55 },
 		{ t: 0.3, x: 0.86, color: '#8E3F20', width: 0.4, height: 10, drift: 1, alpha: 0.5 },
 		{ t: 0.52, x: 0.4, color: '#6E3424', width: 0.6, height: 14, drift: 1.6, alpha: 0.45 },
-		{ t: 0.78, x: 0.66, color: '#3F2A30', width: 0.4, height: 6, drift: 2.2, alpha: 0.35 },
+		{ t: 0.78, x: 0.86, color: '#3F2A30', width: 0.22, height: 6, drift: 2.2, alpha: 0.35 },
 	],
 	banks: {
 		wide: [
-			{ above: 1.3, x: 0.44, width: 0.2, height: 34, drift: 0.5 },
-			{ above: 1.2, x: 0.86, width: 0.18, height: 28, drift: 0.4 },
-			{ above: 1.95, x: 0.74, width: 0.24, height: 62, drift: 0.9 },
-			{ above: 2.5, x: 0.3, width: 0.18, height: 34, drift: 1.2 },
+			{ above: 1.3, x: 0.44, width: 0.2, height: 30, drift: 0.5 },
+			{ above: 1.2, x: 0.86, width: 0.18, height: 26, drift: 0.4 },
+			{ above: 1.95, x: 0.74, width: 0.24, height: 46, drift: 0.9 },
+			{ above: 2.5, x: 0.3, width: 0.18, height: 26, drift: 1.2 },
 		],
 		narrow: [
-			{ above: 1.3, x: 0.3, width: 0.48, height: 30, drift: 0.4 },
-			{ above: 1.95, x: 0.76, width: 0.48, height: 40, drift: 0.7 },
+			{ above: 1.3, x: 0.3, width: 0.36, height: 22, drift: 0.4 },
+			{ above: 1.95, x: 0.76, width: 0.36, height: 30, drift: 0.7 },
 		],
 	},
-	shape: { stretch: 2.5, octaves: 3, blur: 1.5 },
+	shape: { stretch: 5.5, octaves: 3, blur: 3 },
 	place: { minHeight: 18, offset: [10, 40], topGap: 12 },
 	top: '#3B251E',
 	topHigh: '#3F2A2C',
-	under: { near: '#BC502A', far: '#8E3F2A' },
+	under: { near: '#D8642E', far: '#A2462C' },
 	rim: { near: '#FFA03A', far: '#CF5147' },
 } as const
 
@@ -185,8 +187,9 @@ export const CLOUDS = {
  * - `far`: a second layer of seeded towers behind the near ones, between `low` and `high` of the tallest tower's height,
  *   with `width` and `gap` ranges in drawing units, in a gradient from `top` to `base` that mixes up to `sunMix` toward
  *   `sunColor` near the sun.
- * - `base`: the low base along the water, its height a share of the tallest tower by width class and `gapShare` of that in
- *   the sun's gap, with a small palm top about every `palmEvery` px.
+ * - `base`: the low base along the water, its height a share of the tallest tower by width class (lower on phones, where a
+ *   taller one is a black shelf with bumps of canopy under stubby towers) and `gapShare` of that in the sun's gap, with a
+ *   small palm top about every `palmEvery` px.
  * - `sunGap`: the room around the sun kept free of towers: `radii` (by width class) for the far layer and the low base,
  *   which are built per stage, and `nearUnits` in drawing units for the fixed near-tower list, which knows no viewport.
  * - `haze`: a band of the local sky's color over the far layer's feet, `height` px at `alpha`.
@@ -197,7 +200,7 @@ export const CLOUDS = {
 export const SKYLINE = {
 	near: '#120A0E',
 	far: { top: '#4A2A2A', base: '#8A4A30', sunMix: 0.34, sunColor: '#F4851F', low: 0.36, high: 0.84, width: [11, 20], gap: [6, 34], seed: 0x4d49414d },
-	base: { share: { wide: 0.25, narrow: 0.36 }, gapShare: 0.67, palmEvery: 70, seed: 0x42415345 },
+	base: { share: { wide: 0.25, narrow: 0.3 }, gapShare: 0.67, palmEvery: 70, seed: 0x42415345 },
 	sunGap: { radii: { wide: 3, narrow: 2 }, nearUnits: 72 },
 	haze: { height: 30, alpha: 0.3 },
 	cranes: { enabled: true, minWidth: 1100, minHeight: 500, window: [-538, -337], at: [-517, -459, -401], apex: 100 },
@@ -366,6 +369,7 @@ export const SCENE_PACING = { fps: 30, narrowFps: 30, slowFps: 20, softwareCost:
  * even the boat's wake. `alpha` (`moreAlpha` under prefers-contrast: more) is their strength at the screen's edge, which
  * holds to `past` px beyond the rail's inner edge and feathers out over `feather` (a share of the width, at least `min`
  * px; `tablet` on screens under 1024 px wide, where the wide feather would darken a third of the screen). Each comes on
- * as its side needs it, over `ease` px of scroll, and feathers in at the top over `topFeather` px.
+ * as its side needs it, over `ease` px of scroll, and feathers in at the top over `topFeather` px, long enough that the dark
+ * comes in as a gradient and not as a hard edge across the bright band.
  */
-export const WING = { color: '#120A0E', alpha: 0.78, moreAlpha: 0.92, past: 32, ease: 120, feather: { share: 0.09, min: 60, tablet: { share: 0.05, min: 32 } }, topFeather: 72 } as const
+export const WING = { color: '#120A0E', alpha: 0.78, moreAlpha: 0.92, past: 32, ease: 120, feather: { share: 0.09, min: 60, tablet: { share: 0.05, min: 32 } }, topFeather: 140 } as const

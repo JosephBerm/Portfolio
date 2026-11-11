@@ -18,6 +18,8 @@ export interface MiamiLayout {
 export interface MiamiStep {
 	/** Worker-clock milliseconds. */
 	now: number
+	/** `performance.now()` when the tick that makes this step began: a build slice ends `STAGE.buildSliceMs` after it, so what the tick did before the step is taken from the slice. */
+	tickStart: number
 	scrollY: number
 	documentHeight: number
 	/** The worker's pixel ratio. */
@@ -231,16 +233,19 @@ export function createMiamiRuntime(): MiamiRuntime {
 		if (before === null ? stage !== null : stage === null || !sameStage(before, stage)) changedAt = performance.now()
 	}
 
-	/** Runs the build for up to `budget` ms, or to its end with Infinity; the assets once it is done, else null. */
-	const advance = (current: Building, budget: number): MiamiAssets | null => {
-		const until = performance.now() + budget
+	/**
+	 * Runs the build until the worker clock reaches `deadline` (ms), or to its end with Infinity; the assets once it is done,
+	 * else null. The clock is read before each piece, so a slice runs over its deadline by at most the piece that began before
+	 * it, and a tick that spent its budget before the build was reached builds nothing.
+	 */
+	const advance = (current: Building, deadline: number): MiamiAssets | null => {
 		for (;;) {
+			if (performance.now() >= deadline) return null
 			const result = current.generator.next()
 			if (result.done) {
 				if (!result.value) throw new RangeError('The scene build ended without assets')
 				return result.value
 			}
-			if (performance.now() >= until) return null
 		}
 	}
 
@@ -305,9 +310,9 @@ export function createMiamiRuntime(): MiamiRuntime {
 					building = { key: { stage: current, dpr: input.dpr, navy }, generator: buildMiamiAssets(current, input.dpr, tokens) }
 				}
 				if (building) {
-					// With nothing built yet, a scene that shows now can't wait for slices
+					// With nothing built yet, a scene that shows now can't wait for slices. Any other slice counts from the start of the tick, so the work the tick did first shortens it
 					const urgent = needed && !baked
-					const assets = advance(building, urgent ? Infinity : STAGE.buildSliceMs)
+					const assets = advance(building, urgent ? Infinity : input.tickStart + STAGE.buildSliceMs)
 					if (assets) {
 						const previous = baked
 						baked = { key: building.key, assets }

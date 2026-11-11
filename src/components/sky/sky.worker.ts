@@ -280,9 +280,13 @@ function quietEasing(t: number): boolean {
 	return layoutAt !== null && t - layoutAt < QUIET.ease
 }
 
+/** `performance.now()` when the tick running now began: the landing scene's build slice counts from it, so the work a tick does before the build is taken from the slice. */
+let tickStartedAt = 0
+
 /** What the landing scene reads at this moment (reused, so a call makes no garbage). */
 const miamiStep: MiamiStep = {
 	now: 0,
+	tickStart: 0,
 	scrollY: 0,
 	documentHeight: 0,
 	dpr: 1,
@@ -298,6 +302,7 @@ const miamiStep: MiamiStep = {
 /** Fills the landing scene's input for `now` (ms). Every caller has run `gather` first, so the gates it reads are fresh. */
 function stepInput(now: number): MiamiStep {
 	miamiStep.now = now
+	miamiStep.tickStart = tickStartedAt
 	miamiStep.scrollY = scrollY
 	miamiStep.documentHeight = documentHeight
 	miamiStep.dpr = dpr
@@ -551,6 +556,7 @@ function recheckFrames(): void {
  * next wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
  */
 function tick(now: number): void {
+	tickStartedAt = performance.now()
 	// The launch gate, the gates and the camera read one scene: nothing in a tick moves the scroll or the viewport
 	const scene = sceneAt(scrollY, height, documentHeight, miami.descentWindow())
 	if (updateTransients(transients, random, now / 1000, launchGate(now, scene))) needsDraw = true
@@ -565,7 +571,7 @@ function tick(now: number): void {
 	// Outside draw, so adapt never counts what the nebula costs against the quality steps
 	updateNebula(scene)
 	updateComet(now)
-	// The landing scene's bitmaps are built here, in slices, and never inside a draw, so adapt never counts them
+	// The landing scene's bitmaps are built here, in slices that end a set time after this tick began, and never inside a draw, so adapt never counts them
 	if (miami.step(stepInput(now))) needsDraw = true
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the

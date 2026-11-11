@@ -132,13 +132,13 @@ const COPY_PIXELS = 131072
 /** Pixels of a picture colored from a coverage field (the far city, a ripple tile) between two returns: each takes a color mix or a rounded alpha, which costs more than a copy, and this many take a millisecond or two while the code is cold. */
 const COLOR_PIXELS = 16384
 
-/** Pixels of the water's base baked between two returns: one costs about twice what one of the sky's does, so this many take about a millisecond while the code is cold (a row of it is more than this on a screen 2000 px wide or more, and goes alone). */
+/** Pixels of the water's base baked between two returns: one costs about as much as one of the sky's, so this many take a millisecond or two while the code is cold (a row of it is the screen's width and a margin each side, so two rows pass this on a screen about 2020 px wide or more, and there a batch is one row). */
 const WATER_BATCH_PIXELS = 4096
 
 /** Columns of ripple dashes (each a sine and a power) a field draws between two returns, counted at the end of each row: a millisecond or two while the code is cold. */
 const LENS_PIXELS = 4000
 
-/** Towers drawn between two returns. */
+/** Towers drawn between two returns, not counting those with a polygon crown (see `polygonCrown`), which each end a step. */
 const TOWERS_PER_STEP = 6
 
 /** Palm tops drawn between two returns: each is a trunk and nine curved leaves, a good deal more than a tower. */
@@ -877,6 +877,12 @@ function planSkyline(stage: MiamiStage): Skyline {
 	return { towers, far, base, palms, cranes }
 }
 
+/** Whether `drawTower` fills a tower's crown as polygons (the curved shoulder fills the whole body as one, the arc three tiers, the slanted top a wedge): a polygon is sampled four times a row, and while the code is cold the first of them take a couple of milliseconds each. */
+function polygonCrown(tower: Tower): boolean {
+	const crown = CROWNS[tower.crown]
+	return crown === 'round' || crown === 'arc' || crown === 'angle'
+}
+
 /** One tower, drawn into a mask whose bottom is the waterline (rows from the top; `x0` to `x1` and the body's `top` are in whole device px). */
 function drawTower(mask: Uint8Array, width: number, height: number, tower: Tower, x0: number, x1: number, top: number, dpr: number): void {
 	const body = x1 - x0
@@ -1026,14 +1032,14 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 	}
 	yield
 
-	// The towers, with rect edges on whole device px
+	// The towers, with rect edges on whole device px; one with a polygon crown ends its step, so two of them never share one
 	let drawn = 0
 	for (const tower of skyline.towers) {
 		const x0 = Math.round(tower.left * dpr)
 		const x1 = Math.max(x0 + 1, Math.round(tower.right * dpr))
 		const top = height - Math.round(tower.height * dpr)
 		drawTower(mask, width, height, tower, x0, x1, top, dpr)
-		if (++drawn % TOWERS_PER_STEP === 0) yield
+		if (polygonCrown(tower) || ++drawn % TOWERS_PER_STEP === 0) yield
 	}
 	yield
 

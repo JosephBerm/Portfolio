@@ -403,8 +403,12 @@ export function createMiamiRuntime(): MiamiRuntime {
 				if (shownAt - easeSince < STAGE.jumpEase) redraw = true
 				easeSince = null
 			}
-			// The horizon's own ease has run out: if the scene was on screen for it, one more frame shows where it ended
-			if (lift < current.zShow && easeEnded(rate?.since ?? null, STAGE.rateEase, input.now / 1000, shownAt)) redraw = true
+			// The horizon's own ease has run out: if the scene was on screen for it, one more frame shows where it ended. So has the fade of the light
+			// a step down took away: a worker about to sleep would otherwise keep showing it part way
+			if (lift < current.zShow) {
+				const t = input.now / 1000
+				if (easeEnded(rate?.since ?? null, STAGE.rateEase, t, shownAt) || easeEnded(thinSince, ADAPT.thinFade, t, shownAt)) redraw = true
+			}
 			return redraw
 		},
 		demand(input) {
@@ -433,6 +437,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 				demanded.easing = true
 				if (!still) demanded.fps = Math.max(demanded.fps, SCENE_PACING.fps)
 			}
+			// The light a step down took away fades out over a second of frames, whatever else has gone still
+			if (lift < stage.zShow && easing(thinSince, ADAPT.thinFade, input.now / 1000)) demanded.easing = true
 			return demanded
 		},
 		frame(input) {

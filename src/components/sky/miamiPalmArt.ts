@@ -56,7 +56,7 @@ export interface CrownArt {
 	knot: number
 }
 
-/** Everything a candidate look changes. */
+/** Everything that sets how a palm looks: how a frond is drawn and how a crown is laid out. */
 export interface PalmArt {
 	frond: FrondArt
 	layout: CrownArt

@@ -118,6 +118,11 @@ export function screenReadingZones(rects: readonly SkyRect[], scrollY: number, h
 	return zones
 }
 
+/** Share of its light anything in the sky keeps at (x, y) for reading copy, which no light may reach: none inside a zone, easing back over QUIET.feather. */
+export function readingKept(zones: readonly SkyRect[], x: number, y: number): number {
+	return 1 - quietAt(zones, x, y)
+}
+
 /** True when two lists hold the same rects (a layout message may change only the document height). */
 export function sameRects(a: readonly SkyRect[], b: readonly SkyRect[]): boolean {
 	return (
@@ -223,7 +228,7 @@ export function transientQuietFactor(blend: QuietBlend, x: number, y: number, ke
  * frame and spares the hypot for the many rects a star is nowhere near, and calling a shared function from it measured
  * slower.
  */
-function clearanceOf(zones: readonly SkyRect[], x: number, y: number, least: number): number {
+export function clearanceOf(zones: readonly SkyRect[], x: number, y: number, least: number): number {
 	let clearance = least
 	for (const zone of zones) {
 		const dx = Math.max(zone.x - x, 0, x - zone.x - zone.width)

@@ -437,6 +437,8 @@ export interface BodyFrame {
 	width: number
 	/** The zones on screen as the frame draws them; the box answers to `to` and a waiting layout's `next`. */
 	quiet: QuietBlend
+	/** Reading copy near the screen; the box answers to it too. */
+	reading: readonly SkyRect[]
 }
 
 /** The comet at one drawn frame: where its nucleus is on screen, how much of its light shows and where its knots are. */
@@ -455,8 +457,8 @@ export interface CometView {
  * own: the drift clock's time since it began to show, times its pace. While the sky is held the camera and the drift
  * clock stand still, so it does too, and its fade-in is read at the moment of the hold. It is gone once its whole box is
  * past the right edge, where no copy lies. Its box is tested against the zones the frame answers to (the layout it is
- * easing to and one waiting), whose copy and the comet both move, held or not, and the first time copy comes within reach
- * it starts to fade out and is gone for good.
+ * easing to, one waiting, and reading copy), whose copy and the comet both move, held or not, and the first time copy comes
+ * within reach it starts to fade out and is gone for good.
  */
 export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const { shape } = body
@@ -474,7 +476,8 @@ export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 		const y0 = y + top
 		const x1 = x + right
 		const y1 = y + bottom
-		if (!clearOfZones(frame.quiet.to, x0, y0, x1, y1) || (frame.quiet.next && !clearOfZones(frame.quiet.next, x0, y0, x1, y1))) body.boxFailedAt = frame.time
+		const clear = (zones: readonly SkyRect[]) => clearOfZones(zones, x0, y0, x1, y1)
+		if (!clear(frame.quiet.to) || !clear(frame.reading) || (frame.quiet.next && !clear(frame.quiet.next))) body.boxFailedAt = frame.time
 	}
 	const kept = bodyKept(body, frame.time, frame.scrollY)
 	if (kept <= 0) {

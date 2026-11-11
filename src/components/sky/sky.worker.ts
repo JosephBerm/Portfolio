@@ -48,7 +48,7 @@ import {
 } from '@/lib/sky/pacing'
 import { createPresence, isIdle, notePresence, presenceLevel } from '@/lib/sky/presence'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
-import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
+import { emergenceDone, hazeEmergence, readingPadding, sameRects, sceneAt, screenQuietZones, screenReadingZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
 import {
 	cancelTransients,
 	createTransientSchedule,
@@ -207,6 +207,11 @@ const relayRefresh = createRefreshEstimate()
 let relayTickDoneAt = -Infinity
 /** How many display refreshes pass per drawn frame while something moves. */
 const divisor: Divisor = { k: 1, slowerSince: null }
+
+/** Reading copy near the screen now, in screen coordinates, grown as READING says for this width. */
+function readingZones(): SkyRect[] {
+	return screenReadingZones(reading, scrollY, height, readingPadding(narrowScreen))
+}
 
 /** Backing-store pixels for a CSS length (never zero). */
 function deviceSize(cssSize: number, ratio: number): number {
@@ -663,6 +668,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		twinkle: twinkleLevel(scene),
 		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
 		quiet: quietBlend(t),
+		reading: transients.active.length > 0 || bodyShowing(comet) ? readingZones() : [],
 		meteorInk: contrast.meteorInk * scene.inkShare,
 		snap: !skyMoved,
 		miami: landing,
@@ -682,7 +688,7 @@ function draw(now: number): void {
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
 	// The comet's view tests its box against the zones this frame draws, and may find it gone
 	const view = bodyShowing(comet)
-		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet })
+		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading })
 		: null
 	if (view) {
 		// Painted once, in the first frame it shows (still at no light), and again after a lost context took it

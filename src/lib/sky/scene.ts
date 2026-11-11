@@ -49,19 +49,23 @@ export interface DescentWindow {
 export function sceneAt(scrollY: number, viewportHeight: number, documentHeight: number, descentWindow: DescentWindow | null = null): SceneLevels {
 	const scrolled = scrollY / viewportHeight
 	const remaining = Math.max(0, documentHeight - scrollY - viewportHeight) / viewportHeight
+	const endShare = smoothstep(SCENE.endFadeFrom, SCENE.endFadeTo, remaining)
 	const hero = 1 - smoothstep(SCENE.heroFadeFrom, SCENE.heroFadeTo, scrolled)
-	const end = (1 - hero) * smoothstep(SCENE.endFadeFrom, SCENE.endFadeTo, remaining)
+	const end = (1 - hero) * endShare
 	const reading = 1 - hero - end
 	const left = Math.max(0, documentHeight - scrollY - viewportHeight)
 	const descent = descentWindow ? (1 - hero) * smoothstep(descentWindow.fromPx, descentWindow.toPx, left) : 0
 	// The stars and the drift mix toward the descent's own levels, and the haze fades out, as the descent goes on
 	const dusk = smoothstep(DESCENT.starMix[0], DESCENT.starMix[1], descent)
-	const mix = (key: 'haze' | 'twinkle' | 'drift' | 'lean') => hero * SCENE.hero[key] + reading * SCENE.reading[key] + end * SCENE.end[key]
+	const mix = (key: 'twinkle' | 'drift' | 'lean') => hero * SCENE.hero[key] + reading * SCENE.reading[key] + end * SCENE.end[key]
 	const stars = (layer: SkyLayer) =>
 		(hero * SCENE.hero.stars[layer] + reading * SCENE.reading.stars[layer] + end * SCENE.end.stars[layer]) * (1 - dusk) + DESCENT.stars[layer] * dusk
+	// The nebula gives way sooner than the stars (SCENE.hazeFadeFrom), on the same end bookend
+	const hazeHero = 1 - smoothstep(SCENE.hazeFadeFrom, SCENE.hazeFadeTo, scrolled)
+	const hazeEnd = (1 - hazeHero) * endShare
 	return {
 		stars: { far: stars('far'), mid: stars('mid'), near: stars('near') },
-		haze: mix('haze') * (1 - smoothstep(DESCENT.hazeOut[0], DESCENT.hazeOut[1], descent)),
+		haze: (hazeHero * SCENE.hero.haze + (1 - hazeHero - hazeEnd) * SCENE.reading.haze + hazeEnd * SCENE.end.haze) * (1 - smoothstep(DESCENT.hazeOut[0], DESCENT.hazeOut[1], descent)),
 		twinkle: mix('twinkle'),
 		drift: mix('drift') * (1 - dusk) + DESCENT.drift * dusk,
 		lean: mix('lean'),
@@ -77,12 +81,12 @@ export function starEmergence(delay: number, seconds: number): number {
 	return 1 - (1 - t) * (1 - t)
 }
 
-/** How far the haze has come out, `seconds` after the loader started lifting. */
+/** How far the nebula has come out, `seconds` after the loader started lifting. */
 export function hazeEmergence(seconds: number): number {
 	return smoothstep(EMERGENCE.haze[0], EMERGENCE.haze[1], seconds)
 }
 
-/** True once every star and the haze have fully come out. */
+/** True once every star and the nebula have fully come out. */
 export function emergenceDone(seconds: number): boolean {
 	return seconds >= Math.max(EMERGENCE.maxDelay + EMERGENCE.fade, EMERGENCE.haze[1])
 }
@@ -249,7 +253,10 @@ export function quietClearance(blend: QuietBlend, x: number, y: number): number 
 	return blend.next ? clearanceOf(blend.next, x, y, eased) : eased
 }
 
-/** White (0-1) a shooting star, or any transient, may add on the copy of a rect with this `headroom` (INK_BUDGET). */
+/**
+ * White (0-1) a shooting star, or any transient, may add on the copy of a rect with this `headroom` (INK_BUDGET), where the
+ * nebula adds no more than INK_BUDGET.hazeReserve. It can add more under the right rail: no transient may light the rails.
+ */
 export function inkBudget(headroom: number): number {
 	const { ceiling, safety, hazeReserve } = INK_BUDGET
 	return Math.min(ceiling, Math.max(0, (headroom - hazeReserve - STAR_INK_PEAK) * safety))

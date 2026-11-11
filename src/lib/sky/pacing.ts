@@ -1,4 +1,4 @@
-import { FRAME, PACING } from './config'
+import { FRAME, NEBULA, PACING } from './config'
 import { smoothstep } from './scene'
 
 /** What one part of the sky needs from the frame clock right now. */
@@ -234,4 +234,57 @@ export function createRefreshEstimate(): RefreshEstimate {
 			last = null
 		},
 	}
+}
+
+/** When the nebula composes at a clock and which field states it mixes (one reused object, so a tick makes no garbage). */
+export interface HazeTimes {
+	/** Least clock (s) between compositions at the costs given. */
+	step: number
+	/** Least clock (s) between field states: a whole number of steps. */
+	every: number
+	/** The clock the next composition shows: the last whole step at or before the clock. */
+	shown: number
+	/** The clocks of the two field states it mixes, with `shown` from `from` up to `to`. */
+	from: number
+	to: number
+	/** The clock of the state after them, which the field is evaluated for ahead of need. */
+	next: number
+}
+
+/** `x` rounded up to a whole number of `unit`, with a hair of slack so a quotient a rounding error over a whole number doesn't take another unit. */
+function ceilTo(unit: number, x: number): number {
+	return unit * Math.ceil(x / unit - 1e-9)
+}
+
+/**
+ * When the nebula composes at `clock` and which field states it mixes, written to `out` (as `driftAt` does) and returned.
+ * `composeMs` and `fieldMs` are moving averages (hazeAverage) of what a composition and an evaluation of the field cost.
+ * The gas may take NEBULA.motion.duty of a core, half of it for compositions and half for the field, so each span of clock
+ * is at least twice its cost over that share: a slow device gets slower gas, never stalled gas. `slowed` (after the first
+ * adaptive step) doubles the least step. The step stops stretching at NEBULA.motion.maxStep, because past it the gas would
+ * step, not move: a device over budget composes that often and no less. A field state's clock is always its count times
+ * `every`, never a sum, so the same state compares equal when it is looked for again. Nothing here asks for a frame.
+ */
+export function hazeTimes(clock: number, composeMs: number, fieldMs: number, slowed: boolean, out: HazeTimes): HazeTimes {
+	const { motion } = NEBULA
+	const step = Math.min(motion.maxStep, ceilTo(motion.step, Math.max(motion.step * (slowed ? 2 : 1), (2 * composeMs) / (1000 * motion.duty))))
+	const every = ceilTo(step, Math.max(motion.fieldEvery, (2 * fieldMs) / (1000 * motion.duty)))
+	const shown = Math.floor(clock / step + 1e-9) * step
+	const n = Math.floor(shown / every + 1e-9)
+	out.step = step
+	out.every = every
+	out.shown = shown
+	out.from = n * every
+	out.to = (n + 1) * every
+	out.next = (n + 2) * every
+	return out
+}
+
+/**
+ * The moving average of a cost (ms) after one more `sample`: it moves toward the sample by NEBULA.motion.weight of the way,
+ * but a sample above it counts for at most `rise` ms over it. A sample under the average pulls it down at the full weight,
+ * one above lifts it by at most `rise` times the weight, so one stall moves no cadence and a run of them does.
+ */
+export function hazeAverage(average: number, sample: number, rise: number): number {
+	return average + (Math.min(sample, average + rise) - average) * NEBULA.motion.weight
 }

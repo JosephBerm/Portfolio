@@ -78,6 +78,36 @@ export function minimumContrast(fontSize: number, fontWeight: number): number {
 	return large ? WCAG_CONTRAST.largeText : WCAG_CONTRAST.text
 }
 
+/** `ground` with an alpha of `light` added per channel, as the sky's 'lighter' blending does. */
+function lit(ground: Rgb, light: Rgb, alpha: number): Rgb {
+	return [Math.min(255, ground[0] + light[0] * alpha), Math.min(255, ground[1] + light[1] * alpha), Math.min(255, ground[2] + light[2] * alpha)]
+}
+
+/** lightWeights prices this many levels of a channel at once (a secant) and bisects this many times, far finer than the levels it prices. */
+const WEIGHT_LEVELS = 10
+const WEIGHT_STEPS = 24
+
+/**
+ * Per channel, the alpha of `light` over `ground` that adds the same luminance as one level of that channel. Summed over a
+ * color's added levels it prices light in the units of lightHeadroom, within about 7% near navy, without a luminance per
+ * pixel.
+ */
+export function lightWeights(ground: Rgb, light: Rgb): Rgb {
+	const base = luminance(ground)
+	const weight = (red: number, green: number, blue: number): number => {
+		const added = luminance([ground[0] + red, ground[1] + green, ground[2] + blue]) - base
+		let low = 0
+		let high = 1
+		for (let step = 0; step < WEIGHT_STEPS; step++) {
+			const alpha = (low + high) / 2
+			if (luminance(lit(ground, light, alpha)) - base < added) low = alpha
+			else high = alpha
+		}
+		return (low + high) / (2 * WEIGHT_LEVELS)
+	}
+	return [weight(WEIGHT_LEVELS, 0, 0), weight(0, WEIGHT_LEVELS, 0), weight(0, 0, WEIGHT_LEVELS)]
+}
+
 /** Steps of the headroom scan: a resolution of 1/256 of full light, which the sky's own safety margin dwarfs. */
 const HEADROOM_STEPS = 256
 
@@ -90,8 +120,7 @@ export function lightHeadroom(text: Rgb, ground: Rgb, light: Rgb, minimum: numbe
 	let headroom = 0
 	for (let step = 0; step <= HEADROOM_STEPS; step++) {
 		const alpha = step / HEADROOM_STEPS
-		const lit: Rgb = [Math.min(255, ground[0] + light[0] * alpha), Math.min(255, ground[1] + light[1] * alpha), Math.min(255, ground[2] + light[2] * alpha)]
-		if (contrastRatio(text, lit) < minimum) break
+		if (contrastRatio(text, lit(ground, light, alpha)) < minimum) break
 		headroom = alpha
 	}
 	return headroom

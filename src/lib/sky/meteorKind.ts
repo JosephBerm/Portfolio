@@ -43,10 +43,11 @@ function visitSkyOf(context: PlanContext): VisitSky {
  * a new source and scatter; long flights come first on every steer, and a shorter fallback on the same steers only when
  * none has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on
  * copy, whether the plan may pass near copy at all, and to keep clear of the side rails and reading copy (the field's
- * `noFly` zones, which a `clearOf` in `options` adds to). Returns null when nothing fits, and then drops the visit's sky,
- * unless the plan was kept in clear sky (the context's `nearCopy` is false): clear sky alone failing says nothing about the
- * sky. `options` adds to every planner call, and its `flights: 'long'` leaves out the shorter fallback, which a fireball's
- * try needs: the fallback would fly an ordinary short flight in its place.
+ * `noFly` zones, which a `clearOf` in `options` adds to): the right rail's text keeps its contrast over the nebula only
+ * while no shooting star lights it (INK_BUDGET), and this is the one guard for veiled flights. Returns null when nothing
+ * fits, and then drops the visit's sky, unless the plan was kept in clear sky (the context's `nearCopy` is false): clear
+ * sky alone failing says nothing about the sky. `options` adds to every planner call, and its `flights: 'long'` leaves out
+ * the shorter fallback, which a fireball's try needs: the fallback would fly an ordinary short flight in its place.
  */
 export function planMeteorTransient(context: PlanContext, options: Omit<PlanOptions, 'steer' | 'nearCopy' | 'ink'> = {}): Meteor | null {
 	const { random, now, field, visit, nearCopy, ink, narrow } = context

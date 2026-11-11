@@ -7,7 +7,8 @@
  * fixed timer, not the display (WebKit's), the main thread relays the page's own animation frames for as long as
  * something moves. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
  * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
- * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there.
+ * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there. The nebula's light moves on
+ * the drift clock too and asks for no frames of its own.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
@@ -27,7 +28,7 @@ import {
 	type Vec,
 } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, NARROW_MAX_WIDTH, PACING, QUIET, TRANSIENTS } from '@/lib/sky/config'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, MIN_STAR_ALPHA, NARROW_MAX_WIDTH, PACING, QUIET, TRANSIENTS } from '@/lib/sky/config'
 import { DESCENT } from '@/lib/sky/miamiConfig'
 import {
 	createRefreshEstimate,
@@ -65,9 +66,10 @@ import {
 	updateTransients,
 	type LaunchGate,
 } from '@/lib/sky/transients'
+import { advanceHaze, closeHaze, composeHaze, createHaze, type HazeRuntime } from './hazeRuntime'
 import { createMiamiRuntime, type MiamiStep } from './miamiRuntime'
 import { createStarField, drawComet, drawLandingScene, drawSky, drawTransient, type SkyAssets, type SkyFrame } from './renderSky'
-import { buildCometArt, buildHaze, buildStarAtlas, starPalette } from './skyAssets'
+import { buildCometArt, buildStarAtlas, starPalette } from './skyAssets'
 
 /** The parts of DedicatedWorkerGlobalScope the sky uses (the project's TypeScript lib is DOM only). */
 interface SkyWorkerScope {
@@ -88,6 +90,11 @@ const random = Math.random
 let canvas: OffscreenCanvas | null = null
 let ctx: OffscreenCanvasRenderingContext2D | null = null
 let assets: SkyAssets | null = null
+/**
+ * The nebula's runtime (hazeRuntime.ts), which composes `assets.haze`. Null before the first build, where no 2D context
+ * came for it, under the contrast preference, or once a composition has thrown.
+ */
+let nebula: HazeRuntime | null = null
 let tokens: SkyTokens | null = null
 
 let width = 0
@@ -221,6 +228,14 @@ function deviceSize(cssSize: number, ratio: number): number {
 /** The contrast preference's levels: stars, haze and the share of each copy's budget a shooting star may light. */
 function contrastLevels(): typeof CONTRAST_NORMAL | typeof CONTRAST_MORE {
 	return contrastMore ? CONTRAST_MORE : CONTRAST_NORMAL
+}
+
+/**
+ * The nebula's level before its own emergence: the scene's times the contrast preference's. frameAt draws at it and
+ * updateNebula decides by it, so the two can't drift apart when another level comes.
+ */
+function hazeLevel(scene: SceneLevels): number {
+	return scene.haze * contrastLevels().haze
 }
 
 /**
@@ -532,8 +547,8 @@ function recheckFrames(): void {
 }
 
 /**
- * One wake-up: update the transients, gather the gates and step the camera, draw if due, then schedule the next
- * wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
+ * One wake-up: update the transients, gather the gates and step the camera and the nebula, draw if due, then schedule the
+ * next wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
  */
 function tick(now: number): void {
 	// The launch gate, the gates and the camera read one scene: nothing in a tick moves the scroll or the viewport
@@ -547,6 +562,8 @@ function tick(now: number): void {
 	const drawnAt = lastDrawAt / 1000
 	if (easeEnded(motionLevel.since, FRAME.motionEase, now / 1000, drawnAt) || easeEnded(thinnedAt, ADAPT.thinFade, now / 1000, drawnAt)) needsDraw = true
 	updateCamera(now, scene)
+	// Outside draw, so adapt never counts what the nebula costs against the quality steps
+	updateNebula(scene)
 	updateComet(now)
 	// The landing scene's bitmaps are built here, in slices, and never inside a draw, so adapt never counts them
 	if (miami.step(stepInput(now))) needsDraw = true
@@ -618,6 +635,30 @@ function updateCamera(now: number, scene: SceneLevels): void {
 }
 
 /**
+ * Steps the nebula, whose light moves on the drift clock: a slice of the field's next evaluation, and a composition into
+ * the bitmap drawSky blits once the clock has reached a later step (advanceHaze). While the clock stands still (a pause,
+ * idle, a hidden tab) it starts nothing, and it does nothing at all where there is no nebula (no 2D context came for it,
+ * or a composition threw) or where its light is out (the contrast preference, or DESCENT.hazeOut on the way down to the
+ * landing scene). The scroll's own fade only dims it, to SCENE.reading.haze, so it keeps working while reading. It never
+ * sets needsDraw: the clock only moves on frames the drift already asks for.
+ */
+function updateNebula(scene: SceneLevels): void {
+	if (!nebula || !assets || hazeLevel(scene) <= MIN_STAR_ALPHA) return
+	try {
+		const bitmap = advanceHaze(nebula, camera.clock, quality > 0)
+		if (bitmap) {
+			assets.haze?.close()
+			assets.haze = bitmap
+		}
+	} catch {
+		// An uncaught throw would reach the worker's error event, and the page would lose its whole sky: the picture holds
+		// until the next rebuild
+		closeHaze(nebula)
+		nebula = null
+	}
+}
+
+/**
  * Steps the comet after the launch step and the camera: it starts when its rule allows (never while a shooting star holds
  * the ink lease), is gone once it keeps no light, and a fade of it that has just run out draws one more frame, so no trace
  * of it stays on screen. The launch gate it reads is the one this tick's launch step filled.
@@ -666,7 +707,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
 		twinkle: twinkleLevel(scene),
-		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
+		haze: hazeLevel(scene) * hazeEmergence(dusk),
 		quiet: quietBlend(t),
 		reading: transients.active.length > 0 || bodyShowing(comet) ? readingZones() : [],
 		meteorInk: contrast.meteorInk * scene.inkShare,
@@ -763,17 +804,31 @@ function probeRaster(now: number): void {
 	softwareFps = Math.floor((PACING.softwareShare * 1000) / (rasterMs * (dpr / probedDpr) ** 2))
 }
 
-/** Builds the sprite atlas and the haze for the current size and ratio, closing the old bitmaps; a comet that shows is painted again by the next frame. */
+/**
+ * Builds the nebula for the current size (its tables, grain and states) and composes its first bitmap at the drift clock,
+ * closing the old ones. The one place that closes and rebuilds the nebula. Where no 2D context comes for it, or the
+ * contrast preference leaves it no light, both are null, and the sky goes on without them.
+ */
+function buildNebula(tokens: SkyTokens): Pick<SkyAssets, 'haze'> {
+	if (nebula) closeHaze(nebula)
+	nebula = null
+	assets?.haze?.close()
+	// No light to show under the contrast preference: nothing to build or hold until it changes
+	if (contrastLevels().haze <= MIN_STAR_ALPHA) return { haze: null }
+	nebula = createHaze(width, height, tokens)
+	return { haze: nebula ? composeHaze(nebula, camera.clock, quality > 0) : null }
+}
+
+/** Builds the sprite atlas and the nebula for the current size and ratio, closing the old bitmaps; a comet that shows is painted again by the next frame. */
 function rebuildAssets(): void {
 	if (!tokens) return
 	assets?.atlas.image.close()
-	assets?.haze?.close()
 	assets?.comet?.close()
-	assets = { atlas: buildStarAtlas(dpr, tokens), haze: buildHaze(width, height, tokens), comet: null, palette: starPalette(tokens), tokens }
+	assets = { atlas: buildStarAtlas(dpr, tokens), ...buildNebula(tokens), comet: null, palette: starPalette(tokens), tokens }
 }
 
 /**
- * Rebuilds the haze for the settled size and redraws. It stalls the worker for more than a frame, so it waits for the
+ * Rebuilds the nebula for the settled size and redraws. It stalls the worker for more than a frame, so it waits for the
  * quiet zones to stop easing: a gap in the middle of that ease would show as a step in the stars near the copy.
  */
 function rebuildHaze(): void {
@@ -782,10 +837,7 @@ function rebuildHaze(): void {
 		return
 	}
 	hazeTimer = undefined
-	if (assets && tokens) {
-		assets.haze?.close()
-		assets.haze = buildHaze(width, height, tokens)
-	}
+	if (assets && tokens) Object.assign(assets, buildNebula(tokens))
 	needsDraw = true
 	schedule(performance.now())
 }
@@ -819,7 +871,7 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
 	miami.setSize(width, height, dpr)
-	// The haze follows the CSS size only, and it is smooth: keep stretching the old one until the size settles
+	// The nebula's bitmap follows the CSS size only: keep stretching the old one until the size settles
 	if (hadAssets && sizeChanged) {
 		clearTimeout(hazeTimer)
 		hazeTimer = setTimeout(rebuildHaze, HAZE_REBUILD_MS)
@@ -964,6 +1016,9 @@ scope.addEventListener('message', (event) => {
 		case 'contrast':
 			contrastMore = message.more
 			miami.setContrast(message.more)
+			// Builds the nebula, or lets it go, for the new preference
+			clearTimeout(hazeTimer)
+			rebuildHaze()
 			needsDraw = true
 			break
 		case 'scroll':

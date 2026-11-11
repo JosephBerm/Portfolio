@@ -16,7 +16,9 @@ export type SkyLayer = (typeof SKY_LAYERS)[number]
 
 /**
  * Catalog seed: every visitor sees the same reviewed sky. Changing it, or any value that shapes the catalog
- * (density, magnitudes, layers, cell size, the planet), recomposes the sky, so review it again.
+ * (density, magnitudes, layers, cell size, the planet), recomposes the sky, so review it again. The nebula's noise hangs off
+ * it too (NEBULA.salt); a new seed recomposes the gas, so look at it again, and its light under quiet copy stays under the
+ * same ceiling.
  */
 export const SKY_SEED = 0x5ca1ab1e
 
@@ -26,7 +28,7 @@ export const STARS_PER_MP = 230
 /** Most stars drawn in one frame (4K and ultrawide); denser screens thin evenly. */
 export const MAX_STARS = 1400
 
-/** Screens at most this wide count as narrow (phones): the whole catalog, fainter haze, shorter shooting stars. */
+/** Screens at most this wide count as narrow (phones): the whole catalog, shorter shooting stars. */
 export const NARROW_MAX_WIDTH = 640
 
 /** Narrow screens draw this many times the desktop density, so a phone sky isn't sparse behind the copy. */
@@ -278,16 +280,22 @@ export const READING = { padding: QUIET.padding, narrowPadding: 0, margin: QUIET
  * Scroll narrative: the full sky in the hero, a dimmer and calmer sky while reading (no twinkle, the drift at about a
  * third), and a bookend near the end of the page. Levels blend continuously with scroll, so the narrative needs no
  * clock of its own. Star levels are per layer: while reading the brighter layers dim most, so no star behind body copy
- * reads as punctuation. `drift` scales the drift clock's rate (DRIFT); `lean` scales the pointer lean (LEAN), which
- * every scene has in full.
+ * reads as punctuation. `haze` is the nebula's level (NEBULA); `drift` scales the drift clock's rate (DRIFT); `lean` scales
+ * the pointer lean (LEAN), which every scene has in full.
  */
 export const SCENE = {
 	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1, drift: 1, lean: 1 },
-	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.4, twinkle: 0, drift: 0.35, lean: 1 },
-	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.7, twinkle: 0.8, drift: 0.8, lean: 1 },
+	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.24, twinkle: 0, drift: 0.35, lean: 1 },
+	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.3, twinkle: 0.8, drift: 0.8, lean: 1 },
 	/** Viewport heights scrolled where the hero starts and finishes giving way to reading. */
 	heroFadeFrom: 0.5,
 	heroFadeTo: 1.3,
+	/**
+	 * The nebula (the haze level) belongs to the first screen: it gives way sooner, between these heights, because copy
+	 * scrolls over it while the stars still shine at full level.
+	 */
+	hazeFadeFrom: 0.08,
+	hazeFadeTo: 0.5,
 	/** Viewport heights left to scroll where the end bookend starts and is complete. */
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
@@ -300,49 +308,278 @@ export const SCENE = {
 /**
  * Dusk, counted from the moment the loader starts lifting: a star of magnitude m starts fading in after
  * (m - from) × perMagnitude seconds (at most maxDelay) and takes `fade` seconds, so the brightest come out first.
- * The haze fades in over the `haze` window.
+ * The nebula fades in over the `haze` window.
  */
 export const EMERGENCE = { from: 1, perMagnitude: 0.26, maxDelay: 1.4, fade: 0.7, haze: [0.5, 2.3] } as const
 
-interface HazePool {
-	/** Center as viewport fractions. */
-	x: number
-	y: number
-	/** Radius as a fraction of the longer viewport side (the Gaussian's sigma is half of it). */
-	radius: number
-	color: 'card2' | 'card3'
-	/** Alpha of the token color added over navy at the center. */
-	peak: number
+/** A lobe of the body's density, a soft bump: lobes merge into gas with no outline to trace. */
+export interface NebulaLobe {
+	/**
+	 * Its middle in reference px, x right and y down, from the corner the gas hangs off: the right edge moved right by the
+	 * retreat, at the bottom.
+	 */
+	at: readonly [number, number]
+	/** The scale of its fall-off, across and down (reference px). */
+	radius: readonly [number, number]
+	/** Its density at its middle. */
+	weight: number
+	/** Measures the first number of `at` from the left edge instead of the corner, so a lobe can lie at the left. */
+	left?: boolean
+}
+
+/** One octave of a slab's log density: noise on a lattice. */
+export interface NebulaOctave {
+	/** Lattice size (reference px). */
+	lambda: number
+	/** Seconds between renewals with fresh noise while the flow carries it along. 0 holds it, moved only by the sway. */
+	period: number
+	/** The pyramid level it is computed on: 0 is the field's own grid, each level above has half the nodes across and down. */
+	level: 0 | 1 | 2
+	/** The share of each of the flow's three scales that sweeps it. A held octave has none. */
+	sweep?: readonly [number, number, number]
+	/**
+	 * Where the slab's envelope (the body's lobes) thins it out: its weight rises from 0 to 1 as the envelope passes from the
+	 * first number to the second, and the octave is left out where that is 0.
+	 */
+	fade?: readonly [number, number]
 }
 
 /**
- * Haze: soft light in the card-2 and card-3 hues (the gradient cards and the /links orbs), in the empty upper right
- * with a fainter counter-pool at the lower left. Behind the hero copy it stays well under --color-light-navy, so
- * slate body text keeps more than 5:1. INK_BUDGET.hazeReserve holds back what it adds under the copy: re-measure that
- * and raise the reserve before brightening a pool, HAZE_NARROW_SCALE or HAZE_TOP_FADE.
+ * The nebula, the light the haze level draws: gas moving on the drift clock, behind every star (nebula.ts is the model and
+ * hazeRuntime.ts composes it). Two thin slabs of turbulent gas lie along the line of sight: the body, lit and colored by the
+ * ionization of a cluster below the page's lower right corner, from steel blue through blue to hydrogen violet, and a faint
+ * sky-wide mist whose dust takes light from the body. Seeded like the catalog (SKY_SEED): at one clock every visitor sees the
+ * same bytes, and retuning a value here recomposes the gas, so look at it again. Lengths are reference px: CSS px at a 900 px
+ * tall window, times the unit below. Pairs that differ by screen read [wide, narrow], narrow being NARROW_MAX_WIDTH or less.
+ * Its light at any node and any clock stays under `ceiling` in white-equivalent and blue, so one sweep of `bound()` covers
+ * all time (to about 1% of WCAG luminance in the oxygen zone: NebulaField.bound).
+ *
+ * Needs a new sweep: anything `bound()` reads (`ceiling`, `copy`, `grain`, `grid`, `HAZE_BRIGHT`, `HAZE_MAX_PIXELS`,
+ * `HAZE_TOP_FADE`, `source.oxygenMix`, `source.scatter`, the `source.oxygen : source.hydrogen` ratio, `ionization.star`,
+ * `ionization.zone`, `retreat`, `unit`, `portrait`, `aspect`, the color tokens), `SCENE`'s haze levels and fades, or moving
+ * the copy. Free: `salt`, `streams`, `speed`, `gasRate`, `presence`, `start`, `motion`, `pieces`, `stretch`, spread,
+ * octaves, `flow`, `sway`, `lobes`, `toward`, `cavity`, `dust`, `ionization.r0`, `cn`, `from`, `span`, and the mist's levels.
  */
-export const HAZE_POOLS = [
-	{ x: 0.8, y: 0.2, radius: 0.42, color: 'card2', peak: 0.05 },
-	{ x: 0.9, y: 0.06, radius: 0.26, color: 'card3', peak: 0.06 },
-	{ x: 0.04, y: 1.02, radius: 0.36, color: 'card3', peak: 0.03 },
-] as const satisfies readonly HazePool[]
+export const NEBULA = {
+	/** Seed salt, with SKY_SEED. Changing it recomposes the gas. */
+	salt: 0x6e6572,
+	/**
+	 * The id of each noise's own seeded stream, so changing one never reshuffles the others: a new flow never reshuffles the
+	 * gas. `body` 8 and `flow` 3 were chosen by scanning ids and by eye.
+	 */
+	streams: { body: 8, mist: 1, sway: 2, flow: 3 },
+	/**
+	 * Review knob: multiplies the clock the gas reads, on every screen. Review at 1 and 1.3, the most the desktop's motion
+	 * gates take (at 1440x900, median 1.98 CSS px/s against 2 and p95 4.6 against 4.6). A narrow screen is at its own gates
+	 * already at 1, so keep `speed` times `gasRate[1]` at 1.35 (`gasRate[1]` 1.04 at 1.3): at 1.3 alone a phone's median
+	 * reads 1.18 against 1 and its p95 2.8 against 2.2.
+	 */
+	speed: 1,
+	/**
+	 * How fast the gas reads the drift clock [wide, narrow]. A narrow screen's clock runs at DRIFT.narrowRate (0.6), so the gas
+	 * there moves at 0.81 of real time, just under the phone speed gates (p95 2.2, p99.5 3 CSS px/s).
+	 */
+	gasRate: [1, 1.35],
+	/**
+	 * Review knob: multiplies every source before the budget, which still bounds the light's white-equivalent and blue, so it
+	 * needs no new sweep. Its WCAG luminance in the oxygen zone can pass `bound()` by more as it rises (about 1.6% at 1.3 and
+	 * 5% at 2), still inside the sweep's gate margins.
+	 */
+	presence: 1,
+	/** Field time at clock 0 (s): the reviewed first frame. */
+	start: 450,
+	/** Dither amplitude: triangular over [0, 2) times this, in final levels. Its mean is held back as the pedestal. */
+	grain: 1,
+	/**
+	 * Cadence. `step` is the least drift clock (s) between compositions of the bitmap and `fieldEvery` the least between field
+	 * states, which a composition mixes in floats. `sliceMs` is the JS after which a tick starts no new piece of a state: the
+	 * piece under way finishes, and a composition that finds a state missing evaluates it whole. `duty` is the share of a core
+	 * the gas may take, half for compositions and half for the field (the 2 in hazeTimes, pacing.ts), and `maxStep` the
+	 * longest step: a device over budget composes this often and no less. `weight` is the moving averages' weight on the
+	 * newest sample of what a composition and a field state cost, and `composeRise` and `fieldRise` cap how far above its
+	 * average one sample counts, so one sample lifts it by at most that times `weight` (0.6 and 2 ms) and a bad moment moves
+	 * no cadence.
+	 */
+	motion: { step: 0.2, fieldEvery: 0.6, sliceMs: 2, duty: 0.03, maxStep: 1, weight: 0.2, composeRise: 3, fieldRise: 10 },
+	/**
+	 * The field's nodes: `step` reference px apart, but no closer than `floor` CSS px [wide, narrow], and no more than
+	 * `maxNodes` in a window, which holds the tables' memory on a rotated 4K screen and changes none of the 66 windows the
+	 * sweep measured.
+	 */
+	grid: { step: 6, floor: [6, 8], maxNodes: 60000 },
+	/**
+	 * The unit, CSS px per reference px. On landscape screens it is the height over `refHeight`, limited by `widthShare` of the
+	 * width, because the copy is laid out by width and a taller window must not push the gas into it.
+	 */
+	unit: { refHeight: 900, widthShare: 0.63 },
+	/** On portrait screens the unit is the least of the width, `heightShare` of the height and `maxWidth`, over `refWidth`. */
+	portrait: { refWidth: 560, maxWidth: 440, heightShare: 0.62 },
+	/** Width over height where the layout turns from portrait to landscape, gradually, so no breakpoint steps. */
+	aspect: [0.7, 1.3],
+	/**
+	 * Below `from` px wide the gas slides right by `rate` px per px, at most `max` (where the hero's copy starts to narrow with
+	 * the window), so a narrower window leaves the copy its room. It fades out as the layout turns portrait.
+	 */
+	retreat: { from: 1440, rate: 0.5, max: 121 },
+	/**
+	 * Light sources as shares of the tokens over navy: hydrogen is --color-card-3, leaning `scatter` toward --color-card-2 in
+	 * the oxygen zone, and [O III] is --color-card-2 toward --color-green by `oxygenMix`.
+	 */
+	source: { hydrogen: 0.35, oxygen: 0.19, oxygenMix: 0.64, scatter: 0.45 },
+	/** Lupton's asinh stretch of the light: its strength `alpha` and the reference light `ref`. */
+	stretch: { alpha: 7, ref: 8 },
+	/**
+	 * The most light any node can hold at any clock, in white-equivalent (the alpha of --color-white over navy that adds about
+	 * the same luminance, priced per channel by lightWeights): `mist` over the copy's reach (INK_BUDGET.hazeReserve less the
+	 * grain's worst pixel and rounding), `clear` in clear sky, by the right rail, and `column` and `foot` in the reading
+	 * column, whose edge is `columnEdge` CSS px right of the window's middle and gives way to `clear` over `columnRamp`
+	 * reference px, with `foot` reached between `footRows` of the height. `column` is set for Contact's paragraph at the end
+	 * bookend's level, and `foot` for the slate reading copy that enters at the bottom while the level is near 1, which has no
+	 * reserve of its own: the sweep gates it at 4.8:1. `blue` is the most levels of blue.
+	 */
+	ceiling: { mist: 0.0215, clear: 0.09, column: 0.07, foot: 0.045, columnEdge: 503, columnRamp: 130, footRows: [0.72, 0.95], blue: 44 },
+	/**
+	 * Where the hero's copy ends, measured in Chromium layouts (CSS px from the left, in windows up to `maxWidth` wide and
+	 * centered past that): `ends` are the right edges of the tagline and of the paragraph, `turn` the distances below the hero's
+	 * top over which the one gives way to the other, and `slant` how far the line moves right per px below that. The hero's top
+	 * is max(heroTop[0], H / 2 - heroTop[1]). The gas keeps clear of the line over a slow ramp, `ramp` CSS px long, that starts
+	 * `lead` px short of it. A copy edit or another browser's text width needs a new measurement, and a new sweep.
+	 */
+	copy: { ends: [1075, 710], turn: [290, 400], slant: 0.75, lead: 20, ramp: 320, heroTop: [100, 222], maxWidth: 1600 },
+	/**
+	 * The ionizing cluster off the lower right corner: `star` is its place from the corner (reference px, x right, y down), and
+	 * ln U = -2 ln(r / r0) - cn s, with r the distance to it in reference px and s the ln density. Oxygen's share rises as
+	 * ln U goes from `from` to `from + span`, and the O++ zone ends over the distances in `zone` (reference px), never
+	 * reaching under the copy.
+	 */
+	ionization: { star: [-60, 130], r0: 470, cn: 0.3, from: -2.4, span: 4.2, zone: [360, 780] },
+	/**
+	 * The back slab, the lit body: lognormal density, its emission going as density squared. `sigma` is the spread of ln
+	 * density and `hurst` the Hurst exponent of its octaves: their amplitudes go as lambda^hurst, normalized to unit variance
+	 * before `sigma` scales them. `axis` is the lattice's axis (degrees), stretched more with each octave by
+	 * `gamma` (anisotropy per octave), and `warp` a static warp of every octave's lattice [amplitude, wavelength, fine
+	 * amplitude, fine wavelength] (reference px).
+	 */
+	body: {
+		sigma: 1.2,
+		/** The spread outside the lobes, rising to `sigma` where the lobes' density passes `sigmaAt`. */
+		sigmaOut: 0.85,
+		sigmaAt: 0.5,
+		hurst: 0.45,
+		axis: 40,
+		gamma: 0.06,
+		warp: [90, 460, 14, 130],
+		/**
+		 * The density share kept behind the copy [wide, narrow], so the light falls with the budget's ramp and the budget rarely
+		 * shapes the gas. A narrow screen is all behind the copy, so it keeps less, or the mist's ceiling would flatten the body
+		 * into a wash.
+		 */
+		toward: [0.55, 0.3],
+		/**
+		 * How much a node outside the oxygen zone counts (1 inside it, times the lobes squared) in the mean taken off the flow so
+		 * the gas has no net drift: most of what shows as motion is in the zone.
+		 */
+		flowWeightClear: 0.1,
+		/**
+		 * The power of a lobe's fall-off, (1 + r^2 / 2t)^-t at t = this, with r the distance in units of its `radius`: 1 is a long
+		 * soft tail, and more tends to a Gaussian.
+		 */
+		lobeTail: 1,
+		/** Where the body has gas: soft lobes that merge (NebulaLobe). */
+		lobes: [
+			{ at: [-150, 60], radius: [330, 215], weight: 0.75 },
+			{ at: [90, -340], radius: [240, 280], weight: 0.75 },
+			{ at: [-60, -560], radius: [200, 150], weight: 0.4 },
+			{ at: [-560, 110], radius: [220, 120], weight: 0.25 },
+			{ left: true, at: [190, 120], radius: [240, 130], weight: 0.15 },
+		] as const satisfies readonly NebulaLobe[],
+		/** Its octaves, coarsest first (NebulaOctave): the three coarse ones are held and only sway, the finer ones move. */
+		octaves: [
+			{ lambda: 680, period: 0, level: 2 },
+			{ lambda: 340, period: 0, level: 2 },
+			{ lambda: 168, period: 0, level: 2 },
+			{ lambda: 83, period: 85, level: 1, sweep: [1, 0.6, 0] },
+			{ lambda: 41, period: 62, level: 1, sweep: [1, 1, 0] },
+			{ lambda: 20, period: 42, level: 0, sweep: [1, 1, 0], fade: [0.08, 0.25] },
+		] as const satisfies readonly NebulaOctave[],
+	},
+	/**
+	 * The front slab, a thin mist across the whole sky: lognormal, emitting faint violet, its dust taking light from the body
+	 * behind it. The keys read as the body's, and `level` is its density in clear sky, `underCopy` the share of that kept under
+	 * the copy and `sigmaCopy` its spread there (thinner and flatter under the copy). `flowShare` and `swayShare` are the
+	 * shares of the flow's speed and of the sway that reach it, and `turnShare` the multiple of the flow's turning time.
+	 */
+	mist: {
+		sigma: 0.85,
+		sigmaCopy: 0.6,
+		hurst: 0.6,
+		axis: 24,
+		gamma: 0.1,
+		warp: [170, 620, 40, 180],
+		level: 0.2,
+		underCopy: 0.45,
+		flowShare: 0.75,
+		swayShare: 0.7,
+		turnShare: 1.3,
+		/** Its octaves, coarsest first (NebulaOctave). */
+		octaves: [
+			{ lambda: 900, period: 0, level: 2 },
+			{ lambda: 450, period: 0, level: 2 },
+			{ lambda: 220, period: 560, level: 2, sweep: [0.2, 0, 0] },
+			{ lambda: 110, period: 105, level: 2, sweep: [1, 0.6, 0] },
+		] as const satisfies readonly NebulaOctave[],
+	},
+	/** Optical depth per unit of the mist's column: its dust takes light from the body behind it. */
+	dust: 4,
+	/**
+	 * A wind-blown hollow over the comet's stage: its middle is COMET.anchor (read in createNebula, because NEBULA comes before
+	 * COMET in this file), `radius` is in reference px, and density keeps 1 - `depth` at its middle, the mist half of that loss.
+	 */
+	cavity: { radius: 230, depth: 0.62 },
+	/**
+	 * The divergence-free flow that carries the moving octaves, from a stream function on lattices of `scales` (reference px)
+	 * with an rms speed for each in `speeds` (reference px/s). Its pattern turns into its quadrature and back in `turn` s, and
+	 * each octave takes `turnPerOctave` of that longer than the one before it. A moving octave takes these scales by its
+	 * `sweep`, and no octave's sweep takes the third today.
+	 */
+	flow: { scales: [400, 200, 100], speeds: [1.75, 1.38, 1.1], turn: 650, turnPerOctave: 0.137 },
+	/**
+	 * The sway every octave rides on, a bounded curl warp of plane waves: `modes` of them for each of `lengths` (reference px),
+	 * with rms speed `speed` (reference px/s) at the first length and an L^(1/3) ladder across the rest, and each wave's period
+	 * about length / (`rate` × speed).
+	 */
+	sway: { speed: 0.8, lengths: [440, 240, 130], modes: 4, rate: 3 },
+	/** Noise evaluations in one piece of an octave, and how many pieces shading is cut into, so a tick can stop between them. */
+	pieces: { evals: 12000, shadeBlocks: 6 },
+} as const
 
-/** No haze under the glass navbar (70-100px tall): it eases in slowly between these heights, so it reads as a soft glow with no seam at the navbar's edge. */
+/**
+ * No nebula under the glass navbar (70-100px tall): it eases in slowly between these heights, so it reads as a soft glow
+ * with no seam at the navbar's edge.
+ */
 export const HAZE_TOP_FADE = [70, 420] as const
 
-/** Narrow screens: the hero copy fills the screen, so the haze is fainter. */
-export const HAZE_NARROW_SCALE = 0.6
-
-/** Largest haze buffer (px); the haze is smooth, so it is computed at CSS resolution or less and scaled up. */
+/** Largest nebula bitmap (px), and largest bake of the landing scene's sky (miamiAssets.ts): each is made at CSS resolution or less and scaled up. */
 export const HAZE_MAX_PIXELS = 2_100_000
 
-/** Delay after the last resize before the haze is rebuilt, and between checks while the quiet zones still ease (ms); until then the old one is stretched. */
+/**
+ * How many times brighter the nebula's bitmap holds its light in its 8 bits: each frame draws it at the level over this, so a
+ * low alpha never eats its dither. 4 is an alpha of 64/255, and the brightest light (blue +44, grain +1) stays under 255 at
+ * this scale.
+ */
+export const HAZE_BRIGHT = 4
+
+/**
+ * Delay after the last resize before the nebula is rebuilt, and between checks while the quiet zones still ease (ms); until
+ * then the old one is stretched. The landing scene waits as long after its stage or pixel ratio changes before it rebuilds
+ * the bitmaps it has (miamiRuntime.ts).
+ */
 export const HAZE_REBUILD_MS = 200
 
-/** No contrast preference: stars, haze and shooting stars as designed. `meteorInk` scales the INK_BUDGET of every rect. */
+/** No contrast preference: stars, the nebula (`haze`) and shooting stars as designed. `meteorInk` scales the INK_BUDGET of every rect. */
 export const CONTRAST_NORMAL = { stars: 1, haze: 1, meteorInk: 1 } as const
 
-/** prefers-contrast: more drops the haze, dims the stars and leaves no shooting-star light on the copy itself. */
+/** prefers-contrast: more drops the nebula, dims the stars and leaves no shooting-star light on the copy itself. */
 export const CONTRAST_MORE = { stars: 0.7, haze: 0, meteorInk: 0 } as const
 
 /**
@@ -908,10 +1145,15 @@ export const COMET = {
  * White light (0-1 of --color-white, added over navy) the sky may put on the copy itself, per quiet rect. WCAG 2.2 AA
  * (1.4.3) asks 4.5:1 of text and 3:1 of large text, and the main thread measures what each rect's own color and size can
  * take: its `headroom` (slate body text 0.08, the 75 px tagline 0.19, the name 0.40, green text 0.33, the rails 0.19). The
- * budget is that headroom less what may already be added there (`hazeReserve` for the haze, up to 0.023 of white under the
- * tagline at 1366x768, and STAR_INK_PEAK for the brightest far star on the same pixel), times `safety` for rounding and
- * resampling, and at most `ceiling`, so a shooting star is a glimmer behind any copy, never a streak that competes with
- * it. That leaves slate body text about 0.05, the tagline and the rails about 0.15 and the name and green text the ceiling.
+ * budget is that headroom less what may already be added there (`hazeReserve` for the nebula, and STAR_INK_PEAK for the
+ * brightest far star on the same pixel), times `safety` for rounding and resampling, and at most `ceiling`, so a shooting
+ * star is a glimmer behind any copy, never a streak that competes with it. That leaves slate body text about 0.05, the
+ * tagline and the rails about 0.15 and the name and green text the ceiling. In Chromium the nebula's ceiling (NEBULA.ceiling)
+ * adds at most 0.025 of white under the tagline and 0.023 under Contact's paragraph, at any clock. Firefox's synthetic bold
+ * makes the tagline's second line about 39 px longer and Safari's about 52 px (simulated from WebKit's source, not run on a
+ * Mac), so there it reaches about 0.025 and 0.026 of white on the glyphs, which the tagline's headroom takes. The right rail
+ * can stand in the gas beyond the reserve, up to 0.09 of white and at least 6.4:1, because no transient ever lights the rails
+ * (planMeteor's `clearOf`, CLEAR_SKY_KEEPS): its own headroom is its limit.
  */
 export const INK_BUDGET = { ceiling: 0.2, safety: 0.9, hazeReserve: 0.025 } as const
 

@@ -1,9 +1,10 @@
 import { WIND } from './miamiConfig'
-import { hashCell } from './random'
+import { hashCell, mulberry32 } from './random'
+import { smoothstep } from './scene'
 
 /**
- * How the wind poses a palm, as a pure function of the gust level `e`, a clock and a `level`, so any frame can be reproduced
- * from those three numbers alone. The clock is the seconds that the swing periods divide, which is the scene's own. At `level` 0
+ * The wind and how it poses a palm, as pure functions of a clock, so any frame can be reproduced from the clock, the gust level
+ * `e` and a `level` alone. The clock is the seconds that the swings' periods divide, which is the scene's own. At `level` 0
  * every swing is zero and the gust holds at `WIND.stillGust`, whatever `e` is: the art-directed frame, a crown already
  * blown downwind and standing still. Time is never scaled by the gust, only the amplitudes are, so a gust arriving moves
  * nothing that was already swinging.
@@ -17,6 +18,7 @@ const AMPLITUDE_SALT = 0x616d706c
 const PERIOD_SALT = 0x70657269
 const PHASE_SALT = 0x70686173
 const FLUTTER_SALT = 0x666c7574
+const WANDER_SALT = 0x77616e64
 
 /** The shares of the fan's half-width below which a frond counts as standing up, and below which as arching out; beyond them it hangs. */
 const UPPER_SHARE = 0.34
@@ -30,6 +32,99 @@ function unit(seed: number, index: number, salt: number): number {
 /** The value `share` of the way from the first of `range` to the second. */
 function along(range: readonly [number, number], share: number): number {
 	return range[0] + (range[1] - range[0]) * share
+}
+
+/** One gust of the list: when it begins (seconds into the loop), how long it holds its peak, and the gust level at the peak. */
+interface Gust {
+	start: number
+	hold: number
+	peak: number
+}
+
+/**
+ * The waves the calm between gusts drifts on: how many of each fit the loop, and how much of the drift each carries. Their periods
+ * are the loop over a whole number, so the drift closes with the loop and the wind has no seam where it starts again, and they
+ * stand near `WIND.wander` seconds (a longer one, the wander itself, and a shorter one) so it never settles into a rhythm.
+ */
+const WANDER_WAVES = [
+	{ cycles: Math.max(1, Math.round(WIND.gust.loop / (WIND.wander * 1.6))), weight: 0.5 },
+	{ cycles: Math.max(1, Math.round(WIND.gust.loop / WIND.wander)), weight: 0.33 },
+	{ cycles: Math.max(1, Math.round(WIND.gust.loop / (WIND.wander * 0.65))), weight: 0.17 },
+].map((wave, i) => ({ ...wave, start: TAU * unit(WIND.gust.seed, i, WANDER_SALT) }))
+
+/** The gusts of one loop, laid out the first time they are asked for. */
+let gusts: readonly Gust[] | null = null
+
+/**
+ * Lays out the gusts of one loop of `WIND.gust.loop` seconds from the seed: as many as fit at the mean gap, each with its own hold and
+ * peak and followed by a calm of its own. The calms are fitted to the loop by sharing out what is over or short among them, each by how
+ * much room it has left to the end of its range, so every calm stays in its range and the loop closes: the last calm runs on into the
+ * first gust of the next loop, and the same list begins again with no seam.
+ */
+function layOut(): readonly Gust[] {
+	const { gap, rise, hold, fall, peak, loop, seed } = WIND.gust
+	const random = mulberry32(seed)
+	const meanGust = rise + (hold[0] + hold[1]) / 2 + fall
+	const count = Math.max(1, Math.round(loop / ((gap[0] + gap[1]) / 2 + meanGust)))
+	const holds: number[] = []
+	const peaks: number[] = []
+	const calms: number[] = []
+	for (let i = 0; i < count; i++) {
+		holds.push(along(hold, random()))
+		peaks.push(along(peak, random()))
+		calms.push(along(gap, random()))
+	}
+	const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0)
+	// What is left of the loop once the gusts have run is what the calms must add up to
+	const excess = loop - sum(holds) - count * (rise + fall) - sum(calms)
+	const room = calms.map((calm) => (excess >= 0 ? gap[1] - calm : calm - gap[0]))
+	const total = sum(room)
+	const share = total > 0 ? Math.min(1, Math.abs(excess) / total) : 0
+	for (let i = 0; i < count; i++) calms[i] = (calms[i] ?? 0) + Math.sign(excess) * (room[i] ?? 0) * share
+	// A loop whose range of calms is too narrow to close it is closed by the last one, so the list always repeats whole
+	calms[count - 1] = (calms[count - 1] ?? 0) + loop - sum(holds) - count * (rise + fall) - sum(calms)
+	// The last calm is shared between the end of the loop and the start of the next
+	let start = (calms[count - 1] ?? 0) / 2
+	const list: Gust[] = []
+	for (let i = 0; i < count; i++) {
+		list.push({ start, hold: holds[i] ?? 0, peak: peaks[i] ?? 0 })
+		start += rise + (holds[i] ?? 0) + fall + (calms[i] ?? 0)
+	}
+	return list
+}
+
+/**
+ * The level the wind rests at between gusts at `t` seconds into the loop: it drifts within `WIND.rest` on a few slow waves, over a
+ * span of about `WIND.wander` seconds.
+ */
+function restAt(t: number): number {
+	let drift = 0
+	for (const wave of WANDER_WAVES) drift += wave.weight * Math.sin(TAU * ((wave.cycles * t) / WIND.gust.loop) + wave.start)
+	return along(WIND.rest, 0.5 + 0.5 * drift)
+}
+
+/**
+ * The gust level `e` at `clock` seconds, 0 to 1: the wind rests at a level that wanders within `WIND.rest`, and now and then a gust
+ * arrives, swells to its peak in `WIND.gust.rise` seconds, holds it, and dies away over `WIND.gust.fall`. The gusts come from one seeded
+ * list of `WIND.gust.loop` seconds that repeats, at gaps of their own, so nothing in it can be counted off or tapped along to. It has no
+ * state: the same clock always answers the same, whatever was asked before. A gust crosses the scene at `WIND.gust.travel` px a second, so
+ * a caller asks it for a place at `clock - x / WIND.gust.travel`.
+ */
+export function gustAt(clock: number): number {
+	const { rise, fall, loop } = WIND.gust
+	const t = ((clock % loop) + loop) % loop
+	const calm = restAt(t)
+	gusts ??= layOut()
+	for (const gust of gusts) {
+		const into = t - gust.start
+		// The gusts run in order, so none after this one has begun
+		if (into < 0) break
+		const held = rise + gust.hold
+		if (into >= held + fall) continue
+		const swell = into < rise ? smoothstep(0, rise, into) : into < held ? 1 : 1 - smoothstep(held, held + fall, into)
+		return calm + (gust.peak - calm) * swell
+	}
+	return calm
 }
 
 /** What the wind needs to know of a palm. */

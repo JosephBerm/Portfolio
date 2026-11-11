@@ -334,10 +334,10 @@ export const PALMS = {
 
 /**
  * The wind. It is left to right everywhere, and the gust level `e` rests between `rest` while wandering over `wander`
- * seconds; the still pose holds it at `stillGust`. A `gust` comes every `gap` seconds, rises over `rise`, holds, falls over
- * `fall` and peaks within `peak`; it crosses the scene at `travel` px a second, from a seeded list of gusts that repeats
- * every `loop` seconds. A `trunk` sways with its own `period`, by `sway` and `lean` shares of the palm's height, with a second
- * mode (period divided by `second`, at `secondShare` of the amplitude), displacement along the trunk growing as
+ * seconds; the still pose holds it at `stillGust`. A `gust` arrives after a calm of `gap` seconds, rises over `rise`, holds,
+ * falls over `fall` and peaks within `peak`; it crosses the scene at `travel` px a second, from a seeded list of gusts that
+ * repeats every `loop` seconds. A `trunk` sways with its own `period`, by `sway` and `lean` shares of the palm's height, with a
+ * second mode (period divided by `second`, at `secondShare` of the amplitude), displacement along the trunk growing as
  * `power` and its crown tilting at most `tilt` degrees. A `frond` swings with its own `period` by `upper`, `side` or
  * `hanging` degrees by how it hangs, times `gain[0] + gain[1] e`, leans `bias` degrees downwind by `e`, swings
  * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. `flutter`

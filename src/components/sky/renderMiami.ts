@@ -1,6 +1,6 @@
 import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND } from '@/lib/sky/miamiConfig'
-import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type GlintField, type RowShift } from '@/lib/sky/miamiWater'
+import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type GlintField, type RowShift, type WaterRow } from '@/lib/sky/miamiWater'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep } from '@/lib/sky/scene'
 import type { MiamiImage, MiamiWing } from './miamiAssets'
@@ -17,6 +17,11 @@ const BEACON_FEATHER = 12
 /** CSS px by which the key's fill runs past the canvas's edges, so no seam of antialiasing shows along them. */
 const KEY_OVERHANG = 2
 
+const TAU = Math.PI * 2
+
+/** Where in its pulse beacon `n` starts, as a share of its cycle per place in the list: the golden section, so no two start together. */
+const BEACON_START = 0.381966
+
 /** Points along a trunk, for each side of it: a few fewer on a phone, where the trunk is short and narrow. */
 const TRUNK_SAMPLES = { wide: 12, narrow: 8 } as const
 
@@ -26,9 +31,17 @@ let trunkPoints: Float32Array = new Float32Array(0)
 /** What a row of the water and a glint are moved by or lit by, reused so a frame makes no garbage. */
 const shift: RowShift = { dx: 0, dy: 0 }
 const glint: Glint = { across: 0, depth: 0, alpha: 0, width: 0, height: 0 }
+/** Two strips of the water drawn as one, where the scene has stepped down as far as it goes. */
+const joined: WaterRow = { index: 0, top: 0, height: 0, depth: 0 }
 
 /** The glitter's two fields, in the order they are drawn. */
 const GLINT_FIELDS: readonly GlintField[] = ['still', 'live']
+
+/** How many slots of the glitter a tier draws: the most at the first on a wide stage, `count.narrow` at the second and on a narrow stage, and `count.low` at the last. */
+function glitterCount(tier: number, narrow: boolean): number {
+	const { count } = WATER.glitter
+	return tier >= 2 ? count.low : tier === 1 || narrow ? count.narrow : count.wide
+}
 
 /**
  * Puts the context back as the rest of the frame expects it after a draw threw part way: drawSky resets only the blend and
@@ -100,24 +113,45 @@ function drawCentered(ctx: OffscreenCanvasRenderingContext2D, picture: MiamiImag
 	ctx.drawImage(picture.image, x * k - width / 2, y * k - height / 2, width, height)
 }
 
-/** The sun: its halo's light, then its disc over it, both scaled by how far the sun has come in. */
+/**
+ * How the sun's halo breathes at `clock`: its size swells and eases back by SUN.breath.amount over SUN.breath.period
+ * seconds, as much as the level shows, and at level 0 it stands at its own size. The room the halo is cut to
+ * (`haloScale`) keeps SUN.gateMargin px clear of the copy, which covers the swell.
+ */
+function breath(clock: number, level: number): number {
+	return 1 + SUN.breath.amount * level * Math.sin((TAU * clock) / SUN.breath.period)
+}
+
+/** The sun: its halo's light, then its disc over it, both scaled by how far the sun has come in. The halo breathes. */
 function drawSun(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, x: number, y: number): void {
 	const { view, assets, fade } = scene
 	const alpha = view.sunAlpha * fade
 	if (alpha <= 0) return
 	const k = frame.dpr
 	ctx.globalCompositeOperation = 'lighter'
-	drawCentered(ctx, assets.sun.halo, x, y, view.haloScale, alpha, k)
+	drawCentered(ctx, assets.sun.halo, x, y, view.haloScale * breath(scene.clock, scene.level), alpha, k)
 	ctx.globalCompositeOperation = 'source-over'
 	drawCentered(ctx, assets.sun.disc, x, y, 1, alpha, k)
 }
 
-/** The light the sun wraps around the silhouettes beside it: the halo again, fainter, over what has been drawn since. */
+/** The light the sun wraps around the silhouettes beside it: the halo again, fainter, over what has been drawn since, breathing with it. */
 function drawWrap(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, x: number, y: number): void {
 	const { view, assets, fade } = scene
 	ctx.globalCompositeOperation = 'lighter'
-	drawCentered(ctx, assets.sun.halo, x, y, view.haloScale, SUN.wrap * view.sunAlpha * fade, frame.dpr)
+	drawCentered(ctx, assets.sun.halo, x, y, view.haloScale * breath(scene.clock, scene.level), SUN.wrap * view.sunAlpha * fade, frame.dpr)
 	ctx.globalCompositeOperation = 'source-over'
+}
+
+/**
+ * Beacon `index` of `count` at `clock`: it burns steadily at BEACONS.still and, as much as the level shows, swells to
+ * BEACONS.peak and back in a soft pulse of its own. The periods are spread across BEACONS.period, so no two beacons share
+ * one, and each starts at its own point of its pulse, so they never blink together.
+ */
+function beaconLight(index: number, count: number, clock: number, level: number): number {
+	const [shortest, longest] = BEACONS.period
+	const period = shortest + ((longest - shortest) * (index + 0.5)) / count
+	const swell = Math.sin(Math.PI * (clock / period + index * BEACON_START)) ** 2
+	return BEACONS.still + (BEACONS.peak - BEACONS.still) * level * swell
 }
 
 /**
@@ -138,24 +172,27 @@ function drawCities(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, f
 	const nearBottom = waterY + Math.round(view.nearDrop * k)
 	const nearHeight = Math.round(near.height * k)
 	ctx.drawImage(near.image, 0, nearBottom - nearHeight, frame.deviceWidth, nearHeight)
-	// Beacons burn steadily at their still level and sink with their towers. A beacon is light on a dark tower, and the towers climb
-	// against the page toward the copy as it comes down, so each fades out before its dot comes within the sun's margin of the copy's
-	// lowest edge, and stays out above it: none of its light is ever behind the copy
+	// Beacons pulse, or burn steadily at their still level, and sink with their towers. A beacon is light on a dark tower, and the towers
+	// climb against the page toward the copy as it comes down, so each fades out before its dot comes within the sun's margin of the
+	// copy's lowest edge, and stays out above it, at the peak of its pulse too: none of its light is ever behind the copy
 	const xs = frame.width / scene.stage.width
 	const radius = assets.beacon.height / 2
 	const ceiling = scene.stage.zButtonBottom - SUN.gateMargin
-	for (const beacon of near.beacons) {
+	for (let i = 0; i < near.beacons.length; i++) {
+		const beacon = near.beacons[i]
+		if (!beacon) continue
 		const y = view.horizonY + view.nearDrop - beacon.z
 		const room = ceiling - (view.end - y + radius)
-		drawCentered(ctx, assets.beacon, beacon.x * xs, y, 1, BEACONS.still * fade * smoothstep(0, BEACON_FEATHER, room), k)
+		drawCentered(ctx, assets.beacon, beacon.x * xs, y, 1, beaconLight(i, near.beacons.length, scene.clock, scene.level) * fade * smoothstep(0, BEACON_FEATHER, room), k)
 	}
 }
 
 /**
  * The water in strips a few device px tall that grow toward the viewer, cut from the base picture: each strip is shifted
  * sideways and in the picture's own rows by its own point in the waves' cycles, so no part of the water moves as one sheet. Where the
- * strips end, under the page's end, the base's own rows go on and then its last row stretches to the bottom of the canvas,
- * so a pull past the end shows no gap.
+ * scene has stepped down as far as it goes, the strips are drawn in pairs, each pair as one on its first strip's wave, which halves
+ * the draws. Where the strips end, under the page's end, the base's own rows go on and then its last row stretches to the bottom of
+ * the canvas, so a pull past the end shows no gap.
  */
 function drawWater(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, waterY: number): void {
 	const { assets, stage, clock, level, fade } = scene
@@ -164,9 +201,20 @@ function drawWater(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 	const margin = WATER.strips.margin
 	// The strips are in the build's device px, and the canvas may have dropped to a lower ratio since
 	const share = frame.dpr / assets.dpr
+	const paired = scene.tier >= 2
 	ctx.globalAlpha = fade
 	let covered = 0
-	for (const row of water.rows) {
+	for (let i = 0; i < water.rows.length; i += paired ? 2 : 1) {
+		let row = water.rows[i]
+		if (!row) break
+		const second = paired ? water.rows[i + 1] : undefined
+		if (second) {
+			joined.index = row.index
+			joined.top = row.top
+			joined.height = row.height + second.height
+			joined.depth = (row.depth + second.depth) / 2
+			row = joined
+		}
 		const y0 = waterY + Math.round(row.top * share)
 		const y1 = waterY + Math.round((row.top + row.height) * share)
 		covered = row.top + row.height
@@ -214,27 +262,30 @@ function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 }
 
 /**
- * The glitter under the sun: a set number of slots, each a short dash of light at a place and time of its own, added to
+ * The glitter under the sun: a set number of slots by tier, each a short dash of light at a place and time of its own, added to
  * the water through the quiet zones of the copy, which take all of it away inside their padding. At rest the field stands at
  * its still clock. While the level eases, a glint can't move from one place to another, so the frozen field fades out as the
- * live one fades in and both are drawn; under the contrast preference the rows at and below the footer take none.
+ * live one fades in and both are drawn; under the contrast preference the rows at and below the footer take none. The slots a
+ * step down has just taken away are drawn on, fading with `thin`, until it reaches 0.
  */
 function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex): void {
-	const { view, assets, stage, clock, level, fade } = scene
+	const { view, assets, stage, clock, level, fade, tier, thin } = scene
 	const open = view.glitterOpen * fade
 	if (open <= 0) return
 	const k = frame.dpr
 	const sunX = stage.sunX * (frame.width / stage.width)
 	const cell = assets.glitter
-	const count = WATER.glitter.count[stage.narrow ? 'narrow' : 'wide']
+	const count = glitterCount(tier, stage.narrow)
+	const slots = tier > 0 && thin > 0 ? glitterCount(tier - 1, stage.narrow) : count
 	const footerY = view.end - stage.zFooterTop
 	ctx.globalCompositeOperation = 'lighter'
-	for (let slot = 0; slot < count; slot++) {
+	for (let slot = 0; slot < slots; slot++) {
+		const stays = slot < count ? 1 : thin
 		for (const field of GLINT_FIELDS) {
 			// The frozen field is drawn until the motion has all the level, the live one from the first of it
 			if (field === 'still' ? level >= 1 : level <= 0) continue
 			glintAt(slot, clock, level, field, glint)
-			const light = glint.alpha * open
+			const light = glint.alpha * open * stays
 			if (light < MIN_STAR_ALPHA) continue
 			const x = sunX + glint.across * columnReach(glint.depth, stage.sunR)
 			const y = view.horizonY + glint.depth * stage.zWater

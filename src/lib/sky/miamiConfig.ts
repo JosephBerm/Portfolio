@@ -319,7 +319,7 @@ export const PALMS = {
 	shortHeight: 500,
 	frondFromTrunk: 0.3,
 	onScreen: 0.8,
-	layout: { clusters: [2, 3], jitter: 0.5, clump: 3.9, back: { count: [5, 6], length: 0.5, weight: 1.4 }, stream: 0.28, aged: 0.22, knot: 0.13 },
+	layout: { clusters: [2, 3], jitter: 0.5, clump: 3.9, back: { count: [5, 6], length: 0.5, weight: 1.4 }, stream: 0.28, aged: 0.22, knot: 0.15 },
 	frond: {
 		spread: 124, length: [0.86, 1.06], shape: [0.66, 0.42, 1.3], droop: [0.24, 0.4, 1.3, 0.04],
 		variants: 5, hinge: 0.48, midrib: 2, core: 0.05, hub: 0.15, leafLength: 0.17, leafAngle: [30, 48], leafSag: 0.5, leafWidth: [2.4, 1.6],

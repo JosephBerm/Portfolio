@@ -1,6 +1,6 @@
 import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND } from '@/lib/sky/miamiConfig'
-import { columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type Glint, type GlintField, type RowShift, type WaterRow } from '@/lib/sky/miamiWater'
+import { boatAt, columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type BoatPose, type Glint, type GlintField, type RowShift, type WaterRow } from '@/lib/sky/miamiWater'
 import { createPalmPose, gustAt, palmPose } from '@/lib/sky/miamiWind'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep } from '@/lib/sky/scene'
@@ -19,6 +19,7 @@ const BEACON_FEATHER = 12
 const KEY_OVERHANG = 2
 
 const TAU = Math.PI * 2
+const RADIANS = Math.PI / 180
 
 /** Where in its pulse beacon `n` starts, as a share of its cycle per place in the list: the golden section, so no two start together. */
 const BEACON_START = 0.381966
@@ -29,8 +30,9 @@ const TRUNK_SAMPLES = { wide: 12, narrow: 8 } as const
 /** The trunk's outline, kept from frame to frame so a frame makes no garbage. */
 let trunkPoints: Float32Array = new Float32Array(0)
 
-/** The pose the wind gives the palm being drawn, reused so a frame makes no garbage. */
+/** The pose the wind gives the palm being drawn, and where the boat is, reused so a frame makes no garbage. */
 const pose = createPalmPose()
+const sail: BoatPose = { x: 0, bow: 0, bob: 0, pitch: 0 }
 
 /** What a row of the water and a glint are moved by or lit by, reused so a frame makes no garbage. */
 const shift: RowShift = { dx: 0, dy: 0 }
@@ -304,20 +306,27 @@ function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 	ctx.globalCompositeOperation = 'source-over'
 }
 
-/** The boat where it starts, with its wake behind it (added as light) and its dark reflection under it. */
+/**
+ * The boat on its crossing, with its wake behind it (added as light) and its dark reflection under it. The hull sinks and dips its bow
+ * with the swell, turning about its foot at the waterline, and the wake stays on the water. While the boat waits out of sight to come
+ * in again, nothing is drawn.
+ */
 function drawBoat(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void {
-	const { view, assets, stage, fade } = scene
+	const { view, assets, stage, fade, clock, level } = scene
 	const { boat } = assets
-	if (!boat) return
+	if (!boat || !boatAt(clock, level, frame.width, stage.boatLength, stage.narrow, sail)) return
 	const k = frame.dpr
-	const x = BOAT.startX[stage.narrow ? 'narrow' : 'wide'] * frame.width
 	const footY = view.horizonY + BOAT.depth
-	const bow = x + 0.52 * stage.boatLength
 	ctx.globalAlpha = fade
 	ctx.globalCompositeOperation = 'lighter'
-	ctx.drawImage(boat.wake.image, (bow - boat.apex.x) * k, (footY - boat.apex.y) * k, boat.wake.width * k, boat.wake.height * k)
+	ctx.drawImage(boat.wake.image, (sail.bow - boat.apex.x) * k, (footY - boat.apex.y) * k, boat.wake.width * k, boat.wake.height * k)
 	ctx.globalCompositeOperation = 'source-over'
-	ctx.drawImage(boat.hull.image, (x - boat.hull.width / 2) * k, (footY - boat.foot) * k, boat.hull.width * k, boat.hull.height * k)
+	const dip = sail.pitch * RADIANS
+	const cos = Math.cos(dip)
+	const sin = Math.sin(dip)
+	ctx.setTransform(cos, sin, -sin, cos, sail.x * k, (footY + sail.bob) * k)
+	ctx.drawImage(boat.hull.image, (-boat.hull.width / 2) * k, -boat.foot * k, boat.hull.width * k, boat.hull.height * k)
+	ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
 
 /**

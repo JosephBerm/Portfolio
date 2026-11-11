@@ -1,11 +1,12 @@
-import { WATER } from './miamiConfig'
+import { BOAT, WATER } from './miamiConfig'
 import { hashCell } from './random'
 import { smoothstep } from './scene'
 
 /**
  * The water's motion as pure functions of a clock and a level, so any frame can be reproduced from the two numbers alone.
  * `clock` is the seconds of ambient motion the scene has run and `level` how much of it shows, 0 to 1: at 0 every function
- * answers with the still pose, a frozen picture of the water chosen to look well, and the clock itself stands still.
+ * answers with the still pose, a frozen picture of the water chosen to look well, and the clock itself stands still. The
+ * boat that crosses the water is here too, since it rides on it.
  */
 
 const TAU = Math.PI * 2
@@ -170,4 +171,45 @@ export function glintAt(slot: number, clock: number, level: number, field: Glint
 	out.width = width[0] + (width[1] - width[0]) * depth
 	out.height = height[0] + (height[1] - height[0]) * depth
 	return out
+}
+
+/** How far the hull's bow lies ahead of its center, as a share of the boat's length: the most forward point of its outline. */
+const BOW = Math.max(...BOAT.hull.map((point) => point[0]))
+
+/** Where the boat is and how it rides the water, at one moment. */
+export interface BoatPose {
+	/** The hull's center, CSS px from the canvas's left. */
+	x: number
+	/** Where its bow is, the point its wake springs from. */
+	bow: number
+	/** How far it has sunk with the swell, CSS px, down positive. */
+	bob: number
+	/** How far its bow has dipped, degrees, down positive. */
+	pitch: number
+}
+
+/**
+ * Where the boat is at `clock`, and whether it is in sight. It crosses the canvas from left to right at its speed, from where it stands at
+ * clock 0 (`BOAT.startX` of the width) until its wake, which trails the bow by `BOAT.wake.lengths` of its lengths, has left by the right edge;
+ * then it waits out of sight for `BOAT.pause` seconds and comes in again from the left. All of it is a function of the clock, so a pause
+ * holds it where it is and a Play goes on from there. As much as `level` shows it also rides the swell, sinking and dipping its bow by
+ * `BOAT.bob` on one period; at level 0 it sits level on the water. `length` is the boat's own, in CSS px, and `width` the canvas's. False
+ * while the boat is out of sight, which leaves `out` as it was.
+ */
+export function boatAt(clock: number, level: number, width: number, length: number, narrow: boolean, out: BoatPose): boolean {
+	const klass = narrow ? 'narrow' : 'wide'
+	const speed = BOAT.speed[klass]
+	const from = -BOW * length
+	const to = width + (BOAT.wake.lengths - BOW) * length
+	const crossing = (to - from) / speed
+	const cycle = crossing + BOAT.pause
+	// Seconds into the crossing: it began at clock 0 with the boat at its starting place
+	const into = (((clock + (BOAT.startX[klass] * width - from) / speed) % cycle) + cycle) % cycle
+	if (into >= crossing) return false
+	const swell = (TAU * clock) / BOAT.bob.period
+	out.x = from + speed * into
+	out.bow = out.x + BOW * length
+	out.bob = BOAT.bob.px * level * Math.sin(swell)
+	out.pitch = BOAT.bob.pitch * level * Math.cos(swell)
+	return true
 }

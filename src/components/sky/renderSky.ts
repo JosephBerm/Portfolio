@@ -24,10 +24,10 @@ import {
 	type SkyLayer,
 } from '@/lib/sky/config'
 import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, trainWidth, WAKE_GAIN, type Meteor, type MeteorFrame, type Point } from '@/lib/sky/meteors'
-import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
+import type { Rgb, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
-import { budgetKeeps, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { budgetKeeps, readingKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import type { MiamiFrame } from './miamiRuntime'
 import { drawFireball } from './renderFireball'
@@ -146,6 +146,8 @@ export interface SkyFrame {
 	haze: number
 	/** Padded quiet rects in screen coordinates, easing from the previous measurement to the current one. */
 	quiet: QuietBlend
+	/** Reading copy near the screen (screenReadingZones) while anything that answers to it is in the sky, else none. */
+	reading: readonly SkyRect[]
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (the contrast preference's, times the descent's inkShare). */
 	meteorInk: number
 	/** Every star at a whole device pixel, as a sky that hasn't moved in this page view draws them; false places each at its nearest sub-pixel phase (placePoint). */
@@ -327,17 +329,18 @@ function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
  * Behind quiet copy it dims as a whole to what each copy's budget allows (METEOR_VEIL, INK_BUDGET), measured at every
  * point it draws, so a shooting star burning out behind the copy fades there while the part still in clear sky stays
  * bright, and on the copy it keeps its shape at a faint level. While a layout eases in it follows transientQuietFactor.
- * `fade` (0-1) multiplies the light of all of it, train, wake, glow and core: the caller's own fade, such as the scroll
- * cancel (scrollKept). `keeps` replaces the veil's budgets for a variant that never takes the ink lease (CLEAR_SKY_KEEPS),
- * which keeps none of its light inside a padded quiet rect. `wakeStops` is how many of the wake's stops it samples, counted
- * from the head (all of METEOR_LOOK.wakeStops by default). A body that leaves no wake, a point flash, takes none: each
- * stop's light divides its age by the wake time, and an age of 0 over a wake time of 0 is NaN.
+ * `fade` (0-1) multiplies the light of each point of it, train, wake, glow and core: the caller's own fade, such as the
+ * scroll cancel (scrollKept), and what depends on where the light is, such as reading copy (readingKept). `keeps` replaces
+ * the veil's budgets for a variant that never takes the ink lease (CLEAR_SKY_KEEPS), which keeps none of its light inside a
+ * padded quiet rect. `wakeStops` is how many of the wake's stops it samples, counted from the head (all of
+ * METEOR_LOOK.wakeStops by default). A body that leaves no wake, a point flash, takes none: each stop's light divides its
+ * age by the wake time, and an age of 0 over a wake time of 0 is NaN.
  */
-export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1, keeps?: QuietKeeps, wakeStops: number = METEOR_LOOK.wakeStops): void {
+export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade: (point: Point) => number = () => 1, keeps?: QuietKeeps, wakeStops: number = METEOR_LOOK.wakeStops): void {
 	const { dpr } = frame
 	const state = meteorAt(meteor, frame.time)
 	const { white } = assets.tokens
-	const keptBy = (keeps: QuietKeeps) => (point: Point) => transientQuietFactor(frame.quiet, point.x, point.y, keeps) * fade
+	const keptBy = (keeps: QuietKeeps) => (point: Point) => transientQuietFactor(frame.quiet, point.x, point.y, keeps) * fade(point)
 	ctx.globalCompositeOperation = 'lighter'
 	if (state.train > 0.002) drawTrain(ctx, assets, meteor, state, dpr, keptBy(keeps ?? budgetKeeps(state.train, METEOR_VEIL.quietKeep, frame.meteorInk)))
 
@@ -394,18 +397,18 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
 /**
  * The color of a shooting star's head, drawn after drawMeteor, whose head stays white: a glow round it (METEOR_SHEATH)
  * in its spectrum's sheath color, mixed from the theme's white by the meteor's chroma. Its light is the head's light now
- * times `fade` (the caller's own, as for drawMeteor) and the transient quiet factor at the head's center with
- * CLEAR_SKY_KEEPS, which is 0 once the head is inside a padded quiet rect, so the sheath never reaches the copy and the
+ * times `fade` (the caller's own, as for drawMeteor, read at the head) and the transient quiet factor at the head's center
+ * with CLEAR_SKY_KEEPS, which is 0 once the head is inside a padded quiet rect, so the sheath never reaches the copy and the
  * veil's budgets never count it. A spectrum with no sheath (`plain`) draws nothing.
  */
-export function drawMeteorSheath(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade = 1): void {
+export function drawMeteorSheath(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade: (point: Point) => number = () => 1): void {
 	const sheath = METEOR_SPECTRA[meteor.spectrum].sheath
 	if (sheath === null) return
 	const { dpr } = frame
 	const state = meteorAt(meteor, frame.time)
 	const head = meteorPoint(meteor, Math.min(1, state.progress))
 	const chroma = meteorChroma(meteor.peak)
-	const alpha = METEOR_SHEATH.alpha * chroma * state.intensity * fade * transientQuietFactor(frame.quiet, head.x, head.y, CLEAR_SKY_KEEPS)
+	const alpha = METEOR_SHEATH.alpha * chroma * state.intensity * fade(head) * transientQuietFactor(frame.quiet, head.x, head.y, CLEAR_SKY_KEEPS)
 	if (alpha < MIN_STAR_ALPHA) return
 	ctx.globalCompositeOperation = 'lighter'
 	ctx.globalAlpha = 1
@@ -439,13 +442,13 @@ const DOT_STOPS = Array.from({ length: DOT_STEPS + 1 }, (_, k): readonly [number
  * or without satellites. The dot is SATELLITE.dot's size in CSS px, or larger where its core would fall under
  * MIN_CORE_SIGMA_DEVICE_PX (a point that small aliases and shimmers as it moves, as a star's would), and has the same
  * shape at every pixel ratio. `fade` (0-1) multiplies its light, as for a shooting star. `keeps` are the quiet keeps it is
- * drawn with (CLEAR_SKY_KEEPS), read at its center through transientQuietFactor every frame, so none of its light lands
- * inside a quiet rect, even mid-ease or when a layout changes under it: the dot reaches SATELLITE.dot.radius CSS px from
- * there (a few more where the floor widens it), well short of QUIET.padding.
+ * drawn with (CLEAR_SKY_KEEPS), read at its center through transientQuietFactor every frame and with readingKept, so none of
+ * its light lands inside a quiet rect or on reading copy, even mid-ease or when a layout changes under it: the dot reaches
+ * SATELLITE.dot.radius CSS px from there (a few more where the floor widens it), well short of QUIET.padding.
  */
 function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, pass: SatellitePass, frame: SkyFrame, fade: number, keeps: QuietKeeps): void {
 	const { x, y, alpha, warmth } = satelliteAt(pass, frame.time)
-	const light = alpha * fade * transientQuietFactor(frame.quiet, x, y, keeps)
+	const light = alpha * fade * transientQuietFactor(frame.quiet, x, y, keeps) * readingKept(frame.reading, x, y)
 	if (light < MIN_STAR_ALPHA) return
 	const { dpr } = frame
 	const { dot } = SATELLITE
@@ -463,15 +466,16 @@ function wakeStopsFor(meteor: Meteor): number {
 }
 
 /** A shooting star: drawMeteor with the wake stops its body takes (wakeStopsFor) and `keeps`, then its sheath. */
-function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade: number, keeps?: QuietKeeps): void {
-	drawMeteor(ctx, assets, meteor, frame, fade, keeps, wakeStopsFor(meteor))
-	drawMeteorSheath(ctx, assets, meteor, frame, fade)
+function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, kept: (point: Point) => number, keeps?: QuietKeeps): void {
+	drawMeteor(ctx, assets, meteor, frame, kept, keeps, wakeStopsFor(meteor))
+	drawMeteorSheath(ctx, assets, meteor, frame, kept)
 }
 
 /**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
  * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst, an
- * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. A
+ * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. Reading
+ * copy that has come under a shooting star since its plan takes the light at each point it draws (readingKept). A
  * shooting star is drawn with drawMeteor and then its sheath (drawMeteorSheath), which always keeps clear of copy. A burst
  * draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
  * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them. A
@@ -480,6 +484,7 @@ function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAss
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
 	const { kind, body } = transient
+	const kept = (point: Point) => fade * readingKept(frame.reading, point.x, point.y)
 	switch (kind) {
 		case 'meteor': {
 			if (body.show) {
@@ -487,15 +492,15 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 				return
 			}
 			const keeps = transient.clearSky ? CLEAR_SKY_KEEPS : undefined
-			drawShootingStar(ctx, assets, body, frame, fade, keeps)
-			if (body.followers) for (const follower of body.followers) drawShootingStar(ctx, assets, follower, frame, fade, keeps)
+			drawShootingStar(ctx, assets, body, frame, kept, keeps)
+			if (body.followers) for (const follower of body.followers) drawShootingStar(ctx, assets, follower, frame, kept, keeps)
 			return
 		}
 		case 'satellite':
 			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)
 			return
 		case 'farewell':
-			drawShootingStar(ctx, assets, body, frame, fade)
+			drawShootingStar(ctx, assets, body, frame, kept)
 			return
 		default: {
 			const unhandled: never = kind
@@ -507,18 +512,18 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 /**
  * The comet at one frame: its bitmap of coma and tails added to the sky, the knots gliding along the ion tail, then the
  * pseudo-nucleus over them. `view.light` (the fade-in times what the scroll and the fades leave) multiplies all of it,
- * and so does the transient quiet factor with CLEAR_SKY_KEEPS, sampled at the nucleus and at the far end of each tail and
- * taken at the lowest of the three. One bitmap cannot be dimmed part by part, so when copy comes within reach of any of
- * them all of the comet gives way together, without waiting for its fade; copy that lands between them is left to the
- * box test (bodyView), whose fade takes the comet out in TRANSIENTS.cancelFade. The bitmap is assets.comet; the caller
- * has painted it before the comet shows.
+ * and so do the transient quiet factor with CLEAR_SKY_KEEPS and readingKept, sampled at the nucleus and at the far end of
+ * each tail and taken at the lowest of the three. One bitmap cannot be dimmed part by part, so when copy comes within
+ * reach of any of them all of the comet gives way together, without waiting for its fade; copy that lands between them is
+ * left to the box test (bodyView), whose fade takes the comet out in TRANSIENTS.cancelFade. The bitmap is assets.comet; the
+ * caller has painted it before the comet shows.
  */
 export function drawComet(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, frame: SkyFrame): void {
 	const { comet, atlas } = assets
 	if (!comet || view.light < MIN_STAR_ALPHA) return
 	const { dpr } = frame
 	const { x, y, shape } = view
-	const keptAt = (px: number, py: number) => transientQuietFactor(frame.quiet, px, py, CLEAR_SKY_KEEPS)
+	const keptAt = (px: number, py: number) => transientQuietFactor(frame.quiet, px, py, CLEAR_SKY_KEEPS) * readingKept(frame.reading, px, py)
 	const kept = view.light * Math.min(keptAt(x, y), keptAt(x + shape.dustTip.x, y + shape.dustTip.y), keptAt(x + shape.ionTip.x, y + shape.ionTip.y))
 	if (kept < MIN_STAR_ALPHA) return
 	const { box } = shape

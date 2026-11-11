@@ -48,7 +48,7 @@ import {
 } from '@/lib/sky/pacing'
 import { createPresence, isIdle, notePresence, presenceLevel } from '@/lib/sky/presence'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
-import { emergenceDone, hazeEmergence, sameRects, sceneAt, screenQuietZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
+import { emergenceDone, hazeEmergence, readingPadding, sameRects, sceneAt, screenQuietZones, screenReadingZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
 import {
 	cancelTransients,
 	createTransientSchedule,
@@ -59,6 +59,7 @@ import {
 	nextLaunchAt,
 	retryTransients,
 	revealTransients,
+	skyField,
 	transientDemand,
 	transientFade,
 	updateTransients,
@@ -99,6 +100,8 @@ let scrollY = 0
 let documentHeight = 0
 let quiet: readonly SkyRect[] = []
 let pinned: readonly SkyRect[] = []
+// Reading copy, as the last layout measured it: what flies answers to it at once, with no ease
+let reading: readonly SkyRect[] = []
 // The rects a new layout eases in from (none before the first)
 let quietBefore: readonly SkyRect[] = []
 let pinnedBefore: readonly SkyRect[] = []
@@ -128,12 +131,8 @@ const gate: LaunchGate = {
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
-	// Built afresh on each call: the scheduler asks only for a due kind that may plan. The rails are padded once and the very
-	// same objects go in both lists, so a reader can tell them apart from the copy in the page's flow by identity
-	field: () => {
-		const rails = screenQuietZones([], scrollY, pinned)
-		return { width, height, quiet: [...screenQuietZones(quiet, scrollY), ...rails], pinned: rails }
-	},
+	// Built afresh on each call: the scheduler asks only for a due kind that may plan
+	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading }),
 	ink: 1,
 	bodyShowing: false,
 }
@@ -208,6 +207,11 @@ const relayRefresh = createRefreshEstimate()
 let relayTickDoneAt = -Infinity
 /** How many display refreshes pass per drawn frame while something moves. */
 const divisor: Divisor = { k: 1, slowerSince: null }
+
+/** Reading copy near the screen now, in screen coordinates, grown as READING says for this width. */
+function readingZones(): SkyRect[] {
+	return screenReadingZones(reading, scrollY, height, readingPadding(narrowScreen))
+}
 
 /** Backing-store pixels for a CSS length (never zero). */
 function deviceSize(cssSize: number, ratio: number): number {
@@ -664,6 +668,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		twinkle: twinkleLevel(scene),
 		haze: scene.haze * contrast.haze * hazeEmergence(dusk),
 		quiet: quietBlend(t),
+		reading: transients.active.length > 0 || bodyShowing(comet) ? readingZones() : [],
 		meteorInk: contrast.meteorInk * scene.inkShare,
 		snap: !skyMoved,
 		miami: landing,
@@ -683,7 +688,7 @@ function draw(now: number): void {
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
 	// The comet's view tests its box against the zones this frame draws, and may find it gone
 	const view = bodyShowing(comet)
-		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet })
+		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading })
 		: null
 	if (view) {
 		// Painted once, in the first frame it shows (still at no light), and again after a lost context took it
@@ -971,6 +976,7 @@ scope.addEventListener('message', (event) => {
 		case 'layout': {
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
+			reading = message.reading
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
 			// near it fade instead of changing in one frame. A change mid-ease waits for the ease to end.
 			const latest = pendingLayout ?? { quiet, pinned }

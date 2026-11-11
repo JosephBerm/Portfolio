@@ -253,11 +253,10 @@ function blockedPlaces(zones: readonly SkyRect[], path: readonly Point[], box: C
  * Where the comet's nucleus goes on screen, or null when no place fits, for a comet that starts at drift clock `clock`
  * and keeps clear for `life` seconds of it. Its path is known (cometPath), so its box is swept along it, grown by
  * COMET.clearance and the pointer's lean (LEAN_REACH, either way), and at every sample must keep clear of the reach of
- * every zone of the field (the padded hero, Contact and footer copy and the side rails), lie below the navbar
- * (METEOR.top) and above About's header row, copy the zones know nothing of, and keep its head inside the screen
- * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how the comet leaves. Of the
- * places on a COMET.step grid that fit, it takes the one nearest COMET.anchor, and the first of them (rows from the top,
- * each from the left) where two are as near.
+ * all copy (the field's `clearSky`), lie below the navbar (METEOR.top) and above About's header row at the scroll where a
+ * comet last starts, and keep its head inside the screen (METEOR.edgeMargin). The box may overflow the right edge, where no
+ * copy lies, which is how the comet leaves. Of the places on a COMET.step grid that fit, it takes the one nearest
+ * COMET.anchor, and the first of them (rows from the top, each from the left) where two are as near.
  *
  * A field may hold hundreds of zones, a grid thousands of places and a path dozens of samples, so a place is not tried
  * against all of them. The screen's edge, the navbar and About's row are settled for every place at once from the samples
@@ -289,7 +288,7 @@ export function findPlace(field: SkyField, shape: CometShape, clock: number, lif
 		if (y + travel.minY + top - margin >= METEOR.top) rows.push(y)
 	}
 	// A zone that reaches no box of the sweep takes no part, nor does one below the line of About's row
-	const zones = field.quiet.filter((zone) => zoneReaches(zone, x0 + travel.minX + left - margin, y0 + travel.minY + top - margin, x1 + travel.maxX + right + margin, lowest))
+	const zones = field.clearSky.filter((zone) => zoneReaches(zone, x0 + travel.minX + left - margin, y0 + travel.minY + top - margin, x1 + travel.maxX + right + margin, lowest))
 	const { counts, stride } = blockedPlaces(zones, path, shape.box, margin, columns, rows)
 	const staysClear = (x: number, y: number) => {
 		for (const zone of zones) {
@@ -438,6 +437,8 @@ export interface BodyFrame {
 	width: number
 	/** The zones on screen as the frame draws them; the box answers to `to` and a waiting layout's `next`. */
 	quiet: QuietBlend
+	/** Reading copy near the screen; the box answers to it too. */
+	reading: readonly SkyRect[]
 }
 
 /** The comet at one drawn frame: where its nucleus is on screen, how much of its light shows and where its knots are. */
@@ -456,8 +457,8 @@ export interface CometView {
  * own: the drift clock's time since it began to show, times its pace. While the sky is held the camera and the drift
  * clock stand still, so it does too, and its fade-in is read at the moment of the hold. It is gone once its whole box is
  * past the right edge, where no copy lies. Its box is tested against the zones the frame answers to (the layout it is
- * easing to and one waiting), whose copy and the comet both move, held or not, and the first time copy comes within reach
- * it starts to fade out and is gone for good.
+ * easing to, one waiting, and reading copy), whose copy and the comet both move, held or not, and the first time copy comes
+ * within reach it starts to fade out and is gone for good.
  */
 export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const { shape } = body
@@ -475,7 +476,8 @@ export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 		const y0 = y + top
 		const x1 = x + right
 		const y1 = y + bottom
-		if (!clearOfZones(frame.quiet.to, x0, y0, x1, y1) || (frame.quiet.next && !clearOfZones(frame.quiet.next, x0, y0, x1, y1))) body.boxFailedAt = frame.time
+		const clear = (zones: readonly SkyRect[]) => clearOfZones(zones, x0, y0, x1, y1)
+		if (!clear(frame.quiet.to) || !clear(frame.reading) || (frame.quiet.next && !clear(frame.quiet.next))) body.boxFailedAt = frame.time
 	}
 	const kept = bodyKept(body, frame.time, frame.scrollY)
 	if (kept <= 0) {

@@ -49,8 +49,32 @@ const QUIET_SELECTOR = '[data-sky-quiet]'
  */
 const LANDING_SELECTOR = '[data-sky-landing]'
 
+/**
+ * Reading copy: the rest of the page's flow, which nothing in the sky comes near or lights. Every section counts without
+ * opting in, so new copy is covered by default. Its rects steer the sky and carry no budget. Like quiet copy it keeps
+ * copyReader's first precondition, no static transform translation; a section the selector stops matching falls out of it.
+ */
+const READING_SELECTOR = 'main > :not([data-sky-quiet])'
+
+/**
+ * How quietRects measures a root: the elements that count by their whole box, leaving out those fainter than `faintBelow`
+ * (boxOpacity), and whether a line of text reaches left to the edge of its block.
+ */
+interface RectRules {
+	boxes: string
+	faintBelow: number
+	toBlockEdge: boolean
+}
+
 /** Inside quiet copy, links and buttons count by their whole box (a bordered button reaches well past its text). */
-const QUIET_CONTROLS = 'a, button'
+const QUIET_RULES: RectRules = { boxes: 'a, button', faintBelow: 0, toBlockEdge: false }
+
+/**
+ * Inside reading copy images count too, since a flight behind a solid one would be wasted; the sky shows through a faint
+ * one (a project's image below the `md` breakpoint), which holds no words of its own. A line reaches left to its block's
+ * edge: section counters, step numerals and bullets are pseudo-elements, which no text node measures, and they all sit there.
+ */
+const READING_RULES: RectRules = { boxes: 'a, button, img', faintBelow: 0.5, toBlockEdge: true }
 
 /** Most quiet rects sent to the worker: one per line of copy, about 31 on desktop and 35-37 on phones. */
 const MAX_QUIET_RECTS = 64
@@ -176,12 +200,25 @@ function quietRect(box: DOMRectReadOnly, shift: Shift, offsetY: number, headroom
 	return right > left && bottom > top ? { x: left, y: top + offsetY, width: right - left, height: bottom - top, headroom } : null
 }
 
+/** The left edge, net of entrances, of the block that lays out `element`'s lines. */
+function blockLeft(element: Element, reader: CopyReader): number {
+	let block = element
+	while (block.parentElement && getComputedStyle(block).display.startsWith('inline')) block = block.parentElement
+	return block.getBoundingClientRect().left - reader.shift(block).x
+}
+
+/** The lower opacity of a box and the link around it: static CSS, the same at any moment, since entrances animate the wrappers above them. */
+function boxOpacity(box: Element): number {
+	const link = box.closest('a')
+	return Math.min(Number(getComputedStyle(box).opacity), link ? Number(getComputedStyle(link).opacity) : 1)
+}
+
 /**
- * The quiet rects inside `root`, moved down by `offsetY`: the ink of each line of text (not the layout boxes, which
- * span the whole column even where the words stop, nor one box per run, which spans the empty sky beside a short
- * line) and the full box of each link or button, each with the headroom of its own text.
+ * The rects inside `root`, moved down by `offsetY`: the ink of each line of text (not the layout boxes, which span the
+ * whole column even where the words stop, nor one box per run, which spans the empty sky beside a short line) and the
+ * full box of each of `rules.boxes`, each with the headroom of its own text.
  */
-function quietRects(root: Element, offsetY: number, reader: CopyReader): SkyRect[] {
+function quietRects(root: Element, offsetY: number, reader: CopyReader, rules: RectRules = QUIET_RULES): SkyRect[] {
 	const rects: SkyRect[] = []
 	const range = document.createRange()
 	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
@@ -191,12 +228,15 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader): SkyRect
 		range.selectNodeContents(node)
 		const shift = reader.shift(element)
 		const headroom = reader.headroom(element)
+		const edge = rules.toBlockEdge ? blockLeft(element, reader) : Infinity
 		for (const line of range.getClientRects()) {
 			const rect = quietRect(line, shift, offsetY, headroom)
-			if (rect) rects.push(rect)
+			if (!rect) continue
+			rects.push(edge < rect.x ? { ...rect, x: edge, width: rect.width + rect.x - edge } : rect)
 		}
 	}
-	for (const control of root.querySelectorAll(QUIET_CONTROLS)) {
+	for (const control of root.querySelectorAll(rules.boxes)) {
+		if (boxOpacity(control) < rules.faintBelow) continue
 		const rect = quietRect(control.getBoundingClientRect(), reader.shift(control), offsetY, reader.headroom(control))
 		if (rect) rects.push(rect)
 	}
@@ -245,13 +285,15 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	let flowRoots: Element[] = []
 	let pinnedRoots: Element[] = []
 	let landingRoot: Element | null = null
+	let reading: SkyRect[] = []
 	let lastLayout = ''
 	const headrooms = new Map<string, number>()
 	let lastScrollY = window.scrollY
 	let settleTimer: ReturnType<typeof setTimeout> | undefined
 	let destroyed = false
 
-	// Document height, quiet rects and the landing's box; runs after layout (observer callbacks, timers) and posts only when they changed
+	// Document height, quiet rects, the landing's box and reading rects as last walked; runs after layout (observer callbacks,
+	// timers) and posts only when they changed
 	const measureLayout = () => {
 		if (offscreen || destroyed) return
 		const reader = copyReader(tokens, headrooms)
@@ -261,10 +303,23 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		// An element with no box (display: none) has no client rects, but a zero-height one still has one: it is measured
 		const landingBox = landingRoot?.getClientRects().length ? landingRoot.getBoundingClientRect() : null
 		const landing = landingBox ? { top: landingBox.top + window.scrollY, bottom: landingBox.bottom + window.scrollY } : null
-		const layout = JSON.stringify([documentHeight, quiet, pinned, landing])
+		const layout = JSON.stringify([documentHeight, quiet, pinned, landing, reading])
 		if (layout === lastLayout) return
 		lastLayout = layout
-		post({ type: 'layout', documentHeight, quiet, pinned, landing })
+		post({ type: 'layout', documentHeight, quiet, pinned, landing, reading })
+	}
+
+	// Reading copy's rects, from the reveal on, as for quiet copy: a page's worth of walking that only a reflow or new copy
+	// changes, so a settle leaves them as they are
+	const measureReading = () => {
+		if (offscreen || destroyed || phase !== 'revealed') return
+		const reader = { ...copyReader(tokens, headrooms), headroom: () => 0 }
+		reading = Array.from(document.querySelectorAll(READING_SELECTOR)).flatMap((root) => quietRects(root, window.scrollY, reader, READING_RULES))
+	}
+
+	const measureAll = () => {
+		measureReading()
+		measureLayout()
 	}
 
 	// Entrances move copy without resizing anything: measure again once they have had time to settle
@@ -300,7 +355,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			[offscreen]
 		)
 		offscreen = null
-		measureLayout()
+		measureAll()
 	}
 
 	// Measured after layout, so no forced reflow; the first non-zero size starts the worker
@@ -324,8 +379,11 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	watchDpr()
 
 	// The page and the quiet copy can change size after fonts load or on resize: measure again
-	const layoutObserver = new ResizeObserver(measureLayout)
+	const layoutObserver = new ResizeObserver(measureAll)
 	layoutObserver.observe(document.body)
+	// New copy can change its lines without changing a size (a tab of the Experience section, say). This one fires before layout
+	// and so forces one, which only a change of copy pays for: scrolling and entrances don't fire it
+	const copyObserver = new MutationObserver(measureAll)
 
 	// Motion's scroll() shares one frame-batched listener with the navbar's useScroll. Keep both parameters:
 	// Motion only passes the scroll info (with the offset in px) to two-argument callbacks.
@@ -421,6 +479,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		setSkyRunning(false)
 		canvasObserver.disconnect()
 		layoutObserver.disconnect()
+		copyObserver.disconnect()
 		worker.terminate()
 		canvas.remove()
 	}
@@ -468,8 +527,10 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			// The landing room, if the page has one
 			landingRoot = document.querySelector(LANDING_SELECTOR)
 			if (landingRoot) layoutObserver.observe(landingRoot)
+			const main = document.querySelector('main')
+			if (main) copyObserver.observe(main, { childList: true, subtree: true, characterData: true })
 			settleLater()
-			void document.fonts.ready.then(measureLayout)
+			void document.fonts.ready.then(measureAll)
 		},
 		destroy,
 	}

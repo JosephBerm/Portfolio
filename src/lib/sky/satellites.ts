@@ -53,11 +53,11 @@ export interface SatelliteFrame {
  * navbar and above the bottom corners. A dusk pass starts there, heading in, and fades into the shadow where its life
  * ends; a dawn pass ends there, and fades in where its life starts. The other end, where the fade happens, must lie in
  * that band of height and at least METEOR.edgeMargin inside both sides, so the fade is seen in open sky. The first pass
- * whose line is clear of every padded quiet rect's reach (segmentClear) is the plan.
+ * whose line is clear of the reach of all copy (segmentClear) is the plan.
  */
 export function planSatellite(context: PlanContext): SatellitePass | null {
 	const { random, now, field } = context
-	const { width, height, quiet } = field
+	const { width, height, clearSky } = field
 	const { focal } = skyWindow(width, height)
 	const top = METEOR.top
 	const bottom = METEOR.maxEndY * height
@@ -77,7 +77,7 @@ export function planSatellite(context: PlanContext): SatellitePass | null {
 		// The line as the satellite flies it: in from beyond its side at dusk, out through it at dawn
 		const start = dusk ? beyond : midSky
 		const end = dusk ? midSky : beyond
-		if (!segmentClear(quiet, start, end)) continue
+		if (!segmentClear(clearSky, start, end)) continue
 		return {
 			startX: start.x,
 			startY: start.y,

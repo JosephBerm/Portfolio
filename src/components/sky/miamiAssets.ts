@@ -123,20 +123,26 @@ const SKY_ABOVE = 8
 /** Rows from the bitmap's top over which the dither fades in, so the very top row stays exactly navy. */
 const DITHER_TAPER = 8
 
-/** Pixels of the sky baked between two returns of the generator: a fraction of a millisecond when warm, so a slice of the build ends close to its budget even on a slow device. */
-const BATCH_PIXELS = 8192
+/** Pixels of float work (the sky, a cloud bank, the halo, the boat's wake) baked between two returns of the generator: a fraction of a millisecond when warm and a millisecond or two while the code is cold, so a slice of the build ends close to its budget even on a slow device. */
+const BATCH_PIXELS = 4096
 
 /** Pixels of a plain conversion between two returns: a copy is cheaper than the bake's float work. */
 const COPY_PIXELS = 131072
 
-/** Pixels of the water's base baked between two returns: a pixel of it costs about a fifth of a pixel of the sky, so a batch is still under a millisecond. */
-const WATER_BATCH_PIXELS = 32768
+/** Pixels of a picture colored from a coverage field (the far city, a ripple tile) between two returns: each takes a color mix or a rounded alpha, which costs more than a copy, and this many take a millisecond or two while the code is cold. */
+const COLOR_PIXELS = 16384
 
-/** Columns of ripple dashes (each a sine and a power) a field draws between two returns: about a millisecond. */
-const LENS_PIXELS = 24000
+/** Pixels of the water's base baked between two returns: one costs about twice what one of the sky's does, so this many take about a millisecond while the code is cold (a row of it is more than this on a screen 2000 px wide or more, and goes alone). */
+const WATER_BATCH_PIXELS = 4096
+
+/** Columns of ripple dashes (each a sine and a power) a field draws between two returns, counted at the end of each row: a millisecond or two while the code is cold. */
+const LENS_PIXELS = 4000
 
 /** Towers drawn between two returns. */
-const TOWERS_PER_STEP = 12
+const TOWERS_PER_STEP = 6
+
+/** Palm tops drawn between two returns: each is a trunk and nine curved leaves, a good deal more than a tower. */
+const PALMS_PER_STEP = 4
 
 /** Screens narrower than this get the narrow wing feather; the wide one would darken a third of the screen. */
 const WIDE_WING_MIN_WIDTH = 1024
@@ -263,6 +269,8 @@ function* bakeSky(stage: MiamiStage, navy: Rgb): Generator<void, SkyPixels, unde
 	const data = pixels.data
 	const encoded = encoding()
 	const noise = grain()
+	// The two lookups are built the first time anything is baked, and that is a step of its own
+	yield
 
 	// The ramp with its last sample repeated, so a sample's neighbor above always exists
 	const last = lut.size - 1
@@ -311,6 +319,8 @@ function* bakeSky(stage: MiamiStage, navy: Rgb): Generator<void, SkyPixels, unde
 		nearX[i] = Math.exp(-stretched * nearScale)
 		farX[i] = Math.exp(-stretched * farScale)
 	}
+	// What the rows share is set up in a step of its own, so the first batch of rows doesn't carry it
+	yield
 
 	const rowsPerBatch = Math.max(1, Math.floor(BATCH_PIXELS / w))
 	for (let start = 0; start < h; start += rowsPerBatch) {
@@ -551,9 +561,10 @@ const RIM = 1.6
 /**
  * A bank as float alpha in CSS px: a flat bottom and a lumpy top (octaves of noise stretched along x), its top color above
  * and a broad warm underside below, shifting from the sun's side to the far side, and on the bank nearest the sun a thin rim
- * of light on the very lowest edge. Under a top edge softened by at most `shape.blur` px and a crisper bottom.
+ * of light on the very lowest edge. Under a top edge softened by at most `shape.blur` px and a crisper bottom. A generator, so a
+ * wide bank is baked a batch of columns at a time.
  */
-function bakeBank(stage: MiamiStage, bank: PlacedBank, high: boolean): Baked {
+function* bakeBank(stage: MiamiStage, bank: PlacedBank, high: boolean): Generator<void, Baked, undefined> {
 	const width = Math.max(8, Math.round(bank.width * stage.width))
 	const height = Math.ceil(bank.height) + 2
 	const { shape, top, topHigh, under, rim } = CLOUDS
@@ -582,6 +593,7 @@ function bakeBank(stage: MiamiStage, bank: PlacedBank, high: boolean): Baked {
 	const farRim = hexRgb(rim.far)
 	const pixels = new ImageData(width, height)
 	const { data } = pixels
+	const columnsPerBatch = Math.max(1, Math.floor(BATCH_PIXELS / height))
 	for (let i = 0; i < width; i++) {
 		const sunward = sunNearness(stage, left + i + 0.5)
 		const underside = mixRgb(farUnder, nearUnder, sunward)
@@ -603,6 +615,7 @@ function bakeBank(stage: MiamiStage, bank: PlacedBank, high: boolean): Baked {
 			data[k + 2] = color[2]
 			data[k + 3] = Math.round(255 * alpha)
 		}
+		if ((i + 1) % columnsPerBatch === 0) yield
 	}
 	return { pixels, width, height }
 }
@@ -648,7 +661,7 @@ function* bakeClouds(stage: MiamiStage, own: (pixels: ImageData) => ImageBitmap)
 		yield
 	}
 	for (const bank of placeBanks(stage)) {
-		const baked = bakeBank(stage, bank, bank.bottom >= stage.zWater + 1.6 * stage.tallest)
+		const baked = yield* bakeBank(stage, bank, bank.bottom >= stage.zWater + 1.6 * stage.tallest)
 		clouds.push({ image: own(baked.pixels), width: baked.width, height: baked.height, z: bank.bottom, x: bank.x, drift: bank.drift })
 		yield
 	}
@@ -690,9 +703,9 @@ function bakeDisc(stage: MiamiStage, dpr: number): Baked {
 /**
  * The halo: light to add around the sun, in the bloom's color, as a picture on black (drawn additively, black adds nothing):
  * a tight glow that falls off with distance, stretched 1.5 times wider than tall, and cut to nothing at its reach. In CSS px,
- * since it is soft and the draw scales it.
+ * since it is soft and the draw scales it. A generator, so a large halo is baked a batch of rows at a time.
  */
-function bakeHalo(stage: MiamiStage): Baked {
+function* bakeHalo(stage: MiamiStage): Generator<void, Baked, undefined> {
 	const radius = stage.sunR
 	const reach = SUN.haloReach * radius
 	const width = Math.ceil(2 * 1.5 * reach) + 2
@@ -705,6 +718,7 @@ function bakeHalo(stage: MiamiStage): Baked {
 	const cut = Math.exp(-SUN.haloReach / 0.6)
 	const pixels = new ImageData(width, height)
 	const { data } = pixels
+	const rowsPerBatch = Math.max(1, Math.floor(BATCH_PIXELS / width))
 	for (let j = 0; j < height; j++) {
 		for (let i = 0; i < width; i++) {
 			const rho = Math.hypot((i + 0.5 - width / 2) / 1.5, j + 0.5 - height / 2)
@@ -715,6 +729,7 @@ function bakeHalo(stage: MiamiStage): Baked {
 			data[k + 2] = (bloom[2] ?? 0) * light
 			data[k + 3] = 255
 		}
+		if ((j + 1) % rowsPerBatch === 0) yield
 	}
 	return { pixels, width, height }
 }
@@ -998,6 +1013,7 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 		tallestBase = Math.max(tallestBase, whole[x] ?? 0)
 	}
 	// Row by row from the waterline up, so the writes run along the mask
+	const rowsPerBatch = Math.max(1, Math.floor(COPY_PIXELS / width))
 	for (let row = 0; row <= tallestBase; row++) {
 		const at = (height - 1 - row) * width
 		if (height - 1 - row < 0) break
@@ -1006,6 +1022,7 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 			if (row < rises) mask[at + x] = 255
 			else if (row === rises) mask[at + x] = edge[x] ?? 0
 		}
+		if ((row + 1) % rowsPerBatch === 0) yield
 	}
 	yield
 
@@ -1020,10 +1037,16 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 	}
 	yield
 
-	for (const crane of skyline.cranes) drawCrane(mask, width, height, crane * dpr, SKYLINE.cranes.apex * stage.unit * dpr, dpr)
+	// A crane is a step of its own, and the palm tops go a few at a time, as the towers do
+	for (const crane of skyline.cranes) {
+		drawCrane(mask, width, height, crane * dpr, SKYLINE.cranes.apex * stage.unit * dpr, dpr)
+		yield
+	}
+	let planted = 0
 	for (const palm of skyline.palms) {
 		const baseTop = skyline.base[Math.min(skyline.base.length - 1, Math.round(palm.x))] ?? 0
 		drawPalmTop(mask, width, height, palm, palm.x * dpr, height - baseTop * dpr, height - palm.top * dpr, dpr)
+		if (++planted % PALMS_PER_STEP === 0) yield
 	}
 	yield
 
@@ -1081,7 +1104,7 @@ function* bakeFar(stage: MiamiStage, skyline: Skyline, sky: SkyPixels, dpr: numb
 	const reach = far.high * stage.tallest
 	const pixels = new ImageData(width, height)
 	const { data } = pixels
-	const rowsPerBatch = Math.max(1, Math.floor(COPY_PIXELS / width))
+	const rowsPerBatch = Math.max(1, Math.floor(COLOR_PIXELS / width))
 	for (let start = 0; start < height; start += rowsPerBatch) {
 		for (let j = start; j < Math.min(height, start + rowsPerBatch); j++) {
 			// Height of this row above the waterline, CSS px
@@ -1353,7 +1376,7 @@ function* bakeRippleTile(stage: MiamiStage, width: number, seed: number): Genera
 	const color = new Float32Array(3)
 	const pixels = new ImageData(width, rows)
 	const { data } = pixels
-	const rowsPerBatch = Math.max(1, Math.floor(COPY_PIXELS / width))
+	const rowsPerBatch = Math.max(1, Math.floor(COLOR_PIXELS / width))
 	for (let start = 0; start < rows; start += rowsPerBatch) {
 		for (let j = start; j < Math.min(rows, start + rowsPerBatch); j++) {
 			const p = j + 0.5
@@ -1414,8 +1437,8 @@ function bakeGlitter(dpr: number): { pixels: ImageData; cellWidth: number; cellH
 
 // ---- The boat
 
-/** A hull, cabin and mast in the near color, with a dark reflection under it, at device resolution, the bow to the right; and the V of its wake. */
-function bakeBoat(stage: MiamiStage, dpr: number): { hull: Baked & { foot: number }; wake: Baked & { apexX: number; apexY: number } } {
+/** A hull, cabin and mast in the near color, with a dark reflection under it, at device resolution, the bow to the right; and the V of its wake. A generator: the hull is one step and the wake's rows are baked a batch at a time. */
+function* bakeBoat(stage: MiamiStage, dpr: number): Generator<void, { hull: Baked & { foot: number }; wake: Baked & { apexX: number; apexY: number } }, undefined> {
 	const length = stage.boatLength * dpr
 	const margin = 2
 	const above = Math.ceil(Math.max(0.17, BOAT.mast) * length) + margin
@@ -1451,6 +1474,7 @@ function bakeBoat(stage: MiamiStage, dpr: number): { hull: Baked & { foot: numbe
 			data[k + 3] = Math.round(255 * Math.max(0, alpha))
 		}
 	}
+	yield
 
 	// The wake: two thin lines from the bow, opening behind at the half angle and fading out over their length
 	const reach = BOAT.wake.lengths * length
@@ -1464,6 +1488,7 @@ function bakeBoat(stage: MiamiStage, dpr: number): { hull: Baked & { foot: numbe
 	strokeLine(lines, wakeWidth, wakeHeight, apexX, apexY, apexX - reach, apexY + spread, Math.max(1, dpr))
 	const tint = hexRgb(BOAT.wake.color)
 	const light = new ImageData(wakeWidth, wakeHeight)
+	const wakeRowsPerBatch = Math.max(1, Math.floor(BATCH_PIXELS / wakeWidth))
 	for (let j = 0; j < wakeHeight; j++) {
 		for (let i = 0; i < wakeWidth; i++) {
 			const along = clamp01((apexX - i) / reach)
@@ -1474,8 +1499,29 @@ function bakeBoat(stage: MiamiStage, dpr: number): { hull: Baked & { foot: numbe
 			light.data[k + 2] = tint[2] * level
 			light.data[k + 3] = 255
 		}
+		if ((j + 1) % wakeRowsPerBatch === 0) yield
 	}
 	return { hull: { pixels, width, height, foot: above }, wake: { pixels: light, width: wakeWidth, height: wakeHeight, apexX, apexY } }
+}
+
+/**
+ * Uploads pixels as an immutable bitmap, as `toBitmap` does, but copies them into the canvas a band of rows at a time and
+ * returns after each band but the last: converting a picture of several megabytes in one go takes several milliseconds.
+ */
+function* uploadInBands(pixels: ImageData): Generator<void, ImageBitmap, undefined> {
+	const canvas = new OffscreenCanvas(pixels.width, pixels.height)
+	try {
+		const context = canvas.getContext('2d')
+		const rows = Math.max(1, Math.floor(COPY_PIXELS / pixels.width))
+		for (let y = 0; y < pixels.height; y += rows) {
+			context?.putImageData(pixels, 0, 0, 0, y, pixels.width, Math.min(rows, pixels.height - y))
+			if (y + rows < pixels.height) yield
+		}
+		return canvas.transferToImageBitmap()
+	} finally {
+		// Safari caps the canvases a page may hold, and an emptied one lets go of its memory at once, not when it is collected
+		canvas.width = canvas.height = 0
+	}
 }
 
 /**
@@ -1490,15 +1536,22 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		made.push(bitmap)
 		return bitmap
 	}
+	/** `own` for a picture large enough that copying it in takes a few milliseconds: it returns between bands of rows. */
+	const ownInBands = function* (pixels: ImageData): Generator<void, ImageBitmap, undefined> {
+		const bitmap = yield* uploadInBands(pixels)
+		made.push(bitmap)
+		return bitmap
+	}
 	try {
 		let baked: SkyPixels | null = yield* bakeSky(stage, tokens.navy)
-		const sky: MiamiSky = { image: own(baked.pixels), zTop: baked.zTop, rows: baked.rows }
+		const sky: MiamiSky = { image: yield* ownInBands(baked.pixels), zTop: baked.zTop, rows: baked.rows }
 		yield
 		let left: MiamiWing | null = null
 		let right: MiamiWing | null = null
 		if (stage.rail.left) {
 			const wing = bakeWing(stage, stage.rail.left, true, dpr)
 			left = { image: own(wing.pixels), feather: wing.feather }
+			yield
 		}
 		if (stage.rail.right) {
 			const wing = bakeWing(stage, stage.rail.right, false, dpr)
@@ -1508,8 +1561,9 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 
 		const clouds = yield* bakeClouds(stage, own)
 		const skyline = planSkyline(stage)
+		yield
 		const disc = bakeDisc(stage, dpr)
-		const halo = bakeHalo(stage)
+		const halo = yield* bakeHalo(stage)
 		const dot = bakeBeacon(dpr)
 		const sun: MiamiSun = { disc: { image: own(disc.pixels), width: disc.width, height: disc.height }, halo: { image: own(halo.pixels), width: halo.width, height: halo.height } }
 		const beacon: MiamiImage = { image: own(dot.pixels), width: dot.width, height: dot.height }
@@ -1528,7 +1582,7 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		yield
 
 		const base = yield* bakeWaterBase(stage, skyline)
-		const baseImage: MiamiImage = { image: own(base.pixels), width: base.width, height: base.height }
+		const baseImage: MiamiImage = { image: yield* ownInBands(base.pixels), width: base.width, height: base.height }
 		yield
 		const tileWidth = Math.round(Math.min(WATER.ripple.tileMax, Math.max(WATER.ripple.tileMin[stage.narrow ? 'narrow' : 'wide'], stage.width + 32)))
 		const firstRipple = yield* bakeRippleTile(stage, tileWidth, WATER.ripple.seed)
@@ -1543,7 +1597,7 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		yield
 		let boat: MiamiBoat | null = null
 		if (BOAT.enabled) {
-			const drawn = bakeBoat(stage, dpr)
+			const drawn = yield* bakeBoat(stage, dpr)
 			boat = {
 				hull: { image: own(drawn.hull.pixels), width: drawn.hull.width / dpr, height: drawn.hull.height / dpr },
 				foot: drawn.hull.foot / dpr,

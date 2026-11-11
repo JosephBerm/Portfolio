@@ -135,6 +135,7 @@ export interface MiamiAssets {
 	glitter: MiamiGlitter
 	/** None where the boat is left out. */
 	boat: MiamiBoat | null
+	/** The land the palms grow from. */
 	key: MiamiKey
 	/** The palms the stage shows, in the config's order. */
 	crowns: readonly MiamiCrown[]
@@ -1699,7 +1700,7 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		}
 		yield
 
-		// The palms' sprites come a few at a time, each a step of its own, and the bitmaps they make are closed with the rest if the build is dropped
+		// The palms' sprites are baked one at a time, each a step of its own, and the bitmaps they make are closed with the rest if the build is dropped
 		const crowns = plantPalms(stage)
 		const key = bakeKey(stage, crowns)
 		const palms = yield* bakePalmSprites(

@@ -81,7 +81,7 @@ const KNOT_SALT = 0x6b6e6f74
 /** How far below the page's end a trunk's foot stands, so the key can cover it. */
 const FOOT_Z = -40
 
-/** The angle from straight up, in degrees, at which two of the short fronds behind a crown hang round the trunk's top, as the dead fronds of a real palm do. */
+/** The angle from straight up, in degrees, at which two of the short fronds behind a crown hang around the trunk's top, as the dead fronds of a real palm do. */
 const SKIRT_AT = 150
 
 /** The share of the fan's half-width beyond which a frond counts as old and starts to lose its length. */
@@ -265,7 +265,7 @@ export function planCrown(palm: PlacedPalm, art: PalmArt = PALM_ART): CrownPlan 
 		}
 	})
 
-	// The short fronds behind, one rigid sprite each: two hang round the trunk's top, and the rest stand in the widest gaps between the
+	// The short fronds behind, one rigid sprite each: two hang around the trunk's top, and the rest stand in the widest gaps between the
 	// front fronds, so the heart is solid where the clumps leave the middle open
 	const behind = layout.back.count[0] + Math.floor(roll(0, BACK_SALT) * (layout.back.count[1] - layout.back.count[0] + 1))
 	const openings = angles
@@ -464,11 +464,8 @@ export interface PalmSet {
 	back: PalmSprite[]
 }
 
-/** Every palm sprite of a stage, built for one pixel ratio. */
-export interface PalmSprites {
-	dpr: number
-	sets: Partial<Record<'large' | 'small', PalmSet>>
-}
+/** The sprites of every set a stage's palms use, baked for one pixel ratio. */
+export type PalmSprites = Partial<Record<'large' | 'small', PalmSet>>
 
 /** Fills a shape in the near color on a canvas of its own at `dpr`, and hands it over as a bitmap. */
 export function bakeShape(shape: FrondShape, dpr: number): PalmSprite {
@@ -510,35 +507,41 @@ export function bakeShape(shape: FrondShape, dpr: number): PalmSprite {
 
 /**
  * Bakes the sprites of every set the palms need, at device px for `dpr`, a sprite at a time so a build can stop between two. Each
- * set is baked for the first palm that uses it: the others draw its sprites scaled to their own frond.
+ * set is baked for the first palm that uses it: the others draw its sprites scaled to their own frond. `keep` is told of each
+ * bitmap as it is made, so a build that is abandoned part way can close them.
  */
-export function* bakePalmSprites(palms: readonly PlacedPalm[], dpr: number, art: PalmArt = PALM_ART): Generator<void, PalmSprites, undefined> {
-	const baked: PalmSprites['sets'] = {}
+export function* bakePalmSprites(palms: readonly PlacedPalm[], dpr: number, art: PalmArt = PALM_ART, keep?: (bitmap: ImageBitmap) => void): Generator<void, PalmSprites, undefined> {
+	const baked: PalmSprites = {}
+	const bake = (shape: FrondShape): PalmSprite => {
+		const sprite = bakeShape(shape, dpr)
+		keep?.(sprite.image)
+		return sprite
+	}
 	for (const palm of palms) {
 		if (baked[palm.set]) continue
 		const set: PalmSet = { length: palm.frond, variants: [], back: [] }
 		for (let variant = 0; variant < art.frond.variants; variant++) {
 			const droop = variantDroop(art.frond, variant)
 			const innerShape = frondShape(art.frond, droop, palm.frond, variant, 'inner', 1)
-			const inner = bakeShape(innerShape, dpr)
+			const inner = bake(innerShape)
 			yield
-			const outer = bakeShape(frondShape(art.frond, droop, palm.frond, variant, 'outer', 1), dpr)
+			const outer = bake(frondShape(art.frond, droop, palm.frond, variant, 'outer', 1))
 			set.variants.push({ inner, outer, hinge: innerShape.hinge })
 			yield
 		}
 		for (let variant = 0; variant < BACK_VARIANTS; variant++) {
 			const droop = variantDroop(art.frond, variant)
-			set.back.push(bakeShape(frondShape(art.frond, droop, palm.frond * art.layout.back.length, variant, 'whole', art.layout.back.weight), dpr))
+			set.back.push(bake(frondShape(art.frond, droop, palm.frond * art.layout.back.length, variant, 'whole', art.layout.back.weight)))
 			yield
 		}
 		baked[palm.set] = set
 	}
-	return { dpr, sets: baked }
+	return baked
 }
 
 /** Frees every sprite's bitmap. */
 export function closePalmSprites(sprites: PalmSprites): void {
-	for (const set of [sprites.sets.large, sprites.sets.small]) {
+	for (const set of [sprites.large, sprites.small]) {
 		if (!set) continue
 		for (const variant of set.variants) {
 			variant.inner.image.close()
@@ -618,7 +621,7 @@ const matrix = new Float64Array(6)
  * caller's, so they can be drawn under a transform of their own. It leaves the context's transform set to the last frond's.
  */
 export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmSprites, palm: PlacedPalm, plan: CrownPlan, pose: PalmPose, x: number, y: number, k: number, art: PalmArt = PALM_ART): void {
-	const set = sprites.sets[palm.set]
+	const set = sprites[palm.set]
 	if (!set) return
 	const rest = plan.fronds.length
 	plan.back.forEach((frond, i) => {

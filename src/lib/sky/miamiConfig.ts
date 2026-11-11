@@ -298,7 +298,7 @@ export const KEY = { wide: { left: [0.062, 0.26], right: [0.04, 0.09] }, narrow:
  * nearest to level: downwind they run `stream` longer and flatter, upwind shorter and fuller. The oldest fronds, which hang,
  * are `aged` shorter. `knot` is the radius of the knot at the crown as a share of a frond's length. Behind the fronds stands
  * a back layer of short, heavy fronds: how many (`count`), their `length` as a share of a frond's and their `weight` against
- * a frond's. Two hang round the trunk's top and the rest stand in the widest gaps between the fronds in front, which makes
+ * a frond's. Two hang around the trunk's top and the rest stand in the widest gaps between the fronds in front, which makes
  * the heart solid.
  *
  * `frond` is how one frond is drawn. It fans `spread` degrees either side of straight up; its length is a seeded share

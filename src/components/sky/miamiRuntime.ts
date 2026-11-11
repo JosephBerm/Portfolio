@@ -141,6 +141,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 	/** The bitmaps in use. Every draw reads the stage they were built for, so a layout that moves under them never leaves a gap. */
 	let baked: Baked | null = null
 	let building: Building | null = null
+	/** Ticks in a row that had spent the slice before the build was reached, for the build under way (STAGE.starveTicks). */
+	let starved = 0
 	/** `setSize` was told a pixel ratio other than the one of the bitmaps; cleared when a build starts, which reads the worker's ratio. */
 	let dprStale = false
 	/** When (worker-clock ms) the stage or the pixel ratio last changed enough to need new bitmaps. */
@@ -193,6 +195,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 
 	/** Ends a build under way, closing the bitmaps it had made so far. */
 	const abort = (): void => {
+		starved = 0
 		if (!building) return
 		building.generator.return(null)
 		building = null
@@ -236,13 +239,24 @@ export function createMiamiRuntime(): MiamiRuntime {
 	/**
 	 * Runs the build until the worker clock reaches `deadline` (ms), or to its end with Infinity; the assets once it is done,
 	 * else null. The clock is read before each piece, so a slice runs over its deadline by at most the piece that began before
-	 * it, and a tick that spent its budget before the build was reached builds nothing.
+	 * it, and a tick that spent its budget before the build was reached builds nothing. That would starve a rebuild behind work
+	 * that spends the budget every tick, with the old bitmaps on screen and fade frames asking for more, so after
+	 * STAGE.starveTicks such ticks in a row one piece is built anyway: a slow build, but one that finishes.
 	 */
 	const advance = (current: Building, deadline: number): MiamiAssets | null => {
+		let pieces = 0
 		for (;;) {
-			if (performance.now() >= deadline) return null
+			if (performance.now() >= deadline) {
+				if (pieces > 0 || ++starved < STAGE.starveTicks) {
+					if (pieces > 0) starved = 0
+					return null
+				}
+				starved = 0
+			}
 			const result = current.generator.next()
+			pieces++
 			if (result.done) {
+				starved = 0
 				if (!result.value) throw new RangeError('The scene build ended without assets')
 				return result.value
 			}

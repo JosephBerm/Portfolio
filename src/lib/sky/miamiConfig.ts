@@ -51,8 +51,11 @@ export const DESCENT = {
  * - `copyClear` and `copyClearMin`: the clearance kept between the lowest copy's bottom and bright clouds, and the least it
  *   falls to where the banks need the room.
  * - `bakeAhead`: canvas heights of scroll before the scene shows at which its bitmaps start to build.
- * - `buildSliceMs`: the most of a tick the build may take. `jumpEase`: the seconds the scene takes to ease in after a jump
- *   straight to the page's end. `rebuildTolerancePx`: how far a measure may move before the bitmaps are rebuilt.
+ * - `buildSliceMs`: the most of a tick the build may take. `starveTicks`: ticks in a row whose earlier work has already
+ *   spent the whole slice before the build is reached, after which one piece of it is built anyway, so a rebuild whose
+ *   old bitmaps are still on screen can't wait forever behind work that never lets up. `jumpEase`: the seconds the scene
+ *   takes to ease in after a jump straight to the page's end. `rebuildTolerancePx`: how far a measure may move before the
+ *   bitmaps are rebuilt.
  */
 export const STAGE = {
 	direction: 'B' as 'B' | 'A' | 'A+',
@@ -68,6 +71,7 @@ export const STAGE = {
 	copyClearMin: 16,
 	bakeAhead: 1.2,
 	buildSliceMs: 8,
+	starveTicks: 4,
 	jumpEase: 0.5,
 	rebuildTolerancePx: 4,
 } as const

@@ -150,9 +150,11 @@ export const SUN = {
  * long and the edge soft because short lumps with a crisp edge read as a mountain range, not as cloud, and for the same
  * reason the banks are low. `place` settles banks that don't fit: one shrinks to at least `minHeight` px before it is
  * dropped, a bank moved down to fit sits a seeded `offset` px lower where the room allows, and tops stay at least `topGap`
- * apart, so they never align. `top` and `topHigh` color a bank's top (lower and higher banks), `under` its underside on
- * the sun's side (`near`) and away from it (`far`), as light as the sky just below the bank so that it reads as lit from
- * below and not as haze, and `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun.
+ * apart, so they never align. The tallest bank of a class stays at least twice `minHeight`: it sets the clearance under the
+ * copy, so where a screen has little room the banks share a room no taller than it, and a room under two banks' worth holds
+ * none. `top` and `topHigh` color a bank's top (lower and higher banks), `under` its underside on the sun's side (`near`)
+ * and away from it (`far`), as light as the sky just below the bank so that it reads as lit from below and not as haze, and
+ * `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun.
  */
 export const CLOUDS = {
 	streaks: [
@@ -170,7 +172,7 @@ export const CLOUDS = {
 		],
 		narrow: [
 			{ above: 1.3, x: 0.3, width: 0.36, height: 22, drift: 0.4 },
-			{ above: 1.95, x: 0.76, width: 0.36, height: 30, drift: 0.7 },
+			{ above: 1.95, x: 0.76, width: 0.36, height: 40, drift: 0.7 },
 		],
 	},
 	shape: { stretch: 5.5, octaves: 3, blur: 3 },

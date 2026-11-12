@@ -88,7 +88,7 @@ export function rowShift(row: WaterRow, clock: number, level: number, out: RowSh
 }
 
 /** The middle of ripple band `band`, as a depth: the bands are the stops of `WATER.ripple.bands`, the first from the waterline. */
-export function rippleBandDepth(band: number): number {
+function rippleBandDepth(band: number): number {
 	const { bands } = WATER.ripple
 	return ((bands[band - 1] ?? 0) + (bands[band] ?? 1)) / 2
 }

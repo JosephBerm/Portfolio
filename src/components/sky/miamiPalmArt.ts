@@ -4,7 +4,7 @@ import type { PalmPose, WindPalm } from '@/lib/sky/miamiWind'
 import { hashCell } from '@/lib/sky/random'
 import { smoothstep } from '@/lib/sky/scene'
 
-/** What a frond is drawn from: the palm tunables of `PALMS`, gathered so a different look can be passed in as one object. */
+/** What a frond is drawn from: the palm tunables of `PALMS`, gathered as one object. */
 export interface FrondArt {
 	/** Degrees either side of straight up that the fan of fronds covers. */
 	spread: number
@@ -122,8 +122,6 @@ function clamp(value: number, min: number, max: number): number {
 
 /** One palm where the stage puts it: CSS px from the canvas's left, and z above the page's end. */
 export interface PlacedPalm {
-	/** Its place in the width class's list: the seed follows it, so a palm keeps its look when another comes or goes. */
-	index: number
 	crownX: number
 	crownZ: number
 	baseX: number
@@ -136,6 +134,7 @@ export interface PlacedPalm {
 	frond: number
 	fronds: number
 	set: 'large' | 'small'
+	/** From its place in the width class's list, so a palm keeps its look when another comes or goes. */
 	seed: number
 	/** The trunk's length from foot to crown, px. */
 	length: number
@@ -166,7 +165,6 @@ export function placePalms(stage: MiamiStage): PlacedPalm[] {
 			crownZ = Math.min(wanted, stage.height - PALMS.onScreen * frond)
 		}
 		placed.push({
-			index,
 			crownX,
 			crownZ,
 			baseX,
@@ -224,8 +222,8 @@ function nearestVariant(frond: FrondArt, droop: number): number {
  * farther and flatter, and those on the upwind side press back over the crown. Behind them stand a few short, heavy fronds that
  * make the crown's heart solid.
  */
-export function planCrown(palm: PlacedPalm, art: PalmArt = PALM_ART): CrownPlan {
-	const { frond, layout } = art
+export function planCrown(palm: PlacedPalm): CrownPlan {
+	const { frond, layout } = PALM_ART
 	const roll = (index: number, salt: number) => unit(palm.seed, index, salt)
 	const count = palm.fronds
 	const clumps = layout.clusters[0] + Math.floor(roll(0, CLUSTER_SALT) * (layout.clusters[1] - layout.clusters[0] + 1))
@@ -286,9 +284,9 @@ export function planCrown(palm: PlacedPalm, art: PalmArt = PALM_ART): CrownPlan 
 }
 
 /** The wind's view of a palm and its crown. */
-export function windPalm(palm: PlacedPalm, plan: CrownPlan, art: PalmArt = PALM_ART): WindPalm {
+export function windPalm(palm: PlacedPalm, plan: CrownPlan): WindPalm {
 	const angles = [...plan.fronds.map((frond) => frond.angle), ...plan.back.map((frond) => frond.angle)]
-	return { seed: palm.seed, height: palm.length, frond: palm.frond, angles, hinged: plan.fronds.length, spread: art.frond.spread }
+	return { seed: palm.seed, height: palm.length, frond: palm.frond, angles, hinged: plan.fronds.length, spread: PALM_ART.frond.spread }
 }
 
 /** A frond's shape in its own px: +x along its chord from where it leaves the crown, +y toward the side it hangs on. */
@@ -302,7 +300,7 @@ export interface FrondShape {
 }
 
 /** Which part of a frond a sprite holds. */
-export type FrondPart = 'whole' | 'inner' | 'outer'
+type FrondPart = 'whole' | 'inner' | 'outer'
 
 /** The signed area of a flat polygon: positive turns one way, negative the other. */
 function area(points: readonly number[]): number {
@@ -333,7 +331,7 @@ function addPolygon(into: number[][], points: number[]): void {
  * short fronds that fill the crown's heart. `variant` seeds the leaflets' small differences, so each baked shape has a comb of its own.
  * Everything is a pure function of its arguments.
  */
-export function frondShape(art: FrondArt, droop: number, length: number, variant: number, part: FrondPart, weight: number): FrondShape {
+function frondShape(art: FrondArt, droop: number, length: number, variant: number, part: FrondPart, weight: number): FrondShape {
 	const point = (s: number): [number, number] => [length * s, droop * length * s * s]
 	const slope = (s: number): number => Math.atan(2 * droop * s)
 
@@ -470,7 +468,7 @@ export interface PalmSet {
 export type PalmSprites = Partial<Record<'large' | 'small', PalmSet>>
 
 /** Fills a shape in the near color on a canvas of its own at `dpr`, and hands it over as a bitmap. */
-export function bakeShape(shape: FrondShape, dpr: number): PalmSprite {
+function bakeShape(shape: FrondShape, dpr: number): PalmSprite {
 	const polygons = [...shape.rib, ...shape.leaflets]
 	let minX = Infinity
 	let minY = Infinity
@@ -512,7 +510,8 @@ export function bakeShape(shape: FrondShape, dpr: number): PalmSprite {
  * set is baked for the first palm that uses it: the others draw its sprites scaled to their own frond. `keep` is told of each
  * bitmap as it is made, so a build that is abandoned part way can close them.
  */
-export function* bakePalmSprites(palms: readonly PlacedPalm[], dpr: number, art: PalmArt = PALM_ART, keep?: (bitmap: ImageBitmap) => void): Generator<void, PalmSprites, undefined> {
+export function* bakePalmSprites(palms: readonly PlacedPalm[], dpr: number, keep?: (bitmap: ImageBitmap) => void): Generator<void, PalmSprites, undefined> {
+	const { frond, layout } = PALM_ART
 	const baked: PalmSprites = {}
 	const bake = (shape: FrondShape): PalmSprite => {
 		const sprite = bakeShape(shape, dpr)
@@ -522,20 +521,20 @@ export function* bakePalmSprites(palms: readonly PlacedPalm[], dpr: number, art:
 	for (const palm of palms) {
 		if (baked[palm.set]) continue
 		const set: PalmSet = { length: palm.frond, variants: [], back: [] }
-		for (let variant = 0; variant < art.frond.variants; variant++) {
-			const droop = variantDroop(art.frond, variant)
-			const innerShape = frondShape(art.frond, droop, palm.frond, variant, 'inner', 1)
+		for (let variant = 0; variant < frond.variants; variant++) {
+			const droop = variantDroop(frond, variant)
+			const innerShape = frondShape(frond, droop, palm.frond, variant, 'inner', 1)
 			const inner = bake(innerShape)
 			yield
-			const outer = bake(frondShape(art.frond, droop, palm.frond, variant, 'outer', 1))
+			const outer = bake(frondShape(frond, droop, palm.frond, variant, 'outer', 1))
 			yield
-			const whole = bake(frondShape(art.frond, droop, palm.frond, variant, 'whole', 1))
+			const whole = bake(frondShape(frond, droop, palm.frond, variant, 'whole', 1))
 			set.variants.push({ inner, outer, whole, hinge: innerShape.hinge })
 			yield
 		}
 		for (let variant = 0; variant < BACK_VARIANTS; variant++) {
-			const droop = variantDroop(art.frond, variant)
-			set.back.push(bake(frondShape(art.frond, droop, palm.frond * art.layout.back.length, variant, 'whole', art.layout.back.weight)))
+			const droop = variantDroop(frond, variant)
+			set.back.push(bake(frondShape(frond, droop, palm.frond * layout.back.length, variant, 'whole', layout.back.weight)))
 			yield
 		}
 		baked[palm.set] = set
@@ -633,7 +632,7 @@ const matrix = new Float64Array(6)
  * one piece, which halves its draws and leaves its bend out. The trunk and the knot are the caller's, so they can be drawn under a
  * transform of their own. It leaves the context's transform set to the last frond's.
  */
-export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmSprites, palm: PlacedPalm, plan: CrownPlan, pose: PalmPose, x: number, y: number, k: number, tier: number, art: PalmArt = PALM_ART): void {
+export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmSprites, palm: PlacedPalm, plan: CrownPlan, pose: PalmPose, x: number, y: number, k: number, tier: number): void {
 	const set = sprites[palm.set]
 	if (!set) return
 	const rest = plan.fronds.length
@@ -642,7 +641,7 @@ export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmS
 		const frond = plan.back[i]
 		const sprite = frond ? set.back[frond.variant] : undefined
 		if (!frond || !sprite) continue
-		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[rest + i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / (set.length * art.layout.back.length), matrix)
+		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[rest + i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / (set.length * PALM_ART.layout.back.length), matrix)
 		ctx.drawImage(sprite.image, sprite.left, sprite.top, sprite.width, sprite.height)
 	}
 	for (let i = 0; i < rest; i++) {
@@ -670,7 +669,7 @@ export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmS
 		const c2 = -a * sin + c * cos
 		const d2 = -b * sin + d * cos
 		const { x: hx, y: hy } = variant.hinge
-		const shear = tier === 0 ? (pose.flutter[i] ?? 0) / Math.max(1, frond.length * (1 - art.frond.hinge)) : 0
+		const shear = tier === 0 ? (pose.flutter[i] ?? 0) / Math.max(1, frond.length * (1 - PALM_ART.frond.hinge)) : 0
 		ctx.setTransform(a2 + c2 * shear, b2 + d2 * shear, c2, d2, e + a * hx + c * hy - (a2 * hx + c2 * hy) - c2 * shear * hx, f + b * hx + d * hy - (b2 * hx + d2 * hy) - d2 * shear * hx)
 		ctx.drawImage(variant.outer.image, variant.outer.left, variant.outer.top, variant.outer.width, variant.outer.height)
 	}

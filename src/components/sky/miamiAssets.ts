@@ -1767,7 +1767,6 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		const palms = yield* bakePalmSprites(
 			crowns.map((crown) => crown.palm),
 			dpr,
-			PALM_ART,
 			(bitmap) => made.push(bitmap)
 		)
 

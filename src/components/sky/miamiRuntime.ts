@@ -103,13 +103,16 @@ export interface MiamiRuntime {
 	/**
 	 * What the scene's own draws took (ms) in a frame drawn with the scene on screen. Slow frames add up as the sky's do (more
 	 * than ADAPT.slowFrameMs, net of fast ones, ADAPT.slowFrames times), and each time they do the scene steps down one
-	 * tier, never back up: it draws less light, then fewer frames. It never touches adaptive quality, which steps the stars.
+	 * tier, never back up. The first step drops the scene to SCENE_PACING.slowFps, and on a wide screen it also draws less
+	 * light (a narrow screen has begun at that tier already); the second draws less again. It never touches adaptive
+	 * quality, which steps the stars.
 	 */
 	noteSceneMs(milliseconds: number): void
 	/**
 	 * The scene is on screen on a canvas too slow to run it (a scene frame costs about SCENE_PACING.softwareCost sky frames,
-	 * and the canvas can't draw that many at PACING.minFps), so it holds still: nothing else of the sky may ask for frames
-	 * there, or each would draw the scene's whole ground again for nothing.
+	 * and the canvas can't draw that many at PACING.minFps), so it holds still: the worker stops the drift and the twinkle
+	 * from asking for frames there, or each would draw the scene's whole ground again for nothing. Scrolling, fades and
+	 * transients still ask for theirs.
 	 */
 	stillOnScreen(scrollY: number, documentHeight: number, softwareFps: number): boolean
 }

@@ -369,8 +369,8 @@ export const WIND = {
 
 /**
  * Frames a second the scene's ambient motion draws: `fps` normally, `narrowFps` on phones, `slowFps` once adaptive quality
- * has stepped down. `softwareCost` is how many sky frames one scene frame costs on a software-rasterized canvas, which
- * decides when the scene holds still there.
+ * or the scene's own tier has stepped down. `softwareCost` is how many sky frames one scene frame costs on a
+ * software-rasterized canvas, which decides when the scene holds still there.
  */
 export const SCENE_PACING = { fps: 30, narrowFps: 30, slowFps: 20, softwareCost: 3 } as const
 

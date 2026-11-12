@@ -9,6 +9,7 @@ import { FAREWELL_SPEC, METEOR_SPEC, createMeteorMemory, type MeteorMemory } fro
 import type { Meteor, MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
 import type { SkyRect } from './protocol'
+import { zoneReaches } from './quietIndex'
 import { between, type Random } from './random'
 import { SATELLITE_SPEC, type SatellitePass } from './satellites'
 import { readingPadding, screenQuietZones, screenReadingZones, scrollKept, type LaunchScene } from './scene'
@@ -47,11 +48,14 @@ export interface FieldInput {
 	reading: readonly SkyRect[]
 }
 
-/** The field every kind plans in now. The rails are padded once and the very same objects go in each list. */
+/**
+ * The field every kind plans in now. The rails are padded once and the very same objects go in each list. Every planner
+ * stays on screen, so only the zones that can touch the screen matter.
+ */
 export function skyField(input: FieldInput): SkyField {
 	const { width, height, narrow, scrollY } = input
 	const rails = screenQuietZones([], scrollY, input.pinned)
-	const quiet = [...screenQuietZones(input.quiet, scrollY), ...rails]
+	const quiet = [...screenQuietZones(input.quiet, scrollY).filter((zone) => zoneReaches(zone, 0, 0, width, height)), ...rails]
 	const reading = screenReadingZones(input.reading, scrollY, height, readingPadding(narrow))
 	return { width, height, quiet, pinned: rails, noFly: [...rails, ...reading], clearSky: [...quiet, ...reading] }
 }

@@ -556,6 +556,11 @@ export function closePalmSprites(sprites: PalmSprites): void {
 	}
 }
 
+/** A coordinate of the quadratic curve from `from` through `control` to `to`, `s` of the way along it. */
+function quadratic(from: number, control: number, to: number, s: number): number {
+	return (1 - s) * (1 - s) * from + 2 * (1 - s) * s * control + s * s * to
+}
+
 /**
  * The trunk as a tapered polygon from its foot to the crown, in canvas px, as flat x, y pairs: down one side from the foot to the
  * crown and back up the other. The trunk is a quadratic curve whose control point stands `bow` px to the right of the straight line,
@@ -568,16 +573,17 @@ export function trunkOutline(baseX: number, baseY: number, crownX: number, crown
 	const points = out.length >= need ? out : new Float32Array(need)
 	const controlX = (baseX + crownX) / 2 + bow
 	const controlY = (baseY + crownY) / 2
-	const centerX = (s: number) => (1 - s) * (1 - s) * baseX + 2 * (1 - s) * s * controlX + s * s * crownX + sway * s ** power
-	const centerY = (s: number) => (1 - s) * (1 - s) * baseY + 2 * (1 - s) * s * controlY + s * s * crownY
+	// No closures and no Math.hypot: they would make garbage for every trunk of every frame
 	for (let i = 0; i <= samples; i++) {
 		const s = i / samples
-		const dx = centerX(Math.min(1, s + 0.01)) - centerX(Math.max(0, s - 0.01))
-		const dy = centerY(Math.min(1, s + 0.01)) - centerY(Math.max(0, s - 0.01))
-		const norm = Math.hypot(dx, dy) || 1
+		const before = Math.max(0, s - 0.01)
+		const after = Math.min(1, s + 0.01)
+		const dx = quadratic(baseX, controlX, crownX, after) + sway * after ** power - (quadratic(baseX, controlX, crownX, before) + sway * before ** power)
+		const dy = quadratic(baseY, controlY, crownY, after) - quadratic(baseY, controlY, crownY, before)
+		const norm = Math.sqrt(dx * dx + dy * dy) || 1
 		const half = (widths[0] + (widths[1] - widths[0]) * s ** 0.8) / 2
-		const x = centerX(s)
-		const y = centerY(s)
+		const x = quadratic(baseX, controlX, crownX, s) + sway * s ** power
+		const y = quadratic(baseY, controlY, crownY, s)
 		points[i * 2] = x - (dy / norm) * half
 		points[i * 2 + 1] = y + (dx / norm) * half
 		const j = (2 * (samples + 1) - 1 - i) * 2
@@ -631,26 +637,34 @@ export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmS
 	const set = sprites[palm.set]
 	if (!set) return
 	const rest = plan.fronds.length
-	plan.back.forEach((frond, i) => {
-		const sprite = set.back[frond.variant]
-		if (!sprite) return
+	// Indexed loops and no destructuring of the reused matrix: a callback or an iterator made per palm per frame would be garbage
+	for (let i = 0; i < plan.back.length; i++) {
+		const frond = plan.back[i]
+		const sprite = frond ? set.back[frond.variant] : undefined
+		if (!frond || !sprite) continue
 		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[rest + i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / (set.length * art.layout.back.length), matrix)
 		ctx.drawImage(sprite.image, sprite.left, sprite.top, sprite.width, sprite.height)
-	})
-	plan.fronds.forEach((frond, i) => {
-		const variant = set.variants[frond.variant]
-		if (!variant) return
+	}
+	for (let i = 0; i < rest; i++) {
+		const frond = plan.fronds[i]
+		const variant = frond ? set.variants[frond.variant] : undefined
+		if (!frond || !variant) continue
 		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / set.length, matrix)
 		if (tier >= 2) {
 			ctx.drawImage(variant.whole.image, variant.whole.left, variant.whole.top, variant.whole.width, variant.whole.height)
-			return
+			continue
 		}
 		ctx.drawImage(variant.inner.image, variant.inner.left, variant.inner.top, variant.inner.width, variant.inner.height)
 		// The outer part turns about the hinge by the extra degrees the wind gives it, and shears by the flutter; a frond on the left is mirrored, so its turn is too
 		const delta = (pose.outer[i] ?? 0) * frond.side * RADIANS
 		const cos = Math.cos(delta)
 		const sin = Math.sin(delta)
-		const [a = 1, b = 0, c = 0, d = 1, e = 0, f = 0] = matrix
+		const a = matrix[0] ?? 1
+		const b = matrix[1] ?? 0
+		const c = matrix[2] ?? 0
+		const d = matrix[3] ?? 1
+		const e = matrix[4] ?? 0
+		const f = matrix[5] ?? 0
 		const a2 = a * cos + c * sin
 		const b2 = b * cos + d * sin
 		const c2 = -a * sin + c * cos
@@ -659,5 +673,5 @@ export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmS
 		const shear = tier === 0 ? (pose.flutter[i] ?? 0) / Math.max(1, frond.length * (1 - art.frond.hinge)) : 0
 		ctx.setTransform(a2 + c2 * shear, b2 + d2 * shear, c2, d2, e + a * hx + c * hy - (a2 * hx + c2 * hy) - c2 * shear * hx, f + b * hx + d * hy - (b2 * hx + d2 * hy) - d2 * shear * hx)
 		ctx.drawImage(variant.outer.image, variant.outer.left, variant.outer.top, variant.outer.width, variant.outer.height)
-	})
+	}
 }

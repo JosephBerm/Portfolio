@@ -1220,7 +1220,7 @@ function waterPalette(stage: MiamiStage): typeof WATER.stops.B | typeof WATER.st
 	return STAGE.direction === 'B' && !stage.more ? WATER.stops.B : WATER.stops.A
 }
 
-/** The footer's cap for this stage: the most luminance a row at or below its copy may have. */
+/** The footer's cap for this stage: the most luminance a row at or below its copy may have before the dither. */
 function footerCap(stage: MiamiStage): number {
 	return stage.more ? WATER.footerCap.more : STAGE.direction === 'B' ? WATER.footerCap.B : WATER.footerCap.A
 }
@@ -1230,7 +1230,7 @@ function capFrom(stage: MiamiStage): number {
 	return stage.zFooterTop + WATER.capGap
 }
 
-/** The most luminance a row of the water at this height may have: the footer's cap at and below its copy, easing out to none over the feather above it. */
+/** The most luminance a row of the water at this height may have before the dither, which can add one level to a channel: the footer's cap at and below its copy, easing out to none over the feather above it. */
 function luminanceCap(stage: MiamiStage, z: number): number {
 	const cap = footerCap(stage)
 	const from = capFrom(stage)

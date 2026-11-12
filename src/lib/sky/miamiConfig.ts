@@ -217,17 +217,18 @@ export const BEACONS = { enabled: true, count: { wide: 3, narrow: 2 }, color: '#
 /**
  * The water. `stops` are [d, color] ramps down the water (d is 0 at the waterline and 1 at the page's end) for the body,
  * the crests and the troughs, by direction; `darken` pulls the body darker toward the viewer. `footerCap` is the most
- * luminance any row at or below the footer may have, by direction and under prefers-contrast: more, held over `capGap`
- * px and eased out over `capFeather`. The sun's column comes on over the `capFade` px above that hold (fewer where the
- * waterline is nearer, so on a phone it fades from the waterline down), because a column lit down to the footer would be
- * flattened by the cap into a bright box ending in a hard step; under prefers-contrast: more, where the cap is far below
- * the water's own light, each row eases up from the cap over the same px for the same reason. `glow` is the sun's column
- * on the water, `reflection` the skyline's dark reflection and `sliver` the thin line of light at the waterline. `strips` slice the water into rows a device px tall growing by
- * `growth` per row, with `margin` px to spare at the sides. `waves` are the row shifts' sines: period, rows per cycle and
- * share. `shiftX` and `shiftRow` are how far a row slides sideways and vertically (px), `stillClock` the frozen time of
- * the still pose. `ripple` and `glitter` shape the lens dashes of the crests and the glints: sizes in px, lives in
- * seconds, `count` by width class (and `low` for the slowest tier), the glint width's half at most 24 px, which the quiet
- * padding around copy covers.
+ * luminance any row at or below the footer may have before the dither, which can add one level to a channel (about 0.003
+ * of luminance at 0.125 and 0.001 at 0.02), by direction and under prefers-contrast: more, held over `capGap` px and
+ * eased out over `capFeather`. The sun's column comes on over the `capFade` px above that hold (fewer where the waterline
+ * is nearer, so on a phone it fades from the waterline down), because a column lit down to the footer would be flattened
+ * by the cap into a bright box ending in a hard step; under prefers-contrast: more, where the cap is far below the water's
+ * own light, each row eases up from the cap over the same px for the same reason. `glow` is the sun's column on the water,
+ * `reflection` the skyline's dark reflection and `sliver` the thin line of light at the waterline. `strips` slice the
+ * water into rows a device px tall growing by `growth` per row, with `margin` px to spare at the sides. `waves` are the
+ * row shifts' sines: period, rows per cycle and share. `shiftX` and `shiftRow` are how far a row slides sideways and
+ * vertically (px), `stillClock` the frozen time of the still pose. `ripple` and `glitter` shape the lens dashes of the
+ * crests and the glints: sizes in px, lives in seconds, `count` by width class (and `low` for the slowest tier), the glint
+ * width's half at most 24 px, which the quiet padding around copy covers.
  */
 export const WATER = {
 	stops: {

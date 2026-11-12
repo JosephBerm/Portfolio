@@ -180,9 +180,6 @@ const TOWERS_PER_STEP = 6
 /** Palm tops drawn between two returns: each is a trunk and nine curved leaves, a good deal more than a tower. */
 const PALMS_PER_STEP = 4
 
-/** Screens narrower than this get the narrow wing feather; the wide one would darken a third of the screen. */
-const WIDE_WING_MIN_WIDTH = 1024
-
 /** Steps of the lookup that encodes linear light as sRGB, and of the noise lookup. */
 const ENCODE_STEPS = 4096
 const NOISE_SIZE = 4096
@@ -429,7 +426,7 @@ function* bakeSky(stage: MiamiStage, navy: Rgb): Generator<void, SkyPixels, unde
  * image is the feather rows plus one row of full strength, which the draw stretches down the screen, so it stays small.
  */
 function bakeWing(stage: MiamiStage, side: RailSide, left: boolean, dpr: number): { pixels: ImageData; feather: number } {
-	const { share, min } = stage.width < WIDE_WING_MIN_WIDTH ? WING.feather.tablet : WING.feather
+	const { share, min } = WING.feather
 	const spread = Math.max(min, share * stage.width)
 	// Distances from the screen's edge on this side, in CSS px
 	const solid = (left ? side.edge : stage.width - side.edge) + WING.past

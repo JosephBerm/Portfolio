@@ -376,10 +376,9 @@ export const SCENE_PACING = { fps: 30, narrowFps: 30, slowFps: 20, softwareCost:
 /**
  * The wings: dark panels over the side rails so their copy keeps its contrast over anything the scene puts behind them,
  * even the boat's wake. `alpha` (`moreAlpha` under prefers-contrast: more) is their strength at the screen's edge, which
- * holds to `past` px beyond the rail's inner edge and feathers out over `feather`, a share of the width and at least `min` px.
- * `tablet` is the feather on screens under 1024 px wide and has the wide feather's values, so the edge is as soft just under
- * 1024 px as at it: a feather of 5% of a tablet's width, about 40 px, would drop the inner edge off in a hard line through the
- * sky and the water. Each comes on as its side needs it, over `ease` px of scroll, and feathers in at the top over `topFeather`
+ * holds to `past` px beyond the rail's inner edge and feathers out over `feather`, a share of the width and at least `min` px,
+ * wide because a feather of 5% of a tablet's width, about 40 px, dropped the inner edge off in a hard line through the sky
+ * and the water. Each comes on as its side needs it, over `ease` px of scroll, and feathers in at the top over `topFeather`
  * px, long enough that the dark comes in as a gradient and not as a hard edge across the bright band.
  */
-export const WING = { color: '#120A0E', alpha: 0.78, moreAlpha: 0.92, past: 32, ease: 120, feather: { share: 0.09, min: 60, tablet: { share: 0.09, min: 60 } }, topFeather: 140 } as const
+export const WING = { color: '#120A0E', alpha: 0.78, moreAlpha: 0.92, past: 32, ease: 120, feather: { share: 0.09, min: 60 }, topFeather: 140 } as const

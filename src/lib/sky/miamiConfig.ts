@@ -190,15 +190,17 @@ export const CLOUDS = {
  * - `far`: a second layer of seeded towers behind the near ones, between `low` and `high` of the tallest tower's height,
  *   with `width` and `gap` ranges in drawing units, in a gradient from `top` to `base` that mixes up to `sunMix` toward
  *   `sunColor` near the sun.
- * - `base`: the low base along the water, its height a share of the tallest tower by width class (lower on phones, where a
- *   taller one is a black shelf with bumps of canopy under stubby towers) and `gapShare` of that in the sun's gap, with a
- *   small palm top about every `palmEvery` px.
+ * - `base`: the low base along the water, its height a share of the tallest tower by width class (at most 0.3 of it on
+ *   phones, where a taller one is a black shelf with bumps of canopy under stubby towers) and `gapShare` of that in the
+ *   sun's gap, with a small palm top about every `palmEvery` px.
  * - `sunGap`: the room around the sun kept free of towers: `radii` (by width class) for the far layer and the low base,
- *   which are built per stage, and `nearUnits` in drawing units for the fixed near-tower list, which knows no viewport.
+ *   which are built per stage. `nearUnits`, in drawing units, is the rule the fixed near-tower list keeps (it knows no
+ *   viewport): no near tower closer to the sun than that. Nothing reads it at run time.
  * - `haze`: a band of the local sky's color over the far layer's feet, `height` px at `alpha`.
- * - `cranes`: the port cranes, shown from `minWidth` px wide and `minHeight` px tall. `window` is the x range they stand in
- *   and `at` their three positions, relative to the sun's gap in drawing units; `apex` is the height of a crane's A-frame
- *   in units.
+ * - `cranes`: the port cranes, shown from `minWidth` px wide and `minHeight` px tall, at their three positions `at`,
+ *   relative to the sun's gap in drawing units; `apex` is the height of a crane's A-frame in units. `window` is the x range
+ *   in the same units that they stand in and the near-tower list keeps clear of towers (the far layer shows there). Like
+ *   `nearUnits` it is a rule that the data (`at` and the list) must keep, and is not read at run time.
  */
 export const SKYLINE = {
 	near: '#120A0E',
@@ -273,11 +275,12 @@ export const WATER = {
  * The boat that crosses the water now and then: its length by the footer's layout (as the water's gap), `depth` px below
  * the waterline, its speed (px a second) and start (a share of the width) by width class, and the seconds it waits
  * out of sight before it returns. The scene's clock stands still while its moving parts are off screen, so `startX` is where
- * a visitor first finds the boat: a phone's is a third of the way across, in open water, where nearer the edge the boat
- * would stand against the left palm's trunk and its wake would cross it. `bob` is how far and how fast it rocks; `wake` is
- * the V behind it (half angle in degrees, lengths of boat it reaches, alpha and color) and `reflection` the px of its dark
- * reflection. The hull and cabin are outlines with x and height as shares of the length, up from the hull's foot, bow to the
- * right; `mast` is the mast's height as a share of the length.
+ * a visitor first finds the boat: a phone's is a third of the way across, in open water and clear of the left palm's trunk
+ * (its wake can still run behind the trunk there), where nearer the edge the boat would stand against the trunk and its
+ * wake would cross it. `bob` is how far and how fast it rocks; `wake` is the V behind it (half angle in degrees, lengths
+ * of boat it reaches, alpha and color) and `reflection` the px of its dark reflection. The hull and cabin are outlines with
+ * x and height as shares of the length, up from the hull's foot, bow to the right; `mast` is the mast's height as a share
+ * of the length.
  */
 export const BOAT = {
 	enabled: true,
@@ -354,8 +357,8 @@ export const PALMS = {
  * `power` and its crown tilting at most `tilt` degrees. A `frond` swings with its own `period` by `upper`, `side` or
  * `hanging` degrees by how it hangs, times `gain[0] + gain[1] e`, leans `bias` degrees downwind by `e`, swings
  * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. These
- * are the angles of a palm whose fronds are `fullLength` px long: a palm with longer fronds moves by that much less, so no
- * tip moves faster than a palm of that size's. `flutter` is the tip's small, fast shear (`amount` px).
+ * are the angles of a palm whose fronds are `fullLength` px long: a palm with longer fronds moves by at least that much
+ * less, so no tip moves faster than a palm of that size's. `flutter` is the tip's small, fast shear (`amount` px).
  */
 export const WIND = {
 	rest: [0.22, 0.36],

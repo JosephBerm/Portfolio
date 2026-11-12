@@ -167,8 +167,10 @@ export function createPalmPose(): PalmPose {
  * seeded, and an amplitude by how it hangs (standing up, arching out or hanging), raised with the gust and held back on the
  * upwind side, where the crown shelters it. The downwind lean of every frond rises with the gust and stays at `level` 0.
  * The outer part of a hinged frond swings the same way a little later and a little less, relative to the inner. A palm
- * whose fronds are longer than `WIND.frond.fullLength` moves by that much less, because a tip a given angle away from
- * where it was is that much further from it: the tips of a big palm on a big screen move no faster than a small one's.
+ * whose fronds are longer than `WIND.frond.fullLength` moves by at least that much less (the scaled level also pulls the
+ * gust toward `WIND.stillGust`, which lowers the gain, the lean, the flutter and the trunk's sway too), because a tip a
+ * given angle away from where it was is that much further from it: the tips of a big palm on a big screen move no faster
+ * than a small one's.
  */
 export function palmPose(palm: WindPalm, e: number, clock: number, level: number, out: PalmPose): PalmPose {
 	const { trunk, frond, flutter } = WIND

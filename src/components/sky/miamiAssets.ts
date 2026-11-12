@@ -184,7 +184,7 @@ const PALMS_PER_STEP = 4
 const ENCODE_STEPS = 4096
 const NOISE_SIZE = 4096
 
-/** The bloom and the hairline are left out of rows where they add less than this much linear light, under a thousandth of a level. */
+/** The bloom and the hairline are left out of rows where they add less than this much linear light, a few thousandths of a level at most. */
 const NEGLIGIBLE = 1e-6
 
 /** How many of the hairline's widths its Gaussian reaches before it adds less than NEGLIGIBLE. */
@@ -475,7 +475,7 @@ function fillBox(mask: Uint8Array, width: number, height: number, x0: number, y0
 /** Sub-scanlines a polygon's coverage is sampled with a row at: four steps of a quarter pixel give 16 levels of edge. */
 const SUBSAMPLES = 4
 
-/** Fills a polygon (x, y pairs, any orientation) with antialiased edges: each pixel gets its share of area. */
+/** Fills a polygon (x, y pairs, any orientation) with smooth edges: each pixel gets its share of area. */
 function fillPolygon(mask: Uint8Array, width: number, height: number, points: readonly number[]): void {
 	const count = points.length >> 1
 	if (count < 3) return
@@ -528,7 +528,7 @@ function fillPolygon(mask: Uint8Array, width: number, height: number, points: re
 	}
 }
 
-/** Strokes a straight line of `thickness` px as a quad, with antialiased edges. */
+/** Strokes a straight line of `thickness` px as a quad, with smooth edges. */
 function strokeLine(mask: Uint8Array, width: number, height: number, x0: number, y0: number, x1: number, y1: number, thickness: number): void {
 	const length = Math.hypot(x1 - x0, y1 - y0)
 	if (length === 0) return

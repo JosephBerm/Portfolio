@@ -103,7 +103,7 @@ const RIB_STEPS = 32
 /** The share of a frond's length over which its broad foot narrows to the midrib. */
 const HUB_REACH = 0.24
 
-/** Px of empty margin around a sprite, so its edge pixels are fully antialiased. */
+/** Px of empty margin around a sprite, so the partly covered pixels along its edge are fully drawn. */
 const SPRITE_PAD = 2
 
 /** A uniform number in [0, 1) from a seed, an index and a salt, the same every time. */

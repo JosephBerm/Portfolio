@@ -231,7 +231,9 @@ export const BEACONS = { enabled: true, count: { wide: 3, narrow: 2 }, color: '#
  * row shifts' sines: period, rows per cycle and share. `shiftX` and `shiftRow` are how far a row slides sideways and
  * vertically (px), `stillClock` the frozen time of the still pose. `ripple` and `glitter` shape the lens dashes of the
  * crests and the glints: sizes in px, lives in seconds, `count` by width class (and `low` for the slowest tier), the glint
- * width's half at most 24 px, which the quiet padding around copy covers.
+ * width's half at most 24 px, which the quiet padding around copy covers. The ripples' `bands` each trade the light of their
+ * two layers over a life of their own, and two neighbouring bands hand their crests over across `reach` px either side of
+ * the edge between them, so the edge is no line across the water when they stand at different points of their lives.
  */
 export const WATER = {
 	stops: {
@@ -263,7 +265,7 @@ export const WATER = {
 		bands: [0.06, 0.14, 0.24, 0.36, 0.5, 0.66, 0.82, 1],
 		rowHeight: [1, 3], dash: [5, 35], jitter: 0.4, crestShare: [0.52, 0.22], crestAlpha: 0.85, troughShare: 0.25, troughAlpha: 0.55,
 		drift: [1, 7], crestBRate: 0.55, life: [3, 5], stillAlpha: 0.62,
-		tileMin: { wide: 1024, narrow: 512 }, tileMax: 2048, seed: 0x52495050,
+		tileMin: { wide: 1024, narrow: 512 }, tileMax: 2048, seed: 0x52495050, reach: 8,
 	},
 	glitter: {
 		count: { wide: 120, narrow: 50, low: 30 }, width: [6, 40], height: [1, 3], life: [0.9, 1.6], peak: 0.9,

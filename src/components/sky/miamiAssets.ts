@@ -62,14 +62,26 @@ export interface MiamiNear extends MiamiImage {
 	beacons: readonly MiamiBeacon[]
 }
 
+/**
+ * One ripple band's part of a layer's picture: the rows of the water it draws crests in, CSS px under the waterline, which reach past
+ * each edge it shares with a neighbour into the neighbour's rows, and the row of the picture they start at.
+ */
+export interface RippleSlice {
+	from: number
+	to: number
+	top: number
+}
+
 /** The water: the base picture the strips are cut from, the rows they are cut in, and the two ripple layers. */
 export interface MiamiWater {
 	/** The base, in CSS px, `WATER.strips.margin` wider each side than the canvas and `STAGE.water.overscan` deeper than the page's end. */
 	base: MiamiImage
 	/** The strips, from the waterline down: their places and heights are in device px at the build's pixel ratio. */
 	rows: readonly WaterRow[]
-	/** The ripple layers' tiles, one CSS px a pixel, from the waterline to the page's end, wrapping at the sides. */
+	/** The ripple layers, one CSS px a pixel and wrapping at the sides: each holds every band's slice, one under the other, with the crests at that band's share of them. */
 	ripples: readonly [ImageBitmap, ImageBitmap]
+	/** Each band's slice, in the order of `WATER.ripple.bands`: the same in both layers. */
+	slices: readonly RippleSlice[]
 	tileWidth: number
 }
 
@@ -173,6 +185,9 @@ const WATER_BATCH_PIXELS = 4096
 
 /** Columns of ripple dashes (each a sine and a power) a field draws between two returns, counted at the end of each row: a millisecond or two while the code is cold. */
 const LENS_PIXELS = 4000
+
+/** A transparent row between two slices of a ripple layer, so a smoothed draw of one never takes in a row of the next. */
+const SLICE_GAP = 1
 
 /** Towers drawn between two returns, not counting those with a polygon crown (see `polygonCrown`), which each end a step. */
 const TOWERS_PER_STEP = 6
@@ -1467,22 +1482,71 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 	return { pixels, width, height }
 }
 
+/** The ripple bands' slices of a layer and the CSS rows under the waterline where the bands are cut; `height` is the layer's rows, every slice and the gaps between them. */
+interface RippleLayout {
+	slices: RippleSlice[]
+	cuts: number[]
+	height: number
+}
+
 /**
- * One ripple layer's tile: crests as lens-shaped dashes, one CSS px a pixel, from the waterline to the page's end, in the
- * crest color of their depth and the crest alpha. A crest's luminance is capped by the same cap the water is, so composited
- * over the water it never passes it (mixing in sRGB can't exceed the brighter of the two in linear light).
+ * The ripple bands' slices for water `rows` CSS px deep: band b covers its own rows, cut where `WATER.ripple.bands` cuts them, and
+ * `WATER.ripple.reach` rows past each edge it shares with a neighbour, over which the two hand the crests from one to the other (see
+ * `below`). The slices stand one under the other in band order.
  */
-function* bakeRippleTile(stage: MiamiStage, width: number, seed: number): Generator<void, ImageData, undefined> {
+function rippleLayout(rows: number): RippleLayout {
+	const { bands, reach } = WATER.ripple
+	const cuts = bands.slice(0, -1).map((stop) => Math.round(stop * rows))
+	const slices: RippleSlice[] = []
+	let top = 0
+	for (let b = 0; b < bands.length; b++) {
+		const from = b === 0 ? 0 : Math.max(0, (cuts[b - 1] ?? 0) - reach)
+		const to = b === bands.length - 1 ? rows : Math.min(rows, (cuts[b] ?? rows) + reach)
+		slices.push({ from, to, top })
+		top += to - from + SLICE_GAP
+	}
+	return { slices, cuts, height: Math.max(1, top - SLICE_GAP) }
+}
+
+/**
+ * The share of the crests of the row whose middle is `y` CSS px under the waterline that belongs to the bands under the cut at `cut`:
+ * none `WATER.ripple.reach` px above it, all as far below it, and between, a share that grows evenly with the depth. Every edge is
+ * handed over across the same rows, so for any row these shares fall from one cut to the next and the bands' shares, each the share
+ * under the cut above it less the share under the cut below it, add up to 1.
+ */
+function below(y: number, cut: number): number {
+	const { reach } = WATER.ripple
+	if (reach <= 0) return y < cut ? 0 : 1
+	return Math.min(1, Math.max(0, (y - cut + reach) / (2 * reach)))
+}
+
+/**
+ * One ripple layer: crests as lens-shaped dashes, one CSS px a pixel, from the waterline to the page's end, in the crest color of
+ * their depth and the crest alpha, as one slice for each band (see `rippleLayout`). In the rows two bands share, each slice holds
+ * the crests at its band's share of them, so where neighbouring bands differ in the light their layers have, the change runs over
+ * the shared rows instead of stepping at the edge. The bands are drawn in order, so a band's crests in the rows it shares with the
+ * band above go over that band's: they are made stronger by as much as drawing over takes from them when both bands stand at the
+ * same place and the same light, which `still`, the light this layer has in the still pose, gives. A still frame of the slices is
+ * then the frame the layer's whole field would make, to the rounding of a level. A crest's luminance is capped by the same cap the
+ * water is, so composited over the water it never passes it (mixing in sRGB can't exceed the brighter of the two in linear light).
+ */
+function* bakeRippleLayer(stage: MiamiStage, width: number, seed: number, still: number, layout: RippleLayout): Generator<void, ImageData, undefined> {
 	const rows = Math.ceil(stage.zWater)
 	const field = yield* lensField(width, rows, stage.zWater, seed, (depth) => lerp(WATER.ripple.crestShare[0], WATER.ripple.crestShare[1], depth))
 	const stops = linearStops(waterPalette(stage).crest)
 	const encoded = encoding()
 	const color = new Float32Array(3)
-	const pixels = new ImageData(width, rows)
+	const pixels = new ImageData(width, layout.height)
 	const { data } = pixels
+	const { crestAlpha } = WATER.ripple
 	const rowsPerBatch = Math.max(1, Math.floor(COLOR_PIXELS / width))
-	for (let start = 0; start < rows; start += rowsPerBatch) {
-		for (let j = start; j < Math.min(rows, start + rowsPerBatch); j++) {
+	let batch = 0
+	for (let band = 0; band < layout.slices.length; band++) {
+		const slice = layout.slices[band]
+		if (!slice) continue
+		const above = layout.cuts[band - 1]
+		const under = layout.cuts[band]
+		for (let j = slice.from; j < slice.to; j++) {
 			const p = j + 0.5
 			stopsAt(stops, Math.min(1, p / stage.zWater), color, 0)
 			const light = 0.2126 * (color[0] ?? 0) + 0.7152 * (color[1] ?? 0) + 0.0722 * (color[2] ?? 0)
@@ -1491,15 +1555,25 @@ function* bakeRippleTile(stage: MiamiStage, width: number, seed: number): Genera
 			const r = Math.round(encode(encoded, (color[0] ?? 0) * scale))
 			const g = Math.round(encode(encoded, (color[1] ?? 0) * scale))
 			const b = Math.round(encode(encoded, (color[2] ?? 0) * scale))
+			// The band's share of the row's crests, and the share of the bands above it, which are drawn before it
+			const ahead = above === undefined ? 0 : 1 - below(p, above)
+			const share = 1 - ahead - (under === undefined ? 0 : below(p, under))
+			const out = (slice.top + j - slice.from) * width * 4
 			for (let i = 0; i < width; i++) {
-				const k = (j * width + i) * 4
+				const k = out + i * 4
 				data[k] = r
 				data[k + 1] = g
 				data[k + 2] = b
-				data[k + 3] = Math.round(((field[j * width + i] ?? 0) * WATER.ripple.crestAlpha))
+				const crest = (field[j * width + i] ?? 0) * crestAlpha
+				if (crest <= 0 || share <= 0) continue
+				// As much stronger as the crests drawn before take from it where they lie in the same place, in the still pose's light
+				data[k + 3] = Math.round((crest * share) / (1 - (still * crest * ahead) / 255))
+			}
+			if (++batch >= rowsPerBatch) {
+				batch = 0
+				yield
 			}
 		}
-		yield
 	}
 	return pixels
 }
@@ -1744,11 +1818,12 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		const baseImage: MiamiImage = { image: yield* ownInBands(base.pixels), width: base.width, height: base.height }
 		yield
 		const tileWidth = Math.round(Math.min(WATER.ripple.tileMax, Math.max(WATER.ripple.tileMin[stage.narrow ? 'narrow' : 'wide'], stage.width + 32)))
-		const firstRipple = yield* bakeRippleTile(stage, tileWidth, WATER.ripple.seed)
-		const crestA = own(firstRipple)
-		const secondRipple = yield* bakeRippleTile(stage, tileWidth, WATER.ripple.seed ^ 0x5b5b5b5b)
-		const crestB = own(secondRipple)
-		const water: MiamiWater = { base: baseImage, rows: waterRows(Math.round(stage.zWater * dpr)), ripples: [crestA, crestB], tileWidth }
+		const layout = rippleLayout(Math.ceil(stage.zWater))
+		const firstRipple = yield* bakeRippleLayer(stage, tileWidth, WATER.ripple.seed, WATER.ripple.stillAlpha, layout)
+		const crestA = yield* ownInBands(firstRipple)
+		const secondRipple = yield* bakeRippleLayer(stage, tileWidth, WATER.ripple.seed ^ 0x5b5b5b5b, 1 - WATER.ripple.stillAlpha, layout)
+		const crestB = yield* ownInBands(secondRipple)
+		const water: MiamiWater = { base: baseImage, rows: waterRows(Math.round(stage.zWater * dpr)), ripples: [crestA, crestB], slices: layout.slices, tileWidth }
 		yield
 
 		const dashes = bakeGlitter(dpr)

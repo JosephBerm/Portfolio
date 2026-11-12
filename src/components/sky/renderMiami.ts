@@ -240,28 +240,28 @@ function drawWater(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 
 /**
  * The ripples: two layers of crests, each in eight bands from the waterline to the page's end, every band drifted right by its
- * own offset and wrapped by drawing the tile again where it ends. The two layers trade light over each band's own life.
+ * own offset and wrapped by drawing its slice again where the slice ends. The two layers trade light over each band's own life.
+ * A band's slice reaches past its edges into its neighbours' rows, over which the two hand the crests from one to the other,
+ * so no edge is a line across the water where one band's crests stop and the next one's start.
  */
 function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, waterY: number): void {
 	const { assets, clock, level, fade } = scene
-	const { ripples, tileWidth } = assets.water
-	const { bands } = WATER.ripple
+	const { ripples, slices, tileWidth } = assets.water
 	const k = frame.dpr
 	for (let layer = 0; layer < ripples.length; layer++) {
 		const tile = ripples[layer]
 		if (!tile) continue
-		for (let b = 0; b < bands.length; b++) {
+		for (let b = 0; b < slices.length; b++) {
+			const slice = slices[b]
 			const alpha = rippleAlpha(b, layer, clock, level) * fade
-			if (alpha < MIN_STAR_ALPHA) continue
-			const p0 = Math.round((bands[b - 1] ?? 0) * tile.height)
-			const p1 = Math.round((bands[b] ?? 1) * tile.height)
-			const y0 = waterY + Math.round(p0 * k)
-			const y1 = waterY + Math.round(p1 * k)
-			if (p1 <= p0 || y1 <= 0 || y0 >= frame.deviceHeight) continue
+			if (!slice || alpha < MIN_STAR_ALPHA) continue
+			const y0 = waterY + Math.round(slice.from * k)
+			const y1 = waterY + Math.round(slice.to * k)
+			if (slice.to <= slice.from || y1 <= 0 || y0 >= frame.deviceHeight) continue
 			ctx.globalAlpha = alpha
 			const offset = rippleOffset(b, layer, clock) % tileWidth
 			for (let x = offset > 0 ? offset - tileWidth : 0; x < frame.width; x += tileWidth) {
-				ctx.drawImage(tile, 0, p0, tileWidth, p1 - p0, x * k, y0, tileWidth * k, y1 - y0)
+				ctx.drawImage(tile, 0, slice.top, tileWidth, slice.to - slice.from, x * k, y0, tileWidth * k, y1 - y0)
 			}
 		}
 	}

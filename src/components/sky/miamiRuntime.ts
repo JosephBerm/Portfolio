@@ -143,8 +143,8 @@ type Tier = 0 | 1 | 2
 /** Whether a canvas is too slow to run the scene: one scene frame costs about SCENE_PACING.softwareCost sky frames, and it must really stand still there. */
 const isStill = (softwareFps: number): boolean => softwareFps / SCENE_PACING.softwareCost < PACING.minFps
 
-/** The lift below which the scene's own motion is on screen: the horizon group moves against the page from the waterline's entry, and the warm band carries the clouds. */
-const movesBelow = (stage: MiamiStage): number => Math.max(stage.zWarmTop, stage.horizonEnter)
+/** The lift below which the scene's own motion is on screen: the horizon group moves against the page from the waterline's entry, and the palms and the clouds stand in the warm band they are placed by (under more the band that shows is thinner, so its top would leave them still while they are on screen). */
+const movesBelow = (stage: MiamiStage): number => Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 
 /** The runtime for one worker: its pieces arrive by message, in any order, and the stage follows whatever it has. */
 export function createMiamiRuntime(): MiamiRuntime {
@@ -436,10 +436,11 @@ export function createMiamiRuntime(): MiamiRuntime {
 			// The drift's caps, and a third of what a software canvas can draw, since a scene frame costs about that many sky frames there
 			demanded.cap = Math.min(driftCap(input.narrow, input.quality > 0, input.softwareFps), input.softwareFps / SCENE_PACING.softwareCost)
 			// The horizon slides to its new pace over a couple of seconds, and a page standing still draws nothing unless asked: a landed scene moves with nothing to ease.
-			// The glide asks for frames on display refreshes, at the scene's own pace at least, so it lands on them and steps no more than it must
+			// The glide asks for frames on display refreshes, at the scene's own pace at least, so it lands on them and steps no more than it must;
+			// on a canvas too slow for the scene the cap holds it to a third of what that canvas can draw, where timer frames would not be capped
 			if (lift > 0 && lift < stage.zShow && easing(rate?.since ?? null, STAGE.rateEase, input.now / 1000)) {
 				demanded.easing = true
-				if (!still) demanded.fps = Math.max(demanded.fps, SCENE_PACING.fps)
+				demanded.fps = Math.max(demanded.fps, SCENE_PACING.fps)
 			}
 			// The light a step down took away fades out over a second of frames, whatever else has gone still
 			if (lift < stage.zShow && easing(thinSince, ADAPT.thinFade, input.now / 1000)) demanded.easing = true

@@ -282,7 +282,7 @@ export interface MiamiView {
 	wingTopRight: number
 	/** Some of the scene is on the canvas: the lift is under `zShow`. */
 	onScreen: boolean
-	/** Something of the scene moves against the page: the lift is under the larger of the warm band's top and the waterline's entry. */
+	/** Something of the scene moves against the page: the lift is under the larger of the top of the warm band the palms and clouds are placed by and the waterline's entry. */
 	moving: boolean
 }
 
@@ -324,7 +324,7 @@ export function viewAt(stage: MiamiStage, scrollY: number, documentHeight: numbe
 	out.wingTopLeft = left ? Math.max(left.top - WING.topFeather, wingTop) : 0
 	out.wingTopRight = right ? Math.max(right.top - WING.topFeather, wingTop) : 0
 	out.onScreen = lift < stage.zShow
-	out.moving = lift < Math.max(stage.zWarmTop, stage.horizonEnter)
+	out.moving = lift < Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 	return out
 }
 

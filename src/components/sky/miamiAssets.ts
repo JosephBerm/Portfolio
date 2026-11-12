@@ -101,7 +101,7 @@ export interface MiamiCrown {
 	reach: number
 }
 
-/** One corner's key: the height of its top above the page's end (CSS px) at every `MiamiKey.step` px from the screen's edge, out to where it runs into the water. */
+/** One corner's key: the height of its top above the page's end (CSS px) at every `MiamiKey.step` px from the screen's edge, out to where it runs into the water and on below the page's end, sinking, for as far as a pull past it can show. */
 export interface MiamiKeySide {
 	/** It stands in the bottom-right corner, running left from the edge. */
 	right: boolean
@@ -1642,7 +1642,11 @@ function bakeKey(stage: MiamiStage, crowns: readonly MiamiCrown[]): MiamiKey {
 		if (!share || !crowns.some((crown) => (crown.palm.baseX > stage.width / 2) === right)) continue
 		const edgeHeight = share[0] * stage.height
 		const reach = share[1] * stage.width
-		const tops = new Float32Array(Math.ceil(reach / KEY_STEP) + 1)
+		// Past its reach the top keeps falling, from level, as a curve whose radius is the key's own height, below the page's end and down
+		// to the depth of the water kept there for a pull past the end, so the pull shows land sinking into the water and not a wall
+		const radius = Math.max(1, edgeHeight)
+		const tail = Math.ceil(Math.sqrt(2 * radius * STAGE.water.overscan) / KEY_STEP)
+		const tops = new Float32Array(Math.ceil(reach / KEY_STEP) + 1 + tail)
 		const seed = KEY.seed + (right ? 1 : 0)
 		let height = 0
 		for (let i = 0; i < tops.length; i++) {
@@ -1650,7 +1654,8 @@ function bakeKey(stage: MiamiStage, crowns: readonly MiamiCrown[]): MiamiKey {
 			const fall = (1 - Math.min(1, x / reach)) ** 1.5
 			const swell = KEY_UNEVEN.share[0] * (2 * valueNoise(x, KEY_UNEVEN.spacing[0], seed) - 1)
 			const rough = KEY_UNEVEN.share[1] * (2 * valueNoise(x, KEY_UNEVEN.spacing[1], seed ^ 0x5bd1e995) - 1)
-			tops[i] = edgeHeight * fall * Math.max(0, 1 + swell + rough)
+			const sunk = x > reach ? (x - reach) ** 2 / (2 * radius) : 0
+			tops[i] = edgeHeight * fall * Math.max(0, 1 + swell + rough) - sunk
 			height = Math.max(height, tops[i] ?? 0)
 		}
 		sides.push({ right, height, tops })

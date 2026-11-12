@@ -673,8 +673,10 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * they fly. A pause fades every transient out over `cancelFade` seconds; one that holds the ink lease or leaves a shooting
  * star's train also goes as the page scrolls from its launch (SCROLL_CANCEL), and every other answers only to what comes
  * under it. A plan that finds no room waits `retry` seconds, and never stops trying, since the room moves with the
- * scroll. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet` seconds after scrolling stops, and
- * after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
+ * scroll. A held launch looks again after `recheck` seconds. A launch waits `scrollQuiet` seconds after the last scroll step
+ * of more than `calmStep` px (2,400 px/s at 60 Hz, past a wheel notch's peak, so only a fling or a jump holds one back, and a
+ * visitor who keeps scrolling still sees events), and one that may pass near quiet copy after the last step of any size; after
+ * a return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
  * From `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
  * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
  */
@@ -687,6 +689,7 @@ export const TRANSIENTS = {
 	retry: [5, 9],
 	recheck: 1,
 	scrollQuiet: 1.2,
+	calmStep: 40,
 	afterReturn: 3,
 	longVisit: { from: 120, scale: 240, max: 3 },
 } as const

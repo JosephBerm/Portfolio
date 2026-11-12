@@ -95,8 +95,10 @@ export interface PlanContext {
 	now: number
 	field: SkyField
 	visit: VisitMemory
-	/** The ink lease is free, the crossing cooldown is over, nothing else is in the sky and no comet shows, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
+	/** The ink lease is free, the crossing cooldown is over, the page is still, nothing else is in the sky and no comet shows, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
 	nearCopy: boolean
+	/** The page is still (LaunchGate.still): only then may a shooting star leave a train, which any scroll takes. */
+	still: boolean
 	/** Share of each rect's ink budget a transient may keep on the copy (the contrast preference's meteorInk times the descent's inkShare): planMeteor's ink option. */
 	ink: number
 	/** A narrow screen (phones). */
@@ -148,8 +150,10 @@ export interface LaunchGate {
 	allowed: boolean
 	/** The launch scene now (SceneLevels.launchScene), which each kind's own `scene` must match. */
 	scene: LaunchScene | null
-	/** No scroll for TRANSIENTS.scrollQuiet seconds. */
-	settled: boolean
+	/** No scroll step over TRANSIENTS.calmStep px for TRANSIENTS.scrollQuiet seconds. */
+	calm: boolean
+	/** No scroll at all for TRANSIENTS.scrollQuiet seconds: what must stay where its plan saw the copy may start now. */
+	still: boolean
 	/**
 	 * The page's reading copy has been measured. Until it has, or where a walk finds none, the sky can't tell what a flight may
 	 * come to lie on, so the scroll cancel takes every flight.
@@ -257,7 +261,7 @@ function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number,
 	const spec = SPECS[kind]
 	return (
 		!gate.allowed ||
-		!gate.settled ||
+		!gate.calm ||
 		(gate.narrow && (!spec.phones || schedule.launched >= TRANSIENTS.narrowLimit)) ||
 		now - schedule.lastOnsetAt < TRANSIENTS.minOnsetGap ||
 		schedule.active.some((transient) => transient.kind === kind) ||
@@ -274,9 +278,9 @@ function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number,
  */
 function launchKind<K extends TransientKind>(schedule: TransientSchedule, random: Random, now: number, kind: K, gate: LaunchGate, field: SkyField): boolean {
 	const spec: TransientSpec<K> = SPECS[kind]
-	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over, nothing else is in the sky and no comet shows, so a satellite or the comet and a shooting star near the copy are never up together
-	const nearCopy = spec.lease && inkLeaseFree(schedule, now) && schedule.active.length === 0 && !gate.bodyShowing
-	const body = spec.plan({ random, now, field, visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
+	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over, the page is still, nothing else is in the sky and no comet shows, so a satellite or the comet and a shooting star near the copy are never up together
+	const nearCopy = spec.lease && gate.still && inkLeaseFree(schedule, now) && schedule.active.length === 0 && !gate.bodyShowing
+	const body = spec.plan({ random, now, field, visit: schedule.visit, nearCopy, still: gate.still, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
 	const lifetime = body === null ? 0 : spec.lifetime(body)
 	const reachesCopy = body !== null && spec.nearCopy(body)
 	// It never takes the ink lease: its kind never does, or the kind marks this body as one that doesn't

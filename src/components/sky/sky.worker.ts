@@ -121,6 +121,8 @@ let pendingLayout: LayoutMessage | null = null
 
 // Milliseconds on the worker clock
 let lastScrollAt = -Infinity
+// The last scroll step over TRANSIENTS.calmStep px
+let lastRushAt = -Infinity
 let lastDrawAt = -Infinity
 let hiddenAt: number | null = null
 // Seconds on the worker clock
@@ -138,7 +140,8 @@ const miami = createMiamiRuntime()
 const gate: LaunchGate = {
 	allowed: false,
 	scene: null,
-	settled: false,
+	calm: false,
+	still: false,
 	readingKnown: false,
 	narrow: false,
 	sinceReveal: 0,
@@ -425,7 +428,8 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.allowed = launchesAllowed(now, scene)
 	gate.scene = scene.launchScene
 	// Worker milliseconds against the key's seconds
-	gate.settled = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.calm = now - lastRushAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.still = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
 	gate.readingKnown = reading.length > 0
 	gate.narrow = narrowScreen
 	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
@@ -1046,6 +1050,8 @@ scope.addEventListener('message', (event) => {
 			needsDraw = true
 			break
 		case 'scroll':
+			// Messages come one a frame, so a step is how fast the page moves
+			if (Math.abs(message.y - scrollY) > TRANSIENTS.calmStep) lastRushAt = now
 			scrollY = message.y
 			lastScrollAt = now
 			noteInput(now)

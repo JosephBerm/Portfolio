@@ -50,7 +50,7 @@ function visitSkyOf(context: PlanContext): VisitSky {
  * ordinary short flight in its place.
  */
 export function planMeteorTransient(context: PlanContext, options: Omit<PlanOptions, 'steer' | 'nearCopy' | 'ink'> = {}): Meteor | null {
-	const { random, now, field, nearCopy, ink, narrow } = context
+	const { random, now, field, nearCopy, still, ink, narrow } = context
 	const { flights = 'both' } = options
 	const clearOf = options.clearOf ? [...field.noFly, ...options.clearOf] : field.noFly
 	const sky = visitSkyOf(context)
@@ -58,7 +58,7 @@ export function planMeteorTransient(context: PlanContext, options: Omit<PlanOpti
 	for (const pass of ['long', 'short'] as const) {
 		if (flights !== 'both' && flights !== pass) continue
 		for (const steer of steers) {
-			const plan = planMeteor(random, field, now, { ...options, steer, flights: pass, ink, nearCopy, clearOf })
+			const plan = planMeteor(random, field, now, { ...options, steer, flights: pass, ink, nearCopy, clearOf, trains: still })
 			if (plan) return plan
 		}
 	}
@@ -137,7 +137,7 @@ function planPiece(context: PlanContext, sky: VisitSky, x: number, y: number, op
  * arrival, not yet gathered into pulses.
  */
 function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: number): Meteor[] {
-	const { random, now, field } = context
+	const { random, now, field, still } = context
 	const { across, delay, firstOnset, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
 	const center = drawStart(random, startArea(field))
 	if (!clearStart(field, field.clearSky, center.x, center.y)) return []
@@ -153,7 +153,7 @@ function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: num
 	const leadTime = meanFlight * leadFlight
 	const lead = planPiece(context, sky, center.x, center.y, { ...course, peak: brightest, duration: [leadTime, leadTime] })
 	if (lead === null) return []
-	const pieces: Meteor[] = [{ ...lead, wake: leadWake, train: speedClass.train && random() < METEOR.trainChance }]
+	const pieces: Meteor[] = [{ ...lead, wake: leadWake, train: still && speedClass.train && random() < METEOR.trainChance }]
 	const width = between(random, across[0], across[1])
 	const meanDelay = between(random, delay[0], delay[1])
 	for (let rank = 2; rank <= count; rank++) {

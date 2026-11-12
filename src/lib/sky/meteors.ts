@@ -107,6 +107,8 @@ export interface PlanOptions {
 	 * Farewell meteors start only below the top of the highest copy of the page's flow on screen.
 	 */
 	starts?: StartArea
+	/** Whether a shooting star may leave a train (METEOR.trainChance); a fireball's is its show's. Default true. */
+	trains?: boolean
 	/**
 	 * This launch is a fireball: its long flights are fireballs, in clear sky only, for METEOR_KINDS.fireball's duration
 	 * by the course's speed class and at a peak of 1. The shorter fallback pass never flies one, so a caller that wants a
@@ -284,7 +286,7 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 	const { width, height } = field
 	const narrow = width <= NARROW_MAX_WIDTH
 	const longSide = Math.max(width, height)
-	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1, attempts = METEOR.attempts } = options
+	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1, attempts = METEOR.attempts, trains = true } = options
 	const minPath = (narrow ? METEOR.narrowMinPath : METEOR.path[0]) * (fallback ? METEOR.fallbackScale : 1)
 	const maxPath = narrow ? width * METEOR.narrowMaxPathShare : Math.min(METEOR.path[1], METEOR.pathShare * longSide)
 	const area = options.starts ?? startArea(field)
@@ -321,7 +323,7 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 			const show = fireball ? planFireballShow(random, course.spectrum, duration) : undefined
 			// A flare brightens the head and a train lingers along the whole path: both only in clear sky
 			const flare = !fireball && dimFrom > METEOR_LIGHT.flareAt + METEOR_LIGHT.flareClearWidths * METEOR_LIGHT.flareWidth && random() < METEOR.flareChance
-			const train = show ? show.train !== null : dimFrom === 1 && course.train && random() < METEOR.trainChance
+			const train = show ? show.train !== null : trains && dimFrom === 1 && course.train && random() < METEOR.trainChance
 			return {
 				meteor: {
 					...path,

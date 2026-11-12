@@ -124,7 +124,7 @@ function inHero(gate: LaunchGate): boolean {
  * copy to a shooting star's, so it starts only while none does, and none takes the lease while it shows (LaunchGate.bodyShowing).
  */
 export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean): boolean {
-	return body.status === 'waiting' && body.planned && inHero(gate) && gate.settled && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
+	return body.status === 'waiting' && body.planned && inHero(gate) && gate.still && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
 }
 
 /** The line a zone's reach above About's header row (CSS px from the top of the screen) once the page has scrolled as far as a comet can still show; findPlace keeps the comet's box above it along its whole path. */

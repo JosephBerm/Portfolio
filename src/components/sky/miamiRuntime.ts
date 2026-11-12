@@ -231,12 +231,16 @@ export function createMiamiRuntime(): MiamiRuntime {
 
 	/**
 	 * The tier at this step: how far the scene has stepped down, which is the stricter of adaptive quality's steps and the scene's
-	 * own, and never above the last; a narrow screen starts at the second. A step up starts the fade of the light it takes away.
+	 * own, and never above the last; a narrow screen starts at the second. A step up starts the fade of the light it takes away,
+	 * and waits for the fade of the one before it to run out, because the fade restarts and the draw keeps only the last step's
+	 * slots, so a second step part way through the first would drop in one frame the light the first was still fading.
 	 * A fall (a resize across the narrow limit) starts none, because adding light needs no fade, and the first call only seeds it.
 	 */
 	const tierOf = (input: MiamiStep): Tier => {
-		const tier = Math.min(2, Math.max(input.quality, sceneTier, input.narrow ? 1 : 0)) as Tier
-		if (seenTier !== null && tier > seenTier) thinSince = input.now / 1000
+		const t = input.now / 1000
+		let tier = Math.min(2, Math.max(input.quality, sceneTier, input.narrow ? 1 : 0)) as Tier
+		if (seenTier !== null && tier > seenTier && easing(thinSince, ADAPT.thinFade, t)) tier = seenTier
+		if (seenTier !== null && tier > seenTier) thinSince = t
 		else if (seenTier !== null && tier < seenTier) thinSince = null
 		seenTier = tier
 		return tier

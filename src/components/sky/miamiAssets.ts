@@ -1310,8 +1310,8 @@ function skylineProfile(skyline: Skyline, width: number, margin: number): Float3
  * The water's base picture, in float and a batch of rows at a time: for each row below the waterline the body's color, darker
  * toward the viewer, with the dark troughs of the ripples baked in, the sun's glow column widening toward the viewer and
  * fading out before the footer's cap rows (`WATER.capFade`), the skyline's dark reflection under every tower and a hot
- * sliver along the waterline, all capped in luminance for every row at or below the footer. Rows past the page's end repeat
- * the last, for a pull past it.
+ * sliver along the waterline, all capped in luminance for every row at or below the footer (under more, rows above it are
+ * darkened toward the cap first, so the cap makes no hard edge). Rows past the page's end repeat the last, for a pull past it.
  */
 function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { pixels: ImageData; width: number; height: number }, undefined> {
 	const { width: W, zWater, sunX, sunR } = stage
@@ -1332,7 +1332,9 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 	let tallestProfile = 0
 	for (const h of profile) tallestProfile = Math.max(tallestProfile, h)
 	const baseHeight = SKYLINE.base.share[stage.narrow ? 'narrow' : 'wide'] * stage.tallest
-	// The sun's column comes on over `capFade` px above the cap's hold, and no farther than the waterline
+	// Above the cap's hold the sun's column comes on (and, under more, each row eases up from the cap) over `capFade` px, no
+	// farther than the waterline
+	const footer = footerCap(stage)
 	const holdTo = capFrom(stage)
 	const comeOn = Math.max(1, Math.min(WATER.capFade, zWater - holdTo))
 	const glow = linearColor(WATER.glow.color)
@@ -1355,7 +1357,16 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 			const bodyG = (body[1] ?? 0) * dim
 			const bodyB = (body[2] ?? 0) * dim
 			const cap = luminanceCap(stage, z)
-			const glowLight = WATER.glow.strength * (1 - smoothstep(WATER.glow.fade[0], WATER.glow.fade[1], depth)) ** WATER.glow.fade[2] * smoothstep(holdTo, holdTo + comeOn, z)
+			// 0 at the cap's hold, 1 where the cap and its fade are far below
+			const rise = smoothstep(holdTo, holdTo + comeOn, z)
+			// Under prefers-contrast: more the cap is far below the water's own light, so a row above the footer is darkened as a
+			// whole toward it (to the cap at the hold, to its own light `capFade` px above) and the clamp has no hard edge to
+			// make across the width where the cap begins; the troughs stay darker than the body, which keeps the texture. At
+			// normal contrast the cap is within a few percent of the body, so there is no step to ease.
+			const bodyLight = 0.2126 * bodyR + 0.7152 * bodyG + 0.0722 * bodyB
+			const toCap = stage.more && bodyLight > footer ? footer / bodyLight : 1
+			const rowScale = toCap + (1 - toCap) * rise
+			const glowLight = WATER.glow.strength * (1 - smoothstep(WATER.glow.fade[0], WATER.glow.fade[1], depth)) ** WATER.glow.fade[2] * rise
 			const reachPx = columnReach(depth, sunR)
 			const reflects = p < reflection.to * tallestProfile
 			const slivered = p < WATER.sliver.height
@@ -1398,6 +1409,11 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 					r += (sliver[0] - r) * a
 					g += (sliver[1] - g) * a
 					b += (sliver[2] - b) * a
+				}
+				if (rowScale < 1) {
+					r *= rowScale
+					g *= rowScale
+					b *= rowScale
 				}
 				const light = 0.2126 * r + 0.7152 * g + 0.0722 * b
 				if (light > cap) {

@@ -220,8 +220,9 @@ export const BEACONS = { enabled: true, count: { wide: 3, narrow: 2 }, color: '#
  * luminance any row at or below the footer may have, by direction and under prefers-contrast: more, held over `capGap`
  * px and eased out over `capFeather`. The sun's column comes on over the `capFade` px above that hold (fewer where the
  * waterline is nearer, so on a phone it fades from the waterline down), because a column lit down to the footer would be
- * flattened by the cap into a bright box ending in a hard step. `glow` is the sun's column on the water, `reflection`
- * the skyline's dark reflection and `sliver` the thin line of light at the waterline. `strips` slice the water into rows a device px tall growing by
+ * flattened by the cap into a bright box ending in a hard step; under prefers-contrast: more, where the cap is far below
+ * the water's own light, each row eases up from the cap over the same px for the same reason. `glow` is the sun's column
+ * on the water, `reflection` the skyline's dark reflection and `sliver` the thin line of light at the waterline. `strips` slice the water into rows a device px tall growing by
  * `growth` per row, with `margin` px to spare at the sides. `waves` are the row shifts' sines: period, rows per cycle and
  * share. `shiftX` and `shiftRow` are how far a row slides sideways and vertically (px), `stillClock` the frozen time of
  * the still pose. `ripple` and `glitter` shape the lens dashes of the crests and the glints: sizes in px, lives in

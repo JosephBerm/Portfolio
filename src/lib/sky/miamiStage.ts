@@ -110,8 +110,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * The stage for a layout, or null where there is none to draw: no landing (production, forced colors, print), no copy
- * above it, or a page no taller than the canvas.
+ * The stage for a layout, or null where there is none to draw: no landing (forced colors, print, or the scene switched
+ * off in SkyLanding), no copy above it, or a page no taller than the canvas.
  *
  * The sky is fitted rather than guessed. Each rect of Contact's copy says what it can take behind it (`headroom`); its
  * ceiling is the luminance of navy with that much white added, less the ramp's safety margin. `warm`, the height of the

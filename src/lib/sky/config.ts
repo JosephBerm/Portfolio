@@ -671,8 +671,8 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * measured with the kinds of shooting star that fly in clear sky at their odds (each flies in place of an ordinary launch,
  * so fewer launches cross the copy) and without satellites, which only make crossings fewer, so it holds whether or not
  * they fly. A pause fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as
- * the page scrolls from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans`
- * in a row the kind waits for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet`
+ * the page scrolls from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds, and never stops trying,
+ * since the room moves with the scroll. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet`
  * seconds after scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
  * From `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
  * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
@@ -684,7 +684,6 @@ export const TRANSIENTS = {
 	crossingCooldown: 30,
 	cancelFade: 0.2,
 	retry: [5, 9],
-	maxFailedPlans: 3,
 	recheck: 1,
 	scrollQuiet: 1.2,
 	afterReturn: 3,
@@ -947,9 +946,7 @@ export const METEOR = {
 	 * `pathShare` of the longer viewport side. A path is a speed times a flight time, and a small window's speeds are slow
 	 * (SKY_WINDOW), so the shortest is what such a window can still reach in SPEED_CLASSES' durations. At 135 px the planner
 	 * finds a path for 73% of its launch attempts on a 740 x 360 phone held sideways and 99% on 1024 x 768; at 160 px, 31%
-	 * and 97%. Three plans in a row that find no room stop the shooting stars until the next layout
-	 * (TRANSIENTS.maxFailedPlans), which with the page held still 160 px does within two minutes on 6 visits in 10 on that
-	 * phone and 135 px on 1 in 20.
+	 * and 97%.
 	 */
 	path: [135, 640],
 	pathShare: 0.36,

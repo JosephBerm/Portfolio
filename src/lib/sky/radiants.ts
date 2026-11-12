@@ -58,7 +58,7 @@ export interface Source {
 	speed: SpeedClassName
 }
 
-/** A visit's sky: the window, the shower and the sporadic sources; picked afresh after a resize or a failed launch allowed near copy, never by a layout. */
+/** A visit's sky: the window, the shower and the sporadic sources; picked afresh after a resize, never by a layout. */
 export interface VisitSky {
 	window: SkyWindow
 	shower: Source

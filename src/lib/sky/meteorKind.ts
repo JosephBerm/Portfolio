@@ -16,8 +16,8 @@ import type { PlanContext, SkyField, TransientSpec } from './transients'
 /**
  * What the shooting stars remember between launches: the visit's sky, the shower and the sporadic sources they come
  * from, so a visit's flights share them, and how soon each kind of shooting star apart from the ordinary may be decided
- * again. A launch allowed near copy that finds no room clears the sky, and so does a resize, which changes the layout the
- * flights fit; nothing clears the kinds' clocks within a page view.
+ * again. Only a resize, which changes the layout the flights fit, clears the sky; nothing clears the kinds' clocks within
+ * a page view.
  */
 export interface MeteorMemory {
 	sky: VisitSky | null
@@ -45,15 +45,14 @@ function visitSkyOf(context: PlanContext): VisitSky {
  * copy, whether the plan may pass near copy at all, and to keep clear of the side rails and reading copy (the field's
  * `noFly` zones, which a `clearOf` in `options` adds to): the right rail's text keeps its contrast over the nebula only
  * while no shooting star lights it (INK_BUDGET), and this is the one guard for veiled flights. Returns null when nothing
- * fits, and then drops the visit's sky, unless the plan was kept in clear sky (the context's `nearCopy` is false): clear
- * sky alone failing says nothing about the sky. `options` adds to every planner call, and its `flights: 'long'` leaves out
- * the shorter fallback, which a fireball's try needs: the fallback would fly an ordinary short flight in its place.
+ * fits, and keeps the visit's sky: copy, not the radiant, is what leaves no room. `options` adds to every planner call,
+ * and its `flights: 'long'` leaves out the shorter fallback, which a fireball's try needs: the fallback would fly an
+ * ordinary short flight in its place.
  */
 export function planMeteorTransient(context: PlanContext, options: Omit<PlanOptions, 'steer' | 'nearCopy' | 'ink'> = {}): Meteor | null {
-	const { random, now, field, visit, nearCopy, ink, narrow } = context
+	const { random, now, field, nearCopy, ink, narrow } = context
 	const { flights = 'both' } = options
 	const clearOf = options.clearOf ? [...field.noFly, ...options.clearOf] : field.noFly
-	const memory = visit.meteor
 	const sky = visitSkyOf(context)
 	const steers = Array.from({ length: 1 + (narrow ? 1 : METEOR.radiantTries) }, () => visitSteer(random, sky))
 	for (const pass of ['long', 'short'] as const) {
@@ -63,7 +62,6 @@ export function planMeteorTransient(context: PlanContext, options: Omit<PlanOpti
 			if (plan) return plan
 		}
 	}
-	if (nearCopy) memory.sky = null
 	return null
 }
 

@@ -594,8 +594,8 @@ const RIM = 1.6
 /**
  * A bank as float alpha in CSS px: a flat bottom and a lumpy top (octaves of noise stretched along x), its top color above
  * and a broad warm underside below, shifting from the sun's side to the far side, and on the bank nearest the sun a thin rim
- * of light on the very lowest edge. Under a top edge softened by at most `shape.blur` px and a crisper bottom. A generator, so a
- * wide bank is baked a batch of columns at a time.
+ * of light on the very lowest edge (the contrast preference leaves out both). Under a top edge softened by at most
+ * `shape.blur` px and a crisper bottom. A generator, so a wide bank is baked a batch of columns at a time.
  */
 function* bakeBank(stage: MiamiStage, bank: PlacedBank, high: boolean): Generator<void, Baked, undefined> {
 	const width = Math.max(8, Math.round(bank.width * stage.width))
@@ -639,7 +639,8 @@ function* bakeBank(stage: MiamiStage, bank: PlacedBank, high: boolean): Generato
 			const coverBottom = clamp01(up + 0.5)
 			const alpha = coverTop * coverBottom
 			if (alpha <= 0) continue
-			const warmth = 1 - smoothstep(0, UNDERSIDE, up / Math.max(1, tall))
+			// Under more the sky below a bank is nearly navy, and an underside as light as the normal sky's would glow against it
+			const warmth = stage.more ? 0 : 1 - smoothstep(0, UNDERSIDE, up / Math.max(1, tall))
 			let color = mixRgb(topColor, underside, warmth)
 			if (bank.rim && !stage.more) color = mixRgb(color, edge, 0.85 * (1 - clamp01(up / RIM)))
 			const k = (j * width + i) * 4

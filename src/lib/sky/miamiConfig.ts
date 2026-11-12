@@ -154,7 +154,8 @@ export const SUN = {
  * copy, so where a screen has little room the banks share a room no taller than it, and a room under two banks' worth holds
  * none. `top` and `topHigh` color a bank's top (lower and higher banks), `under` its underside on the sun's side (`near`)
  * and away from it (`far`), as light as the sky just below the bank so that it reads as lit from below and not as haze, and
- * `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun.
+ * `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun. Under prefers-contrast: more the sky below a
+ * bank is nearly navy, so a bank has neither: either would glow against it.
  */
 export const CLOUDS = {
 	streaks: [

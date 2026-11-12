@@ -919,11 +919,47 @@ function polygonCrown(tower: Tower): boolean {
 	return crown === 'round' || crown === 'arc' || crown === 'angle'
 }
 
+/** A tower's own seeded number in [0, 1) for a salt, the same every time. */
+function towerRoll(tower: Tower, salt: number): number {
+	return hashCell(tower.seed, salt, 0x63726f77) / 4294967296
+}
+
+/** A tower's left and right edges in whole device px. */
+function towerEdges(tower: Tower, dpr: number): { x0: number; x1: number } {
+	const x0 = Math.round(tower.left * dpr)
+	return { x0, x1: Math.max(x0 + 1, Math.round(tower.right * dpr)) }
+}
+
+/** The small box on a 'box' crown's roof: its left edge and width in device px, for a body that starts at `x0` and is `body` wide. */
+function roofBox(tower: Tower, x0: number, body: number): { at: number; width: number } {
+	const width = body * (0.3 + 0.25 * towerRoll(tower, 1))
+	return { at: x0 + (body - width) * towerRoll(tower, 2), width }
+}
+
+/**
+ * Where a tower's crown is highest, as x in CSS px from the canvas's left: the middle of the tower, where the crown stands
+ * there, but the slanted top peaks at its right edge (a dot placed a pixel inside it, where the slope is as high) and the roof box
+ * stands where `drawTower` put it. A beacon at the middle of either would float above the roof.
+ */
+function crownPeakX(tower: Tower, dpr: number): number {
+	switch (CROWNS[tower.crown]) {
+		case 'angle':
+			return tower.right - 1
+		case 'box': {
+			const { x0, x1 } = towerEdges(tower, dpr)
+			const box = roofBox(tower, x0, x1 - x0)
+			return (box.at + box.width / 2) / dpr
+		}
+		default:
+			return (tower.left + tower.right) / 2
+	}
+}
+
 /** One tower, drawn into a mask whose bottom is the waterline (rows from the top; `x0` to `x1` and the body's `top` are in whole device px). */
 function drawTower(mask: Uint8Array, width: number, height: number, tower: Tower, x0: number, x1: number, top: number, dpr: number): void {
 	const body = x1 - x0
 	const rise = height - top
-	const roll = (salt: number) => hashCell(tower.seed, salt, 0x63726f77) / 4294967296
+	const roll = (salt: number) => towerRoll(tower, salt)
 	switch (CROWNS[tower.crown]) {
 		case 'round': {
 			// One top corner is curved, the other square
@@ -939,9 +975,8 @@ function drawTower(mask: Uint8Array, width: number, height: number, tower: Tower
 		}
 		case 'box': {
 			fillBox(mask, width, height, x0, top, x1, height)
-			const w = body * (0.3 + 0.25 * roll(1))
-			const at = x0 + (body - w) * roll(2)
-			fillBox(mask, width, height, at, top - 0.035 * rise, at + w, top)
+			const box = roofBox(tower, x0, body)
+			fillBox(mask, width, height, box.at, top - 0.035 * rise, box.at + box.width, top)
 			return
 		}
 		case 'setback': {
@@ -1071,8 +1106,7 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 	// The towers, with rect edges on whole device px; one with a polygon crown ends its step, so two of them never share one
 	let drawn = 0
 	for (const tower of skyline.towers) {
-		const x0 = Math.round(tower.left * dpr)
-		const x1 = Math.max(x0 + 1, Math.round(tower.right * dpr))
+		const { x0, x1 } = towerEdges(tower, dpr)
 		const top = height - Math.round(tower.height * dpr)
 		drawTower(mask, width, height, tower, x0, x1, top, dpr)
 		if (polygonCrown(tower) || ++drawn % TOWERS_PER_STEP === 0) yield
@@ -1092,7 +1126,7 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 	}
 	yield
 
-	// Beacons: the tallest few towers in view that stand clear of the sun, each at the top of its crown
+	// Beacons: the tallest few towers in view that stand clear of the sun, each at the highest point of its crown
 	const beacons: MiamiBeacon[] = []
 	if (BEACONS.enabled) {
 		const count = BEACONS.count[stage.narrow ? 'narrow' : 'wide']
@@ -1102,7 +1136,7 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 				return middle > 0 && middle < stage.width && Math.abs(middle - stage.sunX) >= 90 && tower.height >= stage.tallest * 0.86
 			})
 			.sort((p, q) => q.height - p.height || p.left - q.left)
-		for (const tower of candidates.slice(0, count)) beacons.push({ x: (tower.left + tower.right) / 2, z: tower.height + crownRise(tower.crown, tower.height) })
+		for (const tower of candidates.slice(0, count)) beacons.push({ x: crownPeakX(tower, dpr), z: tower.height + crownRise(tower.crown, tower.height) })
 	}
 
 	const pixels = yield* silhouette(mask, width, height, hexRgb(SKYLINE.near))

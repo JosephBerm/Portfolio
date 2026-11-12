@@ -50,7 +50,8 @@ export interface FieldInput {
 
 /**
  * The field every kind plans in now. The rails are padded once and the very same objects go in each list. Every planner
- * stays on screen, so only the zones that can touch the screen matter.
+ * keeps within the screen's height, and only a satellite's line (one end just beyond a side) and the comet's box (it
+ * may overflow the right edge) go past a side, where no copy lies, so only the zones that can touch the screen matter.
  */
 export function skyField(input: FieldInput): SkyField {
 	const { width, height, narrow, scrollY } = input

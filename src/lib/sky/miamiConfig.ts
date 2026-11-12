@@ -266,17 +266,19 @@ export const WATER = {
 /**
  * The boat that crosses the water now and then: its length by the footer's layout (as the water's gap), `depth` px below
  * the waterline, its speed (px a second) and start (a share of the width) by width class, and the seconds it waits
- * out of sight before it returns. `bob` is how far and how fast it rocks; `wake` is the V behind it (half angle in
- * degrees, lengths of boat it reaches, alpha and color) and `reflection` the px of its dark reflection. The hull and
- * cabin are outlines with x and height as shares of the length, up from the hull's foot, bow to the right; `mast` is the
- * mast's height as a share of the length.
+ * out of sight before it returns. The scene's clock stands still while its moving parts are off screen, so `startX` is where
+ * a visitor first finds the boat: a phone's is a third of the way across, in open water, where nearer the edge the boat
+ * would stand against the left palm's trunk and its wake would cross it. `bob` is how far and how fast it rocks; `wake` is
+ * the V behind it (half angle in degrees, lengths of boat it reaches, alpha and color) and `reflection` the px of its dark
+ * reflection. The hull and cabin are outlines with x and height as shares of the length, up from the hull's foot, bow to the
+ * right; `mast` is the mast's height as a share of the length.
  */
 export const BOAT = {
 	enabled: true,
 	length: { wide: 58, narrow: 46 },
 	depth: 24,
 	speed: { wide: 8.5, narrow: 6 },
-	startX: { wide: 0.42, narrow: 0.2 },
+	startX: { wide: 0.42, narrow: 0.32 },
 	pause: 90,
 	bob: { px: 0.6, period: 3.5, pitch: 0.4 },
 	wake: { halfAngle: 8.5, lengths: 3, alpha: 0.8, color: '#FFB066' },

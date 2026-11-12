@@ -348,6 +348,9 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	moving: meteorMoving,
 	nearCopy: (meteor) => meteor.nearCopy || (meteor.followers?.some((follower) => follower.nearCopy) ?? false),
 	clearSky: (meteor) => meteor.variant !== undefined || meteor.fireball,
+	// A fireball's train reads what it keeps all along its length (renderFireball.ts), so copy coming under it needs no cancel.
+	// A burst's train is its lead's, and the lead needn't arrive first
+	lingers: (meteor) => !meteor.show && (meteor.train || (meteor.followers?.some((follower) => follower.train) ?? false)),
 	lastOnset: (meteor) => (meteor.followers?.at(-1)?.startedAt ?? meteor.startedAt) - meteor.startedAt,
 	lease: true,
 	phones: true,

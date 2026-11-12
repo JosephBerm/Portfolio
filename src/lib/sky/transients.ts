@@ -72,6 +72,8 @@ export interface TransientEnvelope<K extends TransientKind> {
 	nearCopy: boolean
 	/** It never takes the ink lease: planned in clear sky only, and drawn with CLEAR_SKY_KEEPS. */
 	clearSky: boolean
+	/** The scroll cancel takes it (scrollKept): it holds the ink lease or lingers (TransientSpec.lingers), or the sky knows no reading copy. Anything else answers only to the copy or the landing scene's band under it. */
+	scrollBound: boolean
 	/** scrollY at launch: the scroll cancel measures from here. */
 	launchScrollY: number
 	/** When the pause (or reduced motion) cancelled it: it fades out over TRANSIENTS.cancelFade. Null while it runs its course. */
@@ -119,6 +121,8 @@ export interface TransientSpec<K extends TransientKind> {
 	nearCopy(body: TransientBodies[K]): boolean
 	/** This body never takes the ink lease although its kind may (a shooting star variant): it is planned in clear sky and drawn with CLEAR_SKY_KEEPS, as a kind with `lease` false is. Absent for a kind whose bodies may all take it. */
 	clearSky?(body: TransientBodies[K]): boolean
+	/** It leaves a long faint line, whose light copy could come to lie on between the few places the line is measured, so a scroll takes it. Absent: it leaves no such line. */
+	lingers?(body: TransientBodies[K]): boolean
 	/** Seconds from the launch to the body's last onset, for a body whose light starts more than once (a burst's later members), so other launches keep TRANSIENTS.minOnsetGap from that onset too. Absent: 0. */
 	lastOnset?(body: TransientBodies[K]): number
 	/** This kind may take the ink lease; false (satellites) plans in clear sky only and draws with CLEAR_SKY_KEEPS. */
@@ -146,11 +150,16 @@ export interface LaunchGate {
 	scene: LaunchScene | null
 	/** No scroll for TRANSIENTS.scrollQuiet seconds. */
 	settled: boolean
+	/**
+	 * The page's reading copy has been measured. Until it has, or where a walk finds none, the sky can't tell what a flight may
+	 * come to lie on, so the scroll cancel takes every flight.
+	 */
+	readingKnown: boolean
 	/** A narrow screen (the worker's narrowScreen): phones keep their own limit, TRANSIENTS.narrowLimit, and their own gaps. */
 	narrow: boolean
 	/** Seconds since the reveal. */
 	sinceReveal: number
-	/** The page scroll now (px): a launch records it, and the scroll cancel measures from it. */
+	/** The page scroll now (px): a launch records it, and a scroll cancel measures from it. */
 	scrollY: number
 	/** The field to plan in, built afresh on each call, so the launch step builds it once, only for a due kind it may plan. */
 	field(): SkyField
@@ -201,12 +210,15 @@ export function holdTransients(schedule: TransientSchedule, now: number): void {
 }
 
 /**
- * Share of its light a transient keeps: the scroll cancel (scrollKept) from its launch scroll, with the pause fade (over
- * TRANSIENTS.cancelFade once cancelled) as scrollKept's own `fade`. The scheduler retires it at 0, and the worker draws it
- * with this as drawTransient's `fade`.
+ * Share of its light a transient keeps: the pause fade (over TRANSIENTS.cancelFade once cancelled) and, for one the scroll
+ * cancel takes (scrollBound), scrollKept from its launch scroll with the pause fade as its own `fade`. Anything else keeps
+ * flying while the page scrolls: whatever copy, or the landing scene's band, comes under it takes its light where it draws
+ * (transientQuietFactor with CLEAR_SKY_KEEPS, flightKept). The scheduler retires it at 0, and the worker draws it with this
+ * as drawTransient's `fade`.
  */
 export function transientFade(transient: Transient, now: number, scrollY: number): number {
-	return scrollKept(transient.launchScrollY, scrollY, fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now))
+	const fade = fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now)
+	return transient.scrollBound ? scrollKept(transient.launchScrollY, scrollY, fade) : fade
 }
 
 /** An active transient holds the ink lease: its light may reach quiet copy. */
@@ -221,9 +233,7 @@ export function inkLeaseFree(schedule: TransientSchedule, now: number): boolean 
 
 /**
  * Removes what has run its course or kept no light, at the earlier of its lifetime and the tick its kept light
- * (transientFade) reaches 0, so a cancel never extends a life. Scrolling away from where a transient launched takes it
- * away, because it would pass over copy it was not planned around; that follows the page's scroll position, so even a
- * one-step jump retires it at once. Returns whether any went.
+ * (transientFade) reaches 0, so a cancel never extends a life. Returns whether any went.
  */
 function retire(schedule: TransientSchedule, now: number, scrollY: number): boolean {
 	const { active } = schedule
@@ -284,6 +294,7 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 		lifetime,
 		nearCopy: reachesCopy,
 		clearSky,
+		scrollBound: !gate.readingKnown || reachesCopy || spec.lingers?.(body) === true,
 		launchScrollY: gate.scrollY,
 		cancelledAt: null,
 	}

@@ -121,10 +121,10 @@ let pendingLayout: LayoutMessage | null = null
 
 // Milliseconds on the worker clock
 let lastScrollAt = -Infinity
-// The last scroll step over TRANSIENTS.calmStep px
-let lastRushAt = -Infinity
 let lastDrawAt = -Infinity
 let hiddenAt: number | null = null
+/** When (ms) the last scroll step over TRANSIENTS.calmStep px came. */
+let lastRushAt = -Infinity
 // Seconds on the worker clock
 let exitAt: number | null = null
 let revealAt: number | null = null

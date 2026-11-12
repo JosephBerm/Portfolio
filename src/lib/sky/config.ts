@@ -266,7 +266,7 @@ export const QUIET = { padding: 32, feather: 40, ease: 0.6 } as const
 export const QUIET_REACH = QUIET.padding + QUIET.feather
 
 /**
- * Reading copy: everything in the page's flow that isn't quiet copy. The sky plans around it and never lights it, so it
+ * Reading copy: everything in the page's flow that isn't quiet copy. The sky plans around it and never lights it at rest, so it
  * has no budget and no veil. Nothing flies within QUIET.feather of a rect grown by `padding` px on every side: QUIET_REACH
  * from the words, as clear-sky flights keep from quiet copy, or on narrow screens, whose copy fills the width and leaves
  * no sky that far from it, `narrowPadding`: QUIET.feather from the words, which is still more than a flight's light reaches

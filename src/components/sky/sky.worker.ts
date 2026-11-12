@@ -9,9 +9,10 @@
  * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
  * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there. The nebula's light moves on
  * the drift clock too and asks for no frames of its own. The landing scene at the foot of the page moves on a clock of its
- * own (the water, the clouds, the sun's breath, the beacons): while that is on screen it asks for 30 frames a second on
- * animation frames, 20 once it or adaptive quality has stepped down, and for none while paused, reduced, idle or on a
- * canvas too slow to run it. It counts its own slow frames, from what its own draws take, apart from adaptive quality's.
+ * own (the water, the clouds, the sun's breath, the beacons, the palms in the wind and the boat's crossing): while that is
+ * on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive quality has stepped down, and for
+ * none while paused, reduced, idle or on a canvas too slow to run it. It counts its own slow frames, from what its own
+ * draws take, apart from adaptive quality's.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'

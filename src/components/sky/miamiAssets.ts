@@ -1220,10 +1220,20 @@ function waterPalette(stage: MiamiStage): typeof WATER.stops.B | typeof WATER.st
 	return STAGE.direction === 'B' && !stage.more ? WATER.stops.B : WATER.stops.A
 }
 
+/** The footer's cap for this stage: the most luminance a row at or below its copy may have. */
+function footerCap(stage: MiamiStage): number {
+	return stage.more ? WATER.footerCap.more : STAGE.direction === 'B' ? WATER.footerCap.B : WATER.footerCap.A
+}
+
+/** The height above the page's end (px) down to which the footer's cap holds in full. */
+function capFrom(stage: MiamiStage): number {
+	return stage.zFooterTop + WATER.capGap
+}
+
 /** The most luminance a row of the water at this height may have: the footer's cap at and below its copy, easing out to none over the feather above it. */
 function luminanceCap(stage: MiamiStage, z: number): number {
-	const cap = stage.more ? WATER.footerCap.more : STAGE.direction === 'B' ? WATER.footerCap.B : WATER.footerCap.A
-	const from = stage.zFooterTop + WATER.capGap
+	const cap = footerCap(stage)
+	const from = capFrom(stage)
 	return cap + (1 - cap) * smoothstep(from, from + WATER.capFeather, z)
 }
 
@@ -1298,9 +1308,10 @@ function skylineProfile(skyline: Skyline, width: number, margin: number): Float3
 
 /**
  * The water's base picture, in float and a batch of rows at a time: for each row below the waterline the body's color, darker
- * toward the viewer, with the dark troughs of the ripples baked in, the sun's glow column widening toward the viewer, the
- * skyline's dark reflection under every tower and a hot sliver along the waterline, all capped in luminance for every row at or
- * below the footer. Rows past the page's end repeat the last, for a pull past it.
+ * toward the viewer, with the dark troughs of the ripples baked in, the sun's glow column widening toward the viewer and
+ * fading out before the footer's cap rows (`WATER.capFade`), the skyline's dark reflection under every tower and a hot
+ * sliver along the waterline, all capped in luminance for every row at or below the footer. Rows past the page's end repeat
+ * the last, for a pull past it.
  */
 function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { pixels: ImageData; width: number; height: number }, undefined> {
 	const { width: W, zWater, sunX, sunR } = stage
@@ -1321,6 +1332,9 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 	let tallestProfile = 0
 	for (const h of profile) tallestProfile = Math.max(tallestProfile, h)
 	const baseHeight = SKYLINE.base.share[stage.narrow ? 'narrow' : 'wide'] * stage.tallest
+	// The sun's column comes on over `capFade` px above the cap's hold, and no farther than the waterline
+	const holdTo = capFrom(stage)
+	const comeOn = Math.max(1, Math.min(WATER.capFade, zWater - holdTo))
 	const glow = linearColor(WATER.glow.color)
 	const core = linearColor(WATER.reflection.core)
 	const sliver = linearColor(WATER.sliver.color)
@@ -1341,7 +1355,7 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 			const bodyG = (body[1] ?? 0) * dim
 			const bodyB = (body[2] ?? 0) * dim
 			const cap = luminanceCap(stage, z)
-			const glowLight = WATER.glow.strength * (1 - smoothstep(WATER.glow.fade[0], WATER.glow.fade[1], depth)) ** WATER.glow.fade[2]
+			const glowLight = WATER.glow.strength * (1 - smoothstep(WATER.glow.fade[0], WATER.glow.fade[1], depth)) ** WATER.glow.fade[2] * smoothstep(holdTo, holdTo + comeOn, z)
 			const reachPx = columnReach(depth, sunR)
 			const reflects = p < reflection.to * tallestProfile
 			const slivered = p < WATER.sliver.height

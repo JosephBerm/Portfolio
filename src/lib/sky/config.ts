@@ -61,8 +61,9 @@ export const MIN_STAR_ALPHA = 0.004
  * magnitude `reference`, the near band's mean. Identical lamps would give q = 10^(-0.2 (m - reference)), the
  * inverse-square law; `compression` keeps about 70% of that depth range, as STAR_ALPHA keeps a 400:1 flux range as 5:1,
  * so the faintest stars still move (q 0.24) and the brightest never race (at most `maxNearness`, from magnitude 0.11
- * up). The bands' mean shares of the scroll come out at 0.0615, 0.105 and 0.215 (far, mid, near). No random draw depends on
- * it, so retuning it never moves a star while the camera rests.
+ * up). The bands' mean nearness comes out at 0.293, 0.501 and 1.02 (far, mid, near), so each band's share of the
+ * scroll is that times `scrollParallax` (CAMERA). No random draw depends on it, so retuning it never moves a star
+ * while the camera rests.
  */
 export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as const
 

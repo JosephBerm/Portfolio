@@ -658,7 +658,8 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
 
 /**
  * Every short-lived sky event (shooting stars, satellites), wherever the page is scrolled once its reading copy is
- * known, and until then only within `launchReach` viewport heights of the top: at most `maxLife`
+ * known (until then only within `launchReach` viewport heights of the top), except at the foot of the page, where
+ * nothing launches with the landing scene on (DESCENT.eventStop): at most `maxLife`
  * seconds from first light to last, wake, train and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least
  * `minOnsetGap` seconds apart, since a motion onset draws the eye; one of each kind at a time; on narrow screens at
  * most `narrowLimit` per visit, more than a visitor who reads the whole page meets. Only one transient at a time may

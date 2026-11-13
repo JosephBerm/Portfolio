@@ -140,7 +140,10 @@ const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC,
 
 /** Whether and where transients may launch now; the worker refills one reused gate every tick. */
 export interface LaunchGate {
-	/** Full motion, visible, revealed, the visitor present and the page where launches reach (launchReaches). */
+	/**
+	 * Full motion, visible, revealed, the visitor present, the page where launches reach (launchReaches) and the landing
+	 * scene's descent short of its launch stop (DESCENT.eventStop).
+	 */
 	allowed: boolean
 	/** No scroll step over TRANSIENTS.calmStep px for TRANSIENTS.scrollQuiet seconds. */
 	calm: boolean

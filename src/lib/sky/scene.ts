@@ -8,9 +8,6 @@ export function smoothstep(edge0: number, edge1: number, x: number): number {
 	return t * t * (3 - 2 * t)
 }
 
-/** A place in the page's scroll where transients launch: over the hero, or at the end bookend. */
-export type LaunchScene = 'hero' | 'end'
-
 /** Scene multipliers for the current scroll position. */
 export interface SceneLevels {
 	/** Star alpha multiplier per layer. */
@@ -21,13 +18,6 @@ export interface SceneLevels {
 	drift: number
 	/** Share of the pointer lean. */
 	lean: number
-	/**
-	 * Where transients may launch now, if anywhere: the hero, up to SCENE.heroLaunchMaxScroll viewport heights scrolled, or
-	 * the end bookend once its level reaches SCENE.endLaunchLevel; null while reading. Shooting stars ignite and peak in
-	 * clear sky and may glide on behind the copy, dimmed to what that copy can take (METEOR_VEIL). The two scenes never
-	 * meet: the bookend's level is 0 until the hero has begun to give way.
-	 */
-	launchScene: LaunchScene | null
 	/** Coming down to the landing scene: 0 up to DescentWindow.fromPx from the page's end, 1 from toPx on. Always 0 where there is no scene. */
 	descent: number
 	/** Share of every rect's ink budget a transient may keep: 1, falling to 0 early in the descent, because headroom assumes a navy ground. */
@@ -69,7 +59,6 @@ export function sceneAt(scrollY: number, viewportHeight: number, documentHeight:
 		twinkle: mix('twinkle'),
 		drift: mix('drift') * (1 - dusk) + DESCENT.drift * dusk,
 		lean: mix('lean'),
-		launchScene: scrolled <= SCENE.heroLaunchMaxScroll ? 'hero' : end >= SCENE.endLaunchLevel ? 'end' : null,
 		descent,
 		inkShare: 1 - smoothstep(DESCENT.inkOut[0], DESCENT.inkOut[1], descent),
 	}

@@ -15,7 +15,7 @@
 import { driftAt, type Vec } from './camera'
 import { nearness } from './catalog'
 import { cometDrift, cometKnots, cometShape, type CometKnot, type CometShape } from './comet'
-import { COMET, LAYERS, LEAN, MAGNITUDE, METEOR, SCENE, SCROLL_CANCEL, TRANSIENTS } from './config'
+import { COMET, LAYERS, LEAN, MAGNITUDE, METEOR, TRANSIENTS } from './config'
 import type { Point } from './meteors'
 import { easeEnded, easing, fadeOutAt } from './pacing'
 import type { SkyRect } from './protocol'
@@ -112,26 +112,14 @@ export function bodyShowing(body: SkyBody): boolean {
 	return body.status === 'showing'
 }
 
-/** Whether the launch gate is in the scene the comet shows in, the hero. */
-function inHero(gate: LaunchGate): boolean {
-	return gate.allowed && gate.scene === 'hero'
-}
-
 /**
- * Whether the comet may start to show: it is planned for this visit and still waiting, the sky is in the hero under full
- * motion with the visitor here, the page has been still for a while, the screen is wide, its first delay (or its wait
+ * Whether the comet may start to show: it is planned for this visit and still waiting, the launch gate allows it (full
+ * motion with the visitor here), the page has been still for a while, the screen is wide, its first delay (or its wait
  * after no place fit) is over, and no shooting star holds the ink lease. It keeps the sky's one bright moment near the
  * copy to a shooting star's, so it starts only while none does, and none takes the lease while it shows (LaunchGate.bodyShowing).
  */
 export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean): boolean {
-	return body.status === 'waiting' && body.planned && inHero(gate) && gate.still && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
-}
-
-/** The line a zone's reach above About's header row (CSS px from the top of the screen) once the page has scrolled as far as a comet can still show; findPlace keeps the comet's box above it along its whole path. */
-function lowestBox(width: number, height: number): number {
-	let below = 0
-	for (const [from, offset] of COMET.aboutRow) if (width >= from) below = offset
-	return height * (1 - SCENE.heroLaunchMaxScroll) + below - SCROLL_CANCEL.to - ZONE_REACH
+	return body.status === 'waiting' && body.planned && gate.allowed && gate.still && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
 }
 
 /** Whether the box [x0, x1] × [y0, y1] keeps out of the reach of every zone. */
@@ -253,13 +241,13 @@ function blockedPlaces(zones: readonly SkyRect[], path: readonly Point[], box: C
  * Where the comet's nucleus goes on screen, or null when no place fits, for a comet that starts at drift clock `clock`
  * and keeps clear for `life` seconds of it. Its path is known (cometPath), so its box is swept along it, grown by
  * COMET.clearance and the pointer's lean (LEAN_REACH, either way), and at every sample must keep clear of the reach of
- * all copy (the field's `clearSky`), lie below the navbar (METEOR.top) and above About's header row at the scroll where a
- * comet last starts, and keep its head inside the screen (METEOR.edgeMargin). The box may overflow the right edge, where no
- * copy lies, which is how the comet leaves. Of the places on a COMET.step grid that fit, it takes the one nearest
- * COMET.anchor, and the first of them (rows from the top, each from the left) where two are as near.
+ * all copy (the field's `clearSky`) and lie on screen, below the navbar (METEOR.top) and over its foot, with its head
+ * inside the sides (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how the comet
+ * leaves. A screen with no such place has no comet for now. Of the places on a COMET.step grid that fit, it takes the one
+ * nearest COMET.anchor, and the first of them (rows from the top, each from the left) where two are as near.
  *
  * A field may hold hundreds of zones, a grid thousands of places and a path dozens of samples, so a place is not tried
- * against all of them. The screen's edge, the navbar and About's row are settled for every place at once from the samples
+ * against all of them. The screen's edge, the navbar and the foot are settled for every place at once from the samples
  * that go farthest each way, zones that reach no box of the sweep are left out, the places that surely stay blocked are
  * mapped (blockedPlaces) and skipped, and each place left is tried zone by zone, a zone sample by sample only where it
  * reaches the box that holds the whole sweep there.
@@ -268,7 +256,7 @@ export function findPlace(field: SkyField, shape: CometShape, clock: number, lif
 	const { width, height } = field
 	const { left, top, right, bottom } = shape.box
 	const margin = COMET.clearance + LEAN_REACH
-	const lowest = lowestBox(width, height)
+	const lowest = height - METEOR.edgeMargin
 	const y0 = METEOR.top + margin - top
 	const y1 = lowest - margin - bottom
 	if (y1 < y0) return null
@@ -279,7 +267,7 @@ export function findPlace(field: SkyField, shape: CometShape, clock: number, lif
 	const x0 = METEOR.edgeMargin - left
 	const x1 = width - METEOR.edgeMargin
 	// A sum never falls when an addend rises, so the sample that goes farthest each way decides for all of them: the head
-	// is inside the right edge, and the box below the navbar and above About's row, at every sample if it is at that one.
+	// is inside the right edge, and the box below the navbar and above the foot, at every sample if it is at that one.
 	// The columns and rows that fail are no place at all
 	const columns: number[] = []
 	for (let x = x0; x <= x1 && x + travel.maxX <= x1; x += COMET.step) columns.push(x)
@@ -287,7 +275,7 @@ export function findPlace(field: SkyField, shape: CometShape, clock: number, lif
 	for (let y = y0; y <= y1 && y + travel.maxY + bottom + margin <= lowest; y += COMET.step) {
 		if (y + travel.minY + top - margin >= METEOR.top) rows.push(y)
 	}
-	// A zone that reaches no box of the sweep takes no part, nor does one below the line of About's row
+	// A zone that reaches no box of the sweep takes no part, nor does one below the foot
 	const zones = field.clearSky.filter((zone) => zoneReaches(zone, x0 + travel.minX + left - margin, y0 + travel.minY + top - margin, x1 + travel.maxX + right + margin, lowest))
 	const { counts, stride } = blockedPlaces(zones, path, shape.box, margin, columns, rows)
 	const staysClear = (x: number, y: number) => {
@@ -412,7 +400,7 @@ export function releaseBody(body: SkyBody, twinkleTime: number): void {
 	body.heldAt = null
 }
 
-/** The viewport changed: its place and its distance from About's header row were for the old one, so a showing body is gone. A waiting one is placed afresh when it starts. */
+/** The viewport changed: its place was for the old one, so a showing body is gone. A waiting one is placed afresh when it starts. */
 export function dropBody(body: SkyBody): void {
 	if (body.status === 'showing') body.status = 'gone'
 }

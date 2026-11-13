@@ -347,7 +347,7 @@ function planMeteorLaunch(context: PlanContext): Meteor | null {
 /** The shooting stars' timing and planning. */
 export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	firstDelay: (random) => between(random, METEOR.firstDelay[0], METEOR.firstDelay[1]),
-	nextAfter: (meteor, random, sinceReveal, narrow) => meteorSpan(meteor) + nextGap(random, narrow ? METEOR_RATE.narrow : METEOR_RATE.hero, sinceReveal),
+	nextAfter: (meteor, random, sinceReveal, narrow) => meteorSpan(meteor) + nextGap(random, narrow ? METEOR_RATE.narrow : METEOR_RATE.wide, sinceReveal),
 	plan: planMeteorLaunch,
 	lifetime: meteorLifetime,
 	moving: meteorMoving,
@@ -359,7 +359,6 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	lastOnset: (meteor) => (meteor.followers?.at(-1)?.startedAt ?? meteor.startedAt) - meteor.startedAt,
 	lease: true,
 	phones: true,
-	scene: 'hero',
 	forget: (visit) => {
 		visit.meteor.sky = null
 	},

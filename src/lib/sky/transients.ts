@@ -12,7 +12,7 @@ import type { SkyRect } from './protocol'
 import { zoneReaches } from './quietIndex'
 import { between, type Random } from './random'
 import { SATELLITE_SPEC, type SatellitePass } from './satellites'
-import { readingPadding, screenQuietZones, screenReadingZones, scrollKept, type LaunchScene } from './scene'
+import { readingPadding, screenQuietZones, screenReadingZones, scrollKept } from './scene'
 
 /** The model behind each kind: what its planner returns and its drawing reads. */
 export interface TransientBodies {
@@ -131,8 +131,6 @@ export interface TransientSpec<K extends TransientKind> {
 	lease: boolean
 	/** It may launch on narrow screens (phones). */
 	phones: boolean
-	/** The launch scene it flies in (SceneLevels.launchScene): over the hero or at the end bookend. */
-	scene: LaunchScene
 	/** The viewport changed: forget this kind's part of the visit's memory. */
 	forget?(visit: VisitMemory): void
 }
@@ -142,17 +140,15 @@ const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC,
 
 /** Whether and where transients may launch now; the worker refills one reused gate every tick. */
 export interface LaunchGate {
-	/** Full motion, visible, revealed, the visitor present and in a launch scene (SceneLevels.launchScene). */
+	/** Full motion, visible, revealed, the visitor present and the page where launches reach (launchReaches). */
 	allowed: boolean
-	/** The launch scene now (SceneLevels.launchScene), which each kind's own `scene` must match. */
-	scene: LaunchScene | null
 	/** No scroll step over TRANSIENTS.calmStep px for TRANSIENTS.scrollQuiet seconds. */
 	calm: boolean
 	/** No scroll at all for TRANSIENTS.scrollQuiet seconds: what must stay where its plan saw the copy may start now. */
 	still: boolean
 	/**
 	 * The page's reading copy has been measured. Until it has, or where a walk finds none, the sky can't tell what a flight may
-	 * come to lie on, so the scroll cancel takes every flight.
+	 * come to lie on, so the scroll cancel takes every flight and launches stay near the top (launchReaches).
 	 */
 	readingKnown: boolean
 	/** A narrow screen (the worker's narrowScreen): phones keep their own limit, TRANSIENTS.narrowLimit, and their own gaps. */
@@ -193,6 +189,11 @@ export function createTransientSchedule(): TransientSchedule {
 		crossingAfter: Infinity,
 		visit: { meteor: createMeteorMemory() },
 	}
+}
+
+/** Whether launches reach a page scrolled `scrollY` px: anywhere with reading copy known, else within TRANSIENTS.launchReach viewport heights of the top. */
+export function launchReaches(scrollY: number, height: number, readingKnown: boolean): boolean {
+	return readingKnown || scrollY <= height * TRANSIENTS.launchReach
 }
 
 /** Starts each kind's clock at the reveal with its own first delay, and the crossing cooldown (crossingAfter = now + TRANSIENTS.crossingCooldown). */
@@ -247,7 +248,7 @@ function retire(schedule: TransientSchedule, now: number, scrollY: number): bool
  * Whether this tick's launch of `kind` is held back: the moment doesn't allow it, or a rule of the kind or the visit keeps
  * it. One rule keeps the sky's bright moment single: a kind that never takes the ink lease (a satellite) waits while a
  * transient that holds it flies, and launchKind plans a transient that may take it in clear sky while any other flies or
- * the comet shows. A kind flies only in its own launch scene.
+ * the comet shows.
  */
 function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number, gate: LaunchGate): boolean {
 	const spec = SPECS[kind]
@@ -257,8 +258,7 @@ function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number,
 		(gate.narrow && (!spec.phones || schedule.launched >= TRANSIENTS.narrowLimit)) ||
 		now - schedule.lastOnsetAt < TRANSIENTS.minOnsetGap ||
 		schedule.active.some((transient) => transient.kind === kind) ||
-		(!spec.lease && leaseHeld(schedule)) ||
-		gate.scene !== spec.scene
+		(!spec.lease && leaseHeld(schedule))
 	)
 }
 
@@ -312,7 +312,8 @@ export function updateTransients(schedule: TransientSchedule, random: Random, no
 	for (const kind of TRANSIENT_KINDS) {
 		if (now < schedule.nextAt[kind]) continue
 		if (heldBack(schedule, kind, now, gate)) {
-			schedule.nextAt[kind] = now + TRANSIENTS.recheck
+			// A launch the scroll holds draws a fresh wait, so launches don't bunch where scrolling stops
+			schedule.nextAt[kind] = now + (gate.calm ? TRANSIENTS.recheck : between(random, ...TRANSIENTS.afterScroll))
 			continue
 		}
 		if (launchKind(schedule, random, now, kind, gate, gate.field())) changed = true

@@ -29,7 +29,7 @@ import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, trainWidth,
 import type { Rgb, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
-import { budgetKeeps, flightKept, readingKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { budgetKeeps, easedReadingKept, flightKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import type { MiamiFrame } from './miamiRuntime'
 import { drawFireball } from './renderFireball'
@@ -153,8 +153,8 @@ export interface SkyFrame {
 	reading: readonly SkyRect[]
 	/** What stars keep clear of through their layer's keeps: `quiet` and, on wide screens, reading copy, padded alike and easing together. */
 	starQuiet: QuietBlend
-	/** Reading copy near the screen that stars on a narrow screen keep clear of directly (READING.narrowStarReach); none on wide screens. */
-	starReading: readonly SkyRect[]
+	/** Reading copy near the screen that stars on a narrow screen keep clear of directly (READING.narrowStarReach), easing in with `quiet`; no zones on wide screens. */
+	starReading: QuietBlend
 	/** Quiet copy in the page's flow near the screen, grown by SCROLL_LAG.reach, while a transient is in the sky, else none. */
 	quietAhead: readonly SkyRect[]
 	/** The page's scroll as the worker last heard of it (px). */
@@ -180,7 +180,10 @@ export interface SkyFrame {
  */
 const EDGE = 24
 
-/** The quiet zones bucketed by screen tile over the viewport and EDGE, so each star reads only the zones that can reach it. */
+/**
+ * The zones of frame.starQuiet bucketed by screen tile over the viewport and EDGE, so each star reads only the zones
+ * that can reach it: quiet copy and, on screens over NARROW_MAX_WIDTH, reading copy.
+ */
 const quietIndex = createQuietIndex()
 
 /** Top-left device pixel of the sprite placePoint last picked (reused, so no garbage per star). */
@@ -227,8 +230,11 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 	const y1 = Math.floor((Math.max(offset.y * qFar, offset.y * qNear) + frame.height + EDGE) / CELL_SIZE)
 	const { atlas } = assets
 	const emerging = frame.dusk !== Infinity
-	// Whether any quiet zone is on screen: fixed for the whole frame, so read once per layer
+	// Whether the index holds any zone (frame.starQuiet): fixed for the whole frame, so read once per layer
 	const quiet = !quietIndex.empty
+	// Likewise for reading copy on a narrow screen, where a star keeps all of its light `reach` px away from it
+	const reading = starReading.to.length > 0 || starReading.from.length > 0
+	const reach = READING.narrowStarReach[layer]
 	for (let cy = y0; cy <= y1; cy++) {
 		for (let cx = x0; cx <= x1; cx++) {
 			for (const star of field.cell(layer, cx, cy)) {
@@ -243,7 +249,7 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)
 				// A bright star beside the copy reads as punctuation or an accent
 				if (quiet) alpha *= quietIndex.factor(x, y, config)
-				if (starReading.length > 0) alpha *= readingKept(starReading, x, y, READING.narrowStarReach[layer])
+				if (reading) alpha *= easedReadingKept(starReading, x, y, reach)
 				// The landing scene's sky warms toward the bottom of the screen, and the stars go out into it from the bottom up
 				if (y > frame.starFullY) alpha *= 1 - frame.starFloorFade * (1 - smoothstep(frame.starFloorY, frame.starFullY, y))
 				if (star.twinkle && frame.twinkle > 0) {

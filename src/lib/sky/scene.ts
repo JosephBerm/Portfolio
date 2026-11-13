@@ -216,6 +216,12 @@ export function easedQuietFactor(blend: QuietBlend, x: number, y: number, keeps:
 	return blend.level >= 1 ? current : current * blend.level + quietFactor(blend.from, x, y, keeps) * (1 - blend.level)
 }
 
+/** readingKept while new zones take effect: a cross-fade from the previous zones' share to the current ones', as easedQuietFactor does. Stars on a narrow screen use it. */
+export function easedReadingKept(blend: QuietBlend, x: number, y: number, reach: number): number {
+	const current = readingKept(blend.to, x, y, reach)
+	return blend.level >= 1 ? current : current * blend.level + readingKept(blend.from, x, y, reach) * (1 - blend.level)
+}
+
 /**
  * easedQuietFactor for a transient, a shooting star in the air and any later kind that adds light on the copy: never
  * above the factor of the current zones alone, or of a waiting layout's (`next`). Copy that moves under it (an entrance

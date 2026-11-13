@@ -112,7 +112,7 @@ let scrollY = 0
 let documentHeight = 0
 let quiet: readonly SkyRect[] = []
 let pinned: readonly SkyRect[] = []
-// Reading copy as the layout in force measured it, which stars on a wide screen keep clear of as it eases in
+// Reading copy as the layout in force measured it, which stars keep clear of as it eases in
 let reading: readonly SkyRect[] = []
 // The rects a new layout eases in from (none before the first)
 let quietBefore: readonly SkyRect[] = []
@@ -630,6 +630,12 @@ function starBlend(blend: QuietBlend): QuietBlend {
 	return { from: blend.level < 1 ? [...blend.from, ...zones(readingBefore)] : [], to: [...blend.to, ...zones(reading)], level: blend.level }
 }
 
+/** The reading copy stars on a narrow screen keep clear of at the same moment as `blend`, grown as READING says for this width. */
+function starReadingBlend(blend: QuietBlend): QuietBlend {
+	const zones = (rects: readonly SkyRect[]) => screenReadingZones(rects, scrollY, height, readingPadding(narrowScreen))
+	return { from: blend.level < 1 ? zones(readingBefore) : [], to: zones(reading), level: blend.level }
+}
+
 /**
  * Starts easing toward new rects: the ones on screen now become `from`, so a layout never changes the zones in one
  * frame. A layout that arrives mid-ease waits for it to end (the newest wins), because starting from the previous target
@@ -651,7 +657,7 @@ function applyLayout(message: LayoutMessage, now: number): void {
 /**
  * Applies a waiting layout once the running ease is over, and asks for one more frame once the quiet ease has run out,
  * if the last one drawn still showed it part way. Fade frames come 1/FRAME.fadeFps s apart, so the ease ends between two
- * of them, and a worker about to sleep (reduced motion, reading) would keep the older state.
+ * of them, and a worker about to sleep (reduced motion, an idle visit) would keep the older state.
  */
 function settleQuiet(now: number): void {
 	const t = now / 1000
@@ -754,7 +760,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		quiet: quietZones,
 		reading: transients.active.length > 0 || bodyShowing(comet) ? landingZones(readingZones()) : [],
 		starQuiet: narrowScreen ? quietZones : starBlend(quietZones),
-		starReading: narrowScreen ? readingZones() : [],
+		starReading: narrowScreen ? starReadingBlend(quietZones) : { from: [], to: [], level: 1 },
 		quietAhead: transients.active.length > 0 ? screenReadingZones(pendingLayout?.quiet ?? quiet, scrollY, height, SCROLL_LAG.reach) : [],
 		scrollY,
 		meteorInk: contrast.meteorInk * scene.inkShare,
@@ -1083,7 +1089,8 @@ scope.addEventListener('message', (event) => {
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
-			// near it fade instead of changing in one frame. A change mid-ease waits for the ease to end.
+			// near it, reading copy included, fade instead of changing in one frame. A change mid-ease waits for the ease to
+			// end, while what flies and what plans answer to the newest reading copy at once (newestReading).
 			const latest = pendingLayout ?? { quiet, pinned, reading }
 			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
 				if (quietEasing(now / 1000)) pendingLayout = message

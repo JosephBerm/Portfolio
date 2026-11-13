@@ -2,14 +2,14 @@
  * The sky's long-lived bodies; so far the comet. A comet is not a transient. It hangs on the sky, so the camera moves it
  * as it moves the faint stars, and it drifts on its own as a comet does, slowly, a day a minute, as a function of the
  * drift clock, so it stops whenever the drift does. A pause, or reduced motion turned on in mid-visit, holds it lit and
- * still where it is, and Play goes on from there. It fades in over seconds instead of lighting up, and it stays until
- * the page scrolls from where it began to show, the sky is resized, copy comes near it or it has glided off the right
- * edge. Then it is gone for the page view. It never lights the copy: it shows only where its whole box keeps clear of
- * every quiet zone's reach. This module is its model, pure functions over a body's state: where it hangs and drifts, its
+ * still where it is, and Play goes on from there. It fades in over seconds instead of lighting up, and it stays, through
+ * scrolling too, until the sky is resized, copy or the landing scene's band comes near it or it has glided off the right
+ * edge, and later comes back where the sky then has room. It never lights the copy: it shows only where its whole box keeps
+ * clear of every zone's reach. This module is its model, pure functions over a body's state: where it hangs and drifts, its
  * fades, the box test and its start rule. What it looks like and how fast it drifts (the light of its head, tails and
  * knots, its size and box, the pace of its drift) is comet.ts's: skyAssets paints the comet's bitmap from it, and this
- * module reads its box and its pace. The worker keeps the state and feeds the functions what it knows, and renderSky
- * draws what they return. It imports only types from transients.ts.
+ * module reads its box and its pace. The worker keeps the state and feeds the functions what it knows, and renderSky draws
+ * what they return. It imports only types from transients.ts.
  */
 
 import { driftAt, type Vec } from './camera'
@@ -21,7 +21,7 @@ import { easeEnded, easing, fadeOutAt } from './pacing'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH, zoneReaches } from './quietIndex'
 import type { Random } from './random'
-import { scrollKept, smoothstep, type QuietBlend } from './scene'
+import { smoothstep, type QuietBlend } from './scene'
 import type { LaunchGate, SkyField } from './transients'
 
 /**
@@ -53,14 +53,14 @@ function farBandNearness(): number {
 const LEAN_REACH = BODY_NEARNESS * LEAN.reach
 
 /** Where a body is in its life. */
-export type BodyStatus = 'waiting' | 'showing' | 'gone'
+export type BodyStatus = 'waiting' | 'showing'
 
 /** A long-lived body hung in the sky. Times are seconds; the fade-in runs on the clock that leaves out hidden time. */
 export interface SkyBody {
 	status: BodyStatus
 	/** This visit hangs one: the draw made at the reveal. */
 	planned: boolean
-	/** Seconds after the reveal before its start rule is next looked at: the first delay, then a wait after no place fit. */
+	/** Seconds after the reveal before its start rule is next looked at: the first delay, then a wait after no place fit or after it left. */
 	nextAt: number
 	/** Where its nucleus hangs on the sky (CSS px) before its own drift: the place it was put on screen plus its nearness times the camera's offset then. Set once it shows. */
 	x: number
@@ -75,9 +75,7 @@ export interface SkyBody {
 	startClock: number
 	/** Its knots, rewritten for every frame it shows (reused, so a frame makes no garbage). */
 	knots: CometKnot[]
-	/** scrollY when it began to show: the page may scroll SCROLL_CANCEL.to px from there before it is gone. */
-	launchScrollY: number
-	/** When copy first came within reach of its box (worker clock); it fades out over TRANSIENTS.cancelFade from then. Null while its box has been clear. */
+	/** When copy or the landing scene's band first came within reach of its box, or the box passed the right edge (worker clock); it fades out over TRANSIENTS.cancelFade from then. Null while neither has happened. */
 	boxFailedAt: number | null
 	/** When the sky was paused or turned to reduced motion, on the twinkle clock: its fade-in stands at that moment until Play. Null under full motion. */
 	heldAt: number | null
@@ -96,7 +94,6 @@ export function createSkyBody(): SkyBody {
 		startedAt: 0,
 		startClock: 0,
 		knots: Array.from({ length: COMET.knots.count }, () => ({ x: 0, y: 0, dirX: 0, dirY: 0, light: 0, long: 0, wide: 0 })),
-		launchScrollY: 0,
 		boxFailedAt: null,
 		heldAt: null,
 	}
@@ -114,18 +111,13 @@ export function bodyShowing(body: SkyBody): boolean {
 
 /**
  * Whether the comet may start to show: it is planned for this visit and still waiting, the launch gate allows it (full
- * motion with the visitor here), the page has been still for a while, the screen is wide, its first delay (or its wait
- * after no place fit) is over, and no shooting star holds the ink lease. It keeps the sky's one bright moment near the
- * copy to a shooting star's, so it starts only while none does, and none takes the lease while it shows (LaunchGate.bodyShowing).
+ * motion with the visitor here), the page's reading copy is known, since it will stay through scrolling, the page has been
+ * still for a while, the screen is wide, its first delay (or its wait after no place fit or after it left) is over, and no
+ * shooting star holds the ink lease. It keeps the sky's one bright moment near the copy to a shooting star's, so it starts
+ * only while none does, and none takes the lease while it shows (LaunchGate.bodyShowing).
  */
 export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean): boolean {
-	return body.status === 'waiting' && body.planned && gate.allowed && gate.still && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
-}
-
-/** Whether the box [x0, x1] × [y0, y1] keeps out of the reach of every zone. */
-function clearOfZones(zones: readonly SkyRect[], x0: number, y0: number, x1: number, y1: number): boolean {
-	for (const zone of zones) if (zoneReaches(zone, x0, y0, x1, y1)) return false
-	return true
+	return body.status === 'waiting' && body.planned && gate.allowed && gate.readingKnown && gate.still && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
 }
 
 /** Seconds of drift clock between the samples of a comet's path: in that time it moves a few px, far less than COMET.clearance. */
@@ -323,12 +315,36 @@ function placeComet(field: SkyField, clock: number): { shape: CometShape; place:
 	return null
 }
 
-/** The share of its light the page's scroll and the fade of the box leave a showing body (scrollKept); 0 means it is gone. */
-function bodyKept(body: SkyBody, time: number, scrollY: number): number {
-	return scrollKept(body.launchScrollY, scrollY, fadeOutAt(body.boxFailedAt, TRANSIENTS.cancelFade, time))
+/**
+ * The share of its light the comet's box [x0, x1] × [y0, y1] keeps for `zones`: all of it while each zone is over
+ * COMET.clearance px past its reach, easing to none at the reach, the same distance zoneReaches reads. One bitmap cannot be
+ * dimmed part by part, and this needs no clock: copy nearing the box dims all of the comet by where that copy is now, as fast
+ * as the page moves, and gives the light back if the page moves away. A place's path keeps that clearance only on the page
+ * as it stood at the start and for the life it was swept for: past those the comet's own motion can bring it near copy too,
+ * and it dims the same way.
+ */
+function boxKept(zones: readonly SkyRect[], x0: number, y0: number, x1: number, y1: number): number {
+	let kept = 1
+	for (const zone of zones) {
+		const gap = Math.max(zone.x - x1, x0 - zone.x - zone.width, zone.y - y1, y0 - zone.y - zone.height)
+		if (gap < ZONE_REACH + COMET.clearance) kept = Math.min(kept, smoothstep(ZONE_REACH, ZONE_REACH + COMET.clearance, gap))
+	}
+	return kept
 }
 
-/** What the worker knows at a tick, for the body's step: the launch gate (its scroll and its field), the lease, the clocks and the camera. */
+/** The share of its light the box's fade leaves a showing body; at 0 it leaves the sky. */
+function bodyKept(body: SkyBody, time: number): number {
+	return fadeOutAt(body.boxFailedAt, TRANSIENTS.cancelFade, time)
+}
+
+/** A showing body leaves the sky until COMET.again seconds from now. */
+function leaveSky(body: SkyBody, sinceReveal: number): void {
+	body.status = 'waiting'
+	body.nextAt = sinceReveal + COMET.again
+	body.boxFailedAt = null
+}
+
+/** What the worker knows at a tick, for the body's step: the launch gate (whether it may start, and its field), the lease, the clocks and the camera. */
 export interface BodyStep {
 	gate: LaunchGate
 	/** An active transient holds the ink lease. */
@@ -352,17 +368,16 @@ function fadeEnded(body: SkyBody, step: BodyStep): boolean {
 }
 
 /**
- * One tick. A showing body that has kept no light is gone for good. A waiting one starts if its rule allows and a place
- * fits for the drift clock now: it takes the scroll where it starts as the page's scroll cancel measures from it, and
- * hangs where the camera's offset puts that place on screen now; if none fits it waits COMET.retry seconds, and then
- * tries from a new drift clock, so along a new path. Returns whether the sky changed or a fade has just run out, so the
- * worker draws a frame.
+ * One tick. A showing body that has kept no light leaves the sky. A waiting one starts if its rule allows and a place
+ * fits for the drift clock now, and hangs where the camera's offset puts that place on screen now; if none fits it waits
+ * COMET.retry seconds, and then tries from a new drift clock, so along a new path. Returns whether the sky changed or a
+ * fade has just run out, so the worker draws a frame.
  */
 export function updateBody(body: SkyBody, step: BodyStep): boolean {
 	const { gate } = step
 	if (body.status === 'showing') {
-		if (bodyKept(body, step.time, gate.scrollY) > 0) return fadeEnded(body, step)
-		body.status = 'gone'
+		if (bodyKept(body, step.time) > 0) return fadeEnded(body, step)
+		leaveSky(body, gate.sinceReveal)
 		return true
 	}
 	if (!bodyMayStart(body, gate, step.leaseHeld)) return false
@@ -379,7 +394,6 @@ export function updateBody(body: SkyBody, step: BodyStep): boolean {
 	body.y = placed.place.y + BODY_NEARNESS * step.offset.y
 	body.startedAt = step.twinkleTime
 	body.startClock = step.clock
-	body.launchScrollY = gate.scrollY
 	return true
 }
 
@@ -400,9 +414,9 @@ export function releaseBody(body: SkyBody, twinkleTime: number): void {
 	body.heldAt = null
 }
 
-/** The viewport changed: its place was for the old one, so a showing body is gone. A waiting one is placed afresh when it starts. */
-export function dropBody(body: SkyBody): void {
-	if (body.status === 'showing') body.status = 'gone'
+/** The viewport changed: its place was for the old one, so a showing body leaves the sky. A waiting one is placed afresh when it starts. */
+export function dropBody(body: SkyBody, sinceReveal: number): void {
+	if (body.status === 'showing') leaveSky(body, sinceReveal)
 }
 
 /** True while a showing body's fade-in or a fade-out of it runs: fade frames show it. A held body asks for none: it is lit and still. */
@@ -410,13 +424,12 @@ export function bodyFading(body: SkyBody, time: number, twinkleTime: number): bo
 	return body.status === 'showing' && ((body.heldAt === null && easing(body.startedAt, COMET.fadeIn, twinkleTime)) || easing(body.boxFailedAt, TRANSIENTS.cancelFade, time))
 }
 
-/** What the worker knows at a drawn frame, for the body's view: the clocks, the scroll, the camera, the screen and the zones on screen. */
+/** What the worker knows at a drawn frame, for the body's view: the clocks, the camera, the screen and the zones on screen. */
 export interface BodyFrame {
 	/** Seconds on the worker clock. */
 	time: number
 	/** Seconds on the clock that leaves out the time the tab was hidden. */
 	twinkleTime: number
-	scrollY: number
 	/** The camera's offset (CSS px at nearness 1). */
 	offset: Vec
 	/** The drift clock (Camera.clock, s). */
@@ -433,7 +446,7 @@ export interface BodyFrame {
 export interface CometView {
 	x: number
 	y: number
-	/** The light it shows, 0 to 1: its fade-in times the share the scroll and the fades leave. */
+	/** The light it shows, 0 to 1: its fade-in times the share its fade and the copy or the landing scene's band near its box leave. */
 	light: number
 	shape: CometShape
 	/** The ion tail's knots relative to the nucleus: the body's own reused list, rewritten by each view. */
@@ -443,10 +456,11 @@ export interface CometView {
 /**
  * The comet as one drawn frame shows it, or null when none shows. It hangs where the camera carries it and drifts on its
  * own: the drift clock's time since it began to show, times its pace. While the sky is held the camera and the drift
- * clock stand still, so it does too, and its fade-in is read at the moment of the hold. It is gone once its whole box is
- * past the right edge, where no copy lies. Its box is tested against the zones the frame answers to (the layout it is
- * easing to, one waiting, and reading copy with the landing scene's band), whose copy and the comet both move, held or not,
- * and the first time copy or the band comes within reach it starts to fade out and is gone for good.
+ * clock stand still, so it does too, and its fade-in is read at the moment of the hold. None of it shows once its whole box
+ * is past the right edge, where no copy lies. Its box is tested against the zones the frame answers to (the layout it is
+ * easing to, one waiting, and reading copy with the landing scene's band), whose copy and the comet both move, held or not:
+ * copy or the band nearing it dims all of it by where it is (boxKept), and the first time either comes within reach, or the
+ * box is past the edge, its fade starts and it leaves the sky when that has run out (updateBody).
  */
 export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const { shape } = body
@@ -455,23 +469,15 @@ export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const x = body.x - BODY_NEARNESS * frame.offset.x + body.drift.x * flown
 	const y = body.y - BODY_NEARNESS * frame.offset.y + body.drift.y * flown
 	if (x + shape.box.left >= frame.width) {
-		body.status = 'gone'
+		body.boxFailedAt ??= frame.time
 		return null
 	}
-	if (body.boxFailedAt === null) {
-		const { left, top, right, bottom } = shape.box
-		const x0 = x + left
-		const y0 = y + top
-		const x1 = x + right
-		const y1 = y + bottom
-		const clear = (zones: readonly SkyRect[]) => clearOfZones(zones, x0, y0, x1, y1)
-		if (!clear(frame.quiet.to) || !clear(frame.reading) || (frame.quiet.next && !clear(frame.quiet.next))) body.boxFailedAt = frame.time
-	}
-	const kept = bodyKept(body, frame.time, frame.scrollY)
-	if (kept <= 0) {
-		body.status = 'gone'
-		return null
-	}
+	const { left, top, right, bottom } = shape.box
+	const keptBy = (zones: readonly SkyRect[]) => boxKept(zones, x + left, y + top, x + right, y + bottom)
+	const clear = Math.min(keptBy(frame.quiet.to), keptBy(frame.reading), frame.quiet.next ? keptBy(frame.quiet.next) : 1)
+	if (clear <= 0) body.boxFailedAt ??= frame.time
+	const kept = bodyKept(body, frame.time)
+	if (kept <= 0) return null
 	cometKnots(frame.clock, shape.unit, body.knots)
-	return { x, y, light: smoothstep(0, COMET.fadeIn, (body.heldAt ?? frame.twinkleTime) - body.startedAt) * kept, shape, knots: body.knots }
+	return { x, y, light: smoothstep(0, COMET.fadeIn, (body.heldAt ?? frame.twinkleTime) - body.startedAt) * kept * clear, shape, knots: body.knots }
 }

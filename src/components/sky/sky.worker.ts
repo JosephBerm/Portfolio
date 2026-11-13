@@ -423,6 +423,11 @@ function launchesAllowed(now: number, scene: SceneLevels): boolean {
 	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && launchReaches(scrollY, height, reading.length > 0) && scene.descent < DESCENT.eventStop
 }
 
+/** Seconds since the reveal at `now` (ms); 0 before it. */
+function sinceReveal(now: number): number {
+	return revealAt === null ? 0 : now / 1000 - revealAt
+}
+
 /** Refills the launch gate for `now` (ms) in the tick's scene: whether transients may launch this tick. */
 function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.allowed = launchesAllowed(now, scene)
@@ -431,7 +436,7 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.still = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
 	gate.readingKnown = reading.length > 0
 	gate.narrow = narrowScreen
-	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
+	gate.sinceReveal = sinceReveal(now)
 	gate.scrollY = scrollY
 	gate.ink = contrastLevels().meteorInk * scene.inkShare
 	gate.bodyShowing = bodyShowing(comet)
@@ -683,12 +688,12 @@ function updateNebula(scene: SceneLevels): void {
 
 /**
  * Steps the comet after the launch step and the camera: it starts when its rule allows (never while a shooting star holds
- * the ink lease), is gone once it keeps no light, and a fade of it that has just run out draws one more frame, so no trace
+ * the ink lease), leaves the sky once it keeps no light, and a fade of it that has just run out draws one more frame, so no trace
  * of it stays on screen. The launch gate it reads is the one this tick's launch step filled.
  */
 function updateComet(now: number): void {
-	// A visit that draws no comet, and one whose comet has gone, have nothing to step
-	if (!comet.planned || comet.status === 'gone') return
+	// A visit that draws no comet has nothing to step
+	if (!comet.planned) return
 	const t = now / 1000
 	bodyStep.leaseHeld = leaseHeld(transients)
 	bodyStep.time = t
@@ -752,9 +757,9 @@ function draw(now: number): void {
 	const frame = frameAt(now, canvas)
 	drawSky(ctx, assets, field, frame)
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
-	// The comet's view tests its box against the zones this frame draws, and may find it gone
+	// The comet's view tests its box against the zones this frame draws, which may start it fading
 	const view = bodyShowing(comet)
-		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading })
+		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading })
 		: null
 	if (view) {
 		// Painted once, in the first frame it shows (still at no light), and again after a lost context took it
@@ -894,7 +899,7 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	// The old path was planned for the old layout, and so was the comet's place
 	forgetVisitSky(transients)
 	dropTransients(transients)
-	dropBody(comet)
+	dropBody(comet, sinceReveal(now))
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
 	miami.setSize(width, height, dpr)

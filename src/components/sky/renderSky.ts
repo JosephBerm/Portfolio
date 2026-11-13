@@ -28,7 +28,7 @@ import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, trainWidth,
 import type { Rgb, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
-import { budgetKeeps, flightKept, readingKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { budgetKeeps, flightKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import type { MiamiFrame } from './miamiRuntime'
 import { drawFireball } from './renderFireball'
@@ -536,19 +536,19 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 
 /**
  * The comet at one frame: its bitmap of coma and tails added to the sky, the knots gliding along the ion tail, then the
- * pseudo-nucleus over them. `view.light` (the fade-in times what the scroll and the fades leave) multiplies all of it,
- * and so do the transient quiet factor with CLEAR_SKY_KEEPS and readingKept, sampled at the nucleus and at the far end of
- * each tail and taken at the lowest of the three. One bitmap cannot be dimmed part by part, so when copy comes within
- * reach of any of them all of the comet gives way together, without waiting for its fade; copy that lands between them is
- * left to the box test (bodyView), whose fade takes the comet out in TRANSIENTS.cancelFade. The bitmap is assets.comet; the
- * caller has painted it before the comet shows.
+ * pseudo-nucleus over them. `view.light` (the fade-in times what its fade and the copy or band near its box leave)
+ * multiplies all of it, because one bitmap cannot be dimmed part by part: the copy its box is tested against, the layout it
+ * is easing to, one waiting and reading copy, with the landing scene's band, dims all of the comet by where it is, with no
+ * fade to wait for (bodyView). A layout easing out isn't in that test, so the transient quiet factor with CLEAR_SKY_KEEPS
+ * multiplies it too, sampled at the nucleus and at the far end of each tail and taken at the lowest of the three. The
+ * bitmap is assets.comet; the caller has painted it before the comet shows.
  */
 export function drawComet(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, frame: SkyFrame): void {
 	const { comet, atlas } = assets
 	if (!comet || view.light < MIN_STAR_ALPHA) return
 	const { dpr } = frame
 	const { x, y, shape } = view
-	const keptAt = (px: number, py: number) => transientQuietFactor(frame.quiet, px, py, CLEAR_SKY_KEEPS) * readingKept(frame.reading, px, py)
+	const keptAt = (px: number, py: number) => transientQuietFactor(frame.quiet, px, py, CLEAR_SKY_KEEPS)
 	const kept = view.light * Math.min(keptAt(x, y), keptAt(x + shape.dustTip.x, y + shape.dustTip.y), keptAt(x + shape.ionTip.x, y + shape.ionTip.y))
 	if (kept < MIN_STAR_ALPHA) return
 	const { box } = shape

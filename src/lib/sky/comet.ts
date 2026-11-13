@@ -217,7 +217,7 @@ export interface CometShape {
 	unit: number
 	/** The box around everything that shows, which the placement and the clear-of-copy test use. */
 	box: Box
-	/** Where each tail shows farthest from the nucleus: with the nucleus, the places that copy coming near dims all of the comet from. */
+	/** Where each tail shows farthest from the nucleus: with the nucleus, where a layout easing out is read (drawComet). */
 	dustTip: Point
 	ionTip: Point
 }

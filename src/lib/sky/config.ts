@@ -1070,7 +1070,7 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * they stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and
  * never jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. A pause, or reduced
  * motion turned on in mid-visit, holds it lit and still where it is: a fade-in it interrupts stands at the light it
- * had, and Play goes on from there with no jump. Its tails keep their direction, and it is gone once its whole box has
+ * had, and Play goes on from there with no jump. Its tails keep their direction, and it leaves once its whole box has
  * left the screen, gliding off the right edge.
  *
  * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the
@@ -1082,14 +1082,18 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * navbar (METEOR.top) and over its foot, with its head inside the sides (METEOR.edgeMargin). The box may overflow the right
  * edge, where no copy lies, which is how it leaves. It takes the first of `sizes` (shares of its full size) whose path
  * stays clear that long and, only where none does, the first that stays clear for `life[1]` seconds. Where no place fits
- * it looks again after `retry` seconds, from a new drift clock and so along a new path. It is gone for the page view when
- * the page scrolls from where it began to show (SCROLL_CANCEL), when the sky is resized, or when copy comes within reach of
- * its box, held or not.
+ * it looks again after `retry` seconds, from a new drift clock and so along a new path. It stays through scrolling, as
+ * anything on the sky does, and copy nearing its box dims all of it by where that copy is, from `clearance` px past a zone's
+ * reach to none at the reach, so one bitmap puts nothing on a line at any speed once the worker has heard of the scroll
+ * (SCROLL_LAG). The landing scene's band does the same. It leaves when copy or the band comes within reach, held or not,
+ * when the sky is resized or when it has glided off the right edge, and comes back `again` seconds later, at the then
+ * nearest place to `anchor`, and under a pause only after Play.
  */
 export const COMET = {
 	chance: 0.11,
 	firstDelay: 8,
 	retry: 5,
+	again: 60,
 	fadeIn: 10,
 	anchor: [0.78, 0.42],
 	sizes: [1, 0.85, 0.7],

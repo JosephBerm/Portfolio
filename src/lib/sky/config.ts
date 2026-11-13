@@ -844,10 +844,15 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
  * Kinds of shooting star apart from the ordinary: odds per launch (`chance`), least seconds between two of a kind
  * (`spacing`: a number, or a range drawn afresh after each one) and the earliest second after the reveal (`after`). A kind
  * is open to a launch on wide screens only, once `after` has passed and its spacing has run out. A launch draws one number
- * and gives it to the first open kind, in the order listed here, whose slice of the odds it falls in, so each kind's share
- * of the launches is its own `chance`; where that kind finds no path, an ordinary shooting star flies instead. They are
- * listed by their odds, the highest first: fireballs, flashes, bursts, earthgrazers; the odds add up to less than 1, so
- * the order changes no kind's share.
+ * and gives it to the first open kind, in the order listed here, whose slice of the odds it falls in, so a kind takes its
+ * own `chance` of the launches it is open to; `after` and its spacing close it to about half of all launches or more, so
+ * its share of all launches is well under its `chance`. Where that kind finds no path, an ordinary shooting star flies
+ * instead, and a later launch may roll it again. The odds add up to 1, so the order changes no kind's share, and each kind
+ * flies in place of an ordinary launch, so they add no launches to what METEOR_RATE sets. Bursts and earthgrazers are far
+ * rarer in the real sky; this sky shows them often enough for a visit to see them. At 1440x900, over a visit's first 5
+ * minutes (the foot of the page included, where nothing launches with the landing scene on), a burst comes about every 4
+ * minutes and an earthgrazer about every 6, and a stay of 3 minutes shows a burst on about 4 visits in 5 and an
+ * earthgrazer on about 2 in 3.
  */
 export const METEOR_KINDS = {
 	/**
@@ -867,7 +872,7 @@ export const METEOR_KINDS = {
 	 * RADIANTS.onScreen of wide-screen visits) and fly within `radius` degrees of it, in clear sky, and never take the
 	 * ink lease.
 	 */
-	flash: { chance: 0.2, spacing: 60, after: 30, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
+	flash: { chance: 0.11, spacing: 150, after: 25, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
 	/**
 	 * Bursts: a meteor cluster, the pieces of one meteoroid that broke up in space days before it reached Earth. They arrive
 	 * as a swarm on parallel lines at one speed, so every piece shares one radiant and their paths fan out on screen from
@@ -899,9 +904,9 @@ export const METEOR_KINDS = {
 	 * burst never takes the ink lease, and none has a flare.
 	 */
 	burst: {
-		chance: 0.05,
+		chance: 0.19,
 		spacing: 90,
-		after: 45,
+		after: 40,
 		members: [6, 10],
 		least: 4,
 		across: [8, 13],
@@ -928,9 +933,11 @@ export const METEOR_KINDS = {
 	 * wake METEOR.grazerWake (about 4 s in all), across at least `widthShare` of the screen's width: about 20° of the window,
 	 * since 4 to 6°/s for 2.5 to 3.5 s spans 21° at most, so a larger share could never fit. It flies in clear sky, so it
 	 * never takes the ink lease, and is skipped silently where no band of clear sky is long enough. Screens narrower than
-	 * `minWidth` px have none.
+	 * `minWidth` px have none: there `widthShare` of the width is too short a path to read as a long, nearly level
+	 * crossing, and an earthgrazer would pass for a slow ordinary shooting star. The width is the canvas's, which spans the
+	 * whole window, a classic scrollbar's strip included.
 	 */
-	grazer: { chance: 0.025, spacing: 180, after: 60, minWidth: 1280, widthShare: 0.3, tilt: 12, angular: [4, 6], duration: [2.5, 3.5] },
+	grazer: { chance: 0.15, spacing: 180, after: 45, minWidth: 1200, widthShare: 0.3, tilt: 12, angular: [4, 6], duration: [2.5, 3.5] },
 } as const
 
 /**

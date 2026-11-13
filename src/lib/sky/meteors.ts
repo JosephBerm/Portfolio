@@ -98,7 +98,7 @@ export interface PlanOptions {
 	 * Zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose links change
 	 * color on hover and focus, which their measured headroom misses until the next measurement (the right rail's text also
 	 * keeps its contrast over the nebula, up to 0.09 of white there, past INK_BUDGET.hazeReserve, only while nothing else
-	 * lights it: a veiled flight's budget there would take it to about 3.7:1); reading copy, which nothing lights.
+	 * lights it: a veiled flight's budget there would take it to about 3.7:1); reading copy, which nothing lights at rest.
 	 * Default none.
 	 */
 	clearOf?: readonly SkyRect[]

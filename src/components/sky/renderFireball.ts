@@ -272,11 +272,11 @@ function drawCore(moment: Moment): void {
  * pieces of the burst and the core, in that order. Every part is read at its own place through transientQuietFactor with
  * CLEAR_SKY_KEEPS and through `fade`, a gradient's stops and a point's tail by the least of what they keep, and the
  * radial lights (the glare, the aureole, the core, the pieces' glows) end at the nearest padded quiet rect or reading copy's
- * zone, so none of it lands inside one, even when a layout or the scroll moves copy under it, and at `ahead`, zones of copy a
- * scroll may be bringing onto them. Its colors are its spectrum's (METEOR_SPECTRA) at full strength, and the center of the
- * head and the hot spine are the theme's white. `fade` (0-1) multiplies the light of each point of it, as for a shooting
- * star, and answers for reading copy. It is a drawer of its own: drawMeteor is built round the veil's budgets (METEOR_VEIL),
- * which a fireball never needs, since it flies in clear sky only.
+ * zone, so none of it lands inside one, even when a layout or a scroll moves copy under it, if the worker has heard of the
+ * move, and at `ahead`, zones of copy a scroll may be bringing onto them. Its colors are its spectrum's (METEOR_SPECTRA) at
+ * full strength, and the center of the head and the hot spine are the theme's white. `fade` (0-1) multiplies the light of
+ * each point of it, as for a shooting star, and answers for reading copy. It is a drawer of its own: drawMeteor is built
+ * round the veil's budgets (METEOR_VEIL), which a fireball never needs, since it flies in clear sky only.
  */
 export function drawFireball(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, show: FireballShow, frame: SkyFrame, fade: (x: number, y: number) => number, ahead: readonly SkyRect[]): void {
 	const { dpr } = frame

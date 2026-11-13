@@ -28,7 +28,7 @@ import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, trainWidth,
 import type { Rgb, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
-import { budgetKeeps, flightKept, readingKept, scrollKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { budgetKeeps, flightKept, readingKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import type { MiamiFrame } from './miamiRuntime'
 import { drawFireball } from './renderFireball'
@@ -404,8 +404,8 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
  * The color of a shooting star's head, drawn after drawMeteor, whose head stays white: a glow round it (METEOR_SHEATH)
  * in its spectrum's sheath color, mixed from the theme's white by the meteor's chroma. Its light is the head's light now
  * times `fade` (the caller's own, as for drawMeteor, read at the head) and the transient quiet factor at the head's center
- * with CLEAR_SKY_KEEPS, which is 0 once the head is inside a padded quiet rect, so the sheath never reaches the copy and the
- * veil's budgets never count it. A spectrum with no sheath (`plain`) draws nothing.
+ * with CLEAR_SKY_KEEPS, which is 0 once the head is inside a padded quiet rect, so the sheath never reaches the copy where
+ * the worker last heard it was, and the veil's budgets never count it. A spectrum with no sheath (`plain`) draws nothing.
  */
 export function drawMeteorSheath(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade: (point: Point) => number = () => 1): void {
 	const sheath = METEOR_SPECTRA[meteor.spectrum].sheath
@@ -487,20 +487,21 @@ function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAss
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
  * which holds scrollY). Clear-sky kinds, the bodies a kind marks as clear sky (a point flash, a burst, an earthgrazer) and
  * every flight that holds no lease, which was planned clear of quiet copy and has no budget on it, draw with
- * CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. Once the page has moved from its
- * launch (SCROLL_CANCEL), every point of it also keeps clear of where a scroll not yet heard of may have brought quiet copy
+ * CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. While the worker reads any scroll but
+ * the one it launched at, every point of it also keeps clear of where a scroll not yet heard of may have brought quiet copy
  * (SCROLL_LAG). Reading copy that has come under a flight since its plan takes the light at each point it draws (flightKept),
  * and a stop of a wake or a train answers to copy a stop away along its path too, since a gradient carries light from one
  * stop to the next; its plan keeps the path clear, so that changes nothing until copy comes onto it. A shooting star is drawn
- * with drawMeteor and then its sheath (drawMeteorSheath), which always keeps clear of copy. A burst draws its first member and
- * then each later one the same way; a member that has not started yet adds no light. A body with no wake time, a point flash,
- * is drawn with no wake stops (wakeStopsFor); every other body keeps all of them. A fireball, the one body with a show, has a
- * drawer of its own (drawFireball), which always keeps clear of copy.
+ * with drawMeteor and then its sheath (drawMeteorSheath), which keeps clear of copy where the worker last heard it was. A
+ * burst draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
+ * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them. A
+ * fireball, the one body with a show, has a drawer of its own (drawFireball), which keeps clear of copy where the worker last
+ * heard it was.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
 	const { kind, body } = transient
-	const unmoved = scrollKept(transient.launchScrollY, frame.scrollY)
+	const unmoved = frame.scrollY === transient.launchScrollY ? 1 : 0
 	const kept = (x: number, y: number) => fade * Math.max(unmoved, flightKept(frame.quietAhead, x, y)) * flightKept(frame.reading, x, y)
 	const keptAlong = (meteor: Meteor) => {
 		const { startX, startY, dirX, dirY, length } = meteor

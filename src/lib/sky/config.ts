@@ -1196,11 +1196,16 @@ export const SCROLL_CANCEL = { from: 12, to: 24 } as const
 
 /**
  * What no frame can answer. A scroll message may run three frames behind the page, and a wheel notch moves it `reach` px in
- * that time, before the worker has heard of it. A flight the page hasn't moved stays as its plan left it, a little further
- * than that from quiet copy. One it has moved may by now lie anywhere, so from then on none of its light lands within
- * `reach` of that copy in the page's flow, whose budgets a line arriving unheard would break, easing back over QUIET.feather.
- * Rails don't scroll, and reading copy has no budget: a line of it may catch a moving frame (READING). What a flight keeps is
- * read at a point with light around it, so it keeps none until `glow` px past a zone, the widest of that light (METEOR_SHEATH).
+ * that time, before the worker has heard of it. While the worker reads the scroll a flight launched at, the flight's light
+ * answers to quiet copy only where the worker last heard it was, so a line an unheard scroll brings under it may take some.
+ * A flight planned clear of the copy keeps its path a little further than `reach` from it: a shooting star's light reaches
+ * `glow` px round its path, and a fireball's sparks fly up to about 17 px off it. The fireball keeps them out of the copy's
+ * padded rect, and its radial lights short of it, and the veil keeps a flight that holds the lease within budgets, only
+ * where the copy was. While the worker reads any other scroll, a flight may by now lie anywhere, so none of its light lands
+ * within `reach` of that copy in the page's flow, whose budgets a line arriving unheard would break, easing back over
+ * QUIET.feather. Rails don't scroll, and reading copy has no budget: a line of it may catch a moving frame (READING). What a
+ * flight keeps is read at points with light around them, a spark's where it flies, so it keeps none until `glow` px past a
+ * zone, the widest of that light (METEOR_SHEATH).
  */
 export const SCROLL_LAG = { reach: 66, glow: 11 } as const
 

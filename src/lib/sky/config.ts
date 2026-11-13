@@ -305,6 +305,14 @@ export const SCENE = {
 	/** Viewport heights left to scroll where the end bookend starts and is complete. */
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
+	/**
+	 * More stars come out as the page goes on: the catalog's reserve, the stars wide screens thin out at rest (densityKeep), none
+	 * moved. It starts and finishes coming out at these shares of the page scrolled, never over the hero, and a star of it fades
+	 * in over `reserveFade` of the thinning key. Phones and screens at MAX_STARS have no reserve.
+	 */
+	reserveFrom: 0,
+	reserveTo: 0.4,
+	reserveFade: 0.03,
 } as const
 
 /**

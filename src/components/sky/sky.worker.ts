@@ -31,7 +31,7 @@ import {
 	type DriftGate,
 	type Vec,
 } from '@/lib/sky/camera'
-import { densityKeep } from '@/lib/sky/catalog'
+import { catalogKeep, densityKeep } from '@/lib/sky/catalog'
 import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, MIN_STAR_ALPHA, NARROW_MAX_WIDTH, PACING, QUIET, SCROLL_LAG, TRANSIENTS } from '@/lib/sky/config'
 import { DESCENT } from '@/lib/sky/miamiConfig'
 import { eventFloorY } from '@/lib/sky/miamiStage'
@@ -749,9 +749,10 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		deviceWidth: target.width,
 		deviceHeight: target.height,
 		offset: cameraOffset(camera, offset),
-		// The stars a quality step thins out stay in the draw until they have faded away
-		keep: quality > 0 && thinLevel <= 0 ? density * ADAPT.thinning : density,
+		// The stars a quality step thins out stay in the draw until they have faded away, the catalog's reserve among them
+		keep: quality > 0 && thinLevel <= 0 ? density * ADAPT.thinning : density + (catalogKeep(width, height) - density) * scene.reserve,
 		thinFrom: quality > 0 ? density * ADAPT.thinning : Infinity,
+		reserveKey: density,
 		thinLevel,
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,

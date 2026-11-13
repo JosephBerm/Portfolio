@@ -106,8 +106,17 @@ export const LAYER_NEARNESS = Object.fromEntries(
 export function densityKeep(width: number, height: number): number {
 	const narrow = width <= NARROW_MAX_WIDTH
 	const keep = narrow ? 1 : 1 / NARROW_DENSITY_BOOST
-	const expected = ((width * height) / 1e6) * STARS_PER_MP * (narrow ? NARROW_DENSITY_BOOST : 1)
-	return expected > MAX_STARS ? (keep * MAX_STARS) / expected : keep
+	return keep * capShare(((width * height) / 1e6) * STARS_PER_MP * (narrow ? NARROW_DENSITY_BOOST : 1))
+}
+
+/** Share of the catalog a viewport can draw at all: everything, unless MAX_STARS holds it back. On narrow screens and past MAX_STARS it equals densityKeep, so they have no reserve (SCENE.reserveFrom). */
+export function catalogKeep(width: number, height: number): number {
+	return capShare(((width * height) / 1e6) * STARS_PER_MP * NARROW_DENSITY_BOOST)
+}
+
+/** The share of `expected` stars MAX_STARS lets a viewport draw. */
+function capShare(expected: number): number {
+	return expected > MAX_STARS ? MAX_STARS / expected : 1
 }
 
 /** Knuth's Poisson sampler; fine for the small means used per cell. */

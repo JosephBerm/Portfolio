@@ -5,8 +5,8 @@
 
 import { METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, RADIANTS, SPEED_CLASSES, TRANSIENTS } from './config'
 import { nextGap } from './gaps'
-import { clearStart, drawStart, insideGuards, meteorLifetime, meteorMoving, meteorSpan, planMeteor, type Meteor, type PlanOptions, type Steer } from './meteors'
-import { drawSpectrum, pickVisitSky, pointNearRadiant, radiantOver, showerRadiantAt, skyWindow, swarmPiece, visitSteer, type SteerOptions, type VisitSky } from './radiants'
+import { clearStart, drawPoint, drawStart, insideGuards, meteorLifetime, meteorMoving, meteorSpan, planMeteor, type Meteor, type PlanOptions, type Steer } from './meteors'
+import { drawSpectrum, pickVisitSky, pointNearRadiant, radiantOver, showerRadiantAt, skyWindow, sporadicSpectrum, swarmPiece, visitSteer, type SteerOptions, type VisitSky } from './radiants'
 import { between, exponential, gaussian, type Random } from './random'
 import type { PlanContext, TransientSpec } from './transients'
 
@@ -69,26 +69,28 @@ export function planMeteorTransient(context: PlanContext, options: Pick<PlanOpti
 	return null
 }
 
-/** Points tried near the radiant for a flash before the launch goes without one. */
+/** Points tried for a flash before the launch goes without one, the first half near the radiant while it is on screen. */
 const FLASH_TRIES = 20
 
 /**
- * A plan for a point flash: a meteor coming straight at the viewer, which shows as a point near the shower radiant with
- * no length and no movement, and brightens and fades in METEOR_KINDS.flash.duration s. It needs the radiant on screen
- * and a point within METEOR_KINDS.flash.radius degrees of it that lies inside the screen's guards (METEOR's edge margin
- * and top, and the height under METEOR.maxEndY) and in clear sky, past the reach of all copy, so it takes no ink lease
- * and a layout that moves copy under it takes its light away (CLEAR_SKY_KEEPS). It has the shower's spectrum, as it is a
- * meteor of the stream. Returns null when the radiant is off screen or no point fits.
+ * A plan for a point flash: a meteor coming straight at the viewer, which shows as a point with no length and no movement,
+ * and brightens and fades in METEOR_KINDS.flash.duration s. While the shower radiant is on screen a point within
+ * METEOR_KINDS.flash.radius degrees of it comes first; where none of those fits, or with the radiant off screen, the flash
+ * is a sporadic meteor, whose radiant can lie anywhere, at a point drawn evenly from where flights start now (drawPoint).
+ * Either way the point lies inside the screen's guards (METEOR's edge margin and top, and no lower than flights may end
+ * now) and in clear sky, past the reach of all copy, so it takes no ink lease and a layout that moves copy under it takes
+ * its light away (CLEAR_SKY_KEEPS). A flash near the radiant has the shower's spectrum, as a meteor of the stream, and a
+ * sporadic one draws its own as a sporadic flight does (sporadicSpectrum). The visit's sky is picked when there is none.
+ * Returns null when no point fits.
  */
 export function planFlash(context: PlanContext): Meteor | null {
-	const { random, now, field, visit } = context
+	const { random, now, field } = context
 	const { duration, peak, radius } = METEOR_KINDS.flash
-	const sky = visit.meteor.sky
-	if (sky === null) return null
+	const sky = visitSkyOf(context)
 	for (let tries = 0; tries < FLASH_TRIES; tries++) {
-		const point = pointNearRadiant(random, sky, radius)
-		if (point === null) return null
-		if (!clearStart(field, field.clearSky, point.x, point.y, field.height * METEOR.maxEndY)) continue
+		const near = tries < FLASH_TRIES / 2 ? pointNearRadiant(random, sky, radius) : null
+		const point = near ?? drawPoint(random, field.area)
+		if (!clearStart(field, field.clearSky, point.x, point.y, field.area.maxEndY)) continue
 		return {
 			startX: point.x,
 			startY: point.y,
@@ -101,7 +103,7 @@ export function planFlash(context: PlanContext): Meteor | null {
 			duration: between(random, duration[0], duration[1]),
 			peak: between(random, peak[0], peak[1]),
 			wake: 0,
-			spectrum: sky.showerSpectrum,
+			spectrum: near === null ? sporadicSpectrum(random, sky) : sky.showerSpectrum,
 			fireball: false,
 			flare: false,
 			train: false,
@@ -287,10 +289,10 @@ type KindName = keyof typeof METEOR_KINDS
 /** The kinds in the order the decision step walks them: METEOR_KINDS lists them so, fireballs first. */
 const KIND_ORDER = Object.keys(METEOR_KINDS) as KindName[]
 
-/** What a launch needs for a kind to be open to it, beyond METEOR_KINDS: a flash needs the shower radiant on screen, an earthgrazer a screen wide enough. */
+/** What a launch needs for a kind to be open to it, beyond METEOR_KINDS: an earthgrazer needs a screen wide enough. */
 const NEEDS: Record<KindName, (context: PlanContext) => boolean> = {
 	fireball: () => true,
-	flash: (context) => (context.visit.meteor.sky?.showerOnScreen ?? null) !== null,
+	flash: () => true,
 	burst: () => true,
 	grazer: (context) => context.field.width >= METEOR_KINDS.grazer.minWidth,
 }
@@ -314,13 +316,12 @@ function drawSpacing(random: Random, spacing: number | readonly [number, number]
 /**
  * A plan for one launch of the shooting stars: a kind of METEOR_KINDS when one is decided and fits, else an ordinary
  * shooting star. A kind is open to the launch on a wide screen, once its `after` seconds have passed since the reveal and
- * the spacing drawn after the last of its kind has run out, and when it has what it needs (a flash, the radiant on
- * screen; an earthgrazer, a screen at least METEOR_KINDS.grazer.minWidth px wide); a kind whose `chance` is 0 is never
- * open. The launch draws one number and gives it to the first open kind, in METEOR_KINDS' order, whose slice of the odds
- * it falls in, each slice as wide as the kind's `chance`; a launch with no open kind draws none. A try that finds no path
- * keeps the visit's sky and starts no spacing. When none was decided or none fits, the launch plans an ordinary shooting
- * star, long flights on every steer before any short one. A kind that flies draws the spacing until the next of its kind
- * may be decided.
+ * the spacing drawn after the last of its kind has run out, and when it has what it needs (an earthgrazer, a screen at
+ * least METEOR_KINDS.grazer.minWidth px wide); a kind whose `chance` is 0 is never open. The launch draws one number and
+ * gives it to the first open kind, in METEOR_KINDS' order, whose slice of the odds it falls in, each slice as wide as the
+ * kind's `chance`; a launch with no open kind draws none. A try that finds no path keeps the visit's sky and starts no
+ * spacing. When none was decided or none fits, the launch plans an ordinary shooting star, long flights on every steer
+ * before any short one. A kind that flies draws the spacing until the next of its kind may be decided.
  */
 function planMeteorLaunch(context: PlanContext): Meteor | null {
 	const { random, now, narrow, sinceReveal, visit } = context

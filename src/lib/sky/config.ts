@@ -733,9 +733,10 @@ export const SKY_WINDOW = { fov: 60, elevation: 40, meteorHeightKm: 100, earthRa
  * within `nearRadiant` degrees of it a shower path may be as short as `nearRadiantPath` px, since meteors there are short
  * and slow. A stream shares a parent body and a speed, so its meteors look alike: a shower flight takes the visit's
  * shower spectrum (VisitSky.showerSpectrum) with odds `showerKeeps` and otherwise draws its spectrum from its speed
- * class like any other flight, which stands for the spread inside one stream; a point flash always takes it. A burst is
- * one broken-up body, so all its pieces share one spectrum: the shower's when the swarm flies the shower's radiant, else
- * one drawn from the odds of the speed class the swarm flies at (METEOR_KINDS.burst).
+ * class like any other flight, which stands for the spread inside one stream; a point flash near the shower radiant
+ * always takes it, and one away from it is a sporadic meteor and draws its spectrum as a sporadic flight does. A burst
+ * is one broken-up body, so all its pieces share one spectrum: the shower's when the swarm flies the shower's radiant,
+ * else one drawn from the odds of the speed class the swarm flies at (METEOR_KINDS.burst).
  */
 export const RADIANTS = {
 	showerShare: 0.4,
@@ -848,11 +849,11 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
  * own `chance` of the launches it is open to; `after` and its spacing close it to about half of all launches or more, so
  * its share of all launches is well under its `chance`. Where that kind finds no path, an ordinary shooting star flies
  * instead, and a later launch may roll it again. The odds add up to 1, so the order changes no kind's share, and each kind
- * flies in place of an ordinary launch, so they add no launches to what METEOR_RATE sets. Bursts and earthgrazers are far
- * rarer in the real sky; this sky shows them often enough for a visit to see them. At 1440x900, over a visit's first 5
- * minutes (the foot of the page included, where nothing launches with the landing scene on), a burst comes about every 4
- * minutes and an earthgrazer about every 6, and a stay of 3 minutes shows a burst on about 4 visits in 5 and an
- * earthgrazer on about 2 in 3.
+ * flies in place of an ordinary launch, so they add no launches to what METEOR_RATE sets. Bursts, earthgrazers and point
+ * flashes are far rarer in the real sky; this sky shows them often enough for a visit to see them. At 1440x900, over a
+ * visit's first 5 minutes (the foot of the page included, where nothing launches with the landing scene on), a burst
+ * comes about every 4 minutes, a point flash about every 5 and an earthgrazer about every 6, and a stay of 3 minutes
+ * shows a burst on about 4 visits in 5, a point flash on about 3 in 4 and an earthgrazer on about 2 in 3.
  */
 export const METEOR_KINDS = {
 	/**
@@ -867,10 +868,11 @@ export const METEOR_KINDS = {
 	 */
 	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: { slow: [2.4, 2.9], medium: [2, 2.6], fast: [1.5, 2] } },
 	/**
-	 * Point flashes: a meteor coming straight at the viewer shows as a point at the shower radiant, with no length and no
-	 * movement, that brightens and fades in `duration` s at a `peak` of at most 0.7. They need the radiant on screen (on
-	 * RADIANTS.onScreen of wide-screen visits) and fly within `radius` degrees of it, in clear sky, and never take the
-	 * ink lease.
+	 * Point flashes: a meteor coming straight at the viewer shows as a point, with no length and no movement, that
+	 * brightens and fades in `duration` s at a `peak` of at most 0.7. While the shower radiant is on screen (on
+	 * RADIANTS.onScreen of wide-screen visits) they fly within `radius` degrees of it where that sky is clear; anywhere else
+	 * a point flash is a sporadic meteor, whose radiant can lie anywhere, and flies where a flight may start. They stay in
+	 * clear sky and never take the ink lease.
 	 */
 	flash: { chance: 0.11, spacing: 150, after: 25, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
 	/**

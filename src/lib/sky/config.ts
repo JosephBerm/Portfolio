@@ -306,9 +306,9 @@ export const SCENE = {
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
 	/**
-	 * More stars come out as the page goes on: the catalog's reserve, the stars wide screens thin out at rest (densityKeep), none
-	 * moved. It starts and finishes coming out at these shares of the page scrolled, never over the hero, and a star of it fades
-	 * in over `reserveFade` of the thinning key. Phones and screens at MAX_STARS have no reserve.
+	 * More stars come out as the page goes on: the catalog's reserve, the stars wide screens thin out at the top of the page
+	 * (densityKeep), none moved. It starts and finishes coming out at these shares of the page scrolled, never over the hero,
+	 * and a star of it fades in over `reserveFade` of the thinning key. Phones and screens at MAX_STARS have no reserve.
 	 */
 	reserveFrom: 0,
 	reserveTo: 0.4,
@@ -662,11 +662,12 @@ export const PACING = {
 
 /**
  * Adaptive quality: after `slowFrames` more slow frames (JS over `slowFrameMs`) than fast ones, draw `thinning` of the
- * stars, twinkle slower and cap the drift and the pointer lean at PACING.slowMaxFps; the stars step 1 thins out fade
- * over `thinFade` seconds, since a moving sky that lost a fifth of its stars in one frame would read as a glitch. A
- * second step drops to CSS resolution. A software-rasterized canvas, whose cost lands after the draw calls return where
- * frame timing can't see it, is found at start-up instead: one full frame rasterized off screen in more than
- * `rasterMsPerMp` per device megapixel (and more than `rasterMinMs`) starts at the second step.
+ * stars drawn at the top of the page (none of the catalog's reserve), twinkle slower and cap the drift and the pointer
+ * lean at PACING.slowMaxFps; the stars step 1 thins out fade over `thinFade` seconds, since a moving sky that lost a
+ * fifth or more of its stars in one frame would read as a glitch. A second step drops to CSS resolution. A
+ * software-rasterized canvas, whose cost lands after the draw calls return where frame timing can't see it, is found at
+ * start-up instead: one full frame rasterized off screen in more than `rasterMsPerMp` per device megapixel (and more
+ * than `rasterMinMs`) starts at the second step.
  */
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 

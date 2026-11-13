@@ -133,7 +133,11 @@ export interface SkyFrame {
 	deviceHeight: number
 	/** The camera's offset (CSS px at nearness 1): each star is drawn its nearness times this far from its place on the sky. */
 	offset: Vec
-	/** Share of the catalog to draw at this size and quality: the unthinned share while the stars a quality step thins out are still fading away. */
+	/**
+	 * Share of the catalog to draw at this size, scroll and quality: densityKeep() at the top of the page, rising to
+	 * catalogKeep() as the reserve comes out (SCENE.reserveFrom). That share holds while the stars a quality step thins out
+	 * are still fading away, and then falls to ADAPT.thinning of densityKeep(), with no reserve.
+	 */
 	keep: number
 	/** Stars with a thinning key at or above this are the ones a quality step thins out: the thinned share of the catalog, Infinity before the first step. */
 	thinFrom: number

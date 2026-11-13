@@ -44,7 +44,10 @@ export interface Star {
 	shape: number
 	/** Palette index: 0 is --color-white, 1-7 are STAR_TINTS. */
 	tint: number
-	/** Thinning key in [0, 1): the star is drawn while keep < densityKeep(). */
+	/**
+	 * Thinning key in [0, 1): the star is drawn while keep < SkyFrame.keep, which is densityKeep() at the top of
+	 * the page and rises to catalogKeep() as the reserve comes out (SCENE.reserveFrom).
+	 */
 	keep: number
 	/** Seconds after the loader starts lifting before this star begins to come out (brighter stars first). */
 	delay: number
@@ -100,8 +103,9 @@ export const LAYER_NEARNESS = Object.fromEntries(
 ) as Record<SkyLayer, readonly [number, number]>
 
 /**
- * Share of the catalog drawn for a viewport: all of it on narrow screens, 1 / NARROW_DENSITY_BOOST on wider ones,
- * thinned evenly past MAX_STARS. Thinning by each star's fixed key keeps the same stars from frame to frame.
+ * Share of the catalog drawn for a viewport at the top of the page, before the reserve comes out (catalogKeep is
+ * the most a viewport can draw): all of it on narrow screens, 1 / NARROW_DENSITY_BOOST on wider ones, thinned
+ * evenly past MAX_STARS. Thinning by each star's fixed key keeps the same stars from frame to frame.
  */
 export function densityKeep(width: number, height: number): number {
 	const narrow = width <= NARROW_MAX_WIDTH

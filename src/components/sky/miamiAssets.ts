@@ -39,7 +39,7 @@ export interface WingPart {
 
 /** One side's wing (WING): two fields of one color each, alpha only, at WING.scale CSS px a pixel. */
 export interface MiamiWing {
-	/** The field over the sky, in the color wingSkyColor gives and drawn with the darken blend: full behind the rail's copy, fading across, from above, and below over the sky's padding under its last line. Its first column stands at CSS x `x` and its first row at CSS y `y`, and it reaches a pixel past the screen's side edge and past where it has faded out below. */
+	/** The field over the sky, in the color wingSkyColor gives and drawn with the darken blend: full behind the rail's copy and down from it to the screen's foot, fading across and from above. Its first column stands at CSS x `x` and its first row at CSS y `y`, and it reaches a pixel past the screen's side edge and past its foot. */
 	sky: ImageBitmap
 	x: number
 	y: number
@@ -584,7 +584,8 @@ function wingAlphaFor(r: number, g: number, b: number, target: number, toward: R
  * pixel of it passes in any channel, and each cloud's brightest pixel of that height over that sky, since the clouds drift
  * and any may pass behind the rail. The field only lowers a channel, so a ground no brighter in any channel needs no more.
  * It is softened over WING.soften px, so a cloud's edge or a step of the dither passing behind the copy eases the wing in.
- * Above the sky's top the ground is the page's navy, which needs none.
+ * Above the sky's top the ground is the page's navy, which needs none. The softening returns once it has lent to about
+ * SCAN_PIXELS heights.
  */
 function* wingParts(stage: MiamiStage, side: RailSide, sky: SkyPixels, clouds: readonly CloudRow[], tokens: SkyTokens): Generator<void, WingPart[], undefined> {
 	const { pixels, zTop, rows } = sky
@@ -647,14 +648,20 @@ function* wingParts(stage: MiamiStage, side: RailSide, sky: SkyPixels, clouds: r
 			own[z] = Math.max(own[z] ?? 0, wingAlphaFor(lit[n + 1] ?? 0, lit[n + 2] ?? 0, lit[n + 3] ?? 0, target, toward))
 		}
 		const need = new Float32Array(length)
+		let lent = 0
 		for (let z = 0; z < length; z++) {
 			const value = own[z] ?? 0
 			if (value <= 0) continue
 			// Each height lends its need to its neighbours, less with distance, so it comes on gradually as it nears the copy
 			for (let d = -soften; d <= soften; d++) {
 				const at = z + d
-				const lent = value * (lend[Math.abs(d)] ?? 0)
-				if (at >= 0 && at < length && lent > (need[at] ?? 0)) need[at] = lent
+				const share = value * (lend[Math.abs(d)] ?? 0)
+				if (at >= 0 && at < length && share > (need[at] ?? 0)) need[at] = share
+			}
+			lent += 2 * soften + 1
+			if (lent >= SCAN_PIXELS) {
+				lent = 0
+				yield
 			}
 		}
 		parts.push({ top: Math.min(...rects.map((rect) => rect.y)), bottom: Math.max(...rects.map((rect) => rect.y + rect.height)), need })
@@ -680,20 +687,16 @@ function skylineCover(skyline: Skyline, x0: number, x1: number): number {
 /**
  * One side's wing, a generator that returns between its pieces. The field over the sky, in the color wingSkyColor gives,
  * is full from the screen's edge to `past` px beyond the rail's inner edge and from the sky's padding over its highest line
- * to its lowest, and fades out across, up the screen, and down it over the sky's padding; the water's part, in
- * WING.waterColor, is the same fall across, over the water's own width. Both are a pixel every WING.scale CSS px, which the
- * draw smooths.
+ * down to the screen's foot, and fades out across and up the screen; the water's part, in WING.waterColor, is the same
+ * fall across, over the water's own width. Both are a pixel every WING.scale CSS px, which the draw smooths.
  */
 function* bakeWing(stage: MiamiStage, side: RailSide, left: boolean, sky: SkyPixels, clouds: readonly CloudRow[], skyline: Skyline, tokens: SkyTokens): Generator<void, Omit<MiamiWing, 'sky' | 'water'> & { sky: ImageData; water: ImageData }, undefined> {
 	const parts = yield* wingParts(stage, side, sky, clouds, tokens)
 	const reach = wingReach(stage, side, left, WING.feather)
 	const across = wingColumns(stage, reach, left)
 	const y = Math.floor(reach.top / WING.scale) * WING.scale
-	const down = new Float32Array(Math.max(1, Math.ceil((Math.min(stage.height, reach.end) - y) / WING.scale) + 1))
-	for (let j = 0; j < down.length; j++) {
-		const row = y + (j + 0.5) * WING.scale
-		down[j] = smoothstep(reach.top, reach.full, row) * (1 - smoothstep(reach.last, reach.end, row))
-	}
+	const down = new Float32Array(Math.max(1, Math.ceil((stage.height - y) / WING.scale) + 1))
+	for (let j = 0; j < down.length; j++) down[j] = smoothstep(reach.top, reach.full, y + (j + 0.5) * WING.scale)
 	const field = wingPixels(wingProfile(stage, reach, across.columns, across.x, left), down, wingSkyColor(tokens))
 	yield
 	const waterReach = wingReach(stage, side, left, WING.waterFeather)

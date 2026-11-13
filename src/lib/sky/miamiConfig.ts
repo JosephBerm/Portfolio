@@ -383,25 +383,29 @@ export const SCENE_PACING = { fps: 30, narrowFps: 30, slowFps: 20, softwareCost:
  * The wings: the scene's light falling off toward the screen's edge under each side rail, so the rail's copy keeps its
  * contrast over anything the scene puts behind it, the boat's wake included.
  *
- * Above the water a wing is a field full only behind the rail's copy, to `past` px beyond its inner edge and from the
- * sky's padding above its highest line down to its lowest, that fades out across the screen over `feather` (a share of the
- * width, at least `min` px), up it over `top` of the height and down it over the sky's padding, so it reads as the scene
- * darkening toward the edge and not as a panel. It is `color`, raised to the page's navy in any channel the navy is
- * lighter in, drawn with the darken blend from the baked sky's top down: it takes each channel's light toward that color's
- * and never under it, so the night sky and the near towers stay as they are and no smooth darkening over flat navy can
- * show bands. `color` is the navy with its red raised to its green, so a warm cloud or band keeps its red over its green
- * as it dims and never turns green. The field is only as strong as the brightest sky or cloud that can stand behind the
- * copy at that scroll needs to stay under the copy's ceiling, with the ramp's margin (the sky the towers stand in front of
- * needs none): the rails' copy is body text, whose headroom the page measures at `contrast.measured`:1, and under
- * prefers-contrast: more it keeps `contrast.more`:1. So it is faint where that ground is dark and gone where it is navy;
- * each height's need is softened over `soften` px, so a cloud's edge passing behind the copy never makes it jump.
+ * Above the water a wing is a field full behind the rail's copy and all the way down from it, to `past` px beyond its
+ * inner edge and from the sky's padding above its highest line down to the screen's foot, that fades out across the
+ * screen over `feather` (a share of the width, at least `min` px) and up it over `top` of the height: the scene darkening
+ * toward the screen's lower corner, with no edge below the copy to stand on open sky. It is `color`, raised to the page's
+ * navy in any channel the navy is lighter in, drawn with the darken blend from the baked sky's top down: it takes each
+ * channel's light toward that color's and never under it, so the night sky and the near towers stay as they are and no
+ * smooth darkening over flat navy can show bands. `color` is the navy with its red raised to its green, so a warm cloud or
+ * band keeps its red over its green as it dims and never turns green. The field is only as strong as the brightest sky or
+ * cloud that can stand behind the copy at that scroll needs to stay under the copy's ceiling, with the ramp's margin (the
+ * sky the towers stand in front of needs none): the rails' copy is body text, whose headroom the page measures at
+ * `contrast.measured`:1, and under prefers-contrast: more it keeps `contrast.more`:1. So it is faint where that ground is
+ * dark and gone where it is navy. Each height's need is softened over `soften` px, and the sky within `soft` px of where it
+ * shows behind the copy (above or below the copy's rows, or behind the water or the towers under them) counts for less the
+ * farther it stands: the field comes on before the sky that needs it shows, and changes by at most 1.5 / `soft` of its
+ * most per px of scroll, so it never steps.
  *
  * From the water's top down to the screen's foot it is `waterColor` at `alpha` (`moreAlpha` under more), which holds the
- * copy over the brightest thing in the water, the wake over a crest, and fades across over `waterFeather`; it comes on over
- * `waterOn` px as the water rises to the copy's last line, and its top is the water's, under the low base's dark band.
+ * copy over the brightest thing in the water, the wake over a crest, and fades across over `waterFeather`; it comes on
+ * over the last `waterOn` px of the waterline's climb to the copy's last line, full from there, and its top is the
+ * water's, under the low base's dark band.
  *
- * A side's wing shows only from its `need` down, eased over `ease` px of scroll. `scale` is the CSS px a pixel of its baked
- * fields covers: they are smooth, and drawn smoothed.
+ * A side's wing may show from as far above its `need` as either part comes on (the stage's WING_LEAD), and is gone `ease`
+ * px of scroll above that. `scale` is the CSS px a pixel of its baked fields covers: they are smooth, and drawn smoothed.
  */
 export const WING = {
 	color: '#19192F',
@@ -413,8 +417,9 @@ export const WING = {
 	feather: { share: 0.22, min: 220 },
 	waterFeather: { share: 0.3, min: 280 },
 	top: 0.45,
-	soften: 32,
-	waterOn: 12,
+	soften: 120,
+	soft: 160,
+	waterOn: 160,
 	scale: 4,
 	contrast: { measured: 4.5, more: 7 },
 } as const

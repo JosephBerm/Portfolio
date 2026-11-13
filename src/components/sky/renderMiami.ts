@@ -331,28 +331,38 @@ function drawBoat(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fra
 }
 
 /**
- * The strength a wing's part over the sky needs at this scroll: the most that any height of the sky behind its copy needs,
- * down to the screen row `hidden`, below which the sky there is behind the water or the towers. A screen row y shows the
- * height `end - y`, since the sky is locked to the page.
+ * The strength a wing's part over the sky needs at this scroll. A screen row y shows the height `end - y`, since the sky
+ * is locked to the page, and the sky shows behind the part's copy from its top row down to its bottom row, or down to the
+ * row `hidden` where that is higher, below which it is behind the water or the towers. Each height counts with what it
+ * needs times 1 - smoothstep(0, WING.soft, d), d being how far its row stands from showing there: the px it stands above
+ * the copy's top row plus the px it stands below the last row the sky could show in, which add up where the towers stand
+ * above the copy's top. d moves by at most a px a px of scroll, so the strength moves by at most 1.5 / WING.soft of the
+ * most any height needs: it comes on before the sky that needs it shows behind the copy and goes after it has gone, and
+ * never steps.
  */
 function wingSkyNeed(wing: MiamiWing, end: number, hidden: number): number {
+	const soft = WING.soft
 	let most = 0
 	for (const part of wing.parts) {
-		const high = Math.min(part.need.length - 1, Math.ceil(end - part.top))
-		const low = Math.max(0, Math.floor(end - Math.min(part.bottom, hidden)))
-		for (let z = low; z <= high; z++) {
+		const low = Math.min(part.bottom, hidden)
+		const from = Math.max(0, Math.floor(end - Math.max(low, part.top) - soft))
+		const to = Math.min(part.need.length - 1, Math.ceil(end - Math.min(low, part.top) + soft))
+		for (let z = from; z <= to; z++) {
 			const need = part.need[z] ?? 0
-			if (need > most) most = need
+			if (need <= most) continue
+			const y = end - z
+			const counted = need * (1 - smoothstep(0, soft, Math.max(0, part.top - y) + Math.max(0, y - low)))
+			if (counted > most) most = counted
 		}
 	}
 	return most
 }
 
 /**
- * One side's wing, screen-fixed (WING): its field over the sky, from the baked sky's top down to the water's top, as strong
- * as the sky behind the rail's copy needs and drawn with the darken blend, so it only takes light toward a color no darker
- * than the page's navy and leaves what stands at or under it; and from the water's top down its falloff across, stretched
- * to the canvas's foot, at the strength the water needs once the water has risen to the copy's last line. The two meet at
+ * One side's wing, screen-fixed (WING): its field over the sky, from the baked sky's top down to the water's top or the
+ * canvas's foot, as strong as the sky behind the rail's copy needs and drawn with the darken blend, so it only takes light
+ * toward a color no darker than the page's navy and leaves what stands at or under it; and from the water's top down its
+ * falloff across, stretched to the canvas's foot, coming on as the water climbs to the copy's last line. The two meet at
  * the water's first device row, under the low base's dark band. A field baked for another width keeps its place at its own
  * edge of the canvas.
  */

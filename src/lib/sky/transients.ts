@@ -6,7 +6,7 @@
 
 import { TRANSIENTS } from './config'
 import { METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
-import type { Meteor, MeteorField } from './meteors'
+import { flightArea, type FlightArea, type Meteor, type MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
 import type { SkyRect } from './protocol'
 import { zoneReaches } from './quietIndex'
@@ -32,6 +32,8 @@ export interface SkyField extends MeteorField {
 	noFly: readonly SkyRect[]
 	/** All copy, quiet and reading: what a plan that stays in clear sky keeps out of reach of. */
 	clearSky: readonly SkyRect[]
+	/** Where shooting stars may fly now (planMeteor's area). */
+	area: FlightArea
 }
 
 /** What the field is built from: the screen, the scroll and the copy as the last layout measured it (document coordinates, `pinned` screen coordinates). */
@@ -55,7 +57,8 @@ export function skyField(input: FieldInput): SkyField {
 	const rails = screenQuietZones([], scrollY, input.pinned)
 	const quiet = [...screenQuietZones(input.quiet, scrollY).filter((zone) => zoneReaches(zone, 0, 0, width, height)), ...rails]
 	const reading = screenReadingZones(input.reading, scrollY, height, readingPadding(narrow))
-	return { width, height, quiet, noFly: [...rails, ...reading], clearSky: [...quiet, ...reading] }
+	const sky = { width, height, quiet }
+	return { ...sky, noFly: [...rails, ...reading], clearSky: [...quiet, ...reading], area: flightArea(sky, scrollY) }
 }
 
 /** What the scheduler tracks for a transient of kind K. Times are seconds on the worker clock. */

@@ -936,6 +936,12 @@ export const METEOR = {
 	spawnY: [0, 0.5],
 	/** Paths end above this share of the height, clear of the bottom corners; planMeteor's `clearOf` keeps them off the side rails' copy. */
 	maxEndY: 0.72,
+	/**
+	 * The start area and the line paths end above past the hero (flightArea), as viewport fractions: copy there is centered,
+	 * so flights start on either side, and may end lower, where `clearOf` keeps them off the rails. A phone's URL bar can
+	 * cover the bottom of the sky, so it ends higher.
+	 */
+	open: { spawnX: [0.015, 0.985], spawnY: [0, 0.8], maxEndY: 0.92, narrowMaxEndY: 0.85 },
 	/** Clearance below the top edge (under the 100px navbar) and inside the screen edges. */
 	top: 110,
 	edgeMargin: 12,

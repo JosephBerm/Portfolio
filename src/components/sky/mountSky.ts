@@ -66,9 +66,10 @@ const QUIET_SELECTOR = '[data-sky-quiet]'
 const LANDING_SELECTOR = '[data-sky-landing]'
 
 /**
- * Reading copy: the rest of the page's flow, which nothing in the sky comes near or lights. Every section counts without
- * opting in, so new copy is covered by default. Its rects steer the sky and carry no budget. Like quiet copy it keeps
- * copyReader's first precondition, no static transform translation; a section the selector stops matching falls out of it.
+ * Reading copy: the rest of the page's flow, which nothing in the sky comes near or lights at rest. Every section counts
+ * without opting in, so new copy is covered by default. Its rects steer the sky and carry no budget. Like quiet copy it
+ * keeps copyReader's first precondition, no static transform translation; a section the selector stops matching falls
+ * out of it.
  */
 const READING_SELECTOR = 'main > :not([data-sky-quiet])'
 

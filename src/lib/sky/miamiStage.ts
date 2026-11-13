@@ -1,8 +1,9 @@
 import { luminance } from './color'
-import { NARROW_MAX_WIDTH } from './config'
+import { NARROW_MAX_WIDTH, QUIET } from './config'
 import { BOAT, CLOUDS, RAMP, SKYLINE, STAGE, SUN, WING } from './miamiConfig'
 import { buildRampLut, rampTForLuminance, type RampLut } from './miamiRamp'
 import type { LandingRect, Rgb, SkyRect, SkyTokens } from './protocol'
+import { hashCell } from './random'
 import { smoothstep, type DescentWindow } from './scene'
 
 /**
@@ -24,10 +25,13 @@ export interface StageInput {
 export interface RailSide {
 	/** The rail's inner x: the right edge of the left rail's rects, the left edge of the right rail's. */
 	edge: number
-	/** The top of the rail's highest rect. */
+	/** The top of the rail's highest rect and the bottom of its lowest. */
 	top: number
-	/** The lift (px of scroll left to the page's end) at and below which the rail's wing is full. */
+	bottom: number
+	/** The lift (px of scroll left to the page's end) below which the sky or the water may first need the rail's wing: it runs early, never late. */
 	need: number
+	/** The rail's rects, each with its headroom: the wing is as strong as the ground behind them needs. */
+	rects: readonly SkyRect[]
 }
 
 /**
@@ -82,6 +86,12 @@ export interface MiamiStage {
 /** A cloud bank's flat bottom lies at least this many tallest towers above the waterline, or it would read as smoke on a tower. */
 const BANK_FLOOR = 1.15
 
+/** Seeds the banks' placement offsets and the lumps of their tops; every bank gets its own from it. */
+const BANK_SEED = 0x636c6f75
+
+/** Slack for the sums of px lengths that land exactly on a limit (a bank of exactly its least height), so rounding can't tip them over it. */
+const ROUNDING = 1e-6
+
 /** The ramp for the last navy it was built with: a layout message reruns stageFrom, and the samples change only with the theme. */
 let rampMemo: { key: string; lut: RampLut } | null = null
 
@@ -103,8 +113,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * The stage for a layout, or null where there is none to draw: no landing (production, forced colors, print), no copy
- * above it, or a page no taller than the canvas.
+ * The stage for a layout, or null where there is none to draw: no landing (forced colors, print, or the scene switched
+ * off in SkyLanding), no copy above it, or a page no taller than the canvas.
  *
  * The sky is fitted rather than guessed. Each rect of Contact's copy says what it can take behind it (`headroom`); its
  * ceiling is the luminance of navy with that much white added, less the ramp's safety margin. `warm`, the height of the
@@ -171,7 +181,7 @@ export function stageFrom(input: StageInput): MiamiStage | null {
 			// Ignores the sky's darkening toward the edges, so it runs early, never late
 			need = Math.max(need, zWater + warm * warmer - (height - (rect.y + rect.height)))
 		}
-		return { edge, top: Math.min(...rects.map((rect) => rect.y)), need }
+		return { edge, top: Math.min(...rects.map((rect) => rect.y)), bottom: Math.max(...rects.map((rect) => rect.y + rect.height)), need, rects }
 	}
 
 	return {
@@ -215,7 +225,7 @@ export function stageFrom(input: StageInput): MiamiStage | null {
 /** Whether a bitmap built for `a` is still right for `b`: both z and rail measures within STAGE.rebuildTolerancePx, the same rail sides present, and the same width, height and contrast preference. */
 export function sameStage(a: MiamiStage, b: MiamiStage): boolean {
 	const near = (x: number, y: number) => Math.abs(x - y) <= STAGE.rebuildTolerancePx
-	const sameSide = (x: RailSide | null, y: RailSide | null) => (x === null || y === null ? x === y : near(x.edge, y.edge) && near(x.top, y.top) && near(x.need, y.need))
+	const sameSide = (x: RailSide | null, y: RailSide | null) => (x === null || y === null ? x === y : near(x.edge, y.edge) && near(x.top, y.top) && near(x.bottom, y.bottom) && near(x.need, y.need))
 	return (
 		a.width === b.width &&
 		a.height === b.height &&
@@ -246,6 +256,40 @@ export function eventFloorY(stage: MiamiStage | null, scrollY: number, documentH
 	return stage ? documentHeight - scrollY - stage.zEventFloor : Infinity
 }
 
+/**
+ * Where one side's wing is full and how far it fades, in CSS px on the screen: full from the screen's edge to `solid` px
+ * in and from row `full` down to the screen's foot, fading out across over `spread` px and above from row `top` to `full`.
+ */
+export interface WingReach {
+	solid: number
+	spread: number
+	top: number
+	full: number
+}
+
+/** The row at which a rail's wing starts to fade in from above: WING.top of the canvas height above the sky's padding over the rail's highest rect. */
+export function wingTop(stage: MiamiStage, side: RailSide): number {
+	return side.top - QUIET.padding - WING.top * stage.height
+}
+
+/** One side's wing reach, with the falloff across that the part being drawn uses (the sky's or the water's). */
+export function wingReach(stage: MiamiStage, side: RailSide, left: boolean, feather: { readonly share: number; readonly min: number }): WingReach {
+	return {
+		solid: (left ? side.edge : stage.width - side.edge) + WING.past,
+		spread: Math.max(feather.min, feather.share * stage.width),
+		top: wingTop(stage, side),
+		full: side.top - QUIET.padding,
+	}
+}
+
+/**
+ * Px of scroll above a side's `need` from which its wing may show: as far ahead as either part comes on. The field over
+ * the sky reads the need of heights up to WING.soft px from the copy's ground, each lent up to WING.soften px further;
+ * the water's part starts WING.waterOn px of the waterline's climb before it reaches the copy's last line, and the
+ * waterline climbs at STAGE.horizonRate of the scroll at its slowest.
+ */
+const WING_LEAD = Math.max(WING.soft + WING.soften, WING.waterOn / STAGE.horizonRate)
+
 /** Where the scene's parts stand at one scroll position, in CSS px on the canvas (y down). `viewAt` fills it, so a frame makes no garbage. */
 export interface MiamiView {
 	/** The page's end on the canvas: the document's height less the scroll, not clamped, so a pull past the end moves it. */
@@ -254,17 +298,28 @@ export interface MiamiView {
 	lift: number
 	/** The waterline: where the water starts, and what stands at it, on the canvas. */
 	horizonY: number
+	/** How far the near and far towers still stand below the waterline, covered by the water: they rise to their full height as the page lands. */
+	nearDrop: number
+	farDrop: number
+	/** How much of the far city shows, 0 to 1: its hazy colors are lighter than the sky above the place it climbs into, so it gives way over the climb. */
+	farAlpha: number
 	/** How far the foreground has moved up against the page. */
 	palmShift: number
-	/** How much of each side's wing is on, 0 to 1. */
+	/** How much of the sun's disc, halo and wrapped light is shown, 0 to 1: it comes in once it has climbed clear of the copy's room. */
+	sunAlpha: number
+	/** The size of the sun's halo and wrapped light, 0 to 1 of their full reach: they shrink to the room left under the copy. */
+	haloScale: number
+	/** How much of the glitter shows, 0 to 1: it opens as the waterline comes up the screen. */
+	glitterOpen: number
+	/** How much of each side's wing may show, 0 to 1: all of it from WING_LEAD px of scroll above its side's `need` down, none from WING.ease px above that. How strong it is drawn follows what the ground behind the rail needs. */
 	wingLeft: number
 	wingRight: number
-	/** The y at which each wing's top feather starts. */
+	/** The y at which each wing's fade from above starts. */
 	wingTopLeft: number
 	wingTopRight: number
 	/** Some of the scene is on the canvas: the lift is under `zShow`. */
 	onScreen: boolean
-	/** Something of the scene moves against the page: the lift is under the larger of the warm band's top and the waterline's entry. */
+	/** Something of the scene moves against the page: the lift is under the larger of the top of the warm band the palms and clouds are placed by and the waterline's entry. */
 	moving: boolean
 }
 
@@ -278,19 +333,103 @@ export function viewAt(stage: MiamiStage, scrollY: number, documentHeight: numbe
 	const lift = Math.max(0, end - stage.height)
 	const rate = 1 - (1 - STAGE.horizonRate) * motionShare
 	const { left, right } = stage.rail
-	// The wings' tops ride the warm rows, so a wing is never on navy; under `more` the warm band is too thin to cover the
-	// rail, and they ride the ramp's top
-	const wingTop = end - (stage.more ? stage.zReach : stage.zWarmTop)
+	// `g` is the lift below which the sun starts to show: the smaller of where its disc would come within the copy's room and where
+	// its halo's top first reaches the bottom of the screen at the horizon's slower pace. It is fully shown from SUN.fade of that lift
+	const halo = SUN.haloReach * stage.sunR
+	const g = Math.max(1, Math.min(stage.sunGate, (stage.sunZ + halo) / STAGE.horizonRate))
 	out.end = end
 	out.lift = lift
 	out.horizonY = Math.min(stage.height, end) + rate * lift - stage.zWater
+	// The towers sink behind the water while the page is coming down, so they rise as it lands
+	const sunk = smoothstep(0, stage.horizonEnter, lift) * motionShare * stage.tallest
+	out.nearDrop = STAGE.drop.near * sunk
+	out.farDrop = STAGE.drop.far * sunk
+	// The far towers' colors suit the sky behind them where they land, and the group climbs against the page-locked sky as it comes
+	// down, into rows that are darker than they are: they fade out over the climb, which is none when the picture moves with the page
+	out.farAlpha = 1 - smoothstep(STAGE.farFade[0] * stage.warmArt, STAGE.farFade[1] * stage.warmArt, (1 - rate) * lift)
 	out.palmShift = (STAGE.palmRate - 1) * lift * motionShare
-	// A wing is full from its side's `need` down, and eases off over WING.ease px of scroll above it
-	out.wingLeft = left ? 1 - smoothstep(left.need, left.need + WING.ease, lift) : 0
-	out.wingRight = right ? 1 - smoothstep(right.need, right.need + WING.ease, lift) : 0
-	out.wingTopLeft = left ? Math.max(left.top - WING.topFeather, wingTop) : 0
-	out.wingTopRight = right ? Math.max(right.top - WING.topFeather, wingTop) : 0
+	// A function of how far the sun has climbed against the page, so Pause and Play leave no step in it
+	out.sunAlpha = 1 - smoothstep(SUN.fade * g, g, motionShare * lift)
+	out.haloScale = clamp((stage.zButtonBottom - stage.sunZ - (1 - rate) * lift - SUN.gateMargin) / halo, 0, 1)
+	out.glitterOpen = 1 - smoothstep(0, 0.7 * stage.horizonEnter, lift) * motionShare
+	// A wing may show from as far above its side's `need` as its parts come on, and eases off over WING.ease px of scroll above that
+	out.wingLeft = left ? 1 - smoothstep(left.need + WING_LEAD, left.need + WING_LEAD + WING.ease, lift) : 0
+	out.wingRight = right ? 1 - smoothstep(right.need + WING_LEAD, right.need + WING_LEAD + WING.ease, lift) : 0
+	out.wingTopLeft = left ? wingTop(stage, left) : 0
+	out.wingTopRight = right ? wingTop(stage, right) : 0
 	out.onScreen = lift < stage.zShow
-	out.moving = lift < Math.max(stage.zWarmTop, stage.horizonEnter)
+	out.moving = lift < Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 	return out
+}
+
+/** One cloud bank as the stage places it. */
+export interface PlacedBank {
+	/** The height above the page's end of its flat bottom. */
+	bottom: number
+	/** The height above the page's end of its highest point: at or below the stage's copy floor. */
+	top: number
+	/** Its greatest height above the bottom, px: `top` less `bottom`. */
+	height: number
+	/** Its center at clock 0 and its width, as shares of the canvas width. */
+	x: number
+	width: number
+	/** Px a second to the right. */
+	drift: number
+	/** Seeds the lumps of its top. */
+	seed: number
+	/** It is the bank nearest the sun, which alone has the hot rim on its lowest edge. */
+	rim: boolean
+}
+
+/**
+ * Where the cloud banks stand on this stage. A bank's flat bottom is its listed height above the waterline in tallest towers,
+ * and its top may not rise above the stage's copy floor, or its warm underside would light the copy. A bank above it moves
+ * down to it, less a seeded offset where the room allows, and a bank that would then sink under the least height above the
+ * waterline (it would read as smoke on a tower) first shrinks, to at least CLOUDS.place.minHeight, and only then is dropped.
+ * Tops stay CLOUDS.place.topGap apart, so they never line up. A screen with room for fewer than two banks of the least height
+ * (the copy's bottom, less its least clearance, over the lowest a bank may stand) has none, only streaks.
+ */
+export function placeBanks(stage: MiamiStage): readonly PlacedBank[] {
+	const byWidth = stage.narrow ? 'narrow' : 'wide'
+	const { minHeight, offset, topGap } = CLOUDS.place
+	const floor = stage.zWater + BANK_FLOOR * stage.tallest
+	const ceiling = stage.zCopyFloor
+	if (stage.zButtonBottom - STAGE.copyClearMin - floor < 2 * minHeight || ceiling - floor < 2 * minHeight) return []
+
+	const placed: PlacedBank[] = []
+	const tops: number[] = []
+	CLOUDS.banks[byWidth].forEach((entry, index) => {
+		const draw = (salt: number) => hashCell(index, salt, BANK_SEED) / 4294967296
+		let top = stage.zWater + entry.above * stage.tallest + entry.height
+		if (top > ceiling) {
+			// Down to the copy floor less a seeded offset, as far as the room allows, and shrunk if even that leaves no room
+			top = Math.min(ceiling, Math.max(ceiling - (offset[0] + (offset[1] - offset[0]) * draw(1)), floor + entry.height))
+		}
+		let bottom = Math.max(floor, top - entry.height)
+		// Tops apart: lower this one under the nearest top it crowds, or lift the whole bank over it
+		for (let pass = 0; pass < placed.length + 1; pass++) {
+			const crowded = tops.find((other) => Math.abs(top - other) < topGap - ROUNDING)
+			if (crowded === undefined) break
+			if (crowded - topGap - bottom >= minHeight - ROUNDING) top = crowded - topGap
+			else if (crowded + topGap <= ceiling + ROUNDING) {
+				bottom += crowded + topGap - top
+				top = crowded + topGap
+			} else {
+				top = -Infinity
+				break
+			}
+		}
+		if (top - bottom < minHeight - ROUNDING || tops.some((other) => Math.abs(top - other) < topGap - ROUNDING)) return
+		tops.push(top)
+		placed.push({ bottom, top, height: top - bottom, x: entry.x, width: entry.width, drift: entry.drift, seed: hashCell(index, 2, BANK_SEED), rim: false })
+	})
+	// The hot rim goes to the bank whose center is nearest the sun's column
+	const sunShare = SUN.x[byWidth]
+	let nearest = -1
+	placed.forEach((bank, index) => {
+		if (nearest < 0 || Math.abs(bank.x - sunShare) < Math.abs((placed[nearest]?.x ?? 0) - sunShare)) nearest = index
+	})
+	const rimmed = placed[nearest]
+	if (rimmed) rimmed.rim = true
+	return placed
 }

@@ -14,6 +14,22 @@ export interface SkyController {
 /** Controller for browsers that can't run the sky: the plain navy page stays. */
 const NOOP: SkyController = { setPhase: () => {}, destroy: () => {} }
 
+/**
+ * Marks the page while no sky runs, because the browser can't start it or it failed: `data-sky-off` on <html> collapses the
+ * empty room SkyLanding leaves for the scene (Background.module.css), so the plain navy page has no blank band above the
+ * footer. A sky that mounts clears it, so a remount or a return to the page starts clean.
+ */
+function setSkyOff(off: boolean): void {
+	if (off) document.documentElement.dataset.skyOff = ''
+	else delete document.documentElement.dataset.skyOff
+}
+
+/** The controller of a sky that never started: the plain page, with no room for a scene that won't be drawn. */
+function unavailable(): SkyController {
+	setSkyOff(true)
+	return NOOP
+}
+
 /** Pixel-ratio cap for the canvas: crisp on retina, bounded on 3x phones. */
 const DPR_CAP = 2
 
@@ -250,11 +266,13 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader, rules: R
  * are missing or the theme tokens can't be read, which leaves the plain navy background.
  */
 export function mountSky(host: HTMLElement, canvasClassName: string): SkyController {
-	if (!supported()) return NOOP
+	if (!supported()) return unavailable()
 	const tokens = readTokens()
-	if (!tokens) return NOOP
+	if (!tokens) return unavailable()
 	const worker = startWorker()
-	if (!worker) return NOOP
+	if (!worker) return unavailable()
+	// A sky that mounts wants its room: this clears what an earlier failed visit left
+	setSkyOff(false)
 
 	// A fresh canvas per mount: control transfers only once, and StrictMode mounts twice in development
 	const canvas = document.createElement('canvas')
@@ -484,6 +502,13 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		canvas.remove()
 	}
 
+	// A worker that fails takes the sky down and the room for its scene with it; an unmount takes the plain destroy and leaves it
+	const fail = () => {
+		if (destroyed) return
+		setSkyOff(true)
+		destroy()
+	}
+
 	worker.addEventListener(
 		'message',
 		(event: MessageEvent<SkyWorkerMessage>) => {
@@ -495,7 +520,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 					setSkyRunning(true)
 					break
 				case 'error':
-					destroy()
+					fail()
 					break
 				case 'relay':
 					setRelay(message.on)
@@ -510,7 +535,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		{ signal }
 	)
 	// A worker that fails to load or throws leaves the plain navy background
-	worker.addEventListener('error', destroy, { signal })
+	worker.addEventListener('error', fail, { signal })
 
 	return {
 		setPhase(next) {

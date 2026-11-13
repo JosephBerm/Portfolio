@@ -615,24 +615,28 @@ export const FRAME = {
  * display's refresh rate allows it, and never draws below `minFps`. Motion draws on animation frames divided by a whole
  * number, so every drawn frame stays up for the same number of display refreshes, and a need may fall short of its rate by
  * a factor of `refreshSlack`, because a worker's 0.1 ms timestamps read a 60 Hz display as 59.88 Hz, which must divide as
- * 60 does; a lower need must last `slowDownAfter` seconds before the clock slows down. The drift and the pointer lean draw
- * at most `narrowMaxFps` on narrow screens (phone GPUs pay most for a full-screen frame) and `slowMaxFps` after the first
- * adaptive step; a software-rasterized canvas may spend `softwareShare` of a core on them and keeps a still sky below `minFps`.
- * The refresh interval is the median of the last `refreshSamples` frame intervals; a median within `unalignedToleranceMs`
- * of `unalignedIntervalMs` is WebKit's fixed 15 ms worker clock, not the display, so while something moves the main
- * thread relays the page's own animation frames to the worker, which divides them like a display's. A requested
- * animation frame that hasn't come `watchdogMs` after the request (while visible) is served by a timer; after
- * `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which asks for one animation frame every
- * `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored context); the strikes also reset when
- * the context is restored or the tab is shown. Relayed frames fall back the same way and go back to the next one that
- * comes. A relayed frame handled within `relayQueuedMs` of the worker finishing the last one waited in its queue while
- * that one ran over a refresh, and draws nothing, so a worker slower than the page never falls behind it.
+ * 60 does, and a cap may be exceeded by a factor of `capSlack`, because an estimate of a refresh that is a whole multiple
+ * of the cap's rate lands a little over it as often as under (the intervals of a 30 Hz display average to 30.02 Hz at some
+ * moments), and rounding that up would draw half the cap's rate; a lower need must last `slowDownAfter` seconds before the
+ * clock slows down. The drift and the pointer lean draw at most `narrowMaxFps` on narrow screens (phone GPUs pay most for a
+ * full-screen frame) and `slowMaxFps` after the first adaptive step; a software-rasterized canvas may spend `softwareShare`
+ * of a core on them and keeps a still sky below `minFps`. The refresh interval is the mean of the last `refreshSamples`
+ * frame intervals; their median within `unalignedToleranceMs` of `unalignedIntervalMs` is WebKit's fixed 15 ms worker
+ * clock, not the display, so while something moves the main thread relays the page's own animation frames to the worker,
+ * which divides them like a display's. A requested animation frame that hasn't come `watchdogMs` after the request (while
+ * visible) is served by a timer; after `watchdogStrikes` misses in a row, frames come from a `fallbackFps` timer, which asks
+ * for one animation frame every `reprobeMs` and goes back to them when one arrives (a GPU restart or a restored context);
+ * the strikes also reset when the context is restored or the tab is shown. Relayed frames fall back the same way and go
+ * back to the next one that comes. A relayed frame handled within `relayQueuedMs` of the worker finishing the last one
+ * waited in its queue while that one ran over a refresh, and draws nothing, so a worker slower than the page never falls
+ * behind it.
  */
 export const PACING = {
 	stepDevicePx: 0.5,
 	minFps: 20,
 	slowDownAfter: 0.5,
 	refreshSlack: 1.01,
+	capSlack: 1.05,
 	narrowMaxFps: 30,
 	slowMaxFps: 30,
 	softwareShare: 0.08,

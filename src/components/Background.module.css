@@ -45,3 +45,8 @@
 		display: none;
 	}
 }
+
+/* No sky runs (the browser can't start it, or it failed, see mountSky): no room for a scene that won't be drawn */
+:global([data-sky-off]) .landing {
+	display: none;
+}

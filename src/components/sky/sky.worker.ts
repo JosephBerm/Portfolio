@@ -8,7 +8,11 @@
  * something moves. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
  * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
  * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there. The nebula's light moves on
- * the drift clock too and asks for no frames of its own.
+ * the drift clock too and asks for no frames of its own. The landing scene at the foot of the page moves on a clock of its
+ * own (the water, the clouds, the sun's breath, the beacons, the palms in the wind and the boat's crossing): while that is
+ * on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive quality has stepped down, and for
+ * none while paused, reduced, idle or on a canvas too slow to run it. It counts its own slow frames, from what its own
+ * draws take, apart from adaptive quality's.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
@@ -246,7 +250,8 @@ function hazeLevel(scene: SceneLevels): number {
  */
 function gather(now: number, scene: SceneLevels): void {
 	const t = now / 1000
-	driftGate.allowed = exitAt !== null && softwareFps >= PACING.minFps
+	// The landing scene on screen on a canvas too slow to run it holds still, so the drift may not draw it again and again: the lean stays input-driven
+	driftGate.allowed = exitAt !== null && softwareFps >= PACING.minFps && !miami.stillOnScreen(scrollY, documentHeight, softwareFps)
 	driftGate.dusk = exitAt === null ? 0 : t - exitAt
 	driftGate.on = motion === 'full' && !isIdle(presence, now)
 	driftGate.level = presenceLevel(presence, now) * easeAt(motionLevel, FRAME.motionEase, t)
@@ -280,9 +285,13 @@ function quietEasing(t: number): boolean {
 	return layoutAt !== null && t - layoutAt < QUIET.ease
 }
 
+/** `performance.now()` when the tick running now began: the landing scene's build slice counts from it, so the work a tick does before the build is taken from the slice. */
+let tickStartedAt = 0
+
 /** What the landing scene reads at this moment (reused, so a call makes no garbage). */
 const miamiStep: MiamiStep = {
 	now: 0,
+	tickStart: 0,
 	scrollY: 0,
 	documentHeight: 0,
 	dpr: 1,
@@ -298,6 +307,7 @@ const miamiStep: MiamiStep = {
 /** Fills the landing scene's input for `now` (ms). Every caller has run `gather` first, so the gates it reads are fresh. */
 function stepInput(now: number): MiamiStep {
 	miamiStep.now = now
+	miamiStep.tickStart = tickStartedAt
 	miamiStep.scrollY = scrollY
 	miamiStep.documentHeight = documentHeight
 	miamiStep.dpr = dpr
@@ -356,8 +366,9 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 		easing(motionLevel.since, FRAME.motionEase, t) ||
 		easing(thinnedAt, ADAPT.thinFade, t) ||
 		bodyFading(comet, t, t - hiddenTotal)
-	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0
-	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
+	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0. Not while the landing scene is on screen on a canvas
+	// too slow to run it: each of its frames would draw the scene's whole ground again
+	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 && !miami.stillOnScreen(scrollY, documentHeight, softwareFps) ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	// The landing scene's own frames, and the fade frames of an ease in or a rebuild, which would otherwise wait for the next input
 	const sceneDemand = miami.demand(stepInput(now))
 	frameState.sceneFps = sceneDemand.fps
@@ -551,6 +562,7 @@ function recheckFrames(): void {
  * next wake-up. Moving things draw on every k-th display refresh, so each drawn frame stays up for the same time.
  */
 function tick(now: number): void {
+	tickStartedAt = performance.now()
 	// The launch gate, the gates and the camera read one scene: nothing in a tick moves the scroll or the viewport
 	const scene = sceneAt(scrollY, height, documentHeight, miami.descentWindow())
 	if (updateTransients(transients, random, now / 1000, launchGate(now, scene))) needsDraw = true
@@ -565,7 +577,7 @@ function tick(now: number): void {
 	// Outside draw, so adapt never counts what the nebula costs against the quality steps
 	updateNebula(scene)
 	updateComet(now)
-	// The landing scene's bitmaps are built here, in slices, and never inside a draw, so adapt never counts them
+	// The landing scene's bitmaps are built here, in slices that end a set time after this tick began, and never inside a draw, so adapt never counts them
 	if (miami.step(stepInput(now))) needsDraw = true
 	const demand = demandNow(now, scene)
 	// Without the display's clock a 60 Hz timer stands in for it. WebKit's worker clock is a fixed 15 ms timer, not the
@@ -740,9 +752,12 @@ function draw(now: number): void {
 		assets.comet = null
 	}
 	// The landing scene's silhouettes are drawn after this reading, so adapt's steps, which are one way and cover the whole page,
-	// never count them. Only the scene's ground, a bitmap and a fill drawn inside drawSky, counts
-	const skyMs = performance.now() - started
+	// never count them. Only the scene's ground, the sky bitmap drawn inside drawSky, counts
+	const skyEnd = performance.now()
+	const skyMs = skyEnd - started
 	drawLandingScene(ctx, frame)
+	// What the silhouettes took goes to the scene's own steps, which thin its light and slow its frames without touching the stars
+	if (frame.miami) miami.noteSceneMs(performance.now() - skyEnd)
 	lastDrawAt = now
 	needsDraw = false
 	// A scene that threw part way left half a frame: the next tick replaces it with the plain sky. Under reduced motion at rest

@@ -37,8 +37,10 @@ export interface LandingRect {
 
 /**
  * How much the sky may change on its own:
- * - `full`: twinkle, drift, scroll parallax and its glide, pointer lean and transients
- * - `reduced`: prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only
+ * - `full`: twinkle, drift, scroll parallax and its glide, pointer lean and transients, and the landing scene's water,
+ *   clouds, sun, beacons, palms in the wind and the boat's crossing
+ * - `reduced`: prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only, and the
+ *   landing scene rests in its still pose
  * - `off`: forced colors hide the sky, so nothing is drawn
  */
 export type SkyMotion = 'full' | 'reduced' | 'off'
@@ -78,7 +80,7 @@ export type SkyMainMessage =
 			pinned: readonly SkyRect[]
 			/** Rects of reading copy (READING_SELECTOR in mountSky.ts) in document coordinates. Nothing lights it, so `headroom` is 0. */
 			reading: readonly SkyRect[]
-			/** The landing's box, or null where the page has none (production, forced colors, print) or it has no box. */
+			/** The landing's box, or null where the page has none (forced colors, print, or the scene switched off in SkyLanding) or it has no box. */
 			landing: LandingRect | null
 	  }
 	/** The visitor is still here without scrolling (pointer, keys, focus); at most one a second. */

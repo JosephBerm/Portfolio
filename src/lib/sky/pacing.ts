@@ -121,10 +121,14 @@ export function fadeOutAt(since: number | null, duration: number, t: number): nu
 	return since === null ? 1 : 1 - smoothstep(since, since + duration, t)
 }
 
-/** Draw on every k-th refresh: the largest k that still gives `fps`, within PACING.refreshSlack, and at least the k that keeps under `cap`. */
+/**
+ * Draw on every k-th refresh: the largest k that still gives `fps`, within PACING.refreshSlack, and at least the k that keeps
+ * under `cap`, where a refresh within PACING.capSlack above a whole multiple of the cap's rate counts as that multiple: an
+ * estimate of a 30 Hz display never lands exactly on 30, and rounding up the half that lands over would draw it at 15 fps.
+ */
 export function refreshDivisor(refreshHz: number, fps: number, cap: number): number {
 	// A hair of slack on both roundings: a measured refresh such as 59.999... Hz must divide like 60
-	return Math.max(Math.floor((refreshHz / fps) * PACING.refreshSlack + 1e-9), Math.ceil(refreshHz / cap - 1e-9), 1)
+	return Math.max(Math.floor((refreshHz / fps) * PACING.refreshSlack + 1e-9), Math.ceil(refreshHz / (cap * PACING.capSlack) - 1e-9), 1)
 }
 
 /** The divisor in use, and since when (worker-clock ms) a larger one has been enough. */
@@ -187,6 +191,13 @@ function median(values: readonly number[], buffer: Float64Array): number {
 	return buffer[values.length >> 1] ?? 0
 }
 
+/** The mean of a short list (never empty where it is called). */
+function mean(values: readonly number[]): number {
+	let sum = 0
+	for (const value of values) sum += value
+	return sum / values.length
+}
+
 /** Appends `value` to `list`, keeping the last PACING.refreshSamples. */
 function remember(list: number[], value: number): void {
 	list.push(value)
@@ -194,9 +205,14 @@ function remember(list: number[], value: number): void {
 }
 
 /**
- * A refresh estimate: the median of the last PACING.refreshSamples intervals. Intervals over 1.5 times the estimate are
- * dropped frames and ignored, unless PACING.refreshSamples of them come in a row: then the display really is slower
- * (Energy Saver's 30 Hz, say) and their median becomes the estimate.
+ * A refresh estimate: the mean of the last PACING.refreshSamples intervals. The median of them decides which intervals
+ * count: those over 1.5 times it are dropped frames and ignored, unless PACING.refreshSamples of them come in a row: then
+ * the display really is slower (Energy Saver's 30 Hz, say) and they replace the others. The reading is a mean because a
+ * clock that ticks in whole milliseconds (Safari's worker clock) stamps a 60 Hz display's frames 16 or 17 ms apart, mostly
+ * 17, so their median reads 17 ms (58.8 Hz) every time, where consecutive intervals add up to the time between two
+ * stamps, which is off by less than a tick: a sixteenth of one per interval over sixteen. A dropped frame in the window
+ * costs a few ticks of that, which the slack in refreshDivisor covers. The median stays what `unaligned` reads: moving
+ * between two refresh rates a mean passes through every value in between, 15 ms among them, where a median jumps over it.
  */
 export function createRefreshEstimate(): RefreshEstimate {
 	const accepted: number[] = []
@@ -205,21 +221,23 @@ export function createRefreshEstimate(): RefreshEstimate {
 	const sorted = new Float64Array(PACING.refreshSamples)
 	let last: number | null = null
 	let interval = 1000 / 60
+	let typical = interval
 	return {
 		get interval() {
 			return interval
 		},
 		get unaligned() {
-			return Math.abs(interval - PACING.unalignedIntervalMs) <= PACING.unalignedToleranceMs
+			return Math.abs(typical - PACING.unalignedIntervalMs) <= PACING.unalignedToleranceMs
 		},
 		sample(timestamp) {
 			const delta = last === null ? 0 : timestamp - last
 			last = timestamp
 			if (delta <= 0) return
-			if (delta < interval * 1.5) {
+			if (delta < typical * 1.5) {
 				rejected.length = 0
 				remember(accepted, delta)
-				interval = median(accepted, sorted)
+				typical = median(accepted, sorted)
+				interval = mean(accepted)
 				return
 			}
 			// A run of long intervals is a slower display, not dropped frames
@@ -228,7 +246,8 @@ export function createRefreshEstimate(): RefreshEstimate {
 			accepted.length = 0
 			accepted.push(...rejected)
 			rejected.length = 0
-			interval = median(accepted, sorted)
+			typical = median(accepted, sorted)
+			interval = mean(accepted)
 		},
 		pause() {
 			last = null

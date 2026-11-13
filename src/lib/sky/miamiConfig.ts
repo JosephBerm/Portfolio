@@ -45,11 +45,17 @@ export const DESCENT = {
  *   take to settle when the motion changes (1.5 to 2).
  * - `drop`: how far the near and far towers sink behind the water while the page is still coming down, as a share of the
  *   tallest tower (0 to 0.35); they rise to their full height as the page lands.
+ * - `farFade`: the far city's colors are hazy and light, made for the sky behind it where it lands. While the page comes down
+ *   the horizon group climbs against the page-locked sky, into rows that are darker than they are, and there it would show as
+ *   lighter than its sky. It fades out as that climb grows from the first to the second share of the warm band's height.
  * - `copyClear` and `copyClearMin`: the clearance kept between the lowest copy's bottom and bright clouds, and the least it
  *   falls to where the banks need the room.
  * - `bakeAhead`: canvas heights of scroll before the scene shows at which its bitmaps start to build.
- * - `buildSliceMs`: the most of a tick the build may take. `jumpEase`: the seconds the scene takes to ease in after a jump
- *   straight to the page's end. `rebuildTolerancePx`: how far a measure may move before the bitmaps are rebuilt.
+ * - `buildSliceMs`: the most of a tick the build may take. `starveTicks`: ticks in a row whose earlier work has already
+ *   spent the whole slice before the build is reached, after which one piece of it is built anyway, so a rebuild whose
+ *   old bitmaps are still on screen can't wait forever behind work that never lets up. `jumpEase`: the seconds the scene
+ *   takes to ease in after a jump straight to the page's end. `rebuildTolerancePx`: how far a measure may move before the
+ *   bitmaps are rebuilt.
  */
 export const STAGE = {
 	direction: 'B' as 'B' | 'A' | 'A+',
@@ -60,10 +66,12 @@ export const STAGE = {
 	palmRate: 1.15,
 	rateEase: 2,
 	drop: { near: 0.28, far: 0.14 },
+	farFade: [0.08, 0.17],
 	copyClear: 68,
 	copyClearMin: 16,
 	bakeAhead: 1.2,
 	buildSliceMs: 8,
+	starveTicks: 4,
 	jumpEase: 0.5,
 	rebuildTolerancePx: 4,
 } as const
@@ -138,36 +146,41 @@ export const SUN = {
  * `width` the length, both as shares of the canvas width, `height` and `alpha` the band's, and `drift` the px a second it
  * moves right. `banks` are the heavy clouds with flat bottoms, by width class: `above` is the bottom's height above the
  * waterline in tallest towers (the top is that plus `height` px), `x` and `width` as for the streaks. `shape` makes a bank's
- * top lumpy: noise stretched `stretch`:1 horizontally, `octaves` of it, and a top edge blurred by at most `blur` px.
- * `place` settles banks that don't fit: one shrinks to at least `minHeight` px before it is dropped, a bank moved down
- * to fit sits a seeded `offset` px lower where the room allows, and tops stay at least `topGap` apart, so they never
- * align. `top` and `topHigh` color a bank's top (lower and higher banks), `under` its underside on the sun's side
- * (`near`) and away from it (`far`), and `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun.
+ * top: noise stretched `stretch`:1 horizontally, `octaves` of it, and a top edge blurred by at most `blur` px. The stretch is
+ * long and the edge soft because short lumps with a crisp edge read as a mountain range, not as cloud, and for the same
+ * reason the banks are low. `place` settles banks that don't fit: one shrinks to at least `minHeight` px before it is
+ * dropped, a bank moved down to fit sits a seeded `offset` px lower where the room allows, and tops stay at least `topGap`
+ * apart, so they never align. The tallest bank of a class stays at least twice `minHeight`: it sets the clearance under the
+ * copy, so where a screen has little room the banks share a room no taller than it, and a room under two banks' worth holds
+ * none. `top` and `topHigh` color a bank's top (lower and higher banks), `under` its underside on the sun's side (`near`)
+ * and away from it (`far`), as light as the sky just below the bank so that it reads as lit from below and not as haze, and
+ * `rim` the 1 to 2 px of light on the lowest edge of the bank nearest the sun. Under prefers-contrast: more the sky below a
+ * bank is nearly navy, so a bank has neither: either would glow against it.
  */
 export const CLOUDS = {
 	streaks: [
 		{ t: 0.13, x: 0.3, color: '#A8501C', width: 0.7, height: 8, drift: 0.8, alpha: 0.55 },
-		{ t: 0.3, x: 0.72, color: '#8E3F20', width: 0.5, height: 10, drift: 1, alpha: 0.5 },
+		{ t: 0.3, x: 0.86, color: '#8E3F20', width: 0.4, height: 10, drift: 1, alpha: 0.5 },
 		{ t: 0.52, x: 0.4, color: '#6E3424', width: 0.6, height: 14, drift: 1.6, alpha: 0.45 },
-		{ t: 0.78, x: 0.66, color: '#3F2A30', width: 0.4, height: 6, drift: 2.2, alpha: 0.35 },
+		{ t: 0.78, x: 0.86, color: '#3F2A30', width: 0.22, height: 6, drift: 2.2, alpha: 0.35 },
 	],
 	banks: {
 		wide: [
-			{ above: 1.3, x: 0.44, width: 0.2, height: 34, drift: 0.5 },
-			{ above: 1.2, x: 0.86, width: 0.18, height: 28, drift: 0.4 },
-			{ above: 1.95, x: 0.74, width: 0.24, height: 62, drift: 0.9 },
-			{ above: 2.5, x: 0.3, width: 0.18, height: 34, drift: 1.2 },
+			{ above: 1.3, x: 0.44, width: 0.2, height: 30, drift: 0.5 },
+			{ above: 1.2, x: 0.86, width: 0.18, height: 26, drift: 0.4 },
+			{ above: 1.95, x: 0.74, width: 0.24, height: 46, drift: 0.9 },
+			{ above: 2.5, x: 0.3, width: 0.18, height: 26, drift: 1.2 },
 		],
 		narrow: [
-			{ above: 1.3, x: 0.3, width: 0.48, height: 30, drift: 0.4 },
-			{ above: 1.95, x: 0.76, width: 0.48, height: 40, drift: 0.7 },
+			{ above: 1.3, x: 0.3, width: 0.36, height: 22, drift: 0.4 },
+			{ above: 1.95, x: 0.76, width: 0.36, height: 40, drift: 0.7 },
 		],
 	},
-	shape: { stretch: 2.5, octaves: 3, blur: 1.5 },
+	shape: { stretch: 5.5, octaves: 3, blur: 3 },
 	place: { minHeight: 18, offset: [10, 40], topGap: 12 },
 	top: '#3B251E',
 	topHigh: '#3F2A2C',
-	under: { near: '#BC502A', far: '#8E3F2A' },
+	under: { near: '#D8642E', far: '#A2462C' },
 	rim: { near: '#FFA03A', far: '#CF5147' },
 } as const
 
@@ -177,19 +190,22 @@ export const CLOUDS = {
  * - `far`: a second layer of seeded towers behind the near ones, between `low` and `high` of the tallest tower's height,
  *   with `width` and `gap` ranges in drawing units, in a gradient from `top` to `base` that mixes up to `sunMix` toward
  *   `sunColor` near the sun.
- * - `base`: the low base along the water, its height a share of the tallest tower by width class and `gapShare` of that in
- *   the sun's gap, with a small palm top about every `palmEvery` px.
+ * - `base`: the low base along the water, its height a share of the tallest tower by width class (at most 0.3 of it on
+ *   phones, where a taller one is a black shelf with bumps of canopy under stubby towers) and `gapShare` of that in the
+ *   sun's gap, with a small palm top about every `palmEvery` px.
  * - `sunGap`: the room around the sun kept free of towers: `radii` (by width class) for the far layer and the low base,
- *   which are built per stage, and `nearUnits` in drawing units for the fixed near-tower list, which knows no viewport.
+ *   which are built per stage. `nearUnits`, in drawing units, is the rule the fixed near-tower list keeps (it knows no
+ *   viewport): no near tower closer to the sun than that. Nothing reads it at run time.
  * - `haze`: a band of the local sky's color over the far layer's feet, `height` px at `alpha`.
- * - `cranes`: the port cranes, shown from `minWidth` px wide and `minHeight` px tall. `window` is the x range they stand in
- *   and `at` their three positions, relative to the sun's gap in drawing units; `apex` is the height of a crane's A-frame
- *   in units.
+ * - `cranes`: the port cranes, shown from `minWidth` px wide and `minHeight` px tall, at their three positions `at`,
+ *   relative to the sun's gap in drawing units; `apex` is the height of a crane's A-frame in units. `window` is the x range
+ *   in the same units that they stand in and the near-tower list keeps clear of towers (the far layer shows there). Like
+ *   `nearUnits` it is a rule that the data (`at` and the list) must keep, and is not read at run time.
  */
 export const SKYLINE = {
 	near: '#120A0E',
 	far: { top: '#4A2A2A', base: '#8A4A30', sunMix: 0.34, sunColor: '#F4851F', low: 0.36, high: 0.84, width: [11, 20], gap: [6, 34], seed: 0x4d49414d },
-	base: { share: { wide: 0.25, narrow: 0.36 }, gapShare: 0.67, palmEvery: 70, seed: 0x42415345 },
+	base: { share: { wide: 0.25, narrow: 0.3 }, gapShare: 0.67, palmEvery: 70, seed: 0x42415345 },
 	sunGap: { radii: { wide: 3, narrow: 2 }, nearUnits: 72 },
 	haze: { height: 30, alpha: 0.3 },
 	cranes: { enabled: true, minWidth: 1100, minHeight: 500, window: [-538, -337], at: [-517, -459, -401], apex: 100 },
@@ -204,14 +220,20 @@ export const BEACONS = { enabled: true, count: { wide: 3, narrow: 2 }, color: '#
 /**
  * The water. `stops` are [d, color] ramps down the water (d is 0 at the waterline and 1 at the page's end) for the body,
  * the crests and the troughs, by direction; `darken` pulls the body darker toward the viewer. `footerCap` is the most
- * luminance any row at or below the footer may have, by direction and under prefers-contrast: more, held over `capGap`
- * px and eased out over `capFeather`. `glow` is the sun's column on the water, `reflection` the skyline's dark reflection
- * and `sliver` the thin line of light at the waterline. `strips` slice the water into rows a device px tall growing by
- * `growth` per row, with `margin` px to spare at the sides. `waves` are the row shifts' sines: period, rows per cycle and
- * share. `shiftX` and `shiftRow` are how far a row slides sideways and vertically (px), `stillClock` the frozen time of
- * the still pose. `ripple` and `glitter` shape the lens dashes of the crests and the glints: sizes in px, lives in
- * seconds, `count` by width class (and `low` for the slowest tier), the glint width's half at most 24 px, which the quiet
- * padding around copy covers.
+ * luminance any row at or below the footer may have before the dither, which can add one level to a channel (about 0.003
+ * of luminance at 0.125 and 0.001 at 0.02), by direction and under prefers-contrast: more, held over `capGap` px and
+ * eased out over `capFeather`. The sun's column comes on over the `capFade` px above that hold (fewer where the waterline
+ * is nearer, so on a phone it fades from the waterline down), because a column lit down to the footer would be flattened
+ * by the cap into a bright box ending in a hard step; under prefers-contrast: more, where the cap is far below the water's
+ * own light, each row eases up from the cap over the same px for the same reason. `glow` is the sun's column on the water,
+ * `reflection` the skyline's dark reflection and `sliver` the thin line of light at the waterline. `strips` slice the
+ * water into rows a device px tall growing by `growth` per row, with `margin` px to spare at the sides. `waves` are the
+ * row shifts' sines: period, rows per cycle and share. `shiftX` and `shiftRow` are how far a row slides sideways and
+ * vertically (px), `stillClock` the frozen time of the still pose. `ripple` and `glitter` shape the lens dashes of the
+ * crests and the glints: sizes in px, lives in seconds, `count` by width class (and `low` for the slowest tier), the glint
+ * width's half at most 24 px, which the quiet padding around copy covers. The ripples' `bands` each trade the light of their
+ * two layers over a life of their own, and two neighbouring bands hand their crests over across `reach` px either side of
+ * the edge between them, so the edge is no line across the water when they stand at different points of their lives.
  */
 export const WATER = {
 	stops: {
@@ -230,8 +252,9 @@ export const WATER = {
 	footerCap: { B: 0.125, A: 0.052, more: 0.02 },
 	capGap: 24,
 	capFeather: 40,
+	capFade: 100,
 	glow: { strength: 0.55, reach: [1.5, 4.2, 0.85], fade: [0.04, 0.95, 0.9], color: '#FFBE66' },
-	reflection: { core: '#2A120C', strength: 0.86, from: 0.36, to: 0.58 },
+	reflection: { core: '#2A120C', strength: 0.55, from: 0.36, to: 0.58 },
 	sliver: { color: '#F7A23F', height: 2.5 },
 	strips: { firstDevicePx: 1, growth: 1.05, margin: 16 },
 	waves: [{ period: 4.3, rows: 17, share: 0.5 }, { period: 3.1, rows: 11, share: 0.3 }, { period: 2.2, rows: 7, share: 0.2 }],
@@ -242,7 +265,7 @@ export const WATER = {
 		bands: [0.06, 0.14, 0.24, 0.36, 0.5, 0.66, 0.82, 1],
 		rowHeight: [1, 3], dash: [5, 35], jitter: 0.4, crestShare: [0.52, 0.22], crestAlpha: 0.85, troughShare: 0.25, troughAlpha: 0.55,
 		drift: [1, 7], crestBRate: 0.55, life: [3, 5], stillAlpha: 0.62,
-		tileMin: { wide: 1024, narrow: 512 }, tileMax: 2048, seed: 0x52495050,
+		tileMin: { wide: 1024, narrow: 512 }, tileMax: 2048, seed: 0x52495050, reach: 8,
 	},
 	glitter: {
 		count: { wide: 120, narrow: 50, low: 30 }, width: [6, 40], height: [1, 3], life: [0.9, 1.6], peak: 0.9,
@@ -253,17 +276,20 @@ export const WATER = {
 /**
  * The boat that crosses the water now and then: its length by the footer's layout (as the water's gap), `depth` px below
  * the waterline, its speed (px a second) and start (a share of the width) by width class, and the seconds it waits
- * out of sight before it returns. `bob` is how far and how fast it rocks; `wake` is the V behind it (half angle in
- * degrees, lengths of boat it reaches, alpha and color) and `reflection` the px of its dark reflection. The hull and
- * cabin are outlines with x and height as shares of the length, up from the hull's foot, bow to the right; `mast` is the
- * mast's height as a share of the length.
+ * out of sight before it returns. The scene's clock stands still while its moving parts are off screen, so `startX` is where
+ * a visitor first finds the boat: a phone's is a third of the way across, in open water and clear of the left palm's trunk
+ * (its wake can still run behind the trunk there), where nearer the edge the boat would stand against the trunk and its
+ * wake would cross it. `bob` is how far and how fast it rocks; `wake` is the V behind it (half angle in degrees, lengths
+ * of boat it reaches, alpha and color) and `reflection` the px of its dark reflection. The hull and cabin are outlines with
+ * x and height as shares of the length, up from the hull's foot, bow to the right; `mast` is the mast's height as a share
+ * of the length.
  */
 export const BOAT = {
 	enabled: true,
 	length: { wide: 58, narrow: 46 },
 	depth: 24,
 	speed: { wide: 8.5, narrow: 6 },
-	startX: { wide: 0.42, narrow: 0.2 },
+	startX: { wide: 0.42, narrow: 0.32 },
 	pause: 90,
 	bob: { px: 0.6, period: 3.5, pitch: 0.4 },
 	wake: { halfAngle: 8.5, lengths: 3, alpha: 0.8, color: '#FFB066' },
@@ -286,42 +312,55 @@ export const KEY = { wide: { left: [0.062, 0.26], right: [0.04, 0.09] }, narrow:
  * `minWidth` the narrowest screen that shows the palm. `scale` multiplies the wide sizes by the canvas height over `per`,
  * clamped to `min` and `max`. Under `shortHeight` px tall only the shorter entry (the second of `wide`) shows. A frond is
  * at least `frondFromTrunk` of its trunk's length, and a crown lies at least `onScreen` of a frond's length below the top
- * of the canvas. `layout` gathers the fronds into `clusters` seeded clumps with `jitter` (a share of the even spacing),
- * and adds a back layer of short fronds (`count`, and their `length` as a share of a frond's). A frond fans `spread`
- * degrees either side of straight up; its length is a seeded share (`length`) of the palm's, grown toward the sides by
- * `shape`, and its droop follows `droop`, one of `variants` baked shapes. `hinge` splits it into an inner and an outer
- * sprite, `midrib` and `core` give it body (core as a share of its length), and the leaflets run `leafLength` of its
- * length at `leafAngle` degrees off the midrib, sagging by `leafSag`, `leafWidth` px at the root and the tip.
+ * of the canvas.
+ *
+ * `layout` is how a crown is put together. Its fronds gather into `clusters` clumps (the fewest and the most): the space
+ * between two neighbors strays from even by `jitter`, and the space between two clumps is `clump` times as wide as one inside
+ * a clump, so the crown is a burst with sky between its clumps and not an even fan. The wind streams the fronds that point
+ * nearest to level: downwind they run `stream` longer and flatter, upwind shorter and fuller. The oldest fronds, which hang,
+ * are `aged` shorter. `knot` is the radius of the knot at the crown as a share of a frond's length. Behind the fronds stands
+ * a back layer of short, heavy fronds: how many (`count`), their `length` as a share of a frond's and their `weight` against
+ * a frond's. Two hang around the trunk's top and the rest stand in the widest gaps between the fronds in front, which makes
+ * the heart solid.
+ *
+ * `frond` is how one frond is drawn. It fans `spread` degrees either side of straight up; its length is a seeded share
+ * (`length`) of the palm's, longer toward the sides by `shape`, and its droop follows `droop`, one of `variants` baked shapes.
+ * `hinge` splits it into an inner and an outer sprite. `midrib` (px), `core` and `hub` give it body: the midrib's width, the
+ * solid band under it and the broad foot, the last two as shares of the frond's length. Each side carries `leaflets` of
+ * them, from `leafFrom` of the way along the frond, up to `leafLength` of its length at `leafAngle` degrees off the midrib
+ * (at its foot and at its tip), sagging by `leafSag`, `leafWidth` px at the root and the tip.
  */
 export const PALMS = {
 	wide: [
-		{ crown: [0.058, 0.62], base: 0.075, bow: 34, trunk: [18, 10], frond: 172, fronds: 13, set: 'large', minWidth: 0 },
-		{ crown: [0.172, 0.34], base: 0.15, bow: -14, trunk: [16, 9], frond: 128, fronds: 12, set: 'small', minWidth: 0 },
-		{ crown: [0.978, 0.32], base: 0.962, bow: 12, trunk: [14, 8], frond: 104, fronds: 11, set: 'small', minWidth: 1100 },
+		{ crown: [0.058, 0.62], base: 0.075, bow: 34, trunk: [18, 10], frond: 172, fronds: 11, set: 'large', minWidth: 0 },
+		{ crown: [0.172, 0.34], base: 0.15, bow: -14, trunk: [16, 9], frond: 128, fronds: 11, set: 'small', minWidth: 0 },
+		{ crown: [0.978, 0.32], base: 0.962, bow: 12, trunk: [14, 8], frond: 104, fronds: 10, set: 'small', minWidth: 1100 },
 	],
-	narrow: [{ crown: [0.085, 0.52], base: 0.03, bow: -18, trunk: [13, 7.5], frond: 100, fronds: 12, set: 'large', minWidth: 0 }],
+	narrow: [{ crown: [0.085, 0.52], base: 0.03, bow: -18, trunk: [13, 7.5], frond: 100, fronds: 11, set: 'large', minWidth: 0 }],
 	scale: { per: 900, min: 0.82, max: 1.25 },
 	shortHeight: 500,
 	frondFromTrunk: 0.3,
 	onScreen: 0.8,
-	layout: { clusters: [2, 3], jitter: 0.5, back: { count: [4, 6], length: 0.5 } },
+	layout: { clusters: [2, 3], jitter: 0.5, clump: 3.9, back: { count: [5, 6], length: 0.5, weight: 1.4 }, stream: 0.28, aged: 0.22, knot: 0.15 },
 	frond: {
-		spread: 122, length: [0.86, 1.06], shape: [0.72, 0.34, 1.4], droop: [0.26, 0.46, 1.25, 0.04],
-		variants: 5, hinge: 0.48, midrib: 2, core: 0.05, leafLength: 0.17, leafAngle: [30, 48], leafSag: 0.5, leafWidth: [2.4, 1.5],
+		spread: 124, length: [0.86, 1.06], shape: [0.66, 0.42, 1.3], droop: [0.24, 0.4, 1.3, 0.04],
+		variants: 5, hinge: 0.48, midrib: 2, core: 0.05, hub: 0.15, leafLength: 0.17, leafAngle: [30, 48], leafSag: 0.5, leafWidth: [2.4, 1.6],
+		leaflets: 34, leafFrom: 0.15,
 	},
 	seed: 0x50414c4d,
 } as const
 
 /**
  * The wind. It is left to right everywhere, and the gust level `e` rests between `rest` while wandering over `wander`
- * seconds; the still pose holds it at `stillGust`. A `gust` comes every `gap` seconds, rises over `rise`, holds, falls over
- * `fall` and peaks within `peak`; it crosses the scene at `travel` px a second, from a seeded list of gusts that repeats
- * every `loop` seconds. A `trunk` sways with its own `period`, by `sway` and `lean` shares of the palm's height, with a second
- * mode (period divided by `second`, at `secondShare` of the amplitude), displacement along the trunk growing as
+ * seconds; the still pose holds it at `stillGust`. A `gust` arrives after a calm of `gap` seconds, rises over `rise`, holds,
+ * falls over `fall` and peaks within `peak`; it crosses the scene at `travel` px a second, from a seeded list of gusts that
+ * repeats every `loop` seconds. A `trunk` sways with its own `period`, by `sway` and `lean` shares of the palm's height, with a
+ * second mode (period divided by `second`, at `secondShare` of the amplitude), displacement along the trunk growing as
  * `power` and its crown tilting at most `tilt` degrees. A `frond` swings with its own `period` by `upper`, `side` or
  * `hanging` degrees by how it hangs, times `gain[0] + gain[1] e`, leans `bias` degrees downwind by `e`, swings
- * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. `flutter`
- * is the tip's small, fast shear (`amount` px).
+ * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. These
+ * are the angles of a palm whose fronds are `fullLength` px long: a palm with longer fronds moves by at least that much
+ * less, so no tip moves faster than a palm of that size's. `flutter` is the tip's small, fast shear (`amount` px).
  */
 export const WIND = {
 	rest: [0.22, 0.36],
@@ -329,22 +368,58 @@ export const WIND = {
 	stillGust: 0.3,
 	gust: { gap: [9, 22], rise: 1.4, hold: [0.5, 1.2], fall: 4, peak: [0.7, 1], travel: 180, loop: 300, seed: 0x47555354 },
 	trunk: { period: [7, 9.5], sway: [0.004, 0.007], lean: [0.004, 0.012], second: 2.7, secondShare: 0.25, power: 1.8, tilt: 1 },
-	frond: { period: [2.6, 4.4], upper: [1.5, 2.5], side: [2.5, 4], hanging: [3.5, 6], gain: [0.7, 0.9], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.75 },
-	flutter: { period: [0.5, 0.9], amount: 1.5 },
+	frond: { period: [3.5, 6], upper: [0.8, 1.3], side: [1.2, 2], hanging: [1.5, 2.6], gain: [0.75, 0.7], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.7, fullLength: 172 },
+	flutter: { period: [0.7, 1.2], amount: 1.2 },
 } as const
 
 /**
  * Frames a second the scene's ambient motion draws: `fps` normally, `narrowFps` on phones, `slowFps` once adaptive quality
- * has stepped down. `softwareCost` is how many sky frames one scene frame costs on a software-rasterized canvas, which
- * decides when the scene holds still there.
+ * or the scene's own tier has stepped down. `softwareCost` is how many sky frames one scene frame costs on a
+ * software-rasterized canvas, which decides when the scene holds still there.
  */
 export const SCENE_PACING = { fps: 30, narrowFps: 30, slowFps: 20, softwareCost: 3 } as const
 
 /**
- * The wings: dark panels over the side rails so their copy keeps its contrast over anything the scene puts behind them,
- * even the boat's wake. `alpha` (`moreAlpha` under prefers-contrast: more) is their strength at the screen's edge, which
- * holds to `past` px beyond the rail's inner edge and feathers out over `feather` (a share of the width, at least `min`
- * px; `tablet` on screens under 1024 px wide, where the wide feather would darken a third of the screen). Each comes on
- * as its side needs it, over `ease` px of scroll, and feathers in at the top over `topFeather` px.
+ * The wings: the scene's light falling off toward the screen's edge under each side rail, so the rail's copy keeps its
+ * contrast over anything the scene puts behind it, the boat's wake included.
+ *
+ * Above the water a wing is a field full behind the rail's copy and all the way down from it, to `past` px beyond its
+ * inner edge and from the sky's padding above its highest line down to the screen's foot, that fades out across the
+ * screen over `feather` (a share of the width, at least `min` px) and up it over `top` of the height: the scene darkening
+ * toward the screen's lower corner, with no edge below the copy to stand on open sky. It is `color`, raised to the page's
+ * navy in any channel the navy is lighter in, drawn with the darken blend from the baked sky's top down: it takes each
+ * channel's light toward that color's and never under it, so the night sky and the near towers stay as they are and no
+ * smooth darkening over flat navy can show bands. `color` is the navy with its red raised to its green, so a warm cloud or
+ * band keeps its red over its green as it dims and never turns green. The field is only as strong as the brightest sky or
+ * cloud that can stand behind the copy at that scroll needs to stay under the copy's ceiling, with the ramp's margin (the
+ * sky the towers stand in front of needs none): the rails' copy is body text, whose headroom the page measures at
+ * `contrast.measured`:1, and under prefers-contrast: more it keeps `contrast.more`:1. So it is faint where that ground is
+ * dark and gone where it is navy. Each height's need is softened over `soften` px, and the sky within `soft` px of where it
+ * shows behind the copy (above or below the copy's rows, or behind the water or the towers under them) counts for less the
+ * farther it stands: the field comes on before the sky that needs it shows, and changes by at most 1.5 / `soft` of its
+ * most per px of scroll, so it never steps.
+ *
+ * From the water's top down to the screen's foot it is `waterColor` at `alpha` (`moreAlpha` under more), which holds the
+ * copy over the brightest thing in the water, the wake over a crest, and fades across over `waterFeather`; it comes on
+ * over the last `waterOn` px of the waterline's climb to the copy's last line, full from there, and its top is the
+ * water's, under the low base's dark band.
+ *
+ * A side's wing may show from as far above its `need` as either part comes on (the stage's WING_LEAD), and is gone `ease`
+ * px of scroll above that. `scale` is the CSS px a pixel of its baked fields covers: they are smooth, and drawn smoothed.
  */
-export const WING = { color: '#120A0E', alpha: 0.78, moreAlpha: 0.92, past: 32, ease: 120, feather: { share: 0.09, min: 60, tablet: { share: 0.05, min: 32 } }, topFeather: 72 } as const
+export const WING = {
+	color: '#19192F',
+	waterColor: '#120A0E',
+	alpha: 0.78,
+	moreAlpha: 0.92,
+	past: 8,
+	ease: 120,
+	feather: { share: 0.22, min: 220 },
+	waterFeather: { share: 0.3, min: 280 },
+	top: 0.45,
+	soften: 120,
+	soft: 160,
+	waterOn: 160,
+	scale: 4,
+	contrast: { measured: 4.5, more: 7 },
+} as const

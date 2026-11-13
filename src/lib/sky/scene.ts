@@ -31,8 +31,8 @@ export interface DescentWindow {
 }
 
 /**
- * Scroll narrative: the full sky in the hero, a dimmer, slowly drifting sky while reading, and a bookend near the end
- * of the page. Continuous in scroll, so it never needs its own animation clock. Where the page has a landing scene,
+ * Scroll narrative: the full sky in the hero, a calmer one while reading, and a bookend near the end of the page.
+ * Continuous in scroll, so it never needs its own animation clock. Where the page has a landing scene,
  * `descentWindow` says where the last stretch lies, and the stars, drift and haze give way to it; without one every level
  * is exactly the narrative's.
  */

@@ -1,9 +1,9 @@
-import { mixRgb, parseHexColor } from '@/lib/sky/color'
+import { luminance, mixRgb, parseHexColor } from '@/lib/sky/color'
 import { HAZE_MAX_PIXELS } from '@/lib/sky/config'
 import { BEACONS, BOAT, CLOUDS, KEY, RAMP, SKYLINE, STAGE, SUN, WATER, WING } from '@/lib/sky/miamiConfig'
 import { srgbToLinear } from '@/lib/sky/miamiRamp'
 import { CROWNS, EDGE_LEFT, EDGE_RIGHT, NEAR_TOWERS } from '@/lib/sky/miamiSkyline'
-import { placeBanks, rampFor, type MiamiStage, type PlacedBank, type RailSide } from '@/lib/sky/miamiStage'
+import { placeBanks, rampFor, wingReach, type MiamiStage, type PlacedBank, type RailSide, type WingReach } from '@/lib/sky/miamiStage'
 import { columnReach, waterRows, type WaterRow } from '@/lib/sky/miamiWater'
 import type { WindPalm } from '@/lib/sky/miamiWind'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
@@ -28,12 +28,27 @@ export interface MiamiSky {
 	rows: number
 }
 
-/** One side's wing, a dark panel for the rail's copy to sit on. */
+/** One run of a rail's rows, and the strength the wing's part over the sky needs at each height to hold its copy there. */
+export interface WingPart {
+	/** The run's first and last row on the screen, CSS px. */
+	top: number
+	bottom: number
+	/** At each height above the page's end (CSS px, from 0), the least alpha of the field over the sky that keeps the brightest sky or cloud there under the copy's ceiling, softened over WING.soften px. */
+	need: Float32Array
+}
+
+/** One side's wing (WING): two fields of one color each, alpha only, at WING.scale CSS px a pixel. */
 export interface MiamiWing {
-	/** The panel's alpha only, in the wing color: `feather` rows that ease in from nothing, then one row of full strength to stretch down the screen. */
-	image: ImageBitmap
-	/** Pixel rows of the top feather, which are the rows of the image above its last. */
-	feather: number
+	/** The field over the sky, in the color wingSkyColor gives and drawn with the darken blend: full behind the rail's copy, fading across, from above, and below over the sky's padding under its last line. Its first column stands at CSS x `x` and its first row at CSS y `y`, and it reaches a pixel past the screen's side edge and past where it has faded out below. */
+	sky: ImageBitmap
+	x: number
+	y: number
+	/** The falloff across over the water, in WING.waterColor, two rows stretched from the water's top down; its first column stands at CSS x `waterX`. */
+	water: ImageBitmap
+	waterX: number
+	parts: readonly WingPart[]
+	/** The least height above the waterline (CSS px) the near skyline stands at behind the rail's copy: the sky under it is hidden there, so it needs nothing of the wing. */
+	cover: number
 }
 
 /** A cloud and where it stands: a bank with a flat bottom, or a long thin streak. */
@@ -131,7 +146,7 @@ export interface MiamiKey {
 
 /** Everything the scene draws from, built for one stage at one pixel ratio and closed together. */
 export interface MiamiAssets {
-	/** The pixel ratio the device-resolution bitmaps (wings, sun, city, glitter, boat, palm sprites) were built at; the rest are built in CSS px. */
+	/** The pixel ratio the device-resolution bitmaps (sun, city, glitter, boat, palm sprites) were built at; the rest are built in CSS px. */
 	dpr: number
 	sky: MiamiSky
 	/** A side with no rail copy has no wing. */
@@ -435,40 +450,258 @@ function* bakeSky(stage: MiamiStage, navy: Rgb): Generator<void, SkyPixels, unde
 	return { pixels, zTop, rows }
 }
 
-/**
- * One wing's alpha. The wing is full from the screen's edge to `past` px beyond the rail's inner edge, which is the
- * padding the sky keeps around copy, then feathers out over the feather's width, and eases in from nothing at its top. The
- * image is the feather rows plus one row of full strength, which the draw stretches down the screen, so it stays small.
- */
-function bakeWing(stage: MiamiStage, side: RailSide, left: boolean, dpr: number): { pixels: ImageData; feather: number } {
-	const { share, min } = WING.feather
-	const spread = Math.max(min, share * stage.width)
-	// Distances from the screen's edge on this side, in CSS px
-	const solid = (left ? side.edge : stage.width - side.edge) + WING.past
-	const extent = Math.min(stage.width, Math.max(1, solid + spread))
-	const w = Math.max(1, Math.ceil(extent * dpr))
-	const feather = Math.max(1, Math.round(WING.topFeather * dpr))
-	const alpha = stage.more ? WING.moreAlpha : WING.alpha
-	const color = parseHexColor(WING.color)
-	if (!color) throw new Error(`Unreadable color: ${WING.color}`)
-	const across = new Float32Array(w)
-	for (let i = 0; i < w; i++) {
-		const distance = (left ? i + 0.5 : w - i - 0.5) / dpr
-		across[i] = alpha * (1 - smoothstep(solid, solid + spread, distance))
-	}
-	const pixels = new ImageData(w, feather + 1)
+// ---- The wings
+
+/** The share of a wing's falloff at each end over which its slope eases in and out; between, it falls at one rate, the gentlest a smooth fall of that length allows. */
+const WING_EASE = 0.15
+
+/** How much of a wing stands at `d` CSS px from its side's edge: all of it to `reach.solid`, then none by `reach.spread` px further. */
+function wingAcross(reach: WingReach, d: number): number {
+	const u = (d - reach.solid) / reach.spread
+	if (u <= 0) return 1
+	if (u >= 1) return 0
+	const k = 1 / (1 - WING_EASE)
+	if (u < WING_EASE) return 1 - (k * u * u) / (2 * WING_EASE)
+	if (u > 1 - WING_EASE) return (k * (1 - u) * (1 - u)) / (2 * WING_EASE)
+	return 1 - k * (u - WING_EASE / 2)
+}
+
+/** The columns of a wing's field and the CSS x of its first: from a pixel past the screen's edge on its side to past where it has faded out. */
+function wingColumns(stage: MiamiStage, reach: WingReach, left: boolean): { columns: number; x: number } {
+	const columns = Math.ceil(Math.min(stage.width, reach.solid + reach.spread) / WING.scale) + 2
+	return { columns, x: left ? -WING.scale : stage.width + WING.scale - columns * WING.scale }
+}
+
+/** A field of `color` whose alpha is `across` at its column times `down` at its row (each pixel WING.scale CSS px square). */
+function wingPixels(across: Float32Array, down: Float32Array, color: Rgb): ImageData {
+	const columns = across.length
+	const pixels = new ImageData(columns, down.length)
 	const { data } = pixels
-	for (let j = 0; j <= feather; j++) {
-		const down = j === feather ? 1 : smoothstep(0, feather, j + 0.5)
-		for (let i = 0; i < w; i++) {
-			const k = (j * w + i) * 4
+	for (let j = 0; j < down.length; j++) {
+		const share = down[j] ?? 0
+		for (let i = 0; i < columns; i++) {
+			const k = (j * columns + i) * 4
 			data[k] = color[0]
 			data[k + 1] = color[1]
 			data[k + 2] = color[2]
-			data[k + 3] = Math.round(255 * (across[i] ?? 0) * down)
+			data[k + 3] = Math.round(255 * (across[i] ?? 0) * share)
 		}
 	}
-	return { pixels, feather }
+	return pixels
+}
+
+/** A wing's falloff across at the center of each of `columns` pixels from CSS x `x`, on the side whose edge is `left` or the right. */
+function wingProfile(stage: MiamiStage, reach: WingReach, columns: number, x: number, left: boolean): Float32Array {
+	const across = new Float32Array(columns)
+	for (let i = 0; i < columns; i++) {
+		const cx = x + (i + 0.5) * WING.scale
+		across[i] = wingAcross(reach, left ? cx : stage.width - cx)
+	}
+	return across
+}
+
+/**
+ * The luminance a rail rect's ground may reach, from the rect's headroom: that headroom's ceiling less the ramp's margin,
+ * as the sky's fit takes it. A rail's copy is body text, whose headroom the page measures at WING.contrast.measured; under
+ * more the same text keeps WING.contrast.more.
+ */
+function wingTarget(headroom: number, tokens: SkyTokens, more: boolean): number {
+	const lit = (channel: 0 | 1 | 2) => Math.min(255, tokens.navy[channel] + headroom * tokens.white[channel])
+	const ceiling = luminance([lit(0), lit(1), lit(2)])
+	const { measured, more: kept } = WING.contrast
+	return (more ? ((ceiling + 0.05) * measured) / kept - 0.05 : ceiling) * RAMP.margin
+}
+
+/** Steps a level of 0-255 is cut into by the lookup of linear light the wings read: each a sixteenth of a level, and between two the light is interpolated. */
+const LEVEL_STEPS = 16
+
+/** Linear light of each step of a channel's level, 0 to 255 in LEVEL_STEPS steps a level, with one more to interpolate toward. Built on first use. */
+let levelLight: Float32Array | null = null
+
+/** The linear light of a channel at `level` (0-255, a fraction too), from the lookup. */
+function lightOf(level: number): number {
+	if (!levelLight) {
+		const table = new Float32Array(255 * LEVEL_STEPS + 2)
+		for (let i = 0; i < table.length; i++) table[i] = srgbToLinear(Math.min(255, i / LEVEL_STEPS))
+		levelLight = table
+	}
+	const x = (level <= 0 ? 0 : level >= 255 ? 255 : level) * LEVEL_STEPS
+	const index = x | 0
+	const low = levelLight[index] ?? 0
+	return low + ((levelLight[index + 1] ?? low) - low) * (x - index)
+}
+
+/** The relative luminance of a color whose channels are levels 0-255, fractions too, from the lookup. */
+function lightLuminance(r: number, g: number, b: number): number {
+	return 0.2126 * lightOf(r) + 0.7152 * lightOf(g) + 0.0722 * lightOf(b)
+}
+
+/** Linear light of each whole level 0-255, for the scans of baked pixels. Built on first use. */
+let wholeLight: Float32Array | null = null
+
+function wholeLights(): Float32Array {
+	if (!wholeLight) {
+		const table = new Float32Array(256)
+		for (let i = 0; i < 256; i++) table[i] = lightOf(i)
+		wholeLight = table
+	}
+	return wholeLight
+}
+
+/** Pixels of baked pixels scanned for a wing between two returns: a scan does a few operations a pixel, much less than a bake does to make one. */
+const SCAN_PIXELS = 16384
+
+/** The color the wing's field over the sky takes light toward: WING.color, raised to the page's navy in any channel the navy is lighter in, so the navy never changes under it. */
+function wingSkyColor(tokens: SkyTokens): Rgb {
+	const color = hexRgb(WING.color)
+	return [Math.max(color[0], tokens.navy[0]), Math.max(color[1], tokens.navy[1]), Math.max(color[2], tokens.navy[2])]
+}
+
+/**
+ * The least alpha of the field over the sky that brings a ground of r, g, b to `target` luminance or under, found to 1/4096.
+ * The field is `toward` drawn with the darken blend: a channel over that color's falls toward it by the alpha, and one at or
+ * under it stays.
+ */
+function wingAlphaFor(r: number, g: number, b: number, target: number, toward: Rgb): number {
+	if (lightLuminance(r, g, b) <= target) return 0
+	const dr = Math.max(0, r - toward[0])
+	const dg = Math.max(0, g - toward[1])
+	const db = Math.max(0, b - toward[2])
+	let low = 0
+	let high = 1
+	for (let step = 0; step < 12; step++) {
+		const alpha = (low + high) / 2
+		if (lightLuminance(r - dr * alpha, g - dg * alpha, b - db * alpha) <= target) high = alpha
+		else low = alpha
+	}
+	return high
+}
+
+/**
+ * The strength the wing's part over the sky needs, at each height above the page's end, to hold a rail's copy: for each
+ * headroom among the rail's rects, the run of rows they cover and, at each height, the least alpha that brings the ground
+ * there under their ceiling: the sky over their columns, read from the baked sky as the most of each channel there, which no
+ * pixel of it passes in any channel, and each cloud's brightest pixel of that height over that sky, since the clouds drift
+ * and any may pass behind the rail. The field only lowers a channel, so a ground no brighter in any channel needs no more.
+ * It is softened over WING.soften px, so a cloud's edge or a step of the dither passing behind the copy eases the wing in.
+ * Above the sky's top the ground is the page's navy, which needs none.
+ */
+function* wingParts(stage: MiamiStage, side: RailSide, sky: SkyPixels, clouds: readonly CloudRow[], tokens: SkyTokens): Generator<void, WingPart[], undefined> {
+	const { pixels, zTop, rows } = sky
+	const { data, width: w, height: h } = pixels
+	const length = Math.max(1, Math.ceil(zTop) + 1)
+	// The most of each channel of the sky over the rail's columns at each whole height; -1 where the sky's bitmap has no row (the water's heights)
+	const most = new Float32Array(length * 3).fill(-1)
+	const x0 = Math.min(...side.rects.map((rect) => rect.x))
+	const x1 = Math.max(...side.rects.map((rect) => rect.x + rect.width))
+	const i0 = Math.max(0, Math.min(w - 1, Math.floor((x0 * w) / stage.width)))
+	const i1 = Math.max(i0 + 1, Math.min(w, Math.ceil((x1 * w) / stage.width)))
+	const rowsPerBatch = Math.max(1, Math.floor(SCAN_PIXELS / (i1 - i0)))
+	for (let j = 0; j < h; j++) {
+		let r = 0
+		let g = 0
+		let b = 0
+		for (let i = i0; i < i1; i++) {
+			const k = (j * w + i) * 4
+			r = Math.max(r, data[k] ?? 0)
+			g = Math.max(g, data[k + 1] ?? 0)
+			b = Math.max(b, data[k + 2] ?? 0)
+		}
+		// The heights this row of the bitmap covers
+		const high = Math.min(length - 1, Math.floor(zTop - (j * rows) / h))
+		const low = Math.max(0, Math.floor(zTop - ((j + 1) * rows) / h))
+		for (let z = low; z <= high; z++) {
+			most[z * 3] = Math.max(most[z * 3] ?? 0, r)
+			most[z * 3 + 1] = Math.max(most[z * 3 + 1] ?? 0, g)
+			most[z * 3 + 2] = Math.max(most[z * 3 + 2] ?? 0, b)
+		}
+		if ((j + 1) % rowsPerBatch === 0) yield
+	}
+	// Each cloud row's pixel over that sky, as its height and color: the brighter the sky behind it, the brighter what the copy sees
+	const lit: number[] = []
+	for (const cloud of clouds) {
+		for (const z of [Math.floor(cloud.z), Math.ceil(cloud.z)]) {
+			if (z < 0 || z >= length) continue
+			const under: Rgb = (most[z * 3] ?? -1) >= 0 ? [most[z * 3] ?? 0, most[z * 3 + 1] ?? 0, most[z * 3 + 2] ?? 0] : tokens.navy
+			const over = (channel: 0 | 1 | 2) => under[channel] + (cloud.rgb[channel] - under[channel]) * cloud.alpha
+			lit.push(z, over(0), over(1), over(2))
+		}
+	}
+	yield
+	const toward = wingSkyColor(tokens)
+	const soften = WING.soften
+	const lend = new Float32Array(soften + 1)
+	for (let d = 0; d <= soften; d++) lend[d] = 1 - smoothstep(0, soften, d)
+	const parts: WingPart[] = []
+	for (const headroom of new Set(side.rects.map((rect) => rect.headroom))) {
+		const rects = side.rects.filter((rect) => rect.headroom === headroom)
+		const target = wingTarget(headroom, tokens, stage.more)
+		// What each height needs for its own ground: the sky's, or the brightest cloud over it
+		const own = new Float32Array(length)
+		for (let z = 0; z < length; z++) {
+			if ((most[z * 3] ?? -1) < 0) continue
+			own[z] = wingAlphaFor(most[z * 3] ?? 0, most[z * 3 + 1] ?? 0, most[z * 3 + 2] ?? 0, target, toward)
+		}
+		for (let n = 0; n < lit.length; n += 4) {
+			const z = lit[n] ?? 0
+			own[z] = Math.max(own[z] ?? 0, wingAlphaFor(lit[n + 1] ?? 0, lit[n + 2] ?? 0, lit[n + 3] ?? 0, target, toward))
+		}
+		const need = new Float32Array(length)
+		for (let z = 0; z < length; z++) {
+			const value = own[z] ?? 0
+			if (value <= 0) continue
+			// Each height lends its need to its neighbours, less with distance, so it comes on gradually as it nears the copy
+			for (let d = -soften; d <= soften; d++) {
+				const at = z + d
+				const lent = value * (lend[Math.abs(d)] ?? 0)
+				if (at >= 0 && at < length && lent > (need[at] ?? 0)) need[at] = lent
+			}
+		}
+		parts.push({ top: Math.min(...rects.map((rect) => rect.y)), bottom: Math.max(...rects.map((rect) => rect.y + rect.height)), need })
+		yield
+	}
+	return parts
+}
+
+/** CSS px taken off the skyline's height behind a rail, for the soft edge its tops are drawn with. */
+const COVER_EDGE = 2
+
+/** The least height above the waterline at which the near skyline (its towers' bodies, and the low base) stands over the columns x0 to x1, CSS px. */
+function skylineCover(skyline: Skyline, x0: number, x1: number): number {
+	let least = Infinity
+	for (let x = Math.max(0, Math.floor(x0)); x < Math.min(skyline.base.length, Math.ceil(x1)); x++) {
+		let top = skyline.base[x] ?? 0
+		for (const tower of skyline.towers) if (tower.left <= x && tower.right >= x + 1) top = Math.max(top, tower.height)
+		least = Math.min(least, top)
+	}
+	return Number.isFinite(least) ? Math.max(0, least - COVER_EDGE) : 0
+}
+
+/**
+ * One side's wing, a generator that returns between its pieces. The field over the sky, in the color wingSkyColor gives,
+ * is full from the screen's edge to `past` px beyond the rail's inner edge and from the sky's padding over its highest line
+ * to its lowest, and fades out across, up the screen, and down it over the sky's padding; the water's part, in
+ * WING.waterColor, is the same fall across, over the water's own width. Both are a pixel every WING.scale CSS px, which the
+ * draw smooths.
+ */
+function* bakeWing(stage: MiamiStage, side: RailSide, left: boolean, sky: SkyPixels, clouds: readonly CloudRow[], skyline: Skyline, tokens: SkyTokens): Generator<void, Omit<MiamiWing, 'sky' | 'water'> & { sky: ImageData; water: ImageData }, undefined> {
+	const parts = yield* wingParts(stage, side, sky, clouds, tokens)
+	const reach = wingReach(stage, side, left, WING.feather)
+	const across = wingColumns(stage, reach, left)
+	const y = Math.floor(reach.top / WING.scale) * WING.scale
+	const down = new Float32Array(Math.max(1, Math.ceil((Math.min(stage.height, reach.end) - y) / WING.scale) + 1))
+	for (let j = 0; j < down.length; j++) {
+		const row = y + (j + 0.5) * WING.scale
+		down[j] = smoothstep(reach.top, reach.full, row) * (1 - smoothstep(reach.last, reach.end, row))
+	}
+	const field = wingPixels(wingProfile(stage, reach, across.columns, across.x, left), down, wingSkyColor(tokens))
+	yield
+	const waterReach = wingReach(stage, side, left, WING.waterFeather)
+	const waterAcross = wingColumns(stage, waterReach, left)
+	const water = wingPixels(wingProfile(stage, waterReach, waterAcross.columns, waterAcross.x, left), Float32Array.of(1, 1), hexRgb(WING.waterColor))
+	const x0 = Math.min(...side.rects.map((rect) => rect.x))
+	const x1 = Math.max(...side.rects.map((rect) => rect.x + rect.width))
+	return { sky: field, x: across.x, y, water, waterX: waterAcross.x, parts, cover: skylineCover(skyline, x0, x1) }
 }
 
 // ---- Coverage: silhouettes are drawn as 0-255 masks (device px, or CSS px for the far layer) and then given a color
@@ -697,24 +930,61 @@ function bakeStreak(stage: MiamiStage, streak: (typeof CLOUDS.streaks)[number], 
 	return { pixels, width, height }
 }
 
-/** The clouds: the streaks (their heights at their t of the warm band), then the banks the stage places. A streak above the copy floor is left out under the contrast preference. */
-function* bakeClouds(stage: MiamiStage, own: (pixels: ImageData) => ImageBitmap): Generator<void, MiamiCloud[], undefined> {
+/** The pixel of one row of a cloud that adds the most light over a dark sky, and the height above the page's end of the row's middle. */
+interface CloudRow {
+	z: number
+	rgb: Rgb
+	alpha: number
+}
+
+/** Columns of a cloud read for its brightest pixels: every other one, since its colors change slowly along it and a row's light runs its whole length. */
+const CLOUD_STRIDE = 2
+
+/** Each row of a cloud whose bottom edge stands `bottom` px above the page's end: its brightest pixel, weighed by its alpha. The cloud drifts, so any of them may pass behind a rail. */
+function cloudRows(baked: Baked, bottom: number, rows: CloudRow[]): void {
+	const { data, width, height } = baked.pixels
+	const whole = wholeLights()
+	for (let j = 0; j < height; j++) {
+		let most = 0
+		let at = -1
+		for (let i = 0; i < width; i += CLOUD_STRIDE) {
+			const k = (j * width + i) * 4
+			const light = (data[k + 3] ?? 0) * (0.2126 * (whole[data[k] ?? 0] ?? 0) + 0.7152 * (whole[data[k + 1] ?? 0] ?? 0) + 0.0722 * (whole[data[k + 2] ?? 0] ?? 0))
+			if (light > most) {
+				most = light
+				at = k
+			}
+		}
+		if (at >= 0) rows.push({ z: bottom + ((height - j - 0.5) * baked.height) / height, rgb: [data[at] ?? 0, data[at + 1] ?? 0, data[at + 2] ?? 0], alpha: (data[at + 3] ?? 0) / 255 })
+	}
+}
+
+/**
+ * The clouds: the streaks (their heights at their t of the warm band), then the banks the stage places, and the brightest
+ * pixel of each of their rows, which the wings are fitted to. A streak above the copy floor is left out under the contrast
+ * preference.
+ */
+function* bakeClouds(stage: MiamiStage, own: (pixels: ImageData) => ImageBitmap): Generator<void, { clouds: MiamiCloud[]; rows: CloudRow[] }, undefined> {
 	const clouds: MiamiCloud[] = []
+	const rows: CloudRow[] = []
 	for (const streak of CLOUDS.streaks) {
 		const center = stage.zWater + streak.t * stage.warmArt
 		// A streak that reaches above the copy floor carries no warm edge, and has no place at all where nothing is darker than the sky
 		const aboveFloor = center + streak.height / 2 > stage.zCopyFloor
 		if (aboveFloor && stage.more) continue
 		const baked = bakeStreak(stage, streak, !aboveFloor)
+		yield
+		cloudRows(baked, center - baked.height / 2, rows)
 		clouds.push({ image: own(baked.pixels), width: baked.width, height: baked.height, z: center - baked.height / 2, x: streak.x, drift: streak.drift })
 		yield
 	}
 	for (const bank of placeBanks(stage)) {
 		const baked = yield* bakeBank(stage, bank, bank.bottom >= stage.zWater + 1.6 * stage.tallest)
+		cloudRows(baked, bank.bottom, rows)
 		clouds.push({ image: own(baked.pixels), width: baked.width, height: baked.height, z: bank.bottom, x: bank.x, drift: bank.drift })
 		yield
 	}
-	return clouds
+	return { clouds, rows }
 }
 
 // ---- Sun
@@ -1779,22 +2049,23 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 		let baked: SkyPixels | null = yield* bakeSky(stage, tokens.navy)
 		const sky: MiamiSky = { image: yield* ownInBands(baked.pixels), zTop: baked.zTop, rows: baked.rows }
 		yield
+		// The clouds before the wings, which are fitted to the brightest of them as well as to the sky
+		const { clouds, rows: cloudLight } = yield* bakeClouds(stage, own)
+		const skyline = planSkyline(stage)
+		yield
 		let left: MiamiWing | null = null
 		let right: MiamiWing | null = null
 		if (stage.rail.left) {
-			const wing = bakeWing(stage, stage.rail.left, true, dpr)
-			left = { image: own(wing.pixels), feather: wing.feather }
+			const wing = yield* bakeWing(stage, stage.rail.left, true, baked, cloudLight, skyline, tokens)
+			left = { ...wing, sky: own(wing.sky), water: own(wing.water) }
 			yield
 		}
 		if (stage.rail.right) {
-			const wing = bakeWing(stage, stage.rail.right, false, dpr)
-			right = { image: own(wing.pixels), feather: wing.feather }
+			const wing = yield* bakeWing(stage, stage.rail.right, false, baked, cloudLight, skyline, tokens)
+			right = { ...wing, sky: own(wing.sky), water: own(wing.water) }
 		}
 		yield
 
-		const clouds = yield* bakeClouds(stage, own)
-		const skyline = planSkyline(stage)
-		yield
 		const disc = bakeDisc(stage, dpr)
 		const halo = yield* bakeHalo(stage)
 		const dot = bakeBeacon(dpr)
@@ -1862,8 +2133,10 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 /** Closes every bitmap of a build the scene is done with. */
 export function closeMiamiAssets(assets: MiamiAssets): void {
 	assets.sky.image.close()
-	assets.wings.left?.image.close()
-	assets.wings.right?.image.close()
+	assets.wings.left?.sky.close()
+	assets.wings.left?.water.close()
+	assets.wings.right?.sky.close()
+	assets.wings.right?.water.close()
 	for (const cloud of assets.clouds) cloud.image.close()
 	assets.sun.disc.image.close()
 	assets.sun.halo.image.close()

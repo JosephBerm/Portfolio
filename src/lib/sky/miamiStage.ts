@@ -1,5 +1,5 @@
 import { luminance } from './color'
-import { NARROW_MAX_WIDTH } from './config'
+import { NARROW_MAX_WIDTH, QUIET } from './config'
 import { BOAT, CLOUDS, RAMP, SKYLINE, STAGE, SUN, WING } from './miamiConfig'
 import { buildRampLut, rampTForLuminance, type RampLut } from './miamiRamp'
 import type { LandingRect, Rgb, SkyRect, SkyTokens } from './protocol'
@@ -25,10 +25,13 @@ export interface StageInput {
 export interface RailSide {
 	/** The rail's inner x: the right edge of the left rail's rects, the left edge of the right rail's. */
 	edge: number
-	/** The top of the rail's highest rect. */
+	/** The top of the rail's highest rect and the bottom of its lowest. */
 	top: number
-	/** The lift (px of scroll left to the page's end) at and below which the rail's wing is full. */
+	bottom: number
+	/** The lift (px of scroll left to the page's end) below which the sky or the water may first need the rail's wing: it runs early, never late. */
 	need: number
+	/** The rail's rects, each with its headroom: the wing is as strong as the ground behind them needs. */
+	rects: readonly SkyRect[]
 }
 
 /**
@@ -178,7 +181,7 @@ export function stageFrom(input: StageInput): MiamiStage | null {
 			// Ignores the sky's darkening toward the edges, so it runs early, never late
 			need = Math.max(need, zWater + warm * warmer - (height - (rect.y + rect.height)))
 		}
-		return { edge, top: Math.min(...rects.map((rect) => rect.y)), need }
+		return { edge, top: Math.min(...rects.map((rect) => rect.y)), bottom: Math.max(...rects.map((rect) => rect.y + rect.height)), need, rects }
 	}
 
 	return {
@@ -222,7 +225,7 @@ export function stageFrom(input: StageInput): MiamiStage | null {
 /** Whether a bitmap built for `a` is still right for `b`: both z and rail measures within STAGE.rebuildTolerancePx, the same rail sides present, and the same width, height and contrast preference. */
 export function sameStage(a: MiamiStage, b: MiamiStage): boolean {
 	const near = (x: number, y: number) => Math.abs(x - y) <= STAGE.rebuildTolerancePx
-	const sameSide = (x: RailSide | null, y: RailSide | null) => (x === null || y === null ? x === y : near(x.edge, y.edge) && near(x.top, y.top) && near(x.need, y.need))
+	const sameSide = (x: RailSide | null, y: RailSide | null) => (x === null || y === null ? x === y : near(x.edge, y.edge) && near(x.top, y.top) && near(x.bottom, y.bottom) && near(x.need, y.need))
 	return (
 		a.width === b.width &&
 		a.height === b.height &&
@@ -253,6 +256,37 @@ export function eventFloorY(stage: MiamiStage | null, scrollY: number, documentH
 	return stage ? documentHeight - scrollY - stage.zEventFloor : Infinity
 }
 
+/**
+ * Where one side's wing is full and how far it fades, in CSS px on the screen: full from the screen's edge to `solid` px
+ * in and from row `full` down to row `last`, fading out across over `spread` px, above from row `top` to `full` and below
+ * from row `last` to `end`.
+ */
+export interface WingReach {
+	solid: number
+	spread: number
+	top: number
+	full: number
+	last: number
+	end: number
+}
+
+/** The row at which a rail's wing starts to fade in from above: WING.top of the canvas height above the sky's padding over the rail's highest rect. */
+export function wingTop(stage: MiamiStage, side: RailSide): number {
+	return side.top - QUIET.padding - WING.top * stage.height
+}
+
+/** One side's wing reach, with the falloff across that the part being drawn uses (the sky's or the water's). */
+export function wingReach(stage: MiamiStage, side: RailSide, left: boolean, feather: { readonly share: number; readonly min: number }): WingReach {
+	return {
+		solid: (left ? side.edge : stage.width - side.edge) + WING.past,
+		spread: Math.max(feather.min, feather.share * stage.width),
+		top: wingTop(stage, side),
+		full: side.top - QUIET.padding,
+		last: side.bottom,
+		end: side.bottom + QUIET.padding,
+	}
+}
+
 /** Where the scene's parts stand at one scroll position, in CSS px on the canvas (y down). `viewAt` fills it, so a frame makes no garbage. */
 export interface MiamiView {
 	/** The page's end on the canvas: the document's height less the scroll, not clamped, so a pull past the end moves it. */
@@ -274,10 +308,10 @@ export interface MiamiView {
 	haloScale: number
 	/** How much of the glitter shows, 0 to 1: it opens as the waterline comes up the screen. */
 	glitterOpen: number
-	/** How much of each side's wing is on, 0 to 1. */
+	/** How much of each side's wing may show, 0 to 1: none above its side's `need`, all of it below. How strong it is drawn follows what the ground behind the rail needs. */
 	wingLeft: number
 	wingRight: number
-	/** The y at which each wing's top feather starts. */
+	/** The y at which each wing's fade from above starts. */
 	wingTopLeft: number
 	wingTopRight: number
 	/** Some of the scene is on the canvas: the lift is under `zShow`. */
@@ -296,9 +330,6 @@ export function viewAt(stage: MiamiStage, scrollY: number, documentHeight: numbe
 	const lift = Math.max(0, end - stage.height)
 	const rate = 1 - (1 - STAGE.horizonRate) * motionShare
 	const { left, right } = stage.rail
-	// The wings' tops ride the warm rows, so a wing is never on navy; under `more` the warm band is too thin to cover the
-	// rail, and they ride the ramp's top
-	const wingTop = end - (stage.more ? stage.zReach : stage.zWarmTop)
 	// `g` is the lift below which the sun starts to show: the smaller of where its disc would come within the copy's room and where
 	// its halo's top first reaches the bottom of the screen at the horizon's slower pace. It is fully shown from SUN.fade of that lift
 	const halo = SUN.haloReach * stage.sunR
@@ -318,11 +349,11 @@ export function viewAt(stage: MiamiStage, scrollY: number, documentHeight: numbe
 	out.sunAlpha = 1 - smoothstep(SUN.fade * g, g, motionShare * lift)
 	out.haloScale = clamp((stage.zButtonBottom - stage.sunZ - (1 - rate) * lift - SUN.gateMargin) / halo, 0, 1)
 	out.glitterOpen = 1 - smoothstep(0, 0.7 * stage.horizonEnter, lift) * motionShare
-	// A wing is full from its side's `need` down, and eases off over WING.ease px of scroll above it
+	// A wing may show from its side's `need` down, and eases off over WING.ease px of scroll above it
 	out.wingLeft = left ? 1 - smoothstep(left.need, left.need + WING.ease, lift) : 0
 	out.wingRight = right ? 1 - smoothstep(right.need, right.need + WING.ease, lift) : 0
-	out.wingTopLeft = left ? Math.max(left.top - WING.topFeather, wingTop) : 0
-	out.wingTopRight = right ? Math.max(right.top - WING.topFeather, wingTop) : 0
+	out.wingTopLeft = left ? wingTop(stage, left) : 0
+	out.wingTopRight = right ? wingTop(stage, right) : 0
 	out.onScreen = lift < stage.zShow
 	out.moving = lift < Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 	return out

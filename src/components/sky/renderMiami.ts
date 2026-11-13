@@ -1,5 +1,6 @@
 import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
-import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND } from '@/lib/sky/miamiConfig'
+import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND, WING } from '@/lib/sky/miamiConfig'
+import type { RailSide } from '@/lib/sky/miamiStage'
 import { boatAt, columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type BoatPose, type Glint, type GlintField, type RowShift, type WaterRow } from '@/lib/sky/miamiWater'
 import { createPalmPose, gustAt, palmPose } from '@/lib/sky/miamiWind'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
@@ -330,22 +331,61 @@ function drawBoat(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fra
 }
 
 /**
- * One side's wing: its top feather, then its last row stretched down to the bottom of the canvas. The wing stays with the
- * screen, anchored at its own edge.
+ * The strength a wing's part over the sky needs at this scroll: the most that any height of the sky behind its copy needs,
+ * down to the screen row `hidden`, below which the sky there is behind the water or the towers. A screen row y shows the
+ * height `end - y`, since the sky is locked to the page.
  */
-function drawWing(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, wing: MiamiWing | null, level: number, top: number, left: boolean): void {
-	const alpha = level * scene.fade
-	if (!wing || alpha <= 0) return
-	// The wing was baked at its own pixel ratio, and the canvas may have dropped to a lower one since
-	const k = frame.dpr / scene.assets.dpr
-	const width = Math.min(frame.deviceWidth, Math.round(wing.image.width * k))
-	const feather = Math.round(wing.feather * k)
-	const x = left ? 0 : frame.deviceWidth - width
-	const y = Math.round(top * frame.dpr)
-	ctx.globalAlpha = alpha
-	if (y + feather > 0 && y < frame.deviceHeight) ctx.drawImage(wing.image, 0, 0, wing.image.width, wing.feather, x, y, width, feather)
-	const body = Math.max(0, y + feather)
-	if (body < frame.deviceHeight) ctx.drawImage(wing.image, 0, wing.feather, wing.image.width, 1, x, body, width, frame.deviceHeight - body)
+function wingSkyNeed(wing: MiamiWing, end: number, hidden: number): number {
+	let most = 0
+	for (const part of wing.parts) {
+		const high = Math.min(part.need.length - 1, Math.ceil(end - part.top))
+		const low = Math.max(0, Math.floor(end - Math.min(part.bottom, hidden)))
+		for (let z = low; z <= high; z++) {
+			const need = part.need[z] ?? 0
+			if (need > most) most = need
+		}
+	}
+	return most
+}
+
+/**
+ * One side's wing, screen-fixed (WING): its field over the sky, from the baked sky's top down to the water's top, as strong
+ * as the sky behind the rail's copy needs and drawn with the darken blend, so it only takes light toward a color no darker
+ * than the page's navy and leaves what stands at or under it; and from the water's top down its falloff across, stretched
+ * to the canvas's foot, at the strength the water needs once the water has risen to the copy's last line. The two meet at
+ * the water's first device row, under the low base's dark band. A field baked for another width keeps its place at its own
+ * edge of the canvas.
+ */
+function drawWing(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, wing: MiamiWing | null, side: RailSide | null, on: number, left: boolean): void {
+	const { view, stage, fade } = scene
+	const shown = on * fade
+	if (!wing || !side || shown <= 0) return
+	const k = frame.dpr
+	const scale = WING.scale
+	const waterY = Math.max(0, Math.min(frame.deviceHeight, Math.round(view.horizonY * k)))
+	// Device x of a field's first column: the left side's stays at the canvas's left edge, the right side's at its right edge
+	const at = (x: number) => (left ? x * k : frame.deviceWidth - (stage.width - x) * k)
+	// The sky behind the copy is what stands above the water and above the towers' bodies, which hide what is behind them
+	const sky = wingSkyNeed(wing, view.end, Math.min(view.horizonY, view.horizonY + view.nearDrop - wing.cover)) * shown
+	const y = Math.round(wing.y * k)
+	// Above the baked sky's top is the night sky, the page's navy and its stars, which the copy needs nothing taken from
+	const from = Math.max(y, Math.round((view.end - scene.assets.sky.zTop) * k))
+	if (sky > 0 && waterY > from) {
+		// The field's rows from there down to the water's first device row, or to its last
+		const skip = (from - y) / (scale * k)
+		const rows = Math.min(wing.sky.height, (waterY - y) / (scale * k)) - skip
+		if (rows > 0) {
+			ctx.globalAlpha = sky
+			ctx.globalCompositeOperation = 'darken'
+			ctx.drawImage(wing.sky, 0, skip, wing.sky.width, rows, at(wing.x), from, wing.sky.width * scale * k, rows * scale * k)
+			ctx.globalCompositeOperation = 'source-over'
+		}
+	}
+	const water = (stage.more ? WING.moreAlpha : WING.alpha) * (1 - smoothstep(side.bottom, side.bottom + WING.waterOn, view.horizonY)) * shown
+	if (water > 0 && waterY < frame.deviceHeight) {
+		ctx.globalAlpha = water
+		ctx.drawImage(wing.water, 0, 0, wing.water.width, wing.water.height, at(wing.waterX), waterY, wing.water.width * scale * k, frame.deviceHeight - waterY)
+	}
 }
 
 /**
@@ -458,8 +498,8 @@ export function drawMiamiScene(ctx: OffscreenCanvasRenderingContext2D, scene: Mi
 		drawRipples(ctx, scene, frame, waterY)
 		drawGlitter(ctx, scene, frame, quiet)
 		drawBoat(ctx, scene, frame)
-		drawWing(ctx, scene, frame, assets.wings.left, view.wingLeft, view.wingTopLeft, true)
-		drawWing(ctx, scene, frame, assets.wings.right, view.wingRight, view.wingTopRight, false)
+		drawWing(ctx, scene, frame, assets.wings.left, stage.rail.left, view.wingLeft, true)
+		drawWing(ctx, scene, frame, assets.wings.right, stage.rail.right, view.wingRight, false)
 		if (scene.fade > 0) drawPalms(ctx, scene, frame)
 	} catch {
 		recover(ctx, scene)

@@ -272,10 +272,13 @@ export const QUIET_REACH = QUIET.padding + QUIET.feather
  * no sky that far from it, `narrowPadding`: QUIET.feather from the words, which is still more than a flight's light reaches
  * (METEOR_SHEATH.radius). Copy that scrolls or reflows under something in the sky takes its light over the same distance
  * (readingKept), and the comet's all at once by where its box is: none within that distance, all of it COMET.clearance px
- * past it (boxKept). Rects more than `margin` px off the screen are left out of the zones, so a page's worth of them costs
- * a plan and a frame nothing: it is QUIET_REACH and the 24 px past the screen where stars still draw, and 32 px to spare.
+ * past it (boxKept). Stars keep clear of it as of quiet copy, at QUIET's padding, except on narrow screens, where that
+ * would empty the sky behind the copy: there a star keeps none of its light on a line and all of it `narrowStarReach` px
+ * away, the brighter its layer the further. Rects more than `margin` px off the screen are left out of the zones, so a
+ * page's worth of them costs a plan and a frame nothing: it is QUIET_REACH and the 24 px past the screen where stars
+ * still draw, and 32 px to spare.
  */
-export const READING = { padding: QUIET.padding, narrowPadding: 0, margin: QUIET_REACH + 56 } as const
+export const READING = { padding: QUIET.padding, narrowPadding: 0, narrowStarReach: { far: 12, mid: 24, near: 36 }, margin: QUIET_REACH + 56 } as const
 
 /**
  * Scroll narrative: the full sky in the hero, a dimmer and calmer sky while reading (no twinkle, the drift at about a

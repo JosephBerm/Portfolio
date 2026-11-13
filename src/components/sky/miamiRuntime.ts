@@ -3,8 +3,11 @@ import { SCENE_PACING, STAGE } from '@/lib/sky/miamiConfig'
 import { descentWindow as descentWindowOf, sameStage, stageFrom, viewAt, type MiamiStage, type MiamiView } from '@/lib/sky/miamiStage'
 import { driftCap, easeAt, easeEnded, easing, fadeOutAt, type Ease } from '@/lib/sky/pacing'
 import type { LandingRect, SkyRect, SkyTokens } from '@/lib/sky/protocol'
+import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep, type DescentWindow } from '@/lib/sky/scene'
-import { buildMiamiAssets, closeMiamiAssets, type MiamiAssets } from './miamiAssets'
+import { MIAMI_ART } from './miamiArt'
+import type { MiamiAssets } from './miamiAssets'
+import type { SkyFrame } from './renderSky'
 
 /** What the worker knows of the page's layout, as its last `layout` message said. */
 export interface MiamiLayout {
@@ -61,6 +64,8 @@ export interface MiamiFrame {
 	stage: MiamiStage
 	view: MiamiView
 	assets: MiamiAssets
+	/** The art that built `assets`, which draws them. */
+	art: MiamiArt
 	/** Seconds of ambient motion the scene has run: everything that moves on its own is a function of it, so a scene that stops stands where it is and goes on from there. */
 	clock: number
 	/** How much of its ambient motion the scene shows, 0 to 1: the presence and motion level, and 0 on a canvas too slow to run it. At 0 it rests in its still pose. */
@@ -73,6 +78,21 @@ export interface MiamiFrame {
 	thin: number
 	/** A draw threw: the next step ends the scene, and the plain sky replaces the half-drawn frame. */
 	failed: boolean
+}
+
+/**
+ * The scene's art: the code that bakes a stage into bitmaps and draws them (miamiArt.ts). It is most of the scene's code and
+ * none of it is needed before the bake, so the runtime and the sky's draws reach it through this one object.
+ */
+export interface MiamiArt {
+	/** Builds the bitmaps for `stage` at pixel ratio `dpr`, a batch of rows a step (buildMiamiAssets). */
+	build(stage: MiamiStage, dpr: number, tokens: SkyTokens): Generator<void, MiamiAssets | null, undefined>
+	/** Closes every bitmap of a build (closeMiamiAssets). */
+	close(assets: MiamiAssets): void
+	/** The scene's ground, right after the page's navy and before any star (drawMiamiSky). */
+	drawSky(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void
+	/** Its silhouettes and water, over the sky and what flies in it (drawMiamiScene). */
+	drawScene(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex): void
 }
 
 /**
@@ -126,15 +146,17 @@ interface BakeKey {
 	navy: string
 }
 
-/** Bitmaps on screen. */
+/** Bitmaps on screen, and the art that built them, which closes and draws them. */
 interface Baked {
 	key: BakeKey
 	assets: MiamiAssets
+	art: MiamiArt
 }
 
-/** A build under way, and the key it was started with. */
+/** A build under way, the key it was started with and the art that runs it. */
 interface Building {
 	key: BakeKey
+	art: MiamiArt
 	generator: Generator<void, MiamiAssets | null, undefined>
 }
 
@@ -264,7 +286,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 	const release = (): void => {
 		abort()
 		if (baked) {
-			closeMiamiAssets(baked.assets)
+			baked.art.close(baked.assets)
 			baked = null
 		}
 		easeSince = null
@@ -385,7 +407,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 				if (building && outOfDate(building.key)) abort()
 				if (!building && (!baked || outOfDate(baked.key)) && (needed ? !baked || settled : ahead && settled)) {
 					dprStale = false
-					building = { key: { stage: current, dpr: input.dpr, navy }, generator: buildMiamiAssets(current, input.dpr, tokens) }
+					building = { key: { stage: current, dpr: input.dpr, navy }, art: MIAMI_ART, generator: MIAMI_ART.build(current, input.dpr, tokens) }
 				}
 				if (building) {
 					// With nothing built yet, a scene that shows now can't wait for slices. Any other slice counts from the start of the tick, so the work the tick did first shortens it
@@ -393,9 +415,9 @@ export function createMiamiRuntime(): MiamiRuntime {
 					const assets = advance(building, urgent ? Infinity : input.tickStart + STAGE.buildSliceMs)
 					if (assets) {
 						const previous = baked
-						baked = { key: building.key, assets }
+						baked = { key: building.key, assets, art: building.art }
 						building = null
-						if (previous) closeMiamiAssets(previous.assets)
+						if (previous) previous.art.close(previous.assets)
 						redraw = true
 						// Eased in from the time the build ended: the tick's own time is from before it, and a long build would show the scene whole in one frame
 						if (urgent) easeSince = performance.now() / 1000
@@ -457,9 +479,10 @@ export function createMiamiRuntime(): MiamiRuntime {
 			const tier = tierOf(input)
 			shownAt = input.now / 1000
 			const fade = easeSince === null ? 1 : smoothstep(0, STAGE.jumpEase, shownAt - easeSince)
-			shown ??= { stage: baked.key.stage, view, assets: baked.assets, clock, level: 0, tier, fade, thin: 0, failed: false }
+			shown ??= { stage: baked.key.stage, view, assets: baked.assets, art: baked.art, clock, level: 0, tier, fade, thin: 0, failed: false }
 			shown.stage = baked.key.stage
 			shown.assets = baked.assets
+			shown.art = baked.art
 			shown.fade = fade
 			shown.clock = clock
 			shown.level = isStill(input.softwareFps) ? 0 : input.level

@@ -527,9 +527,6 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 		case 'satellite':
 			drawSatellite(ctx, assets, body, frame, kept, CLEAR_SKY_KEEPS)
 			return
-		case 'farewell':
-			drawShootingStar(ctx, assets, body, frame, keptAlong(body))
-			return
 		default: {
 			const unhandled: never = kind
 			return unhandled

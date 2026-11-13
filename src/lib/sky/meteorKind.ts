@@ -1,17 +1,14 @@
 /**
- * The shooting stars as kinds of transient, over the hero and as farewell meteors at the foot of the page: what they
- * remember between launches, how a launch is planned and how they are timed. This module imports only types from
- * transients.ts, which reads their specs when it loads.
+ * The shooting stars as a kind of transient: what they remember between launches, how a launch is planned and how they
+ * are timed. This module imports only types from transients.ts, which reads their specs when it loads.
  */
 
-import { FAREWELL, METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, RADIANTS, SPEED_CLASSES, TRANSIENTS } from './config'
+import { METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, RADIANTS, SPEED_CLASSES, TRANSIENTS } from './config'
 import { nextGap } from './gaps'
 import { clearStart, drawStart, insideGuards, meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions, type Steer } from './meteors'
-import type { SkyRect } from './protocol'
-import { ZONE_REACH } from './quietIndex'
 import { drawSpectrum, pickVisitSky, pointNearRadiant, radiantOver, showerRadiantAt, skyWindow, swarmPiece, visitSteer, type SteerOptions, type VisitSky } from './radiants'
 import { between, exponential, gaussian, type Random } from './random'
-import type { PlanContext, SkyField, TransientSpec } from './transients'
+import type { PlanContext, TransientSpec } from './transients'
 
 /**
  * What the shooting stars remember between launches: the visit's sky, the shower and the sporadic sources they come
@@ -43,22 +40,20 @@ function visitSkyOf(context: PlanContext): VisitSky {
  * a new source and scatter; long flights come first on every steer, and a shorter fallback on the same steers only when
  * none has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on
  * copy, whether the plan may pass near copy at all, and to keep clear of the side rails and reading copy (the field's
- * `noFly` zones, which a `clearOf` in `options` adds to): the right rail's text keeps its contrast over the nebula only
- * while no shooting star lights it (INK_BUDGET), and this is the one guard for veiled flights. Returns null when nothing
- * fits, and keeps the visit's sky: copy, not the radiant, is what leaves no room. `options` adds to every planner call,
- * and its `flights: 'long'` leaves out the shorter fallback, which a fireball's try needs: the fallback would fly an
- * ordinary short flight in its place.
+ * `noFly` zones): the right rail's text keeps its contrast over the nebula only while no shooting star lights it
+ * (INK_BUDGET), and this is the one guard for veiled flights. Returns null when nothing fits, and keeps the visit's sky:
+ * copy, not the radiant, is what leaves no room. `options` adds to every planner call, and its `flights: 'long'` leaves
+ * out the shorter fallback, which a fireball's try needs: the fallback would fly an ordinary short flight in its place.
  */
-export function planMeteorTransient(context: PlanContext, options: Omit<PlanOptions, 'steer' | 'nearCopy' | 'ink'> = {}): Meteor | null {
+export function planMeteorTransient(context: PlanContext, options: Pick<PlanOptions, 'fireball' | 'flights'> = {}): Meteor | null {
 	const { random, now, field, nearCopy, still, ink, narrow } = context
 	const { flights = 'both' } = options
-	const clearOf = options.clearOf ? [...field.noFly, ...options.clearOf] : field.noFly
 	const sky = visitSkyOf(context)
 	const steers = Array.from({ length: 1 + (narrow ? 1 : METEOR.radiantTries) }, () => visitSteer(random, sky))
 	for (const pass of ['long', 'short'] as const) {
 		if (flights !== 'both' && flights !== pass) continue
 		for (const steer of steers) {
-			const plan = planMeteor(random, field, now, { ...options, steer, flights: pass, ink, nearCopy, clearOf, trains: still })
+			const plan = planMeteor(random, field, now, { ...options, steer, flights: pass, ink, nearCopy, clearOf: field.noFly, trains: still })
 			if (plan) return plan
 		}
 	}
@@ -358,63 +353,4 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	forget: (visit) => {
 		visit.meteor.sky = null
 	},
-}
-
-/**
- * The top of the highest padded zone of the page's flow that is on screen (CSS px; above the screen where that zone is cut
- * off by it), or null while none is. The field's `pinned` zones are the very objects `quiet` holds for the side rails, so
- * every other zone in `quiet` is copy in the page's flow.
- */
-function flowEdge(field: SkyField): number | null {
-	let edge: number | null = null
-	for (const zone of field.quiet) {
-		if (zone.y >= field.height || zone.y + zone.height <= 0 || field.pinned.includes(zone)) continue
-		edge = edge === null ? zone.y : Math.min(edge, zone.y)
-	}
-	return edge
-}
-
-/**
- * Whether the screen leaves room for a farewell meteor: some copy of the page's flow is on screen, and its top lies above the
- * line paths must end above (METEOR.maxEndY). A farewell meteor flies below that top, so with the top at or below the line
- * none could end above it. On a tall screen Contact sits low even at the foot of the page, and there is no room.
- */
-export function farewellRoom(field: SkyField): boolean {
-	const edge = flowEdge(field)
-	return edge !== null && edge < METEOR.maxEndY * field.height
-}
-
-/**
- * A plan for one farewell meteor: a shooting star planned like any other (planMeteorTransient), but only in the sky below
- * the top of the highest copy of the page's flow on screen (flowEdge). The page above Contact has copy that carries no
- * quiet rect, which the veil knows nothing of: the starts are drawn from that edge down to the bottom of the screen, and
- * the sky above it is kept clear, so no path rises above the edge. Null when no copy of the flow is on screen.
- */
-export function planFarewell(context: PlanContext): Meteor | null {
-	const { field } = context
-	const edge = flowEdge(field)
-	if (edge === null) return null
-	// The planner keeps every path QUIET.feather (ZONE_REACH) away from a rect, so one ending that far above the edge leaves the paths at the edge or below it;
-	// a screen high, it covers all the sky above the edge that is on screen, whatever the edge
-	const above: SkyRect = { x: 0, y: edge - ZONE_REACH - field.height, width: field.width, height: field.height, headroom: 0 }
-	return planMeteorTransient(context, { clearOf: [above], starts: { ...startArea(field), y0: edge, y1: field.height } })
-}
-
-/**
- * The farewell meteors' timing and planning: shooting stars at the foot of the page, around Contact and the footer. They keep
- * a clock of their own, from the reveal and after each flight (FAREWELL.gap), at most FAREWELL.limit a visit, and wait for a
- * screen that leaves room.
- */
-export const FAREWELL_SPEC: TransientSpec<'farewell'> = {
-	firstDelay: (random) => nextGap(random, FAREWELL.gap, 0),
-	nextAfter: (meteor, random, sinceReveal) => meteor.duration + nextGap(random, FAREWELL.gap, sinceReveal),
-	plan: planFarewell,
-	lifetime: meteorLifetime,
-	moving: meteorMoving,
-	nearCopy: (meteor) => meteor.nearCopy,
-	lease: true,
-	phones: true,
-	scene: 'end',
-	room: farewellRoom,
-	limit: FAREWELL.limit,
 }

@@ -98,13 +98,12 @@ export interface PlanOptions {
 	 * Zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose links change
 	 * color on hover and focus, which their measured headroom misses until the next measurement (the right rail's text also
 	 * keeps its contrast over the nebula, up to 0.09 of white there, past INK_BUDGET.hazeReserve, only while nothing else
-	 * lights it: a veiled flight's budget there would take it to about 3.7:1); reading copy, which nothing lights; for
-	 * farewell meteors, also the sky above the highest quiet copy on screen at the foot of the page. Default none.
+	 * lights it: a veiled flight's budget there would take it to about 3.7:1); reading copy, which nothing lights.
+	 * Default none.
 	 */
 	clearOf?: readonly SkyRect[]
 	/**
 	 * The box start points are drawn from, in place of startArea(field); a start above METEOR.top moves down to it.
-	 * Farewell meteors start only below the top of the highest copy of the page's flow on screen.
 	 */
 	starts?: StartArea
 	/** Whether a shooting star may leave a train (METEOR.trainChance); a fireball's is its show's. Default true. */

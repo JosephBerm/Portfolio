@@ -13,6 +13,7 @@
  * on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive quality has stepped down, and for
  * none while paused, reduced, idle or on a canvas too slow to run it. It counts its own slow frames, from what its own
  * draws take, apart from adaptive quality's.
+ * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded as the page's end comes near.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
@@ -302,6 +303,7 @@ const miamiStep: MiamiStep = {
 	motionFull: false,
 	ambientOn: false,
 	quietEasing: false,
+	calm: false,
 }
 
 /** Fills the landing scene's input for `now` (ms). Every caller has run `gather` first, so the gates it reads are fresh. */
@@ -318,6 +320,10 @@ function stepInput(now: number): MiamiStep {
 	miamiStep.motionFull = motion === 'full'
 	miamiStep.ambientOn = driftGate.on
 	miamiStep.quietEasing = quietEasing(now / 1000)
+	// Loading the scene's art stalls the worker, so a load ahead of the bake waits for a sky at rest: under full motion, no scroll
+	// for as long as a launch waits after one (the stars have glided to rest by then) and nothing in flight. Under any other
+	// motion the stars hold still and flights fade out
+	miamiStep.calm = motion !== 'full' || (now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000 && transients.active.length === 0)
 	return miamiStep
 }
 

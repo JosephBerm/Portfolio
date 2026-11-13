@@ -25,6 +25,35 @@ const eslintConfig = defineConfig([
 			],
 		},
 	},
+	{
+		// The landing scene's art is a chunk of its own that miamiRuntime.ts loads with import() as the page's end comes near: a
+		// value import of it from the worker's other files would put it back in the worker's first download. The art's own files
+		// import each other freely; the rule doesn't see import(), and type-only imports leave nothing in the output.
+		files: ['src/components/sky/**/*.ts', 'src/lib/sky/**/*.ts'],
+		ignores: [
+			'src/components/sky/miamiArt.ts',
+			'src/components/sky/miamiAssets.ts',
+			'src/components/sky/renderMiami.ts',
+			'src/components/sky/miamiPalmArt.ts',
+			'src/lib/sky/miamiWater.ts',
+			'src/lib/sky/miamiWind.ts',
+			'src/lib/sky/miamiSkyline.ts',
+		],
+		rules: {
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							regex: '(^|/)(miamiArt|miamiAssets|renderMiami|miamiPalmArt|miamiWater|miamiWind|miamiSkyline)$',
+							allowTypeImports: true,
+							message: "The landing scene's art loads as a chunk of its own: import it for types only, and reach it through MiamiArt.",
+						},
+					],
+				},
+			],
+		},
+	},
 ])
 
 export default eslintConfig

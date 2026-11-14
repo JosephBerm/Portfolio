@@ -28,7 +28,8 @@ const eslintConfig = defineConfig([
 	{
 		// The landing scene's art is a chunk of its own that miamiRuntime.ts loads with import() as the page's end comes near: a
 		// value import of it from the worker's other files would put it back in the worker's first download. The art's own files
-		// import each other freely; the rule doesn't see import(), and type-only imports leave nothing in the output.
+		// import each other freely; the rule doesn't see import(), and type-only imports leave nothing in the output. A new file
+		// that only the art reaches joins both lists, `ignores` and the pattern, or a value import of it would pass unseen.
 		files: ['src/components/sky/**/*.ts', 'src/lib/sky/**/*.ts'],
 		ignores: [
 			'src/components/sky/miamiArt.ts',

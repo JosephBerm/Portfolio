@@ -90,16 +90,18 @@ export interface MiamiFrame {
 /**
  * The scene's art: the code that bakes a stage into bitmaps and draws them (miamiArt.ts). It is most of the scene's code and
  * none of it is needed before the bake, so it is a chunk of its own, which the runtime loads as the page's end comes near.
+ * The runtime reaches the art through this type alone, so its members are function properties, not methods: TypeScript
+ * holds a function property to the parameters it declares, where it would let a method's implementation take narrower ones.
  */
 export interface MiamiArt {
 	/** Builds the bitmaps for `stage` at pixel ratio `dpr`, a batch of rows a step (buildMiamiAssets). */
-	build(stage: MiamiStage, dpr: number, tokens: SkyTokens): Generator<void, MiamiAssets | null, undefined>
+	build: (stage: MiamiStage, dpr: number, tokens: SkyTokens) => Generator<void, MiamiAssets | null, undefined>
 	/** Closes every bitmap of a build (closeMiamiAssets). */
-	close(assets: MiamiAssets): void
+	close: (assets: MiamiAssets) => void
 	/** The scene's ground, right after the page's navy and before any star (drawMiamiSky). */
-	drawSky(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void
+	drawSky: (ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame) => void
 	/** Its silhouettes and water, over the sky and what flies in it (drawMiamiScene). */
-	drawScene(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex): void
+	drawScene: (ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex) => void
 }
 
 /**

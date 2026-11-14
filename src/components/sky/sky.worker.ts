@@ -320,9 +320,9 @@ function stepInput(now: number): MiamiStep {
 	miamiStep.motionFull = motion === 'full'
 	miamiStep.ambientOn = driftGate.on
 	miamiStep.quietEasing = quietEasing(now / 1000)
-	// Loading the scene's art stalls the worker, so a load ahead of the bake waits for a sky at rest: under full motion, no scroll
-	// for as long as a launch waits after one (the stars have glided to rest by then) and nothing in flight. Under any other
-	// motion the stars hold still and flights fade out
+	// Loading the scene's art stalls the worker, so a load ahead of the bake waits for a page at rest: under full motion, no
+	// scroll at all, however slow, for TRANSIENTS.scrollQuiet (the stars have stopped gliding after it by then) and nothing in
+	// flight. Under any other motion the stars hold still and flights fade out
 	miamiStep.calm = motion !== 'full' || (now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000 && transients.active.length === 0)
 	return miamiStep
 }

@@ -9,8 +9,8 @@ import type { WindPalm } from '@/lib/sky/miamiWind'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { hashCell, mulberry32 } from '@/lib/sky/random'
 import { smoothstep } from '@/lib/sky/scene'
+import { toBitmap } from './bitmap'
 import { PALM_ART, bakePalmSprites, closePalmSprites, knotOutline, placePalms, planCrown, variantDroop, windPalm, type CrownPlan, type PalmSprites, type PlacedPalm } from './miamiPalmArt'
-import { toBitmap } from './skyAssets'
 
 /** A bitmap and the size it covers on the canvas, in CSS px: a bitmap baked at device resolution says how big that is. */
 export interface MiamiImage {

@@ -3,6 +3,7 @@ import { cometLightAt, type CometLight, type CometShape } from '@/lib/sky/comet'
 import { COMET, METEOR_LOOK, MIN_CORE_SIGMA_DEVICE_PX, PLANET, STAR_PHASES, STAR_SHAPES, STAR_TINTS } from '@/lib/sky/config'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { smoothstep } from '@/lib/sky/scene'
+import { toBitmap } from './bitmap'
 
 /** Sigma (CSS px) of the Gaussian in the knot sprite: a knot of the comet's ion tail draws it scaled and turned to its own length and width. */
 export const KNOT_SIGMA = 6
@@ -40,16 +41,6 @@ export function starPalette(tokens: SkyTokens): readonly Rgb[] {
  */
 export function starSpriteIndex(tint: number, shape: number, phaseX: number, phaseY: number): number {
 	return ((tint * STAR_SHAPES.length + shape) * STAR_PHASES + phaseY) * STAR_PHASES + phaseX
-}
-
-/** Uploads pixels once as an immutable bitmap (synchronous; works in workers). */
-export function toBitmap(pixels: ImageData): ImageBitmap {
-	const canvas = new OffscreenCanvas(pixels.width, pixels.height)
-	canvas.getContext('2d')?.putImageData(pixels, 0, 0)
-	const bitmap = canvas.transferToImageBitmap()
-	// Safari caps the canvases a page may hold, and an emptied one lets go of its memory at once, not when it is collected
-	canvas.width = canvas.height = 0
-	return bitmap
 }
 
 /**

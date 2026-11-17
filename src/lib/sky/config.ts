@@ -1112,6 +1112,10 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * (SCROLL_LAG). The landing scene's band does the same. It leaves when copy or the band comes within reach, held or not,
  * when the sky is resized or when it has glided off the right edge, and comes back `again` seconds later, at the then
  * nearest place to `anchor`, and under a pause only after Play.
+ *
+ * As the sunset comes up at the foot of the page it washes out with the stars, over their dusk (DESCENT.starMix), and on to
+ * none, while they keep a share of their light (DESCENT.stars): a comet is diffuse light, which a brightening sky drowns
+ * sooner than a point. None starts once the descent reaches DESCENT.eventStop, as no launch does.
  */
 export const COMET = {
 	chance: 0.11,

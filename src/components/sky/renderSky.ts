@@ -167,6 +167,8 @@ export interface SkyFrame {
 	scrollY: number
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (the contrast preference's, times the descent's inkShare). */
 	meteorInk: number
+	/** How far the sky has come down to the landing scene (SceneLevels.descent), 0 with no scene: the comet's view reads it. */
+	descent: number
 	/** Every star at a whole device pixel, as a sky that hasn't moved in this page view draws them; false places each at its nearest sub-pixel phase (placePoint). */
 	snap: boolean
 	/** The landing scene's frame: null while the scene is off screen, unbuilt or failed, and the sky is then exactly the shared sky. */
@@ -556,12 +558,13 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 
 /**
  * The comet at one frame: its bitmap of coma and tails added to the sky, the knots gliding along the ion tail, then the
- * pseudo-nucleus over them. `view.light` (the fade-in times what its fade and the copy or band near its box leave)
- * multiplies all of it, because one bitmap cannot be dimmed part by part: the copy its box is tested against, the layout it
- * is easing to, one waiting and reading copy, with the landing scene's band, dims all of the comet by where it is, with no
- * fade to wait for (bodyView). A layout easing out isn't in that test, so the transient quiet factor with CLEAR_SKY_KEEPS
- * multiplies it too, sampled at the nucleus and at the far end of each tail and taken at the lowest of the three. The
- * bitmap is assets.comet; the caller has painted it before the comet shows.
+ * pseudo-nucleus over them. `view.light` (the fade-in times what its fade, the copy or band near its box and the descent
+ * leave) multiplies all of it, because one bitmap cannot be dimmed part by part: the copy its box is tested against, the
+ * layout it is easing to, one waiting and reading copy, with the landing scene's band, dims all of the comet by where it is,
+ * with no fade to wait for, and the descent washes all of it out with the stars (bodyView). A layout easing out isn't in
+ * that test, so the transient quiet factor with CLEAR_SKY_KEEPS multiplies it too, sampled at the nucleus and at the far end
+ * of each tail and taken at the lowest of the three. The bitmap is assets.comet; the caller has painted it before the comet
+ * shows.
  */
 export function drawComet(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, view: CometView, frame: SkyFrame): void {
 	const { comet, atlas } = assets

@@ -147,8 +147,10 @@ const gate: LaunchGate = {
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
-	// Built afresh on each call: the scheduler asks only for a due kind that may plan
-	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading: newestReading() }),
+	// Built afresh on each call: the scheduler asks only for a due kind that may plan. From the newest layout, waiting or in
+	// force, as the frame dims at a waiting one (QuietBlend.next), so no plan made after a resize's layout arrives crosses
+	// the rails it moved
+	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet: pendingLayout?.quiet ?? quiet, pinned: pendingLayout?.pinned ?? pinned, reading: newestReading() }),
 	ink: 1,
 	bodyShowing: false,
 }
@@ -381,7 +383,7 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 		quietEasing(t) ||
 		easing(motionLevel.since, FRAME.motionEase, t) ||
 		easing(thinnedAt, ADAPT.thinFade, t) ||
-		bodyFading(comet, t, t - hiddenTotal)
+		bodyFading(comet, t, t - hiddenTotal, scene.descent)
 	// Decided by where the twinkle is heading, not its level: waking from idle, it eases in from 0. Not while the landing scene is on screen on a canvas
 	// too slow to run it: each of its frames would draw the scene's whole ground again
 	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 && !miami.stillOnScreen(scrollY, documentHeight, softwareFps) ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
@@ -765,6 +767,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		quietAhead: transients.active.length > 0 ? screenReadingZones(pendingLayout?.quiet ?? quiet, scrollY, height, SCROLL_LAG.reach) : [],
 		scrollY,
 		meteorInk: contrast.meteorInk * scene.inkShare,
+		descent: scene.descent,
 		snap: !skyMoved,
 		miami: landing,
 		// Locked to the page's end: the camera moves each star by its own share, but the floor stays with the page
@@ -781,9 +784,10 @@ function draw(now: number): void {
 	const frame = frameAt(now, canvas)
 	drawSky(ctx, assets, field, frame)
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
-	// The comet's view tests its box against the zones this frame draws, which may start it fading
+	// The comet's view tests its box against the zones this frame draws, which may start it fading, and washes it out with the
+	// stars as the sky comes down to the landing scene
 	const view = bodyShowing(comet)
-		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading })
+		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading }, frame.descent)
 		: null
 	if (view) {
 		// Painted once, in the first frame it shows (still at no light), and again after a lost context took it
@@ -1091,7 +1095,8 @@ scope.addEventListener('message', (event) => {
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
 			// near it, reading copy included, fade instead of changing in one frame. A change mid-ease waits for the ease to
-			// end, while what flies and what plans answer to the newest reading copy at once (newestReading).
+			// end, while what flies and what plans answer to the newest copy at once (newestReading, QuietBlend.next, the
+			// frame's quietAhead and the launch gate's field).
 			const latest = pendingLayout ?? { quiet, pinned, reading }
 			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
 				if (quietEasing(now / 1000)) pendingLayout = message

@@ -8,11 +8,12 @@ import { Logo, MenuSVG } from '@/components/icons'
 import SkyPauseButton from '@/components/sky/SkyPauseButton'
 import { cn, delayedReveal, duration, easing, smoothScrollTo } from '@/lib'
 import { NAV_SECTIONS } from '@/lib/navigation'
+import { useIntroRevealed } from '@/hooks/useIntroPhase'
 
 /** The md breakpoint, where the nav links sit inline and the mobile menu no longer applies. */
 const DESKTOP_QUERY = '(min-width: 768px)'
 
-/** Delay between successive nav items, and then the Resume button and the sky's pause control, as they drop in (seconds). */
+/** Delay between successive nav items, and then the Resume button and the sky's pause control, as they drop in when the page shows (seconds). */
 const NAV_STAGGER = 0.1
 
 /** Nav entrance: drops in from -20px; each item's delay comes through Motion's `custom` prop. */
@@ -24,6 +25,7 @@ export default function Navbar() {
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 	const burgerRef = useRef<HTMLButtonElement>(null)
 	const headerRef = useRef<HTMLElement>(null)
+	const revealed = useIntroRevealed()
 
 	// Frame-batched scroll position: re-renders only when `scrolled` / `hidden` actually change
 	const { scrollY } = useScroll()
@@ -100,7 +102,7 @@ export default function Navbar() {
 				{/* Logo */}
 				<motion.div
 					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
+					animate={{ opacity: revealed ? 1 : 0 }}
 					transition={{ duration: duration.entrance }}
 				>
 					<Link
@@ -136,10 +138,11 @@ export default function Navbar() {
 				{/* Nav links — mobile slide-in / desktop inline */}
 				<div
 					id="primary-nav"
+					// The list never sets its visibility, only takes it away (the closed phone menu) or inherits it, so it stays unseen with the rest of the page under the intro's loader
 					className={cn(
 						'flex flex-col items-center justify-center fixed right-0 top-0 h-screen w-3/4 bg-light-navy transition-all duration-150 ease-out motion-reduce:transition-none z-[50]',
-						'md:ml-auto md:flex-row md:justify-evenly md:relative md:inset-auto md:h-auto md:w-auto md:bg-transparent md:translate-x-0 md:visible',
-						mobileMenuOpen ? 'translate-x-0 visible' : 'translate-x-full invisible md:visible'
+						'md:ml-auto md:flex-row md:justify-evenly md:relative md:inset-auto md:h-auto md:w-auto md:bg-transparent md:translate-x-0',
+						mobileMenuOpen ? 'translate-x-0' : 'translate-x-full invisible md:[visibility:inherit]'
 					)}
 				>
 					<ol className="flex flex-col items-center font-normal md:flex-row">
@@ -149,7 +152,7 @@ export default function Navbar() {
 								variants={navItemVariants}
 								custom={index * NAV_STAGGER}
 								initial="hidden"
-								animate="visible"
+								animate={revealed ? 'visible' : 'hidden'}
 								className="relative my-[20px] text-lg md:my-0 lg:ml-[8px] md:text-sm [counter-increment:item_1]"
 							>
 								<a
@@ -166,7 +169,7 @@ export default function Navbar() {
 						variants={navItemVariants}
 						custom={NAV_SECTIONS.length * NAV_STAGGER}
 						initial="hidden"
-						animate="visible"
+						animate={revealed ? 'visible' : 'hidden'}
 					>
 						<a href="/resume.pdf" target="_blank" rel="noopener noreferrer" className="btn md:ml-[10px] lg:ml-[15px] text-sm">
 							Resume
@@ -179,7 +182,7 @@ export default function Navbar() {
 					variants={navItemVariants}
 					custom={(NAV_SECTIONS.length + 1) * NAV_STAGGER}
 					initial="hidden"
-					animate="visible"
+					animate={revealed ? 'visible' : 'hidden'}
 					// The open phone menu's panel covers this corner, so the control leaves the tab order with it (WCAG 2.4.11)
 					inert={mobileMenuOpen}
 				>

@@ -455,6 +455,29 @@ body.overflow-hidden #content > * {
 	}
 }
 
+/* Home intro (src/components/IntroGate.tsx): under the loader the page is laid out, so its fonts load, a link to one of
+   its sections lands and the sky can measure it, but it isn't painted, and the reveal changes its visibility only.
+   Meanwhile only the browser scrolls it (a fragment, a restored position): the root clips, and body drops its own
+   overflow so it never scrolls by itself. IntroGate's no-script style undoes the hiding and the clip. */
+/* Home keeps its scrollbar's room for the whole visit: the page has the same width while the root clips as once its
+   scrollbar fills that room, and so does 100vw (the sky's and the loader's width), which some browsers take that room out of */
+html:has(#intro-content) {
+	scrollbar-gutter: stable;
+}
+#intro-content:not([data-intro-phase='revealed']) {
+	visibility: hidden;
+}
+html:has(#intro-content:not([data-intro-phase='revealed'])) {
+	overflow: hidden;
+}
+html:has(#intro-content:not([data-intro-phase='revealed'])) body {
+	overflow: visible;
+}
+/* While the loader is opaque, the room kept for the scrollbar takes its color */
+html:has(#intro-content[data-intro-phase='loading']) {
+	background-color: var(--color-dark-navy);
+}
+
 /* ============================================
    KEYFRAME ANIMATIONS
    ============================================ */

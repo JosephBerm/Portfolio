@@ -1,8 +1,8 @@
 import { createContext, use } from 'react'
 
 /**
- * Where the home intro is: the loader is showing, the loader is fading out, or the page has been revealed.
- * Outside <IntroGate> the page counts as revealed.
+ * Where the home intro is: the loader shows (its mark may have started to leave), the loader fades, or the page shows.
+ * Outside <IntroGate> the page counts as shown.
  */
 export type IntroPhase = 'loading' | 'exiting' | 'revealed'
 

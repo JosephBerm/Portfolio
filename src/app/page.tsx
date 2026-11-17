@@ -4,6 +4,7 @@ import { sharedOpenGraph } from '@/lib/metadata'
 import { personJsonLd } from '@/lib/structuredData'
 import JsonLd from '@/components/JsonLd'
 import IntroGate from '@/components/IntroGate'
+import LoadingLogo from '@/components/LoadingLogo'
 import Background from '@/components/Background'
 import Navbar from '@/components/Navbar'
 import SidePane from '@/components/SidePane'
@@ -32,12 +33,12 @@ export const metadata: Metadata = {
 
 const { email } = myPortfolio.userProfile
 
-/** Home: server-composed sections revealed after the client-side intro loader. */
+/** Home: server-composed sections, revealed when the intro loader lifts. */
 export default function HomePage() {
 	return (
 		<>
 			<JsonLd data={personJsonLd} />
-			<IntroGate backdrop={<Background />}>
+			<IntroGate backdrop={<Background />} mark={<LoadingLogo />}>
 				<Navbar />
 				<SidePane side="left">
 					<LinksList />

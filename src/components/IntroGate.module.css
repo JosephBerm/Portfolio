@@ -1,0 +1,135 @@
+/* The home intro's loader and mark (IntroGate, LoadingLogo). Everything here that moves is a transform or an opacity on
+   a box, which browsers run off the main thread, so the work done under the loader (scripts, hydration, the sky's start
+   and its walk over the copy) never stalls it. Times and curves come from `intro` and `easing` in src/lib/animations.ts,
+   set inline as custom properties (the loader's fade and the mark's leaving use --ease-smooth, which mirrors
+   `easing.smooth`). Each animation names its keyframes in a declaration of its own. */
+
+/* The loader fades once the mark has started to leave */
+.loader[data-intro-phase='exiting'] {
+	animation-name: intro-fade-out;
+	animation-duration: var(--intro-fade);
+	animation-timing-function: var(--ease-smooth);
+	animation-fill-mode: both;
+}
+
+/* The drawing's box: as wide as the mark, as tall as the drawing's aspect ratio (set inline) makes it, so it overflows the
+   mark's square below as the drawing always has. Its center is the hexagon's */
+.glyph {
+	position: relative;
+	width: 100%;
+}
+
+/* The mark leaves: it shrinks into its center */
+.loader[data-mark='leaving'] .glyph {
+	animation-name: intro-shrink;
+	animation-duration: var(--intro-mark-out);
+	animation-timing-function: var(--ease-smooth);
+	animation-fill-mode: both;
+}
+
+.layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+/* The J fades in once the hexagon is whole */
+.letter {
+	position: absolute;
+	inset: 0;
+	animation-name: intro-appear;
+	animation-duration: var(--intro-letter);
+	animation-timing-function: var(--intro-letter-ease);
+	animation-delay: var(--intro-letter-delay);
+	animation-fill-mode: both;
+}
+
+/* The trace: a square centered on the hexagon, wider than its outline reaches (about 57px from the center), whose halves
+   each clip a cover in the loader's color. Each cover turns half a circle about the center, the left one first,
+   uncovering the outline counterclockwise from its top vertex, where it starts. Once the outline is whole the covers go,
+   so no sliver is left along the axis */
+.trace {
+	position: absolute;
+	left: -50%;
+	top: 50%;
+	width: 200%;
+	aspect-ratio: 1;
+	margin-top: -100%;
+	display: flex;
+	animation-name: intro-gone;
+	animation-duration: 0s;
+	animation-delay: var(--intro-draw);
+	animation-fill-mode: forwards;
+}
+
+.traceLeft,
+.traceRight {
+	position: relative;
+	flex: 1;
+	overflow: hidden;
+}
+
+.cover {
+	position: absolute;
+	inset: 0;
+	background-color: var(--color-dark-navy);
+	animation-name: intro-turn;
+	animation-fill-mode: both;
+}
+
+.traceLeft .cover {
+	transform-origin: 100% 50%;
+	animation-duration: var(--intro-trace-first);
+	animation-timing-function: var(--intro-trace-first-ease);
+}
+
+.traceRight .cover {
+	transform-origin: 0 50%;
+	animation-delay: var(--intro-trace-first);
+	animation-duration: var(--intro-trace-second);
+	animation-timing-function: var(--intro-trace-second-ease);
+}
+
+@keyframes intro-turn {
+	to {
+		transform: rotate(-180deg);
+	}
+}
+
+@keyframes intro-appear {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes intro-shrink {
+	to {
+		transform: scale(0);
+	}
+}
+
+@keyframes intro-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes intro-gone {
+	to {
+		visibility: hidden;
+	}
+}
+
+/* Reduced motion: the whole mark at once, with no trace and no fade in, and it fades out rather than shrinking */
+@media (prefers-reduced-motion: reduce) {
+	.trace {
+		display: none;
+	}
+	.letter {
+		animation: none;
+	}
+	.loader[data-mark='leaving'] .glyph {
+		animation-name: intro-fade-out;
+	}
+}

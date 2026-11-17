@@ -22,6 +22,8 @@ export interface SceneLevels {
 	descent: number
 	/** Share of every rect's ink budget a transient may keep: 1, falling to 0 early in the descent, because headroom assumes a navy ground. */
 	inkShare: number
+	/** How far the catalog's reserve has come out, 0 to 1. */
+	reserve: number
 }
 
 /** The scroll left to the page's end (px) over which the sky comes down to the landing scene: the descent starts at `fromPx` and is complete at `toPx`, which is the smaller. */
@@ -61,6 +63,7 @@ export function sceneAt(scrollY: number, viewportHeight: number, documentHeight:
 		lean: mix('lean'),
 		descent,
 		inkShare: 1 - smoothstep(DESCENT.inkOut[0], DESCENT.inkOut[1], descent),
+		reserve: (1 - hero) * smoothstep(SCENE.reserveFrom, SCENE.reserveTo, scrollY / Math.max(1, documentHeight - viewportHeight)),
 	}
 }
 

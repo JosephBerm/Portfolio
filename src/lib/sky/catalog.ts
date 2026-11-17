@@ -44,7 +44,10 @@ export interface Star {
 	shape: number
 	/** Palette index: 0 is --color-white, 1-7 are STAR_TINTS. */
 	tint: number
-	/** Thinning key in [0, 1): the star is drawn while keep < densityKeep(). */
+	/**
+	 * Thinning key in [0, 1): the star is drawn while keep < SkyFrame.keep, which is densityKeep() at the top of
+	 * the page and rises to catalogKeep() as the reserve comes out (SCENE.reserveFrom).
+	 */
 	keep: number
 	/** Seconds after the loader starts lifting before this star begins to come out (brighter stars first). */
 	delay: number
@@ -100,14 +103,24 @@ export const LAYER_NEARNESS = Object.fromEntries(
 ) as Record<SkyLayer, readonly [number, number]>
 
 /**
- * Share of the catalog drawn for a viewport: all of it on narrow screens, 1 / NARROW_DENSITY_BOOST on wider ones,
- * thinned evenly past MAX_STARS. Thinning by each star's fixed key keeps the same stars from frame to frame.
+ * Share of the catalog drawn for a viewport at the top of the page, before the reserve comes out (catalogKeep is
+ * the most a viewport can draw): all of it on narrow screens, 1 / NARROW_DENSITY_BOOST on wider ones, thinned
+ * evenly past MAX_STARS. Thinning by each star's fixed key keeps the same stars from frame to frame.
  */
 export function densityKeep(width: number, height: number): number {
 	const narrow = width <= NARROW_MAX_WIDTH
 	const keep = narrow ? 1 : 1 / NARROW_DENSITY_BOOST
-	const expected = ((width * height) / 1e6) * STARS_PER_MP * (narrow ? NARROW_DENSITY_BOOST : 1)
-	return expected > MAX_STARS ? (keep * MAX_STARS) / expected : keep
+	return keep * capShare(((width * height) / 1e6) * STARS_PER_MP * (narrow ? NARROW_DENSITY_BOOST : 1))
+}
+
+/** Share of the catalog a viewport can draw at all: everything, unless MAX_STARS holds it back. On narrow screens and past MAX_STARS it equals densityKeep, so they have no reserve (SCENE.reserveFrom). */
+export function catalogKeep(width: number, height: number): number {
+	return capShare(((width * height) / 1e6) * STARS_PER_MP * NARROW_DENSITY_BOOST)
+}
+
+/** The share of `expected` stars MAX_STARS lets a viewport draw. */
+function capShare(expected: number): number {
+	return expected > MAX_STARS ? MAX_STARS / expected : 1
 }
 
 /** Knuth's Poisson sampler; fine for the small means used per cell. */

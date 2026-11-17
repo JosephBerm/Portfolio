@@ -18,6 +18,7 @@ import {
 	MIN_STAR_ALPHA,
 	READING,
 	SATELLITE,
+	SCENE,
 	SKY_LAYERS,
 	STAR_ALPHA,
 	STAR_PHASES,
@@ -132,10 +133,16 @@ export interface SkyFrame {
 	deviceHeight: number
 	/** The camera's offset (CSS px at nearness 1): each star is drawn its nearness times this far from its place on the sky. */
 	offset: Vec
-	/** Share of the catalog to draw at this size and quality: the unthinned share while the stars a quality step thins out are still fading away. */
+	/**
+	 * Share of the catalog to draw at this size, scroll and quality: densityKeep() at the top of the page, rising to
+	 * catalogKeep() as the reserve comes out (SCENE.reserveFrom). That share holds while the stars a quality step thins out
+	 * are still fading away, and then falls to ADAPT.thinning of densityKeep(), with no reserve.
+	 */
 	keep: number
 	/** Stars with a thinning key at or above this are the ones a quality step thins out: the thinned share of the catalog, Infinity before the first step. */
 	thinFrom: number
+	/** Stars with a thinning key at or above this are the catalog's reserve (SCENE.reserveFade). */
+	reserveKey: number
 	/** How much of its light a star being thinned out still has: 1 before the first quality step, then easing to 0 over ADAPT.thinFade. */
 	thinLevel: number
 	/** Alpha multiplier per layer: scene × contrast. */
@@ -245,6 +252,8 @@ function drawLayer(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, fi
 				let alpha = star.alpha * scale
 				// A star a quality step thins out fades away instead of vanishing in one frame
 				if (star.keep >= frame.thinFrom) alpha *= frame.thinLevel
+				// A star of the reserve fades in as the page scrolls on, instead of popping in
+				if (star.keep >= frame.reserveKey) alpha *= Math.min(1, (frame.keep - star.keep) / SCENE.reserveFade)
 				if (emerging) alpha *= starEmergence(star.delay, frame.dusk)
 				// A bright star beside the copy reads as punctuation or an accent
 				if (quiet) alpha *= quietIndex.factor(x, y, config)

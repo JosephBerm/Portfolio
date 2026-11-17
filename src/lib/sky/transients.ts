@@ -151,7 +151,7 @@ export interface LaunchGate {
 	still: boolean
 	/**
 	 * The page's reading copy has been measured. Until it has, or where a walk finds none, the sky can't tell what a flight may
-	 * come to lie on, so the scroll cancel takes every flight and launches stay near the top (launchReaches).
+	 * come to lie on, so the scroll cancel takes every flight, launches stay near the top (launchReaches) and no comet starts.
 	 */
 	readingKnown: boolean
 	/** A narrow screen (the worker's narrowScreen): phones keep their own limit, TRANSIENTS.narrowLimit, and their own gaps. */

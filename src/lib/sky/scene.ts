@@ -31,8 +31,8 @@ export interface DescentWindow {
 }
 
 /**
- * Scroll narrative: the full sky in the hero, a dimmer, slowly drifting sky while reading, and a bookend near the end
- * of the page. Continuous in scroll, so it never needs its own animation clock. Where the page has a landing scene,
+ * Scroll narrative: the full sky in the hero, a calmer one while reading, and a bookend near the end of the page.
+ * Continuous in scroll, so it never needs its own animation clock. Where the page has a landing scene,
  * `descentWindow` says where the last stretch lies, and the stars, drift and haze give way to it; without one every level
  * is exactly the narrative's.
  */
@@ -214,6 +214,12 @@ export function quietFactor(zones: readonly SkyRect[], x: number, y: number, kee
 export function easedQuietFactor(blend: QuietBlend, x: number, y: number, keeps: QuietKeeps): number {
 	const current = quietFactor(blend.to, x, y, keeps)
 	return blend.level >= 1 ? current : current * blend.level + quietFactor(blend.from, x, y, keeps) * (1 - blend.level)
+}
+
+/** readingKept while new zones take effect: a cross-fade from the previous zones' share to the current ones', as easedQuietFactor does. Stars on a narrow screen use it. */
+export function easedReadingKept(blend: QuietBlend, x: number, y: number, reach: number): number {
+	const current = readingKept(blend.to, x, y, reach)
+	return blend.level >= 1 ? current : current * blend.level + readingKept(blend.from, x, y, reach) * (1 - blend.level)
 }
 
 /**

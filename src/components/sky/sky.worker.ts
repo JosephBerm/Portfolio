@@ -112,11 +112,12 @@ let scrollY = 0
 let documentHeight = 0
 let quiet: readonly SkyRect[] = []
 let pinned: readonly SkyRect[] = []
-// Reading copy, as the last layout measured it: what flies answers to it at once, with no ease
+// Reading copy as the layout in force measured it, which stars keep clear of as it eases in
 let reading: readonly SkyRect[] = []
 // The rects a new layout eases in from (none before the first)
 let quietBefore: readonly SkyRect[] = []
 let pinnedBefore: readonly SkyRect[] = []
+let readingBefore: readonly SkyRect[] = []
 // The newest layout that arrived while an ease was running, applied when it ends
 let pendingLayout: LayoutMessage | null = null
 
@@ -147,7 +148,7 @@ const gate: LaunchGate = {
 	sinceReveal: 0,
 	scrollY: 0,
 	// Built afresh on each call: the scheduler asks only for a due kind that may plan
-	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading }),
+	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading: newestReading() }),
 	ink: 1,
 	bodyShowing: false,
 }
@@ -223,9 +224,14 @@ let relayTickDoneAt = -Infinity
 /** How many display refreshes pass per drawn frame while something moves. */
 const divisor: Divisor = { k: 1, slowerSince: null }
 
+/** Reading copy as the last layout measured it, in force or waiting: what flies and what plans answer to it at once, with no ease. */
+function newestReading(): readonly SkyRect[] {
+	return pendingLayout?.reading ?? reading
+}
+
 /** Reading copy near the screen now, in screen coordinates, grown as READING says for this width. */
 function readingZones(): SkyRect[] {
-	return screenReadingZones(reading, scrollY, height, readingPadding(narrowScreen))
+	return screenReadingZones(newestReading(), scrollY, height, readingPadding(narrowScreen))
 }
 
 /** `zones` and the landing scene's band on the canvas, from eventFloorY down, which flights and the comet keep their light off as off reading copy; `zones` itself while no band shows. */
@@ -420,7 +426,7 @@ function clockWorks(): boolean {
 
 /** True when transients may launch at all right now (each kind's own timing aside), before the descent has brought bright sky up the screen. */
 function launchesAllowed(now: number, scene: SceneLevels): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && launchReaches(scrollY, height, reading.length > 0) && scene.descent < DESCENT.eventStop
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && launchReaches(scrollY, height, newestReading().length > 0) && scene.descent < DESCENT.eventStop
 }
 
 /** Seconds since the reveal at `now` (ms); 0 before it. */
@@ -434,7 +440,7 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	// Worker milliseconds against the key's seconds
 	gate.calm = now - lastRushAt >= TRANSIENTS.scrollQuiet * 1000
 	gate.still = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
-	gate.readingKnown = reading.length > 0
+	gate.readingKnown = newestReading().length > 0
 	gate.narrow = narrowScreen
 	gate.sinceReveal = sinceReveal(now)
 	gate.scrollY = scrollY
@@ -618,6 +624,18 @@ function quietBlend(t: number): QuietBlend {
 	}
 }
 
+/** What stars on a wide screen keep clear of at the same moment as `blend`: its zones and reading copy, padded as quiet copy is. */
+function starBlend(blend: QuietBlend): QuietBlend {
+	const zones = (rects: readonly SkyRect[]) => screenReadingZones(rects, scrollY, height, QUIET.padding)
+	return { from: blend.level < 1 ? [...blend.from, ...zones(readingBefore)] : [], to: [...blend.to, ...zones(reading)], level: blend.level }
+}
+
+/** The reading copy stars on a narrow screen keep clear of at the same moment as `blend`, grown as READING says for this width. */
+function starReadingBlend(blend: QuietBlend): QuietBlend {
+	const zones = (rects: readonly SkyRect[]) => screenReadingZones(rects, scrollY, height, readingPadding(narrowScreen))
+	return { from: blend.level < 1 ? zones(readingBefore) : [], to: zones(reading), level: blend.level }
+}
+
 /**
  * Starts easing toward new rects: the ones on screen now become `from`, so a layout never changes the zones in one
  * frame. A layout that arrives mid-ease waits for it to end (the newest wins), because starting from the previous target
@@ -628,8 +646,10 @@ function quietBlend(t: number): QuietBlend {
 function applyLayout(message: LayoutMessage, now: number): void {
 	quietBefore = quiet
 	pinnedBefore = pinned
+	readingBefore = reading
 	quiet = message.quiet
 	pinned = message.pinned
+	reading = message.reading
 	layoutAt = now / 1000
 	pendingLayout = null
 }
@@ -637,7 +657,7 @@ function applyLayout(message: LayoutMessage, now: number): void {
 /**
  * Applies a waiting layout once the running ease is over, and asks for one more frame once the quiet ease has run out,
  * if the last one drawn still showed it part way. Fade frames come 1/FRAME.fadeFps s apart, so the ease ends between two
- * of them, and a worker about to sleep (reduced motion, reading) would keep the older state.
+ * of them, and a worker about to sleep (reduced motion, an idle visit) would keep the older state.
  */
 function settleQuiet(now: number): void {
 	const t = now / 1000
@@ -719,6 +739,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const density = densityKeep(width, height)
 	const thinLevel = fadeOutAt(thinnedAt, ADAPT.thinFade, t)
 	const landing = miami.frame(stepInput(now))
+	const quietZones = quietBlend(t)
 	return {
 		time: t,
 		twinkleTime: t - hiddenTotal,
@@ -736,8 +757,10 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
 		twinkle: twinkleLevel(scene),
 		haze: hazeLevel(scene) * hazeEmergence(dusk),
-		quiet: quietBlend(t),
+		quiet: quietZones,
 		reading: transients.active.length > 0 || bodyShowing(comet) ? landingZones(readingZones()) : [],
+		starQuiet: narrowScreen ? quietZones : starBlend(quietZones),
+		starReading: narrowScreen ? starReadingBlend(quietZones) : { from: [], to: [], level: 1 },
 		quietAhead: transients.active.length > 0 ? screenReadingZones(pendingLayout?.quiet ?? quiet, scrollY, height, SCROLL_LAG.reach) : [],
 		scrollY,
 		meteorInk: contrast.meteorInk * scene.inkShare,
@@ -1065,11 +1088,11 @@ scope.addEventListener('message', (event) => {
 		case 'layout': {
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
-			reading = message.reading
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
-			// near it fade instead of changing in one frame. A change mid-ease waits for the ease to end.
-			const latest = pendingLayout ?? { quiet, pinned }
-			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned)) {
+			// near it, reading copy included, fade instead of changing in one frame. A change mid-ease waits for the ease to
+			// end, while what flies and what plans answer to the newest reading copy at once (newestReading).
+			const latest = pendingLayout ?? { quiet, pinned, reading }
+			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
 				if (quietEasing(now / 1000)) pendingLayout = message
 				else applyLayout(message, now)
 			}

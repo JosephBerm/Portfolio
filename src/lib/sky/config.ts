@@ -272,21 +272,24 @@ export const QUIET_REACH = QUIET.padding + QUIET.feather
  * no sky that far from it, `narrowPadding`: QUIET.feather from the words, which is still more than a flight's light reaches
  * (METEOR_SHEATH.radius). Copy that scrolls or reflows under something in the sky takes its light over the same distance
  * (readingKept), and the comet's all at once by where its box is: none within that distance, all of it COMET.clearance px
- * past it (boxKept). Rects more than `margin` px off the screen are left out of the zones, so a page's worth of them costs
- * a plan and a frame nothing: it is QUIET_REACH and the 24 px past the screen where stars still draw, and 32 px to spare.
+ * past it (boxKept). Stars keep clear of it as of quiet copy, at QUIET's padding, except on narrow screens, where that
+ * would empty the sky behind the copy: there a star keeps none of its light on a line and all of it `narrowStarReach` px
+ * away, the brighter its layer the further. Rects more than `margin` px off the screen are left out of the zones, so a
+ * page's worth of them costs a plan and a frame nothing: it is QUIET_REACH and the 24 px past the screen where stars
+ * still draw, and 32 px to spare.
  */
-export const READING = { padding: QUIET.padding, narrowPadding: 0, margin: QUIET_REACH + 56 } as const
+export const READING = { padding: QUIET.padding, narrowPadding: 0, narrowStarReach: { far: 12, mid: 24, near: 36 }, margin: QUIET_REACH + 56 } as const
 
 /**
- * Scroll narrative: the full sky in the hero, a dimmer and calmer sky while reading (no twinkle, the drift at about a
- * third), and a bookend near the end of the page. Levels blend continuously with scroll, so the narrative needs no
- * clock of its own. Star levels are per layer: while reading the brighter layers dim most, so no star behind body copy
- * reads as punctuation. `haze` is the nebula's level (NEBULA); `drift` scales the drift clock's rate (DRIFT); `lean` scales
- * the pointer lean (LEAN), which every scene has in full.
+ * Scroll narrative: the full sky in the hero, a calmer one while reading (the drift a little over half as fast, a fainter
+ * nebula, the stars a little dimmer, all alike, so brighter still means nearer), and a bookend near the end of the page.
+ * Levels blend continuously with scroll, so the narrative needs no clock of its own. No star reads as punctuation behind
+ * reading copy: it keeps clear of it as of quiet copy (READING, LAYERS). `haze` is the nebula's level (NEBULA); `drift`
+ * scales the drift clock's rate (DRIFT); `lean` scales the pointer lean (LEAN), which every scene has in full.
  */
 export const SCENE = {
 	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1, drift: 1, lean: 1 },
-	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.24, twinkle: 0, drift: 0.35, lean: 1 },
+	reading: { stars: { far: 0.85, mid: 0.85, near: 0.85 }, haze: 0.24, twinkle: 0.8, drift: 0.6, lean: 1 },
 	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.3, twinkle: 0.8, drift: 0.8, lean: 1 },
 	/** Viewport heights scrolled where the hero starts and finishes giving way to reading. */
 	heroFadeFrom: 0.5,

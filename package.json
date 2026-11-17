@@ -8,7 +8,8 @@
 		"start": "next start",
 		"lint": "eslint .",
 		"type-check": "next typegen && tsc --noEmit",
-		"lint:fix": "eslint . --fix"
+		"lint:fix": "eslint . --fix",
+		"analyze": "next analyze --output"
 	},
 	"dependencies": {
 		"@googleapis/calendar": "^20.1.0",

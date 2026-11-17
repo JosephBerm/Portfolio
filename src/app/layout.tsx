@@ -18,12 +18,9 @@ export const metadata: Metadata = {
 	},
 	description:
 		'Joseph Bermudez built and owns the accounting platform 100+ car dealerships rely on, and founded VendorX, online ordering for distributors and wholesalers.',
-	// The home page's share card; child routes replace it via createPageMetadata
-	openGraph: {
-		...sharedOpenGraph,
-		url: '/',
-		description: 'Software engineer who built and owns the accounting platform 100+ car dealerships rely on. Founder of VendorX, online ordering for distributors and wholesalers.',
-	},
+	// Only what every route shares. A page that sets no `openGraph` (the 404) inherits this whole object, so a
+	// page's own og:url and share text live with that page: src/app/page.tsx and createPageMetadata
+	openGraph: sharedOpenGraph,
 }
 
 export default function RootLayout({

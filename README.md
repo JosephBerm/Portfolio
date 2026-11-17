@@ -36,6 +36,7 @@ Fill in the values in `.env.local` (see [Environment variables](#environment-var
 | `npm run lint` | Runs ESLint over the project. |
 | `npm run lint:fix` | Runs ESLint and applies automatic fixes. |
 | `npm run type-check` | Type-checks the project, including Next.js generated route types. |
+| `npm run analyze` | Writes a bundle analysis of every route to `.next/diagnostics/analyze` without starting a server or making a build. To browse it, run `npx next analyze`, which serves the analyzer. |
 
 ## Environment variables
 

@@ -182,6 +182,15 @@ export function drawStart(random: Random, area: FlightArea): Point {
 }
 
 /**
+ * A point drawn evenly from the part of `area` below METEOR.top, x and then y, where a point flash shows. Unlike a start,
+ * it never moves down to the top: a flight starts dark, but a point is all of a flash's light, so points moved there would
+ * gather in a row just under the navbar.
+ */
+export function drawPoint(random: Random, area: FlightArea): Point {
+	return { x: between(random, area.x0, area.x1), y: between(random, Math.max(METEOR.top, area.y0), area.y1) }
+}
+
+/**
  * Whether a point lies inside the screen's guards for where a transient's key points may fall: METEOR's edge margin in
  * from the left and right edges, below METEOR.top and not below the line `lowest` (CSS px). A flight's end, a flash, a
  * swarm's pieces and a satellite's fade keep to them.

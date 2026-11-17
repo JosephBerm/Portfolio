@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react'
 // By file, not '@/lib': also used on /links routes, which shouldn't pull in the barrel
-import { easing, duration, variants } from '@/lib/animations'
+import { deceleratingDelay, easing, duration, variants } from '@/lib/animations'
 
 type Easing = (typeof easing)[keyof typeof easing]
 
@@ -17,11 +17,6 @@ interface RevealItemProps {
 	ease?: Easing
 	/** When set, delays this item on a decelerating curve instead of the parent's uniform stagger. */
 	index?: number
-}
-
-/** base * (1 - e^(-k*i)): early items land close together, later ones spread out — a natural wave. */
-function deceleratingDelay(index: number, base = 0.6, k = 0.5): number {
-	return base * (1 - Math.exp(-k * index))
 }
 
 /**

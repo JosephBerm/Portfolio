@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Route } from 'next'
 import { siteConfig } from './site'
 
 /**
@@ -16,8 +16,8 @@ interface PageMetadataOptions {
 	/** Short title rendered by the root template ("<name> | <title>"), or `{ absolute }` to bypass it. */
 	title: string | { absolute: string }
 	description: string
-	/** Route path, e.g. '/links': drives both the canonical URL and og:url. */
-	path: string
+	/** Route path, e.g. '/links': drives both the canonical URL and og:url. Checked against the routes that exist. */
+	path: Route
 }
 
 /** Metadata for a child route, built on the shared Open Graph defaults. */

@@ -4,6 +4,7 @@
  * Note: resets on serverless cold starts, which is acceptable here.
  */
 
+import { isIP } from 'node:net'
 import { NextResponse } from 'next/server'
 import type { ApiError } from './scheduleApi'
 
@@ -14,6 +15,13 @@ import type { ApiError } from './scheduleApi'
 export const RATE_LIMIT_WINDOW_MS = 60_000
 
 const store = new Map<string, number[]>()
+
+/**
+ * Most keys the store holds at once. A flood of distinct keys (spoofed addresses on a host that doesn't overwrite
+ * the proxy headers, or a wide botnet) would otherwise grow it for a full window. Past the cap the oldest key goes
+ * first, so the flood costs the limiter its memory of old clients, not the server its own.
+ */
+const MAX_KEYS = 5_000
 
 /** Periodic cleanup interval to prevent unbounded memory growth. */
 const CLEANUP_INTERVAL_MS = 60_000
@@ -53,6 +61,12 @@ export function rateLimit(options: {
 		return { success: false }
 	}
 
+	// A Map keeps insertion order, so its first key is the oldest
+	if (!store.has(key) && store.size >= MAX_KEYS) {
+		const oldest = store.keys().next().value
+		if (oldest !== undefined) store.delete(oldest)
+	}
+
 	timestamps.push(now)
 	store.set(key, timestamps)
 
@@ -79,11 +93,13 @@ function toNetworkKey(ip: string): string {
 /**
  * Best-effort client identity for rate-limit keys: the client IP, with IPv6 reduced to its /64. The host's proxy
  * sets these headers (Vercel overwrites both); Next.js only fills `x-forwarded-for` when it's missing, so
- * self-hosting needs a proxy that overwrites them.
+ * self-hosting needs a proxy that overwrites them. Anything that isn't an IP address shares the one 'unknown'
+ * key, so where a client can write the header itself it can't store an arbitrary string as a key. Addresses it
+ * makes up still each get a key, which is what MAX_KEYS bounds.
  */
 export function getClientKey(headers: Headers): string {
-	const ip = headers.get('x-real-ip') ?? headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-	return toNetworkKey(ip)
+	const candidate = headers.get('x-real-ip') ?? headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+	return candidate && isIP(candidate) ? toNetworkKey(candidate) : 'unknown'
 }
 
 /** 429 shared by the /api/schedule/* handlers, with Retry-After in seconds. */

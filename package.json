@@ -8,14 +8,15 @@
 		"start": "next start",
 		"lint": "eslint .",
 		"type-check": "next typegen && tsc --noEmit",
-		"lint:fix": "eslint . --fix"
+		"lint:fix": "eslint . --fix",
+		"analyze": "next analyze --output"
 	},
 	"dependencies": {
 		"@googleapis/calendar": "^20.1.0",
 		"@react-email/components": "^1.0.11",
 		"clsx": "^2.1.1",
 		"motion": "^12.38.0",
-		"next": "16.4.2",
+		"next": "16.4.6",
 		"react": "19.3.1",
 		"react-dom": "19.3.1",
 		"resend": "^6.34.1",
@@ -29,8 +30,8 @@
 		"@types/react": "19.3.0",
 		"@types/react-dom": "19.3.0",
 		"babel-plugin-react-compiler": "^1.0.0",
-		"eslint": "^10.13.0",
-		"eslint-config-next": "16.4.2",
+		"eslint": "^10.15.0",
+		"eslint-config-next": "16.4.6",
 		"tailwindcss": "^4.2.4",
 		"typescript": "~6.0.3"
 	},

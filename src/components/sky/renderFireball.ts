@@ -2,8 +2,8 @@ import { colorAlong, mixRgb, rgba } from '@/lib/sky/color'
 import { CLEAR_SKY_KEEPS, FIREBALL, METEOR, METEOR_SPECTRA, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { brakedSpeed, fireballFlare, fireballHead, fireballKnot, fireballLight, fireballPoint, fragmentAt, type FireballShow } from '@/lib/sky/fireball'
 import { trainEnvelope, trainWidth, type Meteor, type Point } from '@/lib/sky/meteors'
-import type { Rgb } from '@/lib/sky/protocol'
-import { clearanceOf, quietClearance, readingKept, smoothstep, transientQuietFactor } from '@/lib/sky/scene'
+import type { Rgb, SkyRect } from '@/lib/sky/protocol'
+import { clearanceOf, quietClearance, smoothstep, transientQuietFactor } from '@/lib/sky/scene'
 import { drawRadial } from './renderRadial'
 import type { SkyAssets, SkyFrame } from './renderSky'
 
@@ -37,7 +37,7 @@ interface Moment {
 	kept: (x: number, y: number) => number
 	/** What the head keeps. */
 	headKept: number
-	/** How far from (x, y) a light may reach and stay out of every padded quiet rect and of reading copy (CSS px, quietClearance). */
+	/** How far from (x, y) a light may reach and stay out of every padded quiet rect, reading copy and `ahead` (CSS px). */
 	clearanceAt: (x: number, y: number) => number
 	/** The same at the head. */
 	clearance: number
@@ -270,14 +270,15 @@ function drawCore(moment: Moment): void {
 /**
  * A fireball at the frame's time, its light added to the sky: the train, the glare and aureole, the flame, the sparks, the
  * pieces of the burst and the core, in that order. Every part is read at its own place through transientQuietFactor with
- * CLEAR_SKY_KEEPS and through readingKept, a gradient's stops and a point's tail by the least of what they keep, and the
+ * CLEAR_SKY_KEEPS and through `fade`, a gradient's stops and a point's tail by the least of what they keep, and the
  * radial lights (the glare, the aureole, the core, the pieces' glows) end at the nearest padded quiet rect or reading copy's
- * zone, so none of it lands inside one, even when a layout or the scroll moves copy under it. Its colors are its spectrum's
- * (METEOR_SPECTRA) at full strength, and the center of the head and the hot spine are the theme's white. `fade` (0-1)
- * multiplies all of it, as for a shooting star. It is a drawer of its own: drawMeteor is built round the veil's budgets
- * (METEOR_VEIL), which a fireball never needs, since it flies in clear sky only.
+ * zone, so none of it lands inside one, even when a layout or a scroll moves copy under it, if the worker has heard of the
+ * move, and at `ahead`, zones of copy a scroll may be bringing onto them. Its colors are its spectrum's (METEOR_SPECTRA) at
+ * full strength, and the center of the head and the hot spine are the theme's white. `fade` (0-1) multiplies the light of
+ * each point of it, as for a shooting star, and answers for reading copy. It is a drawer of its own: drawMeteor is built
+ * round the veil's budgets (METEOR_VEIL), which a fireball never needs, since it flies in clear sky only.
  */
-export function drawFireball(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, show: FireballShow, frame: SkyFrame, fade: number): void {
+export function drawFireball(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, show: FireballShow, frame: SkyFrame, fade: (x: number, y: number) => number, ahead: readonly SkyRect[]): void {
 	const { dpr } = frame
 	const elapsed = frame.time - meteor.startedAt
 	const progress = Math.max(0, elapsed / meteor.duration)
@@ -285,8 +286,8 @@ export function drawFireball(ctx: OffscreenCanvasRenderingContext2D, assets: Sky
 	const point = fireballPoint(meteor, show.motion.brake, head)
 	const light = Math.min(FIREBALL.light.cap, fireballLight(progress, show))
 	const flare = fireballFlare(progress, show)
-	const kept = (x: number, y: number) => transientQuietFactor(frame.quiet, x, y, CLEAR_SKY_KEEPS) * fade * readingKept(frame.reading, x, y)
-	const clearanceAt = (x: number, y: number) => clearanceOf(frame.reading, x, y, quietClearance(frame.quiet, x, y))
+	const kept = (x: number, y: number) => transientQuietFactor(frame.quiet, x, y, CLEAR_SKY_KEEPS) * fade(x, y)
+	const clearanceAt = (x: number, y: number) => clearanceOf(ahead, x, y, clearanceOf(frame.reading, x, y, quietClearance(frame.quiet, x, y)))
 	const moment: Moment = {
 		ctx,
 		white: assets.tokens.white,

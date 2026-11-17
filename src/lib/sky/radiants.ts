@@ -7,7 +7,7 @@
  */
 
 import { METEOR, METEOR_BRIGHTNESS, NARROW_MAX_WIDTH, RADIANTS, SKY_WINDOW, SPEED_CLASSES, type SpectrumName, type SpectrumOdds, type SpeedClassName } from './config'
-import { startArea, type Course, type MeteorField, type Point, type Steer } from './meteors'
+import { flightArea, type Course, type MeteorField, type Point, type Steer } from './meteors'
 import { between, drawByShare, gaussian, type Random } from './random'
 import { quietAt } from './scene'
 
@@ -58,7 +58,7 @@ export interface Source {
 	speed: SpeedClassName
 }
 
-/** A visit's sky: the window, the shower and the sporadic sources; picked afresh after a resize or a failed launch allowed near copy, never by a layout. */
+/** A visit's sky: the window, the shower and the sporadic sources; picked afresh after a resize, never by a layout. */
 export interface VisitSky {
 	window: SkyWindow
 	shower: Source
@@ -183,7 +183,7 @@ function projectsOnScreen(view: SkyWindow, radiant: SkyDirection, field: MeteorF
  * climbing, and a shower may not climb.
  */
 function usable(view: SkyWindow, radiant: SkyDirection, field: MeteorField): boolean {
-	const { x0, x1, y0, y1 } = startArea(field)
+	const { x0, x1, y0, y1 } = flightArea(field, 0)
 	let fits = 0
 	for (let i = 0; i < PROBES_PER_SIDE; i++) {
 		for (let j = 0; j < PROBES_PER_SIDE; j++) {
@@ -243,6 +243,19 @@ export function pickVisitSky(random: Random, field: MeteorField): VisitSky {
 	return buildVisitSky(random, view, radiant, null)
 }
 
+/** A sporadic source of the visit's sky, any one as likely as another (the shower when there is none): where a flight that isn't the shower's comes from. */
+function sporadicSource(random: Random, sky: VisitSky): Source {
+	return sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower
+}
+
+/**
+ * The spectrum of a sporadic meteor of the visit's sky, drawn as a steer draws a sporadic flight's: from the odds of the
+ * speed class of a sporadic source picked as visitSteer picks one.
+ */
+export function sporadicSpectrum(random: Random, sky: VisitSky): SpectrumName {
+	return drawSpectrum(random, SPEED_CLASSES[sporadicSource(random, sky).speed].spectra)
+}
+
 /** What a steer is asked for beyond a visit's usual mix of sources and brightness. Each field from `radiant` on replaces what the steer would have drawn. */
 export interface SteerOptions {
 	/** Every flight comes from the shower, not only RADIANTS.showerShare of them, and takes the shower's spectrum, not only RADIANTS.showerKeeps of them. */
@@ -269,7 +282,7 @@ export interface SteerOptions {
  */
 export function visitSteer(random: Random, sky: VisitSky, options: SteerOptions = {}): Steer {
 	const view = sky.window
-	const source = options.shower || random() < RADIANTS.showerShare ? sky.shower : (sky.sporadic[Math.floor(random() * sky.sporadic.length)] ?? sky.shower)
+	const source = options.shower || random() < RADIANTS.showerShare ? sky.shower : sporadicSource(random, sky)
 	const radiant = options.radiant ?? scattered(random, source.radiant, source.scatter)
 	const speedName = options.speed ?? source.speed
 	const speedClass = SPEED_CLASSES[speedName]

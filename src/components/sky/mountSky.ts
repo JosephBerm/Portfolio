@@ -52,10 +52,11 @@ const ACTIVITY_EVENTS = ['pointermove', 'pointerdown', 'keydown', 'focusin'] as 
 const LEAN_POINTER_QUERY = '(hover: hover) and (pointer: fine)'
 
 /**
- * Copy the sky stays quiet behind: no bright stars beside it, and a shooting star behind it dims to what the copy can
- * take. The hero, Contact, the footer and the side rails opt in with data-sky-quiet. Copy in fixed elements (the rails)
- * stays put on screen, so its rects travel in screen coordinates. The copy and its ancestors keep the preconditions of
- * copyReader: no static transform translation and no opacity below 1 at rest.
+ * Copy the sky stays quiet behind: no bright stars beside it, and a shooting star behind the hero, Contact or the footer
+ * dims to what the copy can take, while no sky event lights the side rails. The hero, Contact, the footer and the side
+ * rails opt in with data-sky-quiet. Copy in fixed elements (the rails) stays put on screen, so its rects travel in screen
+ * coordinates. The copy and its ancestors keep the preconditions of copyReader: no static transform translation and no
+ * opacity below 1 at rest.
  */
 const QUIET_SELECTOR = '[data-sky-quiet]'
 
@@ -66,9 +67,10 @@ const QUIET_SELECTOR = '[data-sky-quiet]'
 const LANDING_SELECTOR = '[data-sky-landing]'
 
 /**
- * Reading copy: the rest of the page's flow, which nothing in the sky comes near or lights. Every section counts without
- * opting in, so new copy is covered by default. Its rects steer the sky and carry no budget. Like quiet copy it keeps
- * copyReader's first precondition, no static transform translation; a section the selector stops matching falls out of it.
+ * Reading copy: the rest of the page's flow, which nothing in the sky comes near or lights at rest. Every section counts
+ * without opting in, so new copy is covered by default. Its rects steer the sky and carry no budget. Like quiet copy it
+ * keeps copyReader's first precondition, no static transform translation; a section the selector stops matching falls
+ * out of it.
  */
 const READING_SELECTOR = 'main > :not([data-sky-quiet])'
 

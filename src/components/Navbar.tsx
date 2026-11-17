@@ -107,6 +107,8 @@ export default function Navbar() {
 						href="/"
 						aria-label="Home"
 						className="w-[40px] block"
+						// This link is on the page it points to and never navigates, so a prefetch of '/' would be wasted
+						prefetch={false}
 						onNavigate={(e) => {
 							// Navbar only renders on '/', so a navigation would be a no-op: return to the top instead
 							e.preventDefault()

@@ -61,8 +61,9 @@ export const MIN_STAR_ALPHA = 0.004
  * magnitude `reference`, the near band's mean. Identical lamps would give q = 10^(-0.2 (m - reference)), the
  * inverse-square law; `compression` keeps about 70% of that depth range, as STAR_ALPHA keeps a 400:1 flux range as 5:1,
  * so the faintest stars still move (q 0.24) and the brightest never race (at most `maxNearness`, from magnitude 0.11
- * up). The bands' mean shares of the scroll come out at 0.0205, 0.0350 and 0.0717 (far, mid, near), within 12.5% of the
- * reviewed 0.02, 0.04 and 0.07. No random draw depends on it, so retuning it never moves a star while the camera rests.
+ * up). The bands' mean nearness comes out at 0.293, 0.501 and 1.02 (far, mid, near), so each band's share of the
+ * scroll is that times `scrollParallax` (CAMERA). No random draw depends on it, so retuning it never moves a star
+ * while the camera rests.
  */
 export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as const
 
@@ -70,17 +71,18 @@ export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as
  * The one camera the sky is seen through, in CSS px for a star of nearness 1: every star appears at its place on the
  * sky minus its nearness (DEPTH) times the camera, whatever moves it (the scroll, the drift, a pointer lean), so nearer
  * stars always move more and the depth cues never disagree. Scrolling moves the camera `scrollParallax` of the scroll,
- * the near band's reviewed parallax, through a critically damped spring of `scrollOmega` rad/s: when the page stops,
- * the stars glide on and settle (95% in 0.47 s, 99% in 0.66 s, never overshooting after a scroll that moves one way;
- * Motion's spring with bounce 0 and visualDuration 0.52 s). Scrolling at 1000 px/s, the near stars trail by about 14
- * px. The spring never trails the scroll by more than `maxLag` viewport heights, held there as a spring trailing
- * steadily at that distance, so a fling or a smooth-scrolled jump (the navbar's section links, and Home and End in most
- * desktop browsers) leaves the brightest stars at most about 25 px to glide on a 900 px screen. A jump of more than
+ * enough that about half of the stars at the foot of the page were off screen at its top on common screens, with the
+ * brightest still at a third of the copy's speed, through a critically damped spring of `scrollOmega` rad/s: when the page
+ * stops, the stars glide on and settle (95% in 0.34 s, 99% in 0.47 s, never overshooting after a scroll that moves one way;
+ * Motion's spring with bounce 0 and visualDuration 0.37 s). Scrolling at 1000 px/s, the near stars trail by about 30 px.
+ * The spring never trails the scroll by more than `maxLag` viewport heights, held there as a spring trailing steadily at
+ * that distance, so a fling or a smooth-scrolled jump (the navbar's section links, and Home and End in most desktop
+ * browsers) leaves the brightest stars at most about 54 px to glide on a 900 px screen. A jump of more than
  * `snapViewports` viewport heights in one step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always
  * snaps, which follows the scroll exactly. A spring with less than `restPx` CSS px of motion left (at nearness 1)
  * settles on its target and stops asking for frames.
  */
-export const CAMERA = { scrollParallax: 0.07, scrollOmega: 10, maxLag: 0.25, snapViewports: 1, restPx: 0.01 } as const
+export const CAMERA = { scrollParallax: 0.21, scrollOmega: 14, maxLag: 0.18, snapViewports: 1, restPx: 0.01 } as const
 
 /** One circle of the drift. */
 interface Epicycle {
@@ -266,26 +268,30 @@ export const QUIET = { padding: 32, feather: 40, ease: 0.6 } as const
 export const QUIET_REACH = QUIET.padding + QUIET.feather
 
 /**
- * Reading copy: everything in the page's flow that isn't quiet copy. The sky plans around it and never lights it, so it
+ * Reading copy: everything in the page's flow that isn't quiet copy. The sky plans around it and never lights it at rest, so it
  * has no budget and no veil. Nothing flies within QUIET.feather of a rect grown by `padding` px on every side: QUIET_REACH
  * from the words, as clear-sky flights keep from quiet copy, or on narrow screens, whose copy fills the width and leaves
  * no sky that far from it, `narrowPadding`: QUIET.feather from the words, which is still more than a flight's light reaches
  * (METEOR_SHEATH.radius). Copy that scrolls or reflows under something in the sky takes its light over the same distance
- * (readingKept). Rects more than `margin` px off the screen are left out of the zones, so a page's worth of them costs a
- * plan and a frame nothing: it is QUIET_REACH and the 24 px past the screen where stars still draw, and 32 px to spare.
+ * (readingKept), and the comet's all at once by where its box is: none within that distance, all of it COMET.clearance px
+ * past it (boxKept). Stars keep clear of it as of quiet copy, at QUIET's padding, except on narrow screens, where that
+ * would empty the sky behind the copy: there a star keeps none of its light on a line and all of it `narrowStarReach` px
+ * away, the brighter its layer the further. Rects more than `margin` px off the screen are left out of the zones, so a
+ * page's worth of them costs a plan and a frame nothing: it is QUIET_REACH and the 24 px past the screen where stars
+ * still draw, and 32 px to spare.
  */
-export const READING = { padding: QUIET.padding, narrowPadding: 0, margin: QUIET_REACH + 56 } as const
+export const READING = { padding: QUIET.padding, narrowPadding: 0, narrowStarReach: { far: 12, mid: 24, near: 36 }, margin: QUIET_REACH + 56 } as const
 
 /**
- * Scroll narrative: the full sky in the hero, a dimmer and calmer sky while reading (no twinkle, the drift at about a
- * third), and a bookend near the end of the page. Levels blend continuously with scroll, so the narrative needs no
- * clock of its own. Star levels are per layer: while reading the brighter layers dim most, so no star behind body copy
- * reads as punctuation. `haze` is the nebula's level (NEBULA); `drift` scales the drift clock's rate (DRIFT); `lean` scales
- * the pointer lean (LEAN), which every scene has in full.
+ * Scroll narrative: the full sky in the hero, a calmer one while reading (the drift a little over half as fast, a fainter
+ * nebula, the stars a little dimmer, all alike, so brighter still means nearer), and a bookend near the end of the page.
+ * Levels blend continuously with scroll, so the narrative needs no clock of its own. No star reads as punctuation behind
+ * reading copy: it keeps clear of it as of quiet copy (READING, LAYERS). `haze` is the nebula's level (NEBULA); `drift`
+ * scales the drift clock's rate (DRIFT); `lean` scales the pointer lean (LEAN), which every scene has in full.
  */
 export const SCENE = {
 	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1, drift: 1, lean: 1 },
-	reading: { stars: { far: 0.6, mid: 0.4, near: 0.3 }, haze: 0.24, twinkle: 0, drift: 0.35, lean: 1 },
+	reading: { stars: { far: 0.85, mid: 0.85, near: 0.85 }, haze: 0.24, twinkle: 0.8, drift: 0.6, lean: 1 },
 	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.3, twinkle: 0.8, drift: 0.8, lean: 1 },
 	/** Viewport heights scrolled where the hero starts and finishes giving way to reading. */
 	heroFadeFrom: 0.5,
@@ -299,10 +305,14 @@ export const SCENE = {
 	/** Viewport heights left to scroll where the end bookend starts and is complete. */
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
-	/** Shooting stars and satellites launch over the hero only while no more than this many viewport heights are scrolled. */
-	heroLaunchMaxScroll: 0.4,
-	/** Farewell meteors launch at the end bookend once its level (0 to 1) reaches this. */
-	endLaunchLevel: 0.9,
+	/**
+	 * More stars come out as the page goes on: the catalog's reserve, the stars wide screens thin out at the top of the page
+	 * (densityKeep), none moved. It starts and finishes coming out at these shares of the page scrolled, never over the hero,
+	 * and a star of it fades in over `reserveFade` of the thinning key. Phones and screens at MAX_STARS have no reserve.
+	 */
+	reserveFrom: 0,
+	reserveTo: 0.4,
+	reserveFade: 0.03,
 } as const
 
 /**
@@ -652,41 +662,51 @@ export const PACING = {
 
 /**
  * Adaptive quality: after `slowFrames` more slow frames (JS over `slowFrameMs`) than fast ones, draw `thinning` of the
- * stars, twinkle slower and cap the drift and the pointer lean at PACING.slowMaxFps; the stars step 1 thins out fade
- * over `thinFade` seconds, since a moving sky that lost a fifth of its stars in one frame would read as a glitch. A
- * second step drops to CSS resolution. A software-rasterized canvas, whose cost lands after the draw calls return where
- * frame timing can't see it, is found at start-up instead: one full frame rasterized off screen in more than
- * `rasterMsPerMp` per device megapixel (and more than `rasterMinMs`) starts at the second step.
+ * stars drawn at the top of the page (none of the catalog's reserve), twinkle slower and cap the drift and the pointer
+ * lean at PACING.slowMaxFps; the stars step 1 thins out fade over `thinFade` seconds, since a moving sky that lost a
+ * fifth or more of its stars in one frame would read as a glitch. A second step drops to CSS resolution. A
+ * software-rasterized canvas, whose cost lands after the draw calls return where frame timing can't see it, is found at
+ * start-up instead: one full frame rasterized off screen in more than `rasterMsPerMp` per device megapixel (and more
+ * than `rasterMinMs`) starts at the second step.
  */
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
- * Every short-lived sky event (shooting stars, satellites): at most `maxLife` seconds from first light to last, wake, train
- * and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least `minOnsetGap` seconds apart, since a motion onset
- * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
- * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
- * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
+ * Every short-lived sky event (shooting stars, satellites), wherever the page is scrolled once its reading copy is
+ * known (until then only within `launchReach` viewport heights of the top), except at the foot of the page, where
+ * nothing launches with the landing scene on (DESCENT.eventStop): at most `maxLife`
+ * seconds from first light to last, wake, train and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least
+ * `minOnsetGap` seconds apart, since a motion onset draws the eye; one of each kind at a time; on narrow screens at
+ * most `narrowLimit` per visit, more than a visitor who reads the whole page meets. Only one transient at a time may
+ * plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the haze),
+ * and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
  * crossings stay rare: the cooldown is set to the shortest multiple of 5 s that keeps the crossings a minute over a
  * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout,
  * measured with the kinds of shooting star that fly in clear sky at their odds (each flies in place of an ordinary launch,
  * so fewer launches cross the copy) and without satellites, which only make crossings fewer, so it holds whether or not
- * they fly. A pause fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as
- * the page scrolls from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds; after `maxFailedPlans`
- * in a row the kind waits for a new layout. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet`
- * seconds after scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
+ * they fly. A pause fades every transient out over `cancelFade` seconds; one that holds the ink lease or leaves a shooting
+ * star's train also goes as the page scrolls from its launch (SCROLL_CANCEL), and every other answers only to what comes
+ * under it. A plan that finds no room waits `retry` seconds, and never stops trying, since the room moves with the
+ * scroll. A held launch looks again after `recheck` seconds. A launch waits `scrollQuiet` seconds after the last scroll step
+ * of more than `calmStep` px (2,400 px/s at 60 Hz, past a wheel notch's peak, so only a fling or a jump holds one back, and a
+ * visitor who keeps scrolling still sees events), and one that may pass near quiet copy after the last step of any size; one
+ * the scroll held draws a fresh wait of `afterScroll` seconds, so launches don't bunch where scrolling stops; after a return
+ * (tab, idle, full motion) nothing launches for `afterReturn` seconds.
  * From `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
  * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
  */
 export const TRANSIENTS = {
+	launchReach: 0.4,
 	maxLife: 5,
 	minOnsetGap: 3,
-	narrowLimit: 6,
+	narrowLimit: 30,
 	crossingCooldown: 30,
 	cancelFade: 0.2,
 	retry: [5, 9],
-	maxFailedPlans: 3,
 	recheck: 1,
 	scrollQuiet: 1.2,
+	calmStep: 40,
+	afterScroll: [1.5, 5],
 	afterReturn: 3,
 	longVisit: { from: 120, scale: 240, max: 3 },
 } as const
@@ -713,9 +733,10 @@ export const SKY_WINDOW = { fov: 60, elevation: 40, meteorHeightKm: 100, earthRa
  * within `nearRadiant` degrees of it a shower path may be as short as `nearRadiantPath` px, since meteors there are short
  * and slow. A stream shares a parent body and a speed, so its meteors look alike: a shower flight takes the visit's
  * shower spectrum (VisitSky.showerSpectrum) with odds `showerKeeps` and otherwise draws its spectrum from its speed
- * class like any other flight, which stands for the spread inside one stream; a point flash always takes it. A burst is
- * one broken-up body, so all its pieces share one spectrum: the shower's when the swarm flies the shower's radiant, else
- * one drawn from the odds of the speed class the swarm flies at (METEOR_KINDS.burst).
+ * class like any other flight, which stands for the spread inside one stream; a point flash near the shower radiant
+ * always takes it, and one away from it is a sporadic meteor and draws its spectrum as a sporadic flight does. A burst
+ * is one broken-up body, so all its pieces share one spectrum: the shower's when the swarm flies the shower's radiant,
+ * else one drawn from the odds of the speed class the swarm flies at (METEOR_KINDS.burst).
  */
 export const RADIANTS = {
 	showerShare: 0.4,
@@ -800,19 +821,19 @@ export interface GapLaw {
 /**
  * How often shooting stars launch. A dark rural site sees 1 to 3 sporadic meteors an hour in the evening and 4 to 10
  * before dawn (AMS), and a screen-sized window holds about 29% of an observer's field (IMO): a real window shows one
- * every 25 to 100 minutes, or one every 2 to 4 at a Perseid or Geminid peak. The hero runs about 120 times a dawn sky's
+ * every 25 to 100 minutes, or one every 2 to 4 at a Perseid or Geminid peak. This sky runs about 120 times a dawn sky's
  * rate (500 times an evening's, 10 to 20 times a shower peak's), a time-lapse of a strong shower night: gaps after each
- * flight follow `hero` (floor 4 s plus an exponential 8 s, at most 30 s: 11.7 s on average, about 4.7 a minute) or
+ * flight follow `wide` (floor 4 s plus an exponential 8 s, at most 30 s: 11.7 s on average, about 4.7 a minute) or
  * `narrow` on phones (21 s on average), stretched on long visits (TRANSIENTS.longVisit).
  */
 export const METEOR_RATE = {
-	hero: { floor: 4, mean: 8, cap: 30 },
+	wide: { floor: 4, mean: 8, cap: 30 },
 	narrow: { floor: 8, mean: 14, cap: 45 },
 } as const satisfies Record<string, GapLaw>
 
 /**
  * Brightness: real counts are dominated by faint meteors (each brighter magnitude has 1/r as many, r about 2.2 to 2.6);
- * the hero keeps only `faintShare` of ordinary flights faint, peaking within `faint`, so most stay easy to see, and the
+ * this sky keeps only `faintShare` of ordinary flights faint, peaking within `faint`, so most stay easy to see, and the
  * rest peak within `normal`. Lower in the window a meteor is farther away and dims by the square of its distance over the
  * distance at the top of the spawn area (so none ever brightens past `normal`), never below `rangeFloor` of its peak. On
  * average they peak at about 0.5, about 1 in 8 under 0.3; raise `normal` and `rangeFloor` if they read too faint: the
@@ -824,10 +845,15 @@ export const METEOR_BRIGHTNESS = { faintShare: 0.3, faint: [0.3, 0.5], normal: [
  * Kinds of shooting star apart from the ordinary: odds per launch (`chance`), least seconds between two of a kind
  * (`spacing`: a number, or a range drawn afresh after each one) and the earliest second after the reveal (`after`). A kind
  * is open to a launch on wide screens only, once `after` has passed and its spacing has run out. A launch draws one number
- * and gives it to the first open kind, in the order listed here, whose slice of the odds it falls in, so each kind's share
- * of the launches is its own `chance`; where that kind finds no path, an ordinary shooting star flies instead. They are
- * listed by their odds, the highest first: fireballs, flashes, bursts, earthgrazers; the odds add up to less than 1, so
- * the order changes no kind's share.
+ * and gives it to the first open kind, in the order listed here, whose slice of the odds it falls in, so a kind takes its
+ * own `chance` of the launches it is open to; `after` and its spacing close it to about half of all launches or more, so
+ * its share of all launches is well under its `chance`. Where that kind finds no path, an ordinary shooting star flies
+ * instead, and a later launch may roll it again. The odds add up to 1, so the order changes no kind's share, and each kind
+ * flies in place of an ordinary launch, so they add no launches to what METEOR_RATE sets. Bursts, earthgrazers and point
+ * flashes are far rarer in the real sky; this sky shows them often enough for a visit to see them. At 1440x900, over a
+ * visit's first 5 minutes (the foot of the page included, where nothing launches with the landing scene on), a burst
+ * comes about every 4 minutes, a point flash about every 5 and an earthgrazer about every 6, and a stay of 3 minutes
+ * shows a burst on about 4 visits in 5, a point flash on about 3 in 4 and an earthgrazer on about 2 in 3.
  */
 export const METEOR_KINDS = {
 	/**
@@ -842,12 +868,13 @@ export const METEOR_KINDS = {
 	 */
 	fireball: { chance: 0.55, spacing: [50, 85], after: 20, duration: { slow: [2.4, 2.9], medium: [2, 2.6], fast: [1.5, 2] } },
 	/**
-	 * Point flashes: a meteor coming straight at the viewer shows as a point at the shower radiant, with no length and no
-	 * movement, that brightens and fades in `duration` s at a `peak` of at most 0.7. They need the radiant on screen (on
-	 * RADIANTS.onScreen of wide-screen visits) and fly within `radius` degrees of it, in clear sky, and never take the
-	 * ink lease.
+	 * Point flashes: a meteor coming straight at the viewer shows as a point, with no length and no movement, that
+	 * brightens and fades in `duration` s at a `peak` of at most 0.7. While the shower radiant is on screen (on
+	 * RADIANTS.onScreen of wide-screen visits) they fly within `radius` degrees of it where that sky is clear; anywhere else
+	 * a point flash is a sporadic meteor, whose radiant can lie anywhere, and flies where a flight may start. They stay in
+	 * clear sky and never take the ink lease.
 	 */
-	flash: { chance: 0.2, spacing: 60, after: 30, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
+	flash: { chance: 0.11, spacing: 150, after: 25, duration: [0.3, 0.5], peak: [0.45, 0.7], radius: 1 },
 	/**
 	 * Bursts: a meteor cluster, the pieces of one meteoroid that broke up in space days before it reached Earth. They arrive
 	 * as a swarm on parallel lines at one speed, so every piece shares one radiant and their paths fan out on screen from
@@ -879,9 +906,9 @@ export const METEOR_KINDS = {
 	 * burst never takes the ink lease, and none has a flare.
 	 */
 	burst: {
-		chance: 0.05,
+		chance: 0.19,
 		spacing: 90,
-		after: 45,
+		after: 40,
 		members: [6, 10],
 		least: 4,
 		across: [8, 13],
@@ -908,9 +935,11 @@ export const METEOR_KINDS = {
 	 * wake METEOR.grazerWake (about 4 s in all), across at least `widthShare` of the screen's width: about 20° of the window,
 	 * since 4 to 6°/s for 2.5 to 3.5 s spans 21° at most, so a larger share could never fit. It flies in clear sky, so it
 	 * never takes the ink lease, and is skipped silently where no band of clear sky is long enough. Screens narrower than
-	 * `minWidth` px have none.
+	 * `minWidth` px have none: there `widthShare` of the width is too short a path to read as a long, nearly level
+	 * crossing, and an earthgrazer would pass for a slow ordinary shooting star. The width is the canvas's, which spans the
+	 * whole window, a classic scrollbar's strip included.
 	 */
-	grazer: { chance: 0.025, spacing: 180, after: 60, minWidth: 1280, widthShare: 0.3, tilt: 12, angular: [4, 6], duration: [2.5, 3.5] },
+	grazer: { chance: 0.15, spacing: 180, after: 45, minWidth: 1200, widthShare: 0.3, tilt: 12, angular: [4, 6], duration: [2.5, 3.5] },
 } as const
 
 /**
@@ -933,6 +962,12 @@ export const METEOR = {
 	spawnY: [0, 0.5],
 	/** Paths end above this share of the height, clear of the bottom corners; planMeteor's `clearOf` keeps them off the side rails' copy. */
 	maxEndY: 0.72,
+	/**
+	 * The start area and the line paths end above past the hero (flightArea), as viewport fractions: copy there is centered,
+	 * so flights start on either side, and may end lower, where `clearOf` keeps them off the rails. A phone's URL bar can
+	 * cover the bottom of the sky, so it ends higher.
+	 */
+	open: { spawnX: [0.015, 0.985], spawnY: [0, 0.8], maxEndY: 0.92, narrowMaxEndY: 0.85 },
 	/** Clearance below the top edge (under the 100px navbar) and inside the screen edges. */
 	top: 110,
 	edgeMargin: 12,
@@ -947,9 +982,7 @@ export const METEOR = {
 	 * `pathShare` of the longer viewport side. A path is a speed times a flight time, and a small window's speeds are slow
 	 * (SKY_WINDOW), so the shortest is what such a window can still reach in SPEED_CLASSES' durations. At 135 px the planner
 	 * finds a path for 73% of its launch attempts on a 740 x 360 phone held sideways and 99% on 1024 x 768; at 160 px, 31%
-	 * and 97%. Three plans in a row that find no room stop the shooting stars until the next layout
-	 * (TRANSIENTS.maxFailedPlans), which with the page held still 160 px does within two minutes on 6 visits in 10 on that
-	 * phone and 135 px on 1 in 20.
+	 * and 97%.
 	 */
 	path: [135, 640],
 	pathShare: 0.36,
@@ -970,16 +1003,6 @@ export const METEOR = {
 	/** A faint persistent train behind some fast flights (SPEED_CLASSES' `train`); a fireball's odds are its tier's (FIREBALL_TIERS). */
 	trainChance: 0.15,
 } as const
-
-/**
- * Farewell meteors: up to `limit` shooting stars a visit around Contact and the footer, once the end bookend is complete
- * enough (SCENE.endLaunchLevel), on their own clock: the first attempt `gap` after the reveal and the next after each
- * flight (GapLaw, stretched on long visits: floor 8 s plus an exponential 14 s, at most 45 s, so 21 s on average). They
- * fly only in the sky below the top of the highest quiet copy of the page's flow that is on screen, and may glide on
- * behind Contact and the footer like any shooting star (METEOR_VEIL). On a screen that leaves no room for a path there
- * (it must end above METEOR.maxEndY), a launch holds until the page scrolls to one that does.
- */
-export const FAREWELL = { gap: { floor: 8, mean: 14, cap: 45 }, limit: 2 } as const
 
 /**
  * Satellites: steady points lit by a Sun below the horizon (no twinkle, no wake, never blinking), gliding in a straight
@@ -1029,12 +1052,12 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
 
 /**
  * The comet, the sky's one long-lived body, drawn as a bright comet looks in a photograph: a star-like head in a soft
- * glow, one fan-shaped dust tail and a fainter, straight ion tail. It hangs in the upper right of the hero as far away
- * as the faint majority of stars, so the camera moves it as it moves them (DEPTH). It is pictured to scale with the
- * sky window (SKY_WINDOW): its lengths are degrees of it, and the ion tail lies `angle` degrees clockwise from the
- * right (up is -90), pointing away from the Sun, with the dust tail bending away from it. All of it is light added over
- * the sky, `tint` picks a star palette color for a part, and at the head the parts add to about 0.6 of white (0.55 for
- * the smallest size at 1366 px wide to 0.62 at 3840), under the brightest stars' 0.78.
+ * glow, one fan-shaped dust tail and a fainter, straight ion tail. It hangs as far away as the faint majority of stars,
+ * so the camera moves it as it moves them (DEPTH). It is pictured to scale with the sky window (SKY_WINDOW): its
+ * lengths are degrees of it, and the ion tail lies `angle` degrees clockwise from the right (up is -90), pointing away
+ * from the Sun, with the dust tail bending away from it. All of it is light added over the sky, `tint` picks a star
+ * palette color for a part, and at the head the parts add to about 0.6 of white (0.55 for the smallest size at 1366 px
+ * wide to 0.62 at 3840), under the brightest stars' 0.78.
  *
  * The head is a star sprite (`nucleus`: its alpha, `tint` and star `shape`) in the coma. The coma's light falls as 1/ρ
  * from a core `core` wide, up to `peak`, and is cut off smoothly at `radius`, over a broad `halo` (its own peak and
@@ -1071,7 +1094,7 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * they stop whenever the drift does (the pause, reduced motion, idle, a hidden tab), ask for no frame of their own and
  * never jump, which is how this motion over more than 5 s answers WCAG 2.2.2, as the drift does. A pause, or reduced
  * motion turned on in mid-visit, holds it lit and still where it is: a fade-in it interrupts stands at the light it
- * had, and Play goes on from there with no jump. Its tails keep their direction, and it is gone once its whole box has
+ * had, and Play goes on from there with no jump. Its tails keep their direction, and it leaves once its whole box has
  * left the screen, gliding off the right edge.
  *
  * It is drawn on `chance` of wide-screen visits, from `firstDelay` seconds after the reveal (the hero's entrance, the
@@ -1079,32 +1102,32 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of `step` px whose path stays
  * clear. The path is known when it starts, since the camera's drift and its own are functions of the drift clock, so its
  * box is swept along it for `life[0]` seconds of drift clock, grown by `clearance` px and by the pointer's lean (its
- * reach either way times the comet's nearness), and must keep clear of every quiet zone's reach, below the navbar
- * (METEOR.top) and above About's header row, copy the zones know nothing of, with its head inside the screen
- * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how it leaves. It takes the
- * first of `sizes` (shares of its full size) whose path stays clear that long and, only where none does, the first that
- * stays clear for `life[1]` seconds; a window with no such place has no comet. About's header row lies below the hero by
- * the offset of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding plus
- * .section-header's 10 px top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when the
- * page has scrolled as far as a comet can still show. Where no place fits it looks again after `retry` seconds, from a
- * new drift clock and so along a new path. It is gone for the page view when the page scrolls from where it began to
- * show (SCROLL_CANCEL), when the sky is resized, or when copy comes within reach of its box, held or not.
+ * reach either way times the comet's nearness), and must keep clear of the reach of all copy and lie on screen, below the
+ * navbar (METEOR.top) and over its foot, with its head inside the sides (METEOR.edgeMargin). The box may overflow the right
+ * edge, where no copy lies, which is how it leaves. It takes the first of `sizes` (shares of its full size) whose path
+ * stays clear that long and, only where none does, the first that stays clear for `life[1]` seconds. Where no place fits
+ * it looks again after `retry` seconds, from a new drift clock and so along a new path. It stays through scrolling, as
+ * anything on the sky does, and copy nearing its box dims all of it by where that copy is, from `clearance` px past a zone's
+ * reach to none at the reach, so one bitmap puts nothing on a line at any speed once the worker has heard of the scroll
+ * (SCROLL_LAG). The landing scene's band does the same. It leaves when copy or the band comes within reach, held or not,
+ * when the sky is resized or when it has glided off the right edge, and comes back `again` seconds later, at the then
+ * nearest place to `anchor`, and under a pause only after Play.
+ *
+ * As the sunset comes up at the foot of the page it washes out with the stars, over their dusk (DESCENT.starMix), and on to
+ * none, while they keep a share of their light (DESCENT.stars): a comet is diffuse light, which a brightening sky drowns
+ * sooner than a point. None starts once the descent reaches DESCENT.eventStop, as no launch does.
  */
 export const COMET = {
 	chance: 0.11,
 	firstDelay: 8,
 	retry: 5,
+	again: 60,
 	fadeIn: 10,
 	anchor: [0.78, 0.42],
 	sizes: [1, 0.85, 0.7],
 	life: [90, 60],
 	clearance: 24,
 	step: 8,
-	aboutRow: [
-		[0, 70],
-		[768, 90],
-		[1024, 110],
-	],
 	angle: -70,
 	drift: { speed: 0.062, heading: 8 },
 	nucleus: { alpha: 0.28, tint: 4, shape: 5 },
@@ -1187,11 +1210,26 @@ export const METEOR_VEIL = { quietKeep: 0.3, clearUntil: 0.47, rise: 0.01, sampl
 export const METEOR_PASS = { share: 0.4, visible: 0.12, dwell: 0.1, glimmer: 0.041 } as const
 
 /**
- * A moving transient launched with the page at one scroll offset is dimmed once the page has scrolled `from` px from
- * there and gone at `to` px: the copy under it is no longer the copy it was planned around (the veil knows only quiet
- * copy). Position-driven, so even a jump of a screen takes it away at once (see scrollKept).
+ * A transient that holds the ink lease or leaves a shooting star's train, launched with the page at one scroll offset, is
+ * dimmed once the page has scrolled `from` px from there and gone at `to` px: the copy under it is no longer the copy it was
+ * planned around. Position-driven, so even a jump of a screen takes it away at once (see scrollKept).
  */
 export const SCROLL_CANCEL = { from: 12, to: 24 } as const
+
+/**
+ * What no frame can answer. A scroll message may run three frames behind the page, and a wheel notch moves it `reach` px in
+ * that time, before the worker has heard of it. While the worker reads the scroll a flight launched at, the flight's light
+ * answers to quiet copy only where the worker last heard it was, so a line an unheard scroll brings under it may take some.
+ * A flight planned clear of the copy keeps its path a little further than `reach` from it: a shooting star's light reaches
+ * `glow` px round its path, and a fireball's sparks fly up to about 17 px off it. The fireball keeps them out of the copy's
+ * padded rect, and its radial lights short of it, and the veil keeps a flight that holds the lease within budgets, only
+ * where the copy was. While the worker reads any other scroll, a flight may by now lie anywhere, so none of its light lands
+ * within `reach` of that copy in the page's flow, whose budgets a line arriving unheard would break, easing back over
+ * QUIET.feather. Rails don't scroll, and reading copy has no budget: a line of it may catch a moving frame (READING). What a
+ * flight keeps is read at points with light around them, a spark's where it flies, so it keeps none until `glow` px past a
+ * zone, the widest of that light (METEOR_SHEATH).
+ */
+export const SCROLL_LAG = { reach: 66, glow: 11 } as const
 
 /**
  * Light curve over flight progress p: sin(π × p^skew)^sharpness peaks near 45% (a quick ignition, a gentle burn-out); a

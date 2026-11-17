@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import myPortfolio from '@/lib/portfolioInformation'
+import { sharedOpenGraph } from '@/lib/metadata'
 import { personJsonLd } from '@/lib/structuredData'
 import JsonLd from '@/components/JsonLd'
 import IntroGate from '@/components/IntroGate'
@@ -18,9 +19,15 @@ import ContactMe from '@/components/ContactMe'
 import SkyLanding from '@/components/SkyLanding'
 import AppFooter from '@/components/AppFooter'
 
-// Title, description and the share card come from the root layout; only the canonical URL is home-specific
+// Title and description come from the root layout. The canonical URL and the share card's URL and text are
+// home's own: left in the layout, the 404 would inherit them and unfurl as the home page
 export const metadata: Metadata = {
 	alternates: { canonical: '/' },
+	openGraph: {
+		...sharedOpenGraph,
+		url: '/',
+		description: 'Software engineer who built and owns the accounting platform 100+ car dealerships rely on. Founder of VendorX, online ordering for distributors and wholesalers.',
+	},
 }
 
 const { email } = myPortfolio.userProfile

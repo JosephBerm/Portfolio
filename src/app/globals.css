@@ -469,6 +469,26 @@ body.overflow-hidden #content > * {
 	50% { transform: translateY(20px); }
 }
 
+/* Entrance cascade of the /links routes (src/components/motion/EntranceItem.tsx), in CSS so the prerendered
+   content paints with the HTML instead of waiting, hidden, for scripts. The keyframes name only the start:
+   `backwards` holds it through each item's delay, and at rest the item carries no transform and no opacity.
+   Duration and curve mirror duration.slow and easing.easeOutExpo in src/lib/animations.ts. */
+@keyframes entrance-rise {
+	from {
+		opacity: 0;
+		transform: translateY(var(--entrance-distance, 20px));
+	}
+}
+
+/* The reduced-motion entrance: the fade without the slide, as Motion's reducedMotion="user" does elsewhere. */
+@keyframes entrance-fade {
+	from { opacity: 0; }
+}
+
+.entrance-item {
+	animation: entrance-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
 /* Reduced motion: no hover shifts, no smooth scrolling (smoothScrollTo and the navbar logo rely on this).
    The home sky handles reduced motion in its controller and worker (src/components/sky). */
 @media (prefers-reduced-motion: reduce) {
@@ -478,5 +498,8 @@ body.overflow-hidden #content > * {
 	.img-wrapper:hover,
 	.img-wrapper:hover::after {
 		transform: none;
+	}
+	.entrance-item {
+		animation-name: entrance-fade;
 	}
 }

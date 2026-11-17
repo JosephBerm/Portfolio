@@ -3,8 +3,10 @@ import { SCENE_PACING, STAGE } from '@/lib/sky/miamiConfig'
 import { descentWindow as descentWindowOf, sameStage, stageFrom, viewAt, type MiamiStage, type MiamiView } from '@/lib/sky/miamiStage'
 import { driftCap, easeAt, easeEnded, easing, fadeOutAt, type Ease } from '@/lib/sky/pacing'
 import type { LandingRect, SkyRect, SkyTokens } from '@/lib/sky/protocol'
+import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep, type DescentWindow } from '@/lib/sky/scene'
-import { buildMiamiAssets, closeMiamiAssets, type MiamiAssets } from './miamiAssets'
+import type { MiamiAssets } from './miamiAssets'
+import type { SkyFrame } from './renderSky'
 
 /** What the worker knows of the page's layout, as its last `layout` message said. */
 export interface MiamiLayout {
@@ -37,6 +39,15 @@ export interface MiamiStep {
 	ambientOn: boolean
 	/** The quiet zones are still easing toward a new layout. */
 	quietEasing: boolean
+	/**
+	 * The page is at rest: the motion isn't full, or the page hasn't scrolled at all for TRANSIENTS.scrollQuiet seconds (the
+	 * stars have stopped gliding after it by then) and nothing flies. Its scroll half is the launch gate's `still` (a step of
+	 * any size breaks it), not its `calm`, which only a fling or a jump breaks. Under full motion the slow drift and the lean
+	 * toward the pointer go on through it: a stall pauses the drift, and the lean catches up in one step after it. Loading the
+	 * scene's art stalls the worker, so a load ahead of the bake waits for this; such a moment may never come, and the load
+	 * then goes when the bake is due.
+	 */
+	calm: boolean
 }
 
 /** What the scene asks of the frame clock for this moment (a reused object). */
@@ -61,6 +72,8 @@ export interface MiamiFrame {
 	stage: MiamiStage
 	view: MiamiView
 	assets: MiamiAssets
+	/** The art that built `assets`, which draws them. */
+	art: MiamiArt
 	/** Seconds of ambient motion the scene has run: everything that moves on its own is a function of it, so a scene that stops stands where it is and goes on from there. */
 	clock: number
 	/** How much of its ambient motion the scene shows, 0 to 1: the presence and motion level, and 0 on a canvas too slow to run it. At 0 it rests in its still pose. */
@@ -76,10 +89,27 @@ export interface MiamiFrame {
 }
 
 /**
+ * The scene's art: the code that bakes a stage into bitmaps and draws them (miamiArt.ts). It is most of the scene's code and
+ * none of it is needed before the bake, so it is a chunk of its own, which the runtime loads as the page's end comes near.
+ * The runtime reaches the art through this type alone, so its members are function properties, not methods: TypeScript
+ * holds a function property to the parameters it declares, where it would let a method's implementation take narrower ones.
+ */
+export interface MiamiArt {
+	/** Builds the bitmaps for `stage` at pixel ratio `dpr`, a batch of rows a step (buildMiamiAssets). */
+	build: (stage: MiamiStage, dpr: number, tokens: SkyTokens) => Generator<void, MiamiAssets | null, undefined>
+	/** Closes every bitmap of a build (closeMiamiAssets). */
+	close: (assets: MiamiAssets) => void
+	/** The scene's ground, right after the page's navy and before any star (drawMiamiSky). */
+	drawSky: (ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame) => void
+	/** Its silhouettes and water, over the sky and what flies in it (drawMiamiScene). */
+	drawScene: (ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex) => void
+}
+
+/**
  * The landing scene's state in the sky worker: the stage measured from the page's layout, and what hangs on it. A stage
  * exists only where the page has a landing and Contact's copy above it, so everywhere else the sky is exactly the shared
- * sky's. The scene never takes the stars down with it: a stage that can't be measured, a build that throws or a draw that
- * throws leaves the plain sky for the rest of the visit.
+ * sky's. The scene never takes the stars down with it: a stage that can't be measured, art that can't be loaded, a build
+ * that throws or a draw that throws leaves the plain sky for the rest of the visit.
  */
 export interface MiamiRuntime {
 	/** The current stage, for descentWindow and eventFloorY; null with none, and once the scene has failed on this visit. */
@@ -126,15 +156,17 @@ interface BakeKey {
 	navy: string
 }
 
-/** Bitmaps on screen. */
+/** Bitmaps on screen, and the art that built them, which closes and draws them. */
 interface Baked {
 	key: BakeKey
 	assets: MiamiAssets
+	art: MiamiArt
 }
 
-/** A build under way, and the key it was started with. */
+/** A build under way, the key it was started with and the art that runs it. */
 interface Building {
 	key: BakeKey
+	art: MiamiArt
 	generator: Generator<void, MiamiAssets | null, undefined>
 }
 
@@ -148,6 +180,21 @@ const isStill = (softwareFps: number): boolean => softwareFps / SCENE_PACING.sof
 
 /** The lift below which the scene's own motion is on screen: the horizon group moves against the page from the waterline's entry, and the palms and the clouds stand in the warm band they are placed by (under more the band that shows is thinner, so its top would leave them still while they are on screen). */
 const movesBelow = (stage: MiamiStage): number => Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
+
+/**
+ * Loads of the scene's art a visit may make. The first comes at a calm, settled moment once the page's end is near, or when
+ * the bake is due or the scene is needed; a failed load is tried again when the bake is due or the scene is needed (the
+ * bundler has already retried a network error once by then). A second failure ends the scene as a failed build does, with
+ * the plain sky for the rest of the visit and no error event.
+ */
+const LOAD_ATTEMPTS = 2
+
+/**
+ * The scene's art, from its own chunk. A classic worker fetches the chunk with importScripts inside this call, which holds
+ * the worker up, and the art's code runs before the worker's next task: the worker stalls for both, so the caller picks
+ * the moment.
+ */
+const loadArt = (): Promise<MiamiArt> => import('./miamiArt').then(({ MIAMI_ART }) => MIAMI_ART)
 
 /** The runtime for one worker: its pieces arrive by message, in any order, and the stage follows whatever it has. */
 export function createMiamiRuntime(): MiamiRuntime {
@@ -164,6 +211,12 @@ export function createMiamiRuntime(): MiamiRuntime {
 	/** The bitmaps in use. Every draw reads the stage they were built for, so a layout that moves under them never leaves a gap. */
 	let baked: Baked | null = null
 	let building: Building | null = null
+	/** The scene's art once it has loaded; it stays for the visit, through every rebuild and lost context. */
+	let art: MiamiArt | null = null
+	/** A load of the art is under way. */
+	let loading = false
+	/** Loads of the art that have failed (LOAD_ATTEMPTS). */
+	let loadFailures = 0
 	/** Ticks in a row that had spent the slice before the build was reached, for the build under way (STAGE.starveTicks). */
 	let starved = 0
 	/** `setSize` was told a pixel ratio other than the one of the bitmaps; cleared when a build starts, which reads the worker's ratio. */
@@ -264,7 +317,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 	const release = (): void => {
 		abort()
 		if (baked) {
-			closeMiamiAssets(baked.assets)
+			baked.art.close(baked.assets)
 			baked = null
 		}
 		easeSince = null
@@ -276,6 +329,21 @@ export function createMiamiRuntime(): MiamiRuntime {
 		stage = null
 		descent = null
 		release()
+	}
+
+	/** Asks for the art. Its outcome is only recorded: the next step acts on it, so the scene changes state only inside a tick. */
+	const load = (): void => {
+		loading = true
+		loadArt().then(
+			(loaded) => {
+				art = loaded
+				loading = false
+			},
+			() => {
+				loadFailures++
+				loading = false
+			}
+		)
 	}
 
 	/** Measures the stage again from what the runtime knows; null until it knows a size, the tokens and a layout. */
@@ -359,8 +427,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 			const elapsed = steppedAt === null ? 0 : Math.min(DRIFT.maxStep, Math.max(0, (input.now - steppedAt) / 1000))
 			steppedAt = input.now
 			if (failed) return false
-			// A draw threw part way: the plain sky replaces the half-drawn frame
-			if (shown?.failed) {
+			// A draw threw part way, or the art couldn't be loaded: the plain sky replaces the scene
+			if (shown?.failed || loadFailures >= LOAD_ATTEMPTS) {
 				fail()
 				return true
 			}
@@ -378,14 +446,19 @@ export function createMiamiRuntime(): MiamiRuntime {
 				// The scene shows now, and a bake not ready for it must be finished at once
 				const needed = lift < current.zShow
 				// The bake starts ahead of the scene, but not inside the hero
-				const ahead = lift < current.zShow + STAGE.bakeAhead * size.height && input.scrollY >= SCENE.heroFadeTo * size.height
+				const pastHero = input.scrollY >= SCENE.heroFadeTo * size.height
+				const ahead = lift < current.zShow + STAGE.bakeAhead * size.height && pastHero
 				// A rebuild waits for the page to settle, as the haze does
 				const settled = input.now - changedAt >= HAZE_REBUILD_MS && !input.quietEasing
+				// Loading the art stalls the worker, so further ahead it waits for a calm, settled moment, and it goes when the bake is due
+				// or the scene is needed if none has come first. A load that failed is tried again only then
+				const near = lift < current.zShow + STAGE.loadAhead * size.height && pastHero
+				if (!art && !loading && (needed || (ahead && settled) || (loadFailures === 0 && near && settled && input.calm))) load()
 				// A stale build is never finished
 				if (building && outOfDate(building.key)) abort()
-				if (!building && (!baked || outOfDate(baked.key)) && (needed ? !baked || settled : ahead && settled)) {
+				if (art && !building && (!baked || outOfDate(baked.key)) && (needed ? !baked || settled : ahead && settled)) {
 					dprStale = false
-					building = { key: { stage: current, dpr: input.dpr, navy }, generator: buildMiamiAssets(current, input.dpr, tokens) }
+					building = { key: { stage: current, dpr: input.dpr, navy }, art, generator: art.build(current, input.dpr, tokens) }
 				}
 				if (building) {
 					// With nothing built yet, a scene that shows now can't wait for slices. Any other slice counts from the start of the tick, so the work the tick did first shortens it
@@ -393,9 +466,9 @@ export function createMiamiRuntime(): MiamiRuntime {
 					const assets = advance(building, urgent ? Infinity : input.tickStart + STAGE.buildSliceMs)
 					if (assets) {
 						const previous = baked
-						baked = { key: building.key, assets }
+						baked = { key: building.key, assets, art: building.art }
 						building = null
-						if (previous) closeMiamiAssets(previous.assets)
+						if (previous) previous.art.close(previous.assets)
 						redraw = true
 						// Eased in from the time the build ended: the tick's own time is from before it, and a long build would show the scene whole in one frame
 						if (urgent) easeSince = performance.now() / 1000
@@ -457,9 +530,10 @@ export function createMiamiRuntime(): MiamiRuntime {
 			const tier = tierOf(input)
 			shownAt = input.now / 1000
 			const fade = easeSince === null ? 1 : smoothstep(0, STAGE.jumpEase, shownAt - easeSince)
-			shown ??= { stage: baked.key.stage, view, assets: baked.assets, clock, level: 0, tier, fade, thin: 0, failed: false }
+			shown ??= { stage: baked.key.stage, view, assets: baked.assets, art: baked.art, clock, level: 0, tier, fade, thin: 0, failed: false }
 			shown.stage = baked.key.stage
 			shown.assets = baked.assets
+			shown.art = baked.art
 			shown.fade = fade
 			shown.clock = clock
 			shown.level = isStill(input.softwareFps) ? 0 : input.level

@@ -2,7 +2,7 @@ import { NEBULA } from '@/lib/sky/config'
 import { createNebula, type NebulaField } from '@/lib/sky/nebula'
 import { hazeAverage, hazeTimes, type HazeTimes } from '@/lib/sky/pacing'
 import type { SkyTokens } from '@/lib/sky/protocol'
-import { toBitmap } from './skyAssets'
+import { toBitmap } from './bitmap'
 
 /** A float state of the field and the clock it shows; NaN while empty or being built. */
 interface FieldState {

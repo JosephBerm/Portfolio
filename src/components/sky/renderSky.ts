@@ -34,7 +34,6 @@ import { budgetKeeps, easedReadingKept, flightKept, smoothstep, starEmergence, t
 import type { Transient } from '@/lib/sky/transients'
 import type { MiamiFrame } from './miamiRuntime'
 import { drawFireball } from './renderFireball'
-import { drawMiamiScene, drawMiamiSky } from './renderMiami'
 import { drawRadial } from './renderRadial'
 import { KNOT_SIGMA, starSpriteIndex, type Sprite, type StarAtlas } from './skyAssets'
 
@@ -283,7 +282,7 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 	ctx.globalAlpha = 1
 	ctx.fillStyle = rgba(assets.tokens.navy, 1)
 	ctx.fillRect(0, 0, frame.deviceWidth, frame.deviceHeight)
-	if (frame.miami) drawMiamiSky(ctx, frame.miami, frame)
+	if (frame.miami) frame.miami.art.drawSky(ctx, frame.miami, frame)
 	ctx.globalCompositeOperation = 'lighter'
 	if (assets.haze && frame.haze > MIN_STAR_ALPHA) {
 		// Nearest-neighbor keeps the dither grain intact when the haze buffer is scaled up
@@ -301,10 +300,11 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 
 /**
  * The landing scene's silhouettes and water, over the sky, the shooting stars and the comet, so what they cover hides what is
- * behind; draws nothing where the frame has no scene. The quiet zones drawSky has just indexed go with it, for the glitter.
+ * behind; draws nothing where the frame has no scene. The zones drawSky has just indexed (quiet copy and, on a wide screen,
+ * reading copy) go with it, for the glitter, which keeps clear of all of them.
  */
 export function drawLandingScene(ctx: OffscreenCanvasRenderingContext2D, frame: SkyFrame): void {
-	if (frame.miami) drawMiamiScene(ctx, frame.miami, frame, quietIndex)
+	if (frame.miami) frame.miami.art.drawScene(ctx, frame.miami, frame, quietIndex)
 }
 
 /** Fills a quad tapering from `headWidth` at (hx, hy) to `tailWidth` at (tx, ty); (nx, ny) is the unit normal. */

@@ -51,6 +51,8 @@ export const DESCENT = {
  * - `copyClear` and `copyClearMin`: the clearance kept between the lowest copy's bottom and bright clouds, and the least it
  *   falls to where the banks need the room.
  * - `bakeAhead`: canvas heights of scroll before the scene shows at which its bitmaps start to build.
+ * - `loadAhead`: the same for the scene's art, the code that bakes and draws it, which is a chunk of its own: from there it
+ *   loads at a calm, settled moment, or when the bake is due or the scene is needed if none comes first.
  * - `buildSliceMs`: the most of a tick the build may take. `starveTicks`: ticks in a row whose earlier work has already
  *   spent the whole slice before the build is reached, after which one piece of it is built anyway, so a rebuild whose
  *   old bitmaps are still on screen can't wait forever behind work that never lets up. `jumpEase`: the seconds the scene
@@ -70,6 +72,7 @@ export const STAGE = {
 	copyClear: 68,
 	copyClearMin: 16,
 	bakeAhead: 1.2,
+	loadAhead: 2,
 	buildSliceMs: 8,
 	starveTicks: 4,
 	jumpEase: 0.5,

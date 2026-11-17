@@ -17,6 +17,7 @@ import { nearness } from './catalog'
 import { cometDrift, cometKnots, cometShape, type CometKnot, type CometShape } from './comet'
 import { COMET, LAYERS, LEAN, MAGNITUDE, METEOR, TRANSIENTS } from './config'
 import type { Point } from './meteors'
+import { DESCENT } from './miamiConfig'
 import { easeEnded, easing, fadeOutAt } from './pacing'
 import type { SkyRect } from './protocol'
 import { ZONE_REACH, zoneReaches } from './quietIndex'
@@ -419,9 +420,13 @@ export function dropBody(body: SkyBody, sinceReveal: number): void {
 	if (body.status === 'showing') leaveSky(body, sinceReveal)
 }
 
-/** True while a showing body's fade-in or a fade-out of it runs: fade frames show it. A held body asks for none: it is lit and still. */
-export function bodyFading(body: SkyBody, time: number, twinkleTime: number): boolean {
-	return body.status === 'showing' && ((body.heldAt === null && easing(body.startedAt, COMET.fadeIn, twinkleTime)) || easing(body.boxFailedAt, TRANSIENTS.cancelFade, time))
+/**
+ * True while a showing body's fade-in or a fade-out of it runs: fade frames show it. A held body asks for none: it is lit
+ * and still. Nor does one the sky's descent has washed out (`descent` from DESCENT.starMix[1] on, as bodyView reads it):
+ * none of it shows.
+ */
+export function bodyFading(body: SkyBody, time: number, twinkleTime: number, descent = 0): boolean {
+	return body.status === 'showing' && descent < DESCENT.starMix[1] && ((body.heldAt === null && easing(body.startedAt, COMET.fadeIn, twinkleTime)) || easing(body.boxFailedAt, TRANSIENTS.cancelFade, time))
 }
 
 /** What the worker knows at a drawn frame, for the body's view: the clocks, the camera, the screen and the zones on screen. */
@@ -446,7 +451,10 @@ export interface BodyFrame {
 export interface CometView {
 	x: number
 	y: number
-	/** The light it shows, 0 to 1: its fade-in times the share its fade and the copy or the landing scene's band near its box leave. */
+	/**
+	 * The light it shows, 0 to 1: its fade-in times the share its fade, the copy or the landing scene's band near its box
+	 * and the sky's descent to that scene leave.
+	 */
 	light: number
 	shape: CometShape
 	/** The ion tail's knots relative to the nucleus: the body's own reused list, rewritten by each view. */
@@ -460,9 +468,11 @@ export interface CometView {
  * is past the right edge, where no copy lies. Its box is tested against the zones the frame answers to (the layout it is
  * easing to, one waiting, and reading copy with the landing scene's band), whose copy and the comet both move, held or not:
  * copy or the band nearing it dims all of it by where it is (boxKept), and the first time either comes within reach, or the
- * box is past the edge, its fade starts and it leaves the sky when that has run out (updateBody).
+ * box is past the edge, its fade starts and it leaves the sky when that has run out (updateBody). As the sky comes down to
+ * the landing scene (`descent`, SceneLevels.descent, 0 with no scene) all of it washes out with the stars, over their dusk
+ * (DESCENT.starMix) and on to none, while the stars keep a share of their light (DESCENT.stars).
  */
-export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
+export function bodyView(body: SkyBody, frame: BodyFrame, descent = 0): CometView | null {
 	const { shape } = body
 	if (body.status !== 'showing' || !shape) return null
 	const flown = frame.clock - body.startClock
@@ -479,5 +489,7 @@ export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const kept = bodyKept(body, frame.time)
 	if (kept <= 0) return null
 	cometKnots(frame.clock, shape.unit, body.knots)
-	return { x, y, light: smoothstep(0, COMET.fadeIn, (body.heldAt ?? frame.twinkleTime) - body.startedAt) * kept * clear, shape, knots: body.knots }
+	// The stars' own dusk (sceneAt)
+	const dusk = smoothstep(DESCENT.starMix[0], DESCENT.starMix[1], descent)
+	return { x, y, light: smoothstep(0, COMET.fadeIn, (body.heldAt ?? frame.twinkleTime) - body.startedAt) * (1 - dusk) * kept * clear, shape, knots: body.knots }
 }

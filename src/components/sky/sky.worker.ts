@@ -646,10 +646,10 @@ function starReadingBlend(blend: QuietBlend): QuietBlend {
 
 /**
  * Starts easing toward new rects: the ones on screen now become `from`, so a layout never changes the zones in one
- * frame. A layout that arrives mid-ease waits for it to end (the newest wins), because starting from the previous target
- * would jump every star by what the running ease had not yet shown; a shooting star keeps clear of the waiting one
- * meanwhile (QuietBlend.next). Any layout still waiting is older than this one, so it is dropped here: applied later, it
- * would put the zones back on a stale layout for good.
+ * frame. Before the dusk, with nothing on screen, it takes them at once. A layout that arrives mid-ease waits for it to
+ * end (the newest wins), because starting from the previous target would jump every star by what the running ease had
+ * not yet shown; a shooting star keeps clear of the waiting one meanwhile (QuietBlend.next). Any layout still waiting is
+ * older than this one, so it is dropped here: applied later, it would put the zones back on a stale layout for good.
  */
 function applyLayout(message: LayoutMessage, now: number): void {
 	quietBefore = quiet
@@ -658,7 +658,8 @@ function applyLayout(message: LayoutMessage, now: number): void {
 	quiet = message.quiet
 	pinned = message.pinned
 	reading = message.reading
-	layoutAt = now / 1000
+	// Before the dusk no star shows, so the zones take new copy at once; from the dusk on they ease (QUIET.ease)
+	layoutAt = exitAt === null ? null : now / 1000
 	pendingLayout = null
 }
 
@@ -1099,10 +1100,10 @@ scope.addEventListener('message', (event) => {
 		case 'layout': {
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
-			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
-			// near it, reading copy included, fade instead of changing in one frame. A change mid-ease waits for the ease to
-			// end, while what flies and what plans answer to the newest copy at once (newestReading, QuietBlend.next, the
-			// frame's quietAhead and the launch gate's field).
+			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease from the dusk on
+			// (before it, nothing shows and the zones take it at once), so the stars near it, reading copy included, fade instead
+			// of changing in one frame. A change mid-ease waits for the ease to end, while what flies and what plans answer to the
+			// newest copy at once (newestReading, QuietBlend.next, the frame's quietAhead and the launch gate's field).
 			const latest = pendingLayout ?? { quiet, pinned, reading }
 			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
 				if (quietEasing(now / 1000)) pendingLayout = message

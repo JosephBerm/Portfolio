@@ -61,8 +61,9 @@ export const MIN_STAR_ALPHA = 0.004
  * magnitude `reference`, the near band's mean. Identical lamps would give q = 10^(-0.2 (m - reference)), the
  * inverse-square law; `compression` keeps about 70% of that depth range, as STAR_ALPHA keeps a 400:1 flux range as 5:1,
  * so the faintest stars still move (q 0.24) and the brightest never race (at most `maxNearness`, from magnitude 0.11
- * up). The bands' mean shares of the scroll come out at 0.0205, 0.0350 and 0.0717 (far, mid, near), within 12.5% of the
- * reviewed 0.02, 0.04 and 0.07. No random draw depends on it, so retuning it never moves a star while the camera rests.
+ * up). The bands' mean nearness comes out at 0.293, 0.501 and 1.02 (far, mid, near), so each band's share of the
+ * scroll is that times `scrollParallax` (CAMERA). No random draw depends on it, so retuning it never moves a star
+ * while the camera rests.
  */
 export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as const
 
@@ -70,17 +71,18 @@ export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as
  * The one camera the sky is seen through, in CSS px for a star of nearness 1: every star appears at its place on the
  * sky minus its nearness (DEPTH) times the camera, whatever moves it (the scroll, the drift, a pointer lean), so nearer
  * stars always move more and the depth cues never disagree. Scrolling moves the camera `scrollParallax` of the scroll,
- * the near band's reviewed parallax, through a critically damped spring of `scrollOmega` rad/s: when the page stops,
- * the stars glide on and settle (95% in 0.47 s, 99% in 0.66 s, never overshooting after a scroll that moves one way;
- * Motion's spring with bounce 0 and visualDuration 0.52 s). Scrolling at 1000 px/s, the near stars trail by about 14
- * px. The spring never trails the scroll by more than `maxLag` viewport heights, held there as a spring trailing
- * steadily at that distance, so a fling or a smooth-scrolled jump (the navbar's section links, and Home and End in most
- * desktop browsers) leaves the brightest stars at most about 25 px to glide on a 900 px screen. A jump of more than
+ * enough that about half of the stars at the foot of the page were off screen at its top on common screens, with the
+ * brightest still at a third of the copy's speed, through a critically damped spring of `scrollOmega` rad/s: when the page
+ * stops, the stars glide on and settle (95% in 0.34 s, 99% in 0.47 s, never overshooting after a scroll that moves one way;
+ * Motion's spring with bounce 0 and visualDuration 0.37 s). Scrolling at 1000 px/s, the near stars trail by about 30 px.
+ * The spring never trails the scroll by more than `maxLag` viewport heights, held there as a spring trailing steadily at
+ * that distance, so a fling or a smooth-scrolled jump (the navbar's section links, and Home and End in most desktop
+ * browsers) leaves the brightest stars at most about 54 px to glide on a 900 px screen. A jump of more than
  * `snapViewports` viewport heights in one step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always
  * snaps, which follows the scroll exactly. A spring with less than `restPx` CSS px of motion left (at nearness 1)
  * settles on its target and stops asking for frames.
  */
-export const CAMERA = { scrollParallax: 0.07, scrollOmega: 10, maxLag: 0.25, snapViewports: 1, restPx: 0.01 } as const
+export const CAMERA = { scrollParallax: 0.21, scrollOmega: 14, maxLag: 0.18, snapViewports: 1, restPx: 0.01 } as const
 
 /** One circle of the drift. */
 interface Epicycle {

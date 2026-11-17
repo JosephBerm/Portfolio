@@ -55,8 +55,7 @@ const LAYER_INDEX: Record<SkyLayer, number> = { far: 0, mid: 1, near: 2 }
 
 /**
  * Each axis's cell coordinates from -CELL_KEY_RANGE to CELL_KEY_RANGE - 1 get their own key (about ±8.4 million px),
- * well past how far the scroll moves any star on the longest page a browser lays out (Chromium stops at about 33.5
- * million px).
+ * far past how far the scroll moves any star on this page; beyond it a cell holds no stars.
  */
 const CELL_KEY_RANGE = 0x8000
 

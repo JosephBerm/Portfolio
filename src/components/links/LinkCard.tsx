@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { Route } from 'next'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import ArrowRightSVG from '@/components/icons/ArrowRightSVG'
@@ -75,8 +76,9 @@ export default function LinkCard({ id, label, description, href, variant }: ILin
 	)
 
 	if (isInternal) {
+		// The cast is for typedRoutes: `href` is a plain string here, and linksData checks each path where it is written
 		return (
-			<Link href={href} className={cardClasses(isHero)}>
+			<Link href={href as Route} className={cardClasses(isHero)}>
 				{content}
 			</Link>
 		)

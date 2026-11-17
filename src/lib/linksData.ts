@@ -1,3 +1,4 @@
+import type { Route } from 'next'
 import myPortfolio from './portfolioInformation'
 import { MEETING_DURATION } from './scheduleConfig'
 import { siteConfig, VENDORX_URL } from './site'
@@ -22,6 +23,7 @@ export interface ILinkCard {
 	id: LinkCardId
 	label: string
 	description: string
+	/** An external URL, or a path of this site: write a path as `'/x' satisfies Route` so a typo fails type-check. */
 	href: string
 	variant: LinkCardVariant
 }
@@ -46,7 +48,7 @@ export const LINK_CARDS: ILinkCard[] = [
 		id: 'schedule',
 		label: "Let's Chat",
 		description: `Book a ${MEETING_DURATION}-minute call`,
-		href: '/links/schedule',
+		href: '/links/schedule' satisfies Route,
 		variant: 'secondary',
 	},
 ]
@@ -54,5 +56,5 @@ export const LINK_CARDS: ILinkCard[] = [
 /** The "View Full Portfolio" link at the bottom. */
 export const PORTFOLIO_LINK = {
 	label: 'View Full Portfolio',
-	href: '/',
+	href: '/' satisfies Route,
 } as const

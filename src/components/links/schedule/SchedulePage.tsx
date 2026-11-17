@@ -7,8 +7,7 @@ import { duration, easing } from '@/lib/animations'
 import { cn } from '@/lib/utils'
 import { MEETING_SUMMARY } from '@/lib/scheduleConfig'
 import { useAvailableSlots } from '@/hooks/useAvailableSlots'
-import { StaggerContainer } from '@/components/motion/StaggerContainer'
-import { StaggerItem } from '@/components/motion/RevealItem'
+import EntranceItem from '@/components/motion/EntranceItem'
 import { GLASS_PANEL } from './styles'
 import CalendarGrid from './CalendarGrid'
 import TimeSlotList from './TimeSlotList'
@@ -70,9 +69,9 @@ export default function SchedulePage() {
 	}
 
 	return (
-		<StaggerContainer staggerDelay={0.12}>
+		<>
 			{/* Header */}
-			<StaggerItem index={0} distance={ENTRANCE_DISTANCE} dur={duration.slow}>
+			<EntranceItem index={0} distance={ENTRANCE_DISTANCE}>
 				<div className="text-center mb-8">
 					<h1 className="text-lightest-slate font-sans text-xl md:text-2xl font-semibold m-0 mb-2">
 						Let&apos;s Chat
@@ -81,10 +80,10 @@ export default function SchedulePage() {
 						{MEETING_SUMMARY}
 					</p>
 				</div>
-			</StaggerItem>
+			</EntranceItem>
 
 			{/* Content — animated step transitions */}
-			<StaggerItem index={1} distance={ENTRANCE_DISTANCE} dur={duration.slow}>
+			<EntranceItem index={1} distance={ENTRANCE_DISTANCE}>
 				<AnimatePresence mode="wait" onExitComplete={() => setStepSwaps((n) => n + 1)}>
 					{confirmed === null ? (
 						<motion.div
@@ -141,14 +140,14 @@ export default function SchedulePage() {
 						</motion.div>
 					)}
 				</AnimatePresence>
-			</StaggerItem>
+			</EntranceItem>
 
 			{/* Back to links */}
-			<StaggerItem index={2} distance={15} dur={duration.slow} className="flex justify-center mt-8">
+			<EntranceItem index={2} distance={15} className="flex justify-center mt-8">
 				<Link href="/links" className="inline-link font-mono text-xs text-slate">
 					&larr; Back to links
 				</Link>
-			</StaggerItem>
-		</StaggerContainer>
+			</EntranceItem>
+		</>
 	)
 }

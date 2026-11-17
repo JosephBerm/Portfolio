@@ -38,6 +38,14 @@ export const duration = {
 	loaderExit: 0.5,
 } as const
 
+/**
+ * Start delay (seconds) of item `index` in an entrance cascade: base * (1 - e^(-k*i)). Early items land close
+ * together and later ones spread out, a natural wave. Shared by Motion's <RevealItem> and the CSS <EntranceItem>.
+ */
+export function deceleratingDelay(index: number, base = 0.6, k = 0.5): number {
+	return base * (1 - Math.exp(-k * index))
+}
+
 /** Fade in on the Y axis from `distance` px. */
 const fadeY = (distance: number | string): RevealVariants => ({
 	hidden: { opacity: 0, y: distance },

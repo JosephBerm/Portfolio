@@ -7,7 +7,7 @@
  */
 
 import { METEOR, METEOR_BRIGHTNESS, NARROW_MAX_WIDTH, RADIANTS, SKY_WINDOW, SPEED_CLASSES, type SpectrumName, type SpectrumOdds, type SpeedClassName } from './config'
-import { startArea, type Course, type MeteorField, type Point, type Steer } from './meteors'
+import { flightArea, type Course, type MeteorField, type Point, type Steer } from './meteors'
 import { between, drawByShare, gaussian, type Random } from './random'
 import { quietAt } from './scene'
 
@@ -183,7 +183,7 @@ function projectsOnScreen(view: SkyWindow, radiant: SkyDirection, field: MeteorF
  * climbing, and a shower may not climb.
  */
 function usable(view: SkyWindow, radiant: SkyDirection, field: MeteorField): boolean {
-	const { x0, x1, y0, y1 } = startArea(field)
+	const { x0, x1, y0, y1 } = flightArea(field, 0)
 	let fits = 0
 	for (let i = 0; i < PROBES_PER_SIDE; i++) {
 		for (let j = 0; j < PROBES_PER_SIDE; j++) {

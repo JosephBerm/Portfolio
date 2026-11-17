@@ -78,7 +78,7 @@ export type SkyMainMessage =
 			quiet: readonly SkyRect[]
 			/** Quiet rects of copy in fixed elements, in screen coordinates. */
 			pinned: readonly SkyRect[]
-			/** Rects of reading copy (READING_SELECTOR in mountSky.ts) in document coordinates. Nothing lights it, so `headroom` is 0. */
+			/** Rects of reading copy (READING_SELECTOR in mountSky.ts) in document coordinates. Nothing lights it at rest, so `headroom` is 0. */
 			reading: readonly SkyRect[]
 			/** The landing's box, or null where the page has none (forced colors, print, or the scene switched off in SkyLanding) or it has no box. */
 			landing: LandingRect | null

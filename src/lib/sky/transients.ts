@@ -5,36 +5,35 @@
  */
 
 import { TRANSIENTS } from './config'
-import { FAREWELL_SPEC, METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
-import type { Meteor, MeteorField } from './meteors'
+import { METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
+import { flightArea, type FlightArea, type Meteor, type MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
 import type { SkyRect } from './protocol'
 import { zoneReaches } from './quietIndex'
 import { between, type Random } from './random'
 import { SATELLITE_SPEC, type SatellitePass } from './satellites'
-import { readingPadding, screenQuietZones, screenReadingZones, scrollKept, type LaunchScene } from './scene'
+import { readingPadding, screenQuietZones, screenReadingZones, scrollKept } from './scene'
 
 /** The model behind each kind: what its planner returns and its drawing reads. */
 export interface TransientBodies {
 	meteor: Meteor
 	satellite: SatellitePass
-	farewell: Meteor
 }
 
 /** One kind of transient. */
 export type TransientKind = keyof TransientBodies
 
 /** Every kind, in the order the scheduler checks them for a launch (shooting stars first: they are the most frequent). */
-export const TRANSIENT_KINDS = ['meteor', 'satellite', 'farewell'] as const satisfies readonly TransientKind[]
+export const TRANSIENT_KINDS = ['meteor', 'satellite'] as const satisfies readonly TransientKind[]
 
 /** Where transients may fly: the viewport and the padded zones of copy on screen (CSS px), the field every kind plans in. */
 export interface SkyField extends MeteorField {
-	/** The padded zones of copy pinned to the screen (the side rails): the very objects `quiet` holds, so `quiet` without them is the copy in the page's flow. */
-	pinned: readonly SkyRect[]
 	/** What no shooting star comes within QUIET.feather of, wherever else it may go (planMeteor's clearOf): the side rails and reading copy. */
 	noFly: readonly SkyRect[]
 	/** All copy, quiet and reading: what a plan that stays in clear sky keeps out of reach of. */
 	clearSky: readonly SkyRect[]
+	/** Where shooting stars may fly now (planMeteor's area). */
+	area: FlightArea
 }
 
 /** What the field is built from: the screen, the scroll and the copy as the last layout measured it (document coordinates, `pinned` screen coordinates). */
@@ -49,16 +48,17 @@ export interface FieldInput {
 }
 
 /**
- * The field every kind plans in now. The rails are padded once and the very same objects go in each list. Every planner
- * keeps within the screen's height, and only a satellite's line (one end just beyond a side) and the comet's box (it
- * may overflow the right edge) go past a side, where no copy lies, so only the zones that can touch the screen matter.
+ * The field every kind plans in now. Every planner keeps within the screen's height, and only a satellite's line (one
+ * end just beyond a side) and the comet's box (it may overflow the right edge) go past a side, where no copy lies, so
+ * only the zones that can touch the screen matter.
  */
 export function skyField(input: FieldInput): SkyField {
 	const { width, height, narrow, scrollY } = input
 	const rails = screenQuietZones([], scrollY, input.pinned)
 	const quiet = [...screenQuietZones(input.quiet, scrollY).filter((zone) => zoneReaches(zone, 0, 0, width, height)), ...rails]
 	const reading = screenReadingZones(input.reading, scrollY, height, readingPadding(narrow))
-	return { width, height, quiet, pinned: rails, noFly: [...rails, ...reading], clearSky: [...quiet, ...reading] }
+	const sky = { width, height, quiet }
+	return { ...sky, noFly: [...rails, ...reading], clearSky: [...quiet, ...reading], area: flightArea(sky, scrollY) }
 }
 
 /** What the scheduler tracks for a transient of kind K. Times are seconds on the worker clock. */
@@ -72,6 +72,8 @@ export interface TransientEnvelope<K extends TransientKind> {
 	nearCopy: boolean
 	/** It never takes the ink lease: planned in clear sky only, and drawn with CLEAR_SKY_KEEPS. */
 	clearSky: boolean
+	/** The scroll cancel takes it (scrollKept): it holds the ink lease or lingers (TransientSpec.lingers), or the sky knows no reading copy. Anything else answers only to the copy or the landing scene's band under it. */
+	scrollBound: boolean
 	/** scrollY at launch: the scroll cancel measures from here. */
 	launchScrollY: number
 	/** When the pause (or reduced motion) cancelled it: it fades out over TRANSIENTS.cancelFade. Null while it runs its course. */
@@ -93,8 +95,10 @@ export interface PlanContext {
 	now: number
 	field: SkyField
 	visit: VisitMemory
-	/** The ink lease is free, the crossing cooldown is over, nothing else is in the sky and no comet shows, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
+	/** The ink lease is free, the crossing cooldown is over, the page is still, nothing else is in the sky and no comet shows, so the plan may pass near quiet copy (planMeteor's nearCopy option); false keeps it in clear sky. */
 	nearCopy: boolean
+	/** The page is still (LaunchGate.still): only then may a shooting star leave a train, which any scroll takes. */
+	still: boolean
 	/** Share of each rect's ink budget a transient may keep on the copy (the contrast preference's meteorInk times the descent's inkShare): planMeteor's ink option. */
 	ink: number
 	/** A narrow screen (phones). */
@@ -119,38 +123,42 @@ export interface TransientSpec<K extends TransientKind> {
 	nearCopy(body: TransientBodies[K]): boolean
 	/** This body never takes the ink lease although its kind may (a shooting star variant): it is planned in clear sky and drawn with CLEAR_SKY_KEEPS, as a kind with `lease` false is. Absent for a kind whose bodies may all take it. */
 	clearSky?(body: TransientBodies[K]): boolean
+	/** It leaves a long faint line, whose light copy could come to lie on between the few places the line is measured, so a scroll takes it. Absent: it leaves no such line. */
+	lingers?(body: TransientBodies[K]): boolean
 	/** Seconds from the launch to the body's last onset, for a body whose light starts more than once (a burst's later members), so other launches keep TRANSIENTS.minOnsetGap from that onset too. Absent: 0. */
 	lastOnset?(body: TransientBodies[K]): number
 	/** This kind may take the ink lease; false (satellites) plans in clear sky only and draws with CLEAR_SKY_KEEPS. */
 	lease: boolean
 	/** It may launch on narrow screens (phones). */
 	phones: boolean
-	/** The launch scene it flies in (SceneLevels.launchScene): over the hero or at the end bookend. */
-	scene: LaunchScene
-	/** Whether the field leaves room for this kind to fly. False holds a launch and never fails a plan, because the room moves with the scroll. Absent: always room. */
-	room?(field: SkyField): boolean
-	/** Most launches of this kind in a visit. Absent: no limit. */
-	limit?: number
 	/** The viewport changed: forget this kind's part of the visit's memory. */
 	forget?(visit: VisitMemory): void
 }
 
 /** Every kind's spec: a kind without one fails to compile. */
-const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC, satellite: SATELLITE_SPEC, farewell: FAREWELL_SPEC }
+const SPECS: { [K in TransientKind]: TransientSpec<K> } = { meteor: METEOR_SPEC, satellite: SATELLITE_SPEC }
 
 /** Whether and where transients may launch now; the worker refills one reused gate every tick. */
 export interface LaunchGate {
-	/** Full motion, visible, revealed, the visitor present and in a launch scene (SceneLevels.launchScene). */
+	/**
+	 * Full motion, visible, revealed, the visitor present, the page where launches reach (launchReaches) and the landing
+	 * scene's descent short of its launch stop (DESCENT.eventStop).
+	 */
 	allowed: boolean
-	/** The launch scene now (SceneLevels.launchScene), which each kind's own `scene` must match. */
-	scene: LaunchScene | null
-	/** No scroll for TRANSIENTS.scrollQuiet seconds. */
-	settled: boolean
+	/** No scroll step over TRANSIENTS.calmStep px for TRANSIENTS.scrollQuiet seconds. */
+	calm: boolean
+	/** No scroll at all for TRANSIENTS.scrollQuiet seconds: what must stay where its plan saw the copy may start now. */
+	still: boolean
+	/**
+	 * The page's reading copy has been measured. Until it has, or where a walk finds none, the sky can't tell what a flight may
+	 * come to lie on, so the scroll cancel takes every flight, launches stay near the top (launchReaches) and no comet starts.
+	 */
+	readingKnown: boolean
 	/** A narrow screen (the worker's narrowScreen): phones keep their own limit, TRANSIENTS.narrowLimit, and their own gaps. */
 	narrow: boolean
 	/** Seconds since the reveal. */
 	sinceReveal: number
-	/** The page scroll now (px): a launch records it, and the scroll cancel measures from it. */
+	/** The page scroll now (px): a launch records it, and a scroll cancel measures from it. */
 	scrollY: number
 	/** The field to plan in, built afresh on each call, so the launch step builds it once, only for a due kind it may plan. */
 	field(): SkyField
@@ -167,8 +175,6 @@ export interface TransientSchedule {
 	nextAt: Record<TransientKind, number>
 	/** Launches this visit (narrow screens stop at TRANSIENTS.narrowLimit). */
 	launched: number
-	/** Launches this visit per kind: a kind with a `limit` stops there. */
-	kindLaunches: Record<TransientKind, number>
 	/** Last onset of any kind (s), a body's later onsets included (TransientSpec.lastOnset), so it can lie ahead of now: onsets stay TRANSIENTS.minOnsetGap apart. */
 	lastOnsetAt: number
 	/** Before this (s) every plan stays in clear sky: the crossing cooldown after the reveal and after the last lease began. */
@@ -180,13 +186,17 @@ export interface TransientSchedule {
 export function createTransientSchedule(): TransientSchedule {
 	return {
 		active: [],
-		nextAt: { meteor: Infinity, satellite: Infinity, farewell: Infinity },
+		nextAt: { meteor: Infinity, satellite: Infinity },
 		launched: 0,
-		kindLaunches: { meteor: 0, satellite: 0, farewell: 0 },
 		lastOnsetAt: -Infinity,
 		crossingAfter: Infinity,
 		visit: { meteor: createMeteorMemory() },
 	}
+}
+
+/** Whether launches reach a page scrolled `scrollY` px: anywhere with reading copy known, else within TRANSIENTS.launchReach viewport heights of the top. */
+export function launchReaches(scrollY: number, height: number, readingKnown: boolean): boolean {
+	return readingKnown || scrollY <= height * TRANSIENTS.launchReach
 }
 
 /** Starts each kind's clock at the reveal with its own first delay, and the crossing cooldown (crossingAfter = now + TRANSIENTS.crossingCooldown). */
@@ -201,12 +211,15 @@ export function holdTransients(schedule: TransientSchedule, now: number): void {
 }
 
 /**
- * Share of its light a transient keeps: the scroll cancel (scrollKept) from its launch scroll, with the pause fade (over
- * TRANSIENTS.cancelFade once cancelled) as scrollKept's own `fade`. The scheduler retires it at 0, and the worker draws it
- * with this as drawTransient's `fade`.
+ * Share of its light a transient keeps: the pause fade (over TRANSIENTS.cancelFade once cancelled) and, for one the scroll
+ * cancel takes (scrollBound), scrollKept from its launch scroll with the pause fade as its own `fade`. Anything else keeps
+ * flying while the page scrolls: whatever copy, or the landing scene's band, comes under it takes its light where it draws
+ * (transientQuietFactor with CLEAR_SKY_KEEPS, flightKept). The scheduler retires it at 0, and the worker draws it with this
+ * as drawTransient's `fade`.
  */
 export function transientFade(transient: Transient, now: number, scrollY: number): number {
-	return scrollKept(transient.launchScrollY, scrollY, fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now))
+	const fade = fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now)
+	return transient.scrollBound ? scrollKept(transient.launchScrollY, scrollY, fade) : fade
 }
 
 /** An active transient holds the ink lease: its light may reach quiet copy. */
@@ -221,9 +234,7 @@ export function inkLeaseFree(schedule: TransientSchedule, now: number): boolean 
 
 /**
  * Removes what has run its course or kept no light, at the earlier of its lifetime and the tick its kept light
- * (transientFade) reaches 0, so a cancel never extends a life. Scrolling away from where a transient launched takes it
- * away, because it would pass over copy it was not planned around; that follows the page's scroll position, so even a
- * one-step jump retires it at once. Returns whether any went.
+ * (transientFade) reaches 0, so a cancel never extends a life. Returns whether any went.
  */
 function retire(schedule: TransientSchedule, now: number, scrollY: number): boolean {
 	const { active } = schedule
@@ -240,20 +251,17 @@ function retire(schedule: TransientSchedule, now: number, scrollY: number): bool
  * Whether this tick's launch of `kind` is held back: the moment doesn't allow it, or a rule of the kind or the visit keeps
  * it. One rule keeps the sky's bright moment single: a kind that never takes the ink lease (a satellite) waits while a
  * transient that holds it flies, and launchKind plans a transient that may take it in clear sky while any other flies or
- * the comet shows. A kind flies only in its own launch scene and up to its own limit a visit. Whether the field leaves
- * it room is asked after these, by updateTransients, because that needs the field.
+ * the comet shows.
  */
 function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number, gate: LaunchGate): boolean {
 	const spec = SPECS[kind]
 	return (
 		!gate.allowed ||
-		!gate.settled ||
+		!gate.calm ||
 		(gate.narrow && (!spec.phones || schedule.launched >= TRANSIENTS.narrowLimit)) ||
 		now - schedule.lastOnsetAt < TRANSIENTS.minOnsetGap ||
 		schedule.active.some((transient) => transient.kind === kind) ||
-		(!spec.lease && leaseHeld(schedule)) ||
-		gate.scene !== spec.scene ||
-		(spec.limit !== undefined && schedule.kindLaunches[kind] >= spec.limit)
+		(!spec.lease && leaseHeld(schedule))
 	)
 }
 
@@ -264,9 +272,9 @@ function heldBack(schedule: TransientSchedule, kind: TransientKind, now: number,
  */
 function launchKind<K extends TransientKind>(schedule: TransientSchedule, random: Random, now: number, kind: K, gate: LaunchGate, field: SkyField): boolean {
 	const spec: TransientSpec<K> = SPECS[kind]
-	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over, nothing else is in the sky and no comet shows, so a satellite or the comet and a shooting star near the copy are never up together
-	const nearCopy = spec.lease && inkLeaseFree(schedule, now) && schedule.active.length === 0 && !gate.bodyShowing
-	const body = spec.plan({ random, now, field, visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
+	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over, the page is still, nothing else is in the sky and no comet shows, so a satellite or the comet and a shooting star near the copy are never up together
+	const nearCopy = spec.lease && gate.still && inkLeaseFree(schedule, now) && schedule.active.length === 0 && !gate.bodyShowing
+	const body = spec.plan({ random, now, field, visit: schedule.visit, nearCopy, still: gate.still, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
 	const lifetime = body === null ? 0 : spec.lifetime(body)
 	const reachesCopy = body !== null && spec.nearCopy(body)
 	// It never takes the ink lease: its kind never does, or the kind marks this body as one that doesn't
@@ -284,6 +292,7 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 		lifetime,
 		nearCopy: reachesCopy,
 		clearSky,
+		scrollBound: !gate.readingKnown || reachesCopy || spec.lingers?.(body) === true,
 		launchScrollY: gate.scrollY,
 		cancelledAt: null,
 	}
@@ -291,7 +300,6 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 	schedule.active.push(envelope as Transient)
 	schedule.lastOnsetAt = now + (spec.lastOnset?.(body) ?? 0)
 	schedule.launched++
-	schedule.kindLaunches[kind]++
 	if (reachesCopy) schedule.crossingAfter = now + TRANSIENTS.crossingCooldown
 	// Gaps count from the end of the body's own time, so a kind never overlaps itself
 	schedule.nextAt[kind] = now + spec.nextAfter(body, random, gate.sinceReveal, gate.narrow)
@@ -306,13 +314,12 @@ export function updateTransients(schedule: TransientSchedule, random: Random, no
 	let changed = retire(schedule, now, gate.scrollY)
 	for (const kind of TRANSIENT_KINDS) {
 		if (now < schedule.nextAt[kind]) continue
-		// The field is built once, for a kind that gets past the other holds, and goes on to its plan
-		const field = heldBack(schedule, kind, now, gate) ? null : gate.field()
-		if (field === null || SPECS[kind].room?.(field) === false) {
-			schedule.nextAt[kind] = now + TRANSIENTS.recheck
+		if (heldBack(schedule, kind, now, gate)) {
+			// A launch the scroll holds draws a fresh wait, so launches don't bunch where scrolling stops
+			schedule.nextAt[kind] = now + (gate.calm ? TRANSIENTS.recheck : between(random, ...TRANSIENTS.afterScroll))
 			continue
 		}
-		if (launchKind(schedule, random, now, kind, gate, field)) changed = true
+		if (launchKind(schedule, random, now, kind, gate, gate.field())) changed = true
 	}
 	return changed
 }

@@ -7,12 +7,12 @@
  * fixed timer, not the display (WebKit's), the main thread relays the page's own animation frames for as long as
  * something moves. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
  * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
- * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there. The nebula's light moves on
- * the drift clock too and asks for no frames of its own. The landing scene at the foot of the page moves on a clock of its
- * own (the water, the clouds, the sun's breath, the beacons, the palms in the wind and the boat's crossing): while that is
- * on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive quality has stepped down, and for
- * none while paused, reduced, idle or on a canvas too slow to run it. It counts its own slow frames, from what its own
- * draws take, apart from adaptive quality's.
+ * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there, and every event flies there
+ * as it does over the hero. The nebula's light moves on the drift clock too and asks for no frames of its own. The landing
+ * scene at the foot of the page moves on a clock of its own (the water, the clouds, the sun's breath, the beacons, the
+ * palms in the wind and the boat's crossing): while that is on screen it asks for 30 frames a second on animation frames,
+ * 20 once it or adaptive quality has stepped down, and for none while paused, reduced, idle or on a canvas too slow to run
+ * it. It counts its own slow frames, from what its own draws take, apart from adaptive quality's.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
@@ -31,9 +31,10 @@ import {
 	type DriftGate,
 	type Vec,
 } from '@/lib/sky/camera'
-import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, MIN_STAR_ALPHA, NARROW_MAX_WIDTH, PACING, QUIET, TRANSIENTS } from '@/lib/sky/config'
+import { catalogKeep, densityKeep } from '@/lib/sky/catalog'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, MIN_STAR_ALPHA, NARROW_MAX_WIDTH, PACING, QUIET, SCROLL_LAG, TRANSIENTS } from '@/lib/sky/config'
 import { DESCENT } from '@/lib/sky/miamiConfig'
+import { eventFloorY } from '@/lib/sky/miamiStage'
 import {
 	createRefreshEstimate,
 	driftCap,
@@ -60,6 +61,7 @@ import {
 	dropTransients,
 	forgetVisitSky,
 	holdTransients,
+	launchReaches,
 	leaseHeld,
 	nextLaunchAt,
 	revealTransients,
@@ -110,11 +112,12 @@ let scrollY = 0
 let documentHeight = 0
 let quiet: readonly SkyRect[] = []
 let pinned: readonly SkyRect[] = []
-// Reading copy, as the last layout measured it: what flies answers to it at once, with no ease
+// Reading copy as the layout in force measured it, which stars keep clear of as it eases in
 let reading: readonly SkyRect[] = []
 // The rects a new layout eases in from (none before the first)
 let quietBefore: readonly SkyRect[] = []
 let pinnedBefore: readonly SkyRect[] = []
+let readingBefore: readonly SkyRect[] = []
 // The newest layout that arrived while an ease was running, applied when it ends
 let pendingLayout: LayoutMessage | null = null
 
@@ -122,6 +125,8 @@ let pendingLayout: LayoutMessage | null = null
 let lastScrollAt = -Infinity
 let lastDrawAt = -Infinity
 let hiddenAt: number | null = null
+/** When (ms) the last scroll step over TRANSIENTS.calmStep px came. */
+let lastRushAt = -Infinity
 // Seconds on the worker clock
 let exitAt: number | null = null
 let revealAt: number | null = null
@@ -136,13 +141,14 @@ const miami = createMiamiRuntime()
 /** Whether and where transients may launch, refilled by launchGate every tick (reused, so a tick makes no garbage). */
 const gate: LaunchGate = {
 	allowed: false,
-	scene: null,
-	settled: false,
+	calm: false,
+	still: false,
+	readingKnown: false,
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
 	// Built afresh on each call: the scheduler asks only for a due kind that may plan
-	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading }),
+	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading: newestReading() }),
 	ink: 1,
 	bodyShowing: false,
 }
@@ -218,9 +224,20 @@ let relayTickDoneAt = -Infinity
 /** How many display refreshes pass per drawn frame while something moves. */
 const divisor: Divisor = { k: 1, slowerSince: null }
 
+/** Reading copy as the last layout measured it, in force or waiting: what flies and what plans answer to it at once, with no ease. */
+function newestReading(): readonly SkyRect[] {
+	return pendingLayout?.reading ?? reading
+}
+
 /** Reading copy near the screen now, in screen coordinates, grown as READING says for this width. */
 function readingZones(): SkyRect[] {
-	return screenReadingZones(reading, scrollY, height, readingPadding(narrowScreen))
+	return screenReadingZones(newestReading(), scrollY, height, readingPadding(narrowScreen))
+}
+
+/** `zones` and the landing scene's band on the canvas, from eventFloorY down, which flights and the comet keep their light off as off reading copy; `zones` itself while no band shows. */
+function landingZones(zones: readonly SkyRect[]): readonly SkyRect[] {
+	const floor = eventFloorY(miami.stage, scrollY, documentHeight)
+	return floor < height ? [...zones, { x: 0, y: floor, width, height: height - floor, headroom: 0 }] : zones
 }
 
 /** Backing-store pixels for a CSS length (never zero). */
@@ -407,19 +424,25 @@ function clockWorks(): boolean {
 	return relayOn ? strikes < PACING.watchdogStrikes : rafWorks
 }
 
-/** True when transients may launch at all right now, in a launch scene (each kind's own timing and scene aside) and before the descent has brought bright sky up the screen. */
+/** True when transients may launch at all right now (each kind's own timing aside), before the descent has brought bright sky up the screen. */
 function launchesAllowed(now: number, scene: SceneLevels): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launchScene !== null && scene.descent < DESCENT.eventStop
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && launchReaches(scrollY, height, newestReading().length > 0) && scene.descent < DESCENT.eventStop
 }
 
-/** Refills the launch gate for `now` (ms) in the tick's scene: whether and where transients may launch this tick. */
+/** Seconds since the reveal at `now` (ms); 0 before it. */
+function sinceReveal(now: number): number {
+	return revealAt === null ? 0 : now / 1000 - revealAt
+}
+
+/** Refills the launch gate for `now` (ms) in the tick's scene: whether transients may launch this tick. */
 function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.allowed = launchesAllowed(now, scene)
-	gate.scene = scene.launchScene
 	// Worker milliseconds against the key's seconds
-	gate.settled = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.calm = now - lastRushAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.still = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.readingKnown = newestReading().length > 0
 	gate.narrow = narrowScreen
-	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
+	gate.sinceReveal = sinceReveal(now)
 	gate.scrollY = scrollY
 	gate.ink = contrastLevels().meteorInk * scene.inkShare
 	gate.bodyShowing = bodyShowing(comet)
@@ -454,7 +477,7 @@ function schedule(now: number): void {
 		refresh.pause()
 		const launchAt = nextLaunchAt(transients)
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
-		// Asleep in a launch scene (an idle twinkle, say): wake only for the next launch
+		// Asleep (an idle twinkle, say): wake only for the next launch
 		else if (Number.isFinite(launchAt) && launchesAllowed(now, scene)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
 		return
 	}
@@ -601,6 +624,18 @@ function quietBlend(t: number): QuietBlend {
 	}
 }
 
+/** What stars on a wide screen keep clear of at the same moment as `blend`: its zones and reading copy, padded as quiet copy is. */
+function starBlend(blend: QuietBlend): QuietBlend {
+	const zones = (rects: readonly SkyRect[]) => screenReadingZones(rects, scrollY, height, QUIET.padding)
+	return { from: blend.level < 1 ? [...blend.from, ...zones(readingBefore)] : [], to: [...blend.to, ...zones(reading)], level: blend.level }
+}
+
+/** The reading copy stars on a narrow screen keep clear of at the same moment as `blend`, grown as READING says for this width. */
+function starReadingBlend(blend: QuietBlend): QuietBlend {
+	const zones = (rects: readonly SkyRect[]) => screenReadingZones(rects, scrollY, height, readingPadding(narrowScreen))
+	return { from: blend.level < 1 ? zones(readingBefore) : [], to: zones(reading), level: blend.level }
+}
+
 /**
  * Starts easing toward new rects: the ones on screen now become `from`, so a layout never changes the zones in one
  * frame. A layout that arrives mid-ease waits for it to end (the newest wins), because starting from the previous target
@@ -611,8 +646,10 @@ function quietBlend(t: number): QuietBlend {
 function applyLayout(message: LayoutMessage, now: number): void {
 	quietBefore = quiet
 	pinnedBefore = pinned
+	readingBefore = reading
 	quiet = message.quiet
 	pinned = message.pinned
+	reading = message.reading
 	layoutAt = now / 1000
 	pendingLayout = null
 }
@@ -620,7 +657,7 @@ function applyLayout(message: LayoutMessage, now: number): void {
 /**
  * Applies a waiting layout once the running ease is over, and asks for one more frame once the quiet ease has run out,
  * if the last one drawn still showed it part way. Fade frames come 1/FRAME.fadeFps s apart, so the ease ends between two
- * of them, and a worker about to sleep (reduced motion, reading) would keep the older state.
+ * of them, and a worker about to sleep (reduced motion, an idle visit) would keep the older state.
  */
 function settleQuiet(now: number): void {
 	const t = now / 1000
@@ -671,12 +708,12 @@ function updateNebula(scene: SceneLevels): void {
 
 /**
  * Steps the comet after the launch step and the camera: it starts when its rule allows (never while a shooting star holds
- * the ink lease), is gone once it keeps no light, and a fade of it that has just run out draws one more frame, so no trace
+ * the ink lease), leaves the sky once it keeps no light, and a fade of it that has just run out draws one more frame, so no trace
  * of it stays on screen. The launch gate it reads is the one this tick's launch step filled.
  */
 function updateComet(now: number): void {
-	// A visit that draws no comet, and one whose comet has gone, have nothing to step
-	if (!comet.planned || comet.status === 'gone') return
+	// A visit that draws no comet has nothing to step
+	if (!comet.planned) return
 	const t = now / 1000
 	bodyStep.leaseHeld = leaseHeld(transients)
 	bodyStep.time = t
@@ -702,6 +739,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 	const density = densityKeep(width, height)
 	const thinLevel = fadeOutAt(thinnedAt, ADAPT.thinFade, t)
 	const landing = miami.frame(stepInput(now))
+	const quietZones = quietBlend(t)
 	return {
 		time: t,
 		twinkleTime: t - hiddenTotal,
@@ -711,16 +749,21 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		deviceWidth: target.width,
 		deviceHeight: target.height,
 		offset: cameraOffset(camera, offset),
-		// The stars a quality step thins out stay in the draw until they have faded away
-		keep: quality > 0 && thinLevel <= 0 ? density * ADAPT.thinning : density,
+		// The stars a quality step thins out stay in the draw until they have faded away, the catalog's reserve among them
+		keep: quality > 0 && thinLevel <= 0 ? density * ADAPT.thinning : density + (catalogKeep(width, height) - density) * scene.reserve,
 		thinFrom: quality > 0 ? density * ADAPT.thinning : Infinity,
+		reserveKey: density,
 		thinLevel,
 		layers: { far: scene.stars.far * contrast.stars, mid: scene.stars.mid * contrast.stars, near: scene.stars.near * contrast.stars },
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
 		twinkle: twinkleLevel(scene),
 		haze: hazeLevel(scene) * hazeEmergence(dusk),
-		quiet: quietBlend(t),
-		reading: transients.active.length > 0 || bodyShowing(comet) ? readingZones() : [],
+		quiet: quietZones,
+		reading: transients.active.length > 0 || bodyShowing(comet) ? landingZones(readingZones()) : [],
+		starQuiet: narrowScreen ? quietZones : starBlend(quietZones),
+		starReading: narrowScreen ? starReadingBlend(quietZones) : { from: [], to: [], level: 1 },
+		quietAhead: transients.active.length > 0 ? screenReadingZones(pendingLayout?.quiet ?? quiet, scrollY, height, SCROLL_LAG.reach) : [],
+		scrollY,
 		meteorInk: contrast.meteorInk * scene.inkShare,
 		snap: !skyMoved,
 		miami: landing,
@@ -738,9 +781,9 @@ function draw(now: number): void {
 	const frame = frameAt(now, canvas)
 	drawSky(ctx, assets, field, frame)
 	for (const transient of transients.active) drawTransient(ctx, assets, transient, frame, transientFade(transient, frame.time, scrollY))
-	// The comet's view tests its box against the zones this frame draws, and may find it gone
+	// The comet's view tests its box against the zones this frame draws, which may start it fading
 	const view = bodyShowing(comet)
-		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, scrollY, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading })
+		? bodyView(comet, { time: frame.time, twinkleTime: frame.twinkleTime, offset: frame.offset, clock: camera.clock, width: frame.width, quiet: frame.quiet, reading: frame.reading })
 		: null
 	if (view) {
 		// Painted once, in the first frame it shows (still at no light), and again after a lost context took it
@@ -880,7 +923,7 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	// The old path was planned for the old layout, and so was the comet's place
 	forgetVisitSky(transients)
 	dropTransients(transients)
-	dropBody(comet)
+	dropBody(comet, sinceReveal(now))
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
 	miami.setSize(width, height, dpr)
@@ -1035,6 +1078,8 @@ scope.addEventListener('message', (event) => {
 			needsDraw = true
 			break
 		case 'scroll':
+			// Messages come one a frame, so a step is how fast the page moves
+			if (Math.abs(message.y - scrollY) > TRANSIENTS.calmStep) lastRushAt = now
 			scrollY = message.y
 			lastScrollAt = now
 			noteInput(now)
@@ -1044,11 +1089,11 @@ scope.addEventListener('message', (event) => {
 		case 'layout': {
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
-			reading = message.reading
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
-			// near it fade instead of changing in one frame. A change mid-ease waits for the ease to end.
-			const latest = pendingLayout ?? { quiet, pinned }
-			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned)) {
+			// near it, reading copy included, fade instead of changing in one frame. A change mid-ease waits for the ease to
+			// end, while what flies and what plans answer to the newest reading copy at once (newestReading).
+			const latest = pendingLayout ?? { quiet, pinned, reading }
+			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
 				if (quietEasing(now / 1000)) pendingLayout = message
 				else applyLayout(message, now)
 			}

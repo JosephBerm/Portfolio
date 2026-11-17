@@ -28,7 +28,7 @@ import { headGain, meteorAt, meteorChroma, meteorLight, meteorPoint, trainWidth,
 import type { Rgb, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import { createQuietIndex } from '@/lib/sky/quietIndex'
 import { satelliteAt, type SatellitePass } from '@/lib/sky/satellites'
-import { budgetKeeps, readingKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
+import { budgetKeeps, flightKept, readingKept, smoothstep, starEmergence, transientQuietFactor, type QuietBlend, type QuietKeeps } from '@/lib/sky/scene'
 import type { Transient } from '@/lib/sky/transients'
 import type { MiamiFrame } from './miamiRuntime'
 import { drawFireball } from './renderFireball'
@@ -148,8 +148,12 @@ export interface SkyFrame {
 	haze: number
 	/** Padded quiet rects in screen coordinates, easing from the previous measurement to the current one. */
 	quiet: QuietBlend
-	/** Reading copy near the screen (screenReadingZones) while anything that answers to it is in the sky, else none. */
+	/** Reading copy near the screen (screenReadingZones) and the landing scene's band below eventFloorY, while anything that answers to them is in the sky, else none. */
 	reading: readonly SkyRect[]
+	/** Quiet copy in the page's flow near the screen, grown by SCROLL_LAG.reach, while a transient is in the sky, else none. */
+	quietAhead: readonly SkyRect[]
+	/** The page's scroll as the worker last heard of it (px). */
+	scrollY: number
 	/** Share of every rect's INK_BUDGET a shooting star keeps on the copy itself (the contrast preference's, times the descent's inkShare). */
 	meteorInk: number
 	/** Every star at a whole device pixel, as a sky that hasn't moved in this page view draws them; false places each at its nearest sub-pixel phase (placePoint). */
@@ -332,7 +336,7 @@ function wakeTint(assets: SkyAssets, meteor: Meteor): Rgb {
  * point it draws, so a shooting star burning out behind the copy fades there while the part still in clear sky stays
  * bright, and on the copy it keeps its shape at a faint level. While a layout eases in it follows transientQuietFactor.
  * `fade` (0-1) multiplies the light of each point of it, train, wake, glow and core: the caller's own fade, such as the
- * scroll cancel (scrollKept), and what depends on where the light is, such as reading copy (readingKept). `keeps` replaces
+ * scroll cancel (scrollKept), and what depends on where the light is, such as reading copy (flightKept). `keeps` replaces
  * the veil's budgets for a variant that never takes the ink lease (CLEAR_SKY_KEEPS), which keeps none of its light inside a
  * padded quiet rect. `wakeStops` is how many of the wake's stops it samples, counted from the head (all of
  * METEOR_LOOK.wakeStops by default). A body that leaves no wake, a point flash, takes none: each stop's light divides its
@@ -400,8 +404,8 @@ export function drawMeteor(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAs
  * The color of a shooting star's head, drawn after drawMeteor, whose head stays white: a glow round it (METEOR_SHEATH)
  * in its spectrum's sheath color, mixed from the theme's white by the meteor's chroma. Its light is the head's light now
  * times `fade` (the caller's own, as for drawMeteor, read at the head) and the transient quiet factor at the head's center
- * with CLEAR_SKY_KEEPS, which is 0 once the head is inside a padded quiet rect, so the sheath never reaches the copy and the
- * veil's budgets never count it. A spectrum with no sheath (`plain`) draws nothing.
+ * with CLEAR_SKY_KEEPS, which is 0 once the head is inside a padded quiet rect, so the sheath never reaches the copy where
+ * the worker last heard it was, and the veil's budgets never count it. A spectrum with no sheath (`plain`) draws nothing.
  */
 export function drawMeteorSheath(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, fade: (point: Point) => number = () => 1): void {
 	const sheath = METEOR_SPECTRA[meteor.spectrum].sheath
@@ -443,14 +447,15 @@ const DOT_STOPS = Array.from({ length: DOT_STEPS + 1 }, (_, k): readonly [number
  * that its warmth gives (SATELLITE.tint, SATELLITE.shadowColor). It needs no sprites, so the star atlas is the same with
  * or without satellites. The dot is SATELLITE.dot's size in CSS px, or larger where its core would fall under
  * MIN_CORE_SIGMA_DEVICE_PX (a point that small aliases and shimmers as it moves, as a star's would), and has the same
- * shape at every pixel ratio. `fade` (0-1) multiplies its light, as for a shooting star. `keeps` are the quiet keeps it is
- * drawn with (CLEAR_SKY_KEEPS), read at its center through transientQuietFactor every frame and with readingKept, so none of
- * its light lands inside a quiet rect or on reading copy, even mid-ease or when a layout changes under it: the dot reaches
- * SATELLITE.dot.radius CSS px from there (a few more where the floor widens it), well short of QUIET.padding.
+ * shape at every pixel ratio. `fade` (0-1) multiplies its light, read at its center, as for a shooting star. `keeps` are the
+ * quiet keeps it is drawn with (CLEAR_SKY_KEEPS), read there through transientQuietFactor every frame, and `fade` answers for
+ * reading copy, so none of its light lands inside a quiet rect or on reading copy, even mid-ease or when a layout changes
+ * under it: the dot reaches SATELLITE.dot.radius CSS px from there (a few more where the floor widens it), well short of
+ * QUIET.padding.
  */
-function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, pass: SatellitePass, frame: SkyFrame, fade: number, keeps: QuietKeeps): void {
+function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, pass: SatellitePass, frame: SkyFrame, fade: (x: number, y: number) => number, keeps: QuietKeeps): void {
 	const { x, y, alpha, warmth } = satelliteAt(pass, frame.time)
-	const light = alpha * fade * transientQuietFactor(frame.quiet, x, y, keeps) * readingKept(frame.reading, x, y)
+	const light = alpha * fade(x, y) * transientQuietFactor(frame.quiet, x, y, keeps)
 	if (light < MIN_STAR_ALPHA) return
 	const { dpr } = frame
 	const { dot } = SATELLITE
@@ -467,6 +472,11 @@ function wakeStopsFor(meteor: Meteor): number {
 	return meteor.wake === 0 ? 0 : METEOR_LOOK.wakeStops
 }
 
+/** How far apart a shooting star's gradient stops may lie along its path (CSS px): a train's, or a wake's at its fastest. */
+function stopGap(meteor: Meteor): number {
+	return meteor.train ? meteor.length / 4 : (meteor.speed * METEOR.wakeSpan * meteor.wake) / ((METEOR_LOOK.wakeStops - 1) * (1 - meteor.drag))
+}
+
 /** A shooting star: drawMeteor with the wake stops its body takes (wakeStopsFor) and `keeps`, then its sheath. */
 function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, meteor: Meteor, frame: SkyFrame, kept: (point: Point) => number, keeps?: QuietKeeps): void {
 	drawMeteor(ctx, assets, meteor, frame, kept, keeps, wakeStopsFor(meteor))
@@ -475,34 +485,50 @@ function drawShootingStar(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAss
 
 /**
  * Draws one transient at the frame's time with the share of its light it keeps (`fade`: transientFade, from the worker,
- * which holds scrollY). Clear-sky kinds, and the bodies a kind marks as clear sky (a point flash, a burst, an
- * earthgrazer), draw with CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. Reading
- * copy that has come under a shooting star since its plan takes the light at each point it draws (readingKept). A
- * shooting star is drawn with drawMeteor and then its sheath (drawMeteorSheath), which always keeps clear of copy. A burst
- * draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
+ * which holds scrollY). Clear-sky kinds, the bodies a kind marks as clear sky (a point flash, a burst, an earthgrazer) and
+ * every flight that holds no lease, which was planned clear of quiet copy and has no budget on it, draw with
+ * CLEAR_SKY_KEEPS, chosen here for every drawer; a kind without a case fails to compile. While the worker reads any scroll but
+ * the one it launched at, every point of it also keeps clear of where a scroll not yet heard of may have brought quiet copy
+ * (SCROLL_LAG). Reading copy that has come under a flight since its plan takes the light at each point it draws (flightKept),
+ * and a stop of a wake or a train answers to copy a stop away along its path too, since a gradient carries light from one
+ * stop to the next; its plan keeps the path clear, so that changes nothing until copy comes onto it. A shooting star is drawn
+ * with drawMeteor and then its sheath (drawMeteorSheath), which keeps clear of copy where the worker last heard it was. A
+ * burst draws its first member and then each later one the same way; a member that has not started yet adds no light. A body
  * with no wake time, a point flash, is drawn with no wake stops (wakeStopsFor); every other body keeps all of them. A
- * fireball, the one body with a show, has a drawer of its own (drawFireball), which always keeps clear of copy.
+ * fireball, the one body with a show, has a drawer of its own (drawFireball), which keeps clear of copy where the worker last
+ * heard it was.
  */
 export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, transient: Transient, frame: SkyFrame, fade: number): void {
 	// Destructured, so TypeScript narrows `body` with `kind` and the check below holds with one kind or many
 	const { kind, body } = transient
-	const kept = (point: Point) => fade * readingKept(frame.reading, point.x, point.y)
+	const unmoved = frame.scrollY === transient.launchScrollY ? 1 : 0
+	const kept = (x: number, y: number) => fade * Math.max(unmoved, flightKept(frame.quietAhead, x, y)) * flightKept(frame.reading, x, y)
+	const keptAlong = (meteor: Meteor) => {
+		const { startX, startY, dirX, dirY, length } = meteor
+		const gap = stopGap(meteor)
+		return ({ x, y }: Point) => {
+			const flown = (x - startX) * dirX + (y - startY) * dirY
+			const ahead = Math.min(gap, length - flown)
+			const behind = Math.min(gap, flown)
+			return Math.min(kept(x, y), kept(x + dirX * ahead, y + dirY * ahead), kept(x - dirX * behind, y - dirY * behind))
+		}
+	}
 	switch (kind) {
 		case 'meteor': {
 			if (body.show) {
-				drawFireball(ctx, assets, body, body.show, frame, fade)
+				drawFireball(ctx, assets, body, body.show, frame, kept, unmoved < 1 ? frame.quietAhead : [])
 				return
 			}
-			const keeps = transient.clearSky ? CLEAR_SKY_KEEPS : undefined
-			drawShootingStar(ctx, assets, body, frame, kept, keeps)
-			if (body.followers) for (const follower of body.followers) drawShootingStar(ctx, assets, follower, frame, kept, keeps)
+			const keeps = transient.clearSky || !transient.nearCopy ? CLEAR_SKY_KEEPS : undefined
+			drawShootingStar(ctx, assets, body, frame, keptAlong(body), keeps)
+			if (body.followers) for (const follower of body.followers) drawShootingStar(ctx, assets, follower, frame, keptAlong(follower), keeps)
 			return
 		}
 		case 'satellite':
-			drawSatellite(ctx, assets, body, frame, fade, CLEAR_SKY_KEEPS)
+			drawSatellite(ctx, assets, body, frame, kept, CLEAR_SKY_KEEPS)
 			return
 		case 'farewell':
-			drawShootingStar(ctx, assets, body, frame, kept)
+			drawShootingStar(ctx, assets, body, frame, keptAlong(body))
 			return
 		default: {
 			const unhandled: never = kind

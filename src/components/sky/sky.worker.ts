@@ -32,8 +32,9 @@ import {
 	type Vec,
 } from '@/lib/sky/camera'
 import { densityKeep } from '@/lib/sky/catalog'
-import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, MIN_STAR_ALPHA, NARROW_MAX_WIDTH, PACING, QUIET, TRANSIENTS } from '@/lib/sky/config'
+import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, MIN_STAR_ALPHA, NARROW_MAX_WIDTH, PACING, QUIET, SCROLL_LAG, TRANSIENTS } from '@/lib/sky/config'
 import { DESCENT } from '@/lib/sky/miamiConfig'
+import { eventFloorY } from '@/lib/sky/miamiStage'
 import {
 	createRefreshEstimate,
 	driftCap,
@@ -122,6 +123,8 @@ let pendingLayout: LayoutMessage | null = null
 let lastScrollAt = -Infinity
 let lastDrawAt = -Infinity
 let hiddenAt: number | null = null
+/** When (ms) the last scroll step over TRANSIENTS.calmStep px came. */
+let lastRushAt = -Infinity
 // Seconds on the worker clock
 let exitAt: number | null = null
 let revealAt: number | null = null
@@ -137,7 +140,9 @@ const miami = createMiamiRuntime()
 const gate: LaunchGate = {
 	allowed: false,
 	scene: null,
-	settled: false,
+	calm: false,
+	still: false,
+	readingKnown: false,
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
@@ -221,6 +226,12 @@ const divisor: Divisor = { k: 1, slowerSince: null }
 /** Reading copy near the screen now, in screen coordinates, grown as READING says for this width. */
 function readingZones(): SkyRect[] {
 	return screenReadingZones(reading, scrollY, height, readingPadding(narrowScreen))
+}
+
+/** `zones` and the landing scene's band on the canvas, from eventFloorY down, which flights and the comet keep their light off as off reading copy; `zones` itself while no band shows. */
+function landingZones(zones: readonly SkyRect[]): readonly SkyRect[] {
+	const floor = eventFloorY(miami.stage, scrollY, documentHeight)
+	return floor < height ? [...zones, { x: 0, y: floor, width, height: height - floor, headroom: 0 }] : zones
 }
 
 /** Backing-store pixels for a CSS length (never zero). */
@@ -417,7 +428,9 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.allowed = launchesAllowed(now, scene)
 	gate.scene = scene.launchScene
 	// Worker milliseconds against the key's seconds
-	gate.settled = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.calm = now - lastRushAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.still = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
+	gate.readingKnown = reading.length > 0
 	gate.narrow = narrowScreen
 	gate.sinceReveal = revealAt === null ? 0 : now / 1000 - revealAt
 	gate.scrollY = scrollY
@@ -720,7 +733,9 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		twinkle: twinkleLevel(scene),
 		haze: hazeLevel(scene) * hazeEmergence(dusk),
 		quiet: quietBlend(t),
-		reading: transients.active.length > 0 || bodyShowing(comet) ? readingZones() : [],
+		reading: transients.active.length > 0 || bodyShowing(comet) ? landingZones(readingZones()) : [],
+		quietAhead: transients.active.length > 0 ? screenReadingZones(pendingLayout?.quiet ?? quiet, scrollY, height, SCROLL_LAG.reach) : [],
+		scrollY,
 		meteorInk: contrast.meteorInk * scene.inkShare,
 		snap: !skyMoved,
 		miami: landing,
@@ -1035,6 +1050,8 @@ scope.addEventListener('message', (event) => {
 			needsDraw = true
 			break
 		case 'scroll':
+			// Messages come one a frame, so a step is how fast the page moves
+			if (Math.abs(message.y - scrollY) > TRANSIENTS.calmStep) lastRushAt = now
 			scrollY = message.y
 			lastScrollAt = now
 			noteInput(now)

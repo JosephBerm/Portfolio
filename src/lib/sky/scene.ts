@@ -1,4 +1,4 @@
-import { EMERGENCE, INK_BUDGET, QUIET, READING, SCENE, SCROLL_CANCEL, STAR_INK_PEAK, type SkyLayer } from './config'
+import { EMERGENCE, INK_BUDGET, QUIET, READING, SCENE, SCROLL_CANCEL, SCROLL_LAG, STAR_INK_PEAK, type SkyLayer } from './config'
 import { DESCENT } from './miamiConfig'
 import type { SkyRect } from './protocol'
 
@@ -122,9 +122,23 @@ export function screenReadingZones(rects: readonly SkyRect[], scrollY: number, h
 	return zones
 }
 
-/** Share of its light anything in the sky keeps at (x, y) for reading copy, which no light may reach: none inside a zone, easing back over QUIET.feather. */
-export function readingKept(zones: readonly SkyRect[], x: number, y: number): number {
-	return 1 - quietAt(zones, x, y)
+/**
+ * Share of its light anything in the sky keeps at (x, y) for copy no light may reach: none inside a zone or within `from`
+ * px of one, easing back by `reach` px from it.
+ */
+export function readingKept(zones: readonly SkyRect[], x: number, y: number, reach: number = QUIET.feather, from = 0): number {
+	let kept = 1
+	for (const zone of zones) {
+		const dx = Math.max(zone.x - x, 0, x - zone.x - zone.width)
+		const dy = Math.max(zone.y - y, 0, y - zone.y - zone.height)
+		if (dx < reach && dy < reach) kept = Math.min(kept, smoothstep(from, reach, Math.hypot(dx, dy)))
+	}
+	return kept
+}
+
+/** readingKept for a flight, which keeps none until all the light round the point has cleared a zone (SCROLL_LAG). */
+export function flightKept(zones: readonly SkyRect[], x: number, y: number): number {
+	return readingKept(zones, x, y, QUIET.feather, SCROLL_LAG.glow)
 }
 
 /** True when two lists hold the same rects (a layout message may change only the document height). */
@@ -277,8 +291,9 @@ export function budgetKeeps(white: number, quietKeep: number, ink = 1): QuietKee
 }
 
 /**
- * Share of its light a moving transient keeps once the page has scrolled from `launchScrollY` to `scrollY` (px): the
- * ramp of SCROLL_CANCEL, times `fade` (0-1), the caller's own fade state (a pause, say), which can only dim.
+ * Share of its light a transient the scroll cancel takes keeps once the page has scrolled from `launchScrollY` to
+ * `scrollY` (px): the ramp of SCROLL_CANCEL, times `fade` (0-1), the caller's own fade state (a pause, say), which can
+ * only dim.
  */
 export function scrollKept(launchScrollY: number, scrollY: number, fade = 1): number {
 	return Math.min(1, Math.max(0, fade)) * (1 - smoothstep(SCROLL_CANCEL.from, SCROLL_CANCEL.to, Math.abs(scrollY - launchScrollY)))

@@ -266,7 +266,7 @@ export const QUIET = { padding: 32, feather: 40, ease: 0.6 } as const
 export const QUIET_REACH = QUIET.padding + QUIET.feather
 
 /**
- * Reading copy: everything in the page's flow that isn't quiet copy. The sky plans around it and never lights it, so it
+ * Reading copy: everything in the page's flow that isn't quiet copy. The sky plans around it and never lights it at rest, so it
  * has no budget and no veil. Nothing flies within QUIET.feather of a rect grown by `padding` px on every side: QUIET_REACH
  * from the words, as clear-sky flights keep from quiet copy, or on narrow screens, whose copy fills the width and leaves
  * no sky that far from it, `narrowPadding`: QUIET.feather from the words, which is still more than a flight's light reaches
@@ -670,10 +670,13 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout,
  * measured with the kinds of shooting star that fly in clear sky at their odds (each flies in place of an ordinary launch,
  * so fewer launches cross the copy) and without satellites, which only make crossings fewer, so it holds whether or not
- * they fly. A pause fades every transient out over `cancelFade` seconds, through scrollKept, which also takes it away as
- * the page scrolls from its launch (SCROLL_CANCEL). A plan that finds no room waits `retry` seconds, and never stops trying,
- * since the room moves with the scroll. A held launch looks again after `recheck` seconds; a launch waits `scrollQuiet`
- * seconds after scrolling stops, and after a return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
+ * they fly. A pause fades every transient out over `cancelFade` seconds; one that holds the ink lease or leaves a shooting
+ * star's train also goes as the page scrolls from its launch (SCROLL_CANCEL), and every other answers only to what comes
+ * under it. A plan that finds no room waits `retry` seconds, and never stops trying, since the room moves with the
+ * scroll. A held launch looks again after `recheck` seconds. A launch waits `scrollQuiet` seconds after the last scroll step
+ * of more than `calmStep` px (2,400 px/s at 60 Hz, past a wheel notch's peak, so only a fling or a jump holds one back, and a
+ * visitor who keeps scrolling still sees events), and one that may pass near quiet copy after the last step of any size; after
+ * a return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
  * From `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
  * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
  */
@@ -686,6 +689,7 @@ export const TRANSIENTS = {
 	retry: [5, 9],
 	recheck: 1,
 	scrollQuiet: 1.2,
+	calmStep: 40,
 	afterReturn: 3,
 	longVisit: { from: 120, scale: 240, max: 3 },
 } as const
@@ -1184,11 +1188,26 @@ export const METEOR_VEIL = { quietKeep: 0.3, clearUntil: 0.47, rise: 0.01, sampl
 export const METEOR_PASS = { share: 0.4, visible: 0.12, dwell: 0.1, glimmer: 0.041 } as const
 
 /**
- * A moving transient launched with the page at one scroll offset is dimmed once the page has scrolled `from` px from
- * there and gone at `to` px: the copy under it is no longer the copy it was planned around (the veil knows only quiet
- * copy). Position-driven, so even a jump of a screen takes it away at once (see scrollKept).
+ * A transient that holds the ink lease or leaves a shooting star's train, launched with the page at one scroll offset, is
+ * dimmed once the page has scrolled `from` px from there and gone at `to` px: the copy under it is no longer the copy it was
+ * planned around. Position-driven, so even a jump of a screen takes it away at once (see scrollKept).
  */
 export const SCROLL_CANCEL = { from: 12, to: 24 } as const
+
+/**
+ * What no frame can answer. A scroll message may run three frames behind the page, and a wheel notch moves it `reach` px in
+ * that time, before the worker has heard of it. While the worker reads the scroll a flight launched at, the flight's light
+ * answers to quiet copy only where the worker last heard it was, so a line an unheard scroll brings under it may take some.
+ * A flight planned clear of the copy keeps its path a little further than `reach` from it: a shooting star's light reaches
+ * `glow` px round its path, and a fireball's sparks fly up to about 17 px off it. The fireball keeps them out of the copy's
+ * padded rect, and its radial lights short of it, and the veil keeps a flight that holds the lease within budgets, only
+ * where the copy was. While the worker reads any other scroll, a flight may by now lie anywhere, so none of its light lands
+ * within `reach` of that copy in the page's flow, whose budgets a line arriving unheard would break, easing back over
+ * QUIET.feather. Rails don't scroll, and reading copy has no budget: a line of it may catch a moving frame (READING). What a
+ * flight keeps is read at points with light around them, a spark's where it flies, so it keeps none until `glow` px past a
+ * zone, the widest of that light (METEOR_SHEATH).
+ */
+export const SCROLL_LAG = { reach: 66, glow: 11 } as const
 
 /**
  * Light curve over flight progress p: sin(π × p^skew)^sharpness peaks near 45% (a quick ignition, a gentle burn-out); a

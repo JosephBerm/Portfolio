@@ -124,7 +124,7 @@ function inHero(gate: LaunchGate): boolean {
  * copy to a shooting star's, so it starts only while none does, and none takes the lease while it shows (LaunchGate.bodyShowing).
  */
 export function bodyMayStart(body: SkyBody, gate: LaunchGate, leaseHeld: boolean): boolean {
-	return body.status === 'waiting' && body.planned && inHero(gate) && gate.settled && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
+	return body.status === 'waiting' && body.planned && inHero(gate) && gate.still && !gate.narrow && gate.sinceReveal >= body.nextAt && !leaseHeld
 }
 
 /** The line a zone's reach above About's header row (CSS px from the top of the screen) once the page has scrolled as far as a comet can still show; findPlace keeps the comet's box above it along its whole path. */
@@ -437,7 +437,7 @@ export interface BodyFrame {
 	width: number
 	/** The zones on screen as the frame draws them; the box answers to `to` and a waiting layout's `next`. */
 	quiet: QuietBlend
-	/** Reading copy near the screen; the box answers to it too. */
+	/** Reading copy near the screen, and the landing scene's band where the page has one; the box answers to them too. */
 	reading: readonly SkyRect[]
 }
 
@@ -457,8 +457,8 @@ export interface CometView {
  * own: the drift clock's time since it began to show, times its pace. While the sky is held the camera and the drift
  * clock stand still, so it does too, and its fade-in is read at the moment of the hold. It is gone once its whole box is
  * past the right edge, where no copy lies. Its box is tested against the zones the frame answers to (the layout it is
- * easing to, one waiting, and reading copy), whose copy and the comet both move, held or not, and the first time copy comes
- * within reach it starts to fade out and is gone for good.
+ * easing to, one waiting, and reading copy with the landing scene's band), whose copy and the comet both move, held or not,
+ * and the first time copy or the band comes within reach it starts to fade out and is gone for good.
  */
 export function bodyView(body: SkyBody, frame: BodyFrame): CometView | null {
 	const { shape } = body

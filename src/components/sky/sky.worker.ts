@@ -147,8 +147,10 @@ const gate: LaunchGate = {
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
-	// Built afresh on each call: the scheduler asks only for a due kind that may plan
-	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet, pinned, reading: newestReading() }),
+	// Built afresh on each call: the scheduler asks only for a due kind that may plan. From the newest layout, waiting or in
+	// force, as the frame dims at a waiting one (QuietBlend.next), so no plan made after a resize's layout arrives crosses
+	// the rails it moved
+	field: () => skyField({ width, height, narrow: narrowScreen, scrollY, quiet: pendingLayout?.quiet ?? quiet, pinned: pendingLayout?.pinned ?? pinned, reading: newestReading() }),
 	ink: 1,
 	bodyShowing: false,
 }
@@ -1093,7 +1095,8 @@ scope.addEventListener('message', (event) => {
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
 			// near it, reading copy included, fade instead of changing in one frame. A change mid-ease waits for the ease to
-			// end, while what flies and what plans answer to the newest reading copy at once (newestReading).
+			// end, while what flies and what plans answer to the newest copy at once (newestReading, QuietBlend.next, the
+			// frame's quietAhead and the launch gate's field).
 			const latest = pendingLayout ?? { quiet, pinned, reading }
 			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
 				if (quietEasing(now / 1000)) pendingLayout = message

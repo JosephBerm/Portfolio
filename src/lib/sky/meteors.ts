@@ -1,4 +1,4 @@
-import { METEOR, METEOR_CHROMA, METEOR_KINDS, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, TRAIN, type SpectrumName, type SpeedClassName, type TrainSpec } from './config'
+import { METEOR, METEOR_CHROMA, METEOR_KINDS, METEOR_LIGHT, METEOR_LOOK, METEOR_PASS, METEOR_VEIL, NARROW_MAX_WIDTH, QUIET, SCENE, TRAIN, type SpectrumName, type SpeedClassName, type TrainSpec } from './config'
 import { planFireballShow, type FireballShow } from './fireball'
 import type { SkyRect } from './protocol'
 import { between, type Random } from './random'
@@ -98,15 +98,12 @@ export interface PlanOptions {
 	 * Zones no path comes within QUIET.feather of, as `nearCopy` false keeps it from all: the side rails, whose links change
 	 * color on hover and focus, which their measured headroom misses until the next measurement (the right rail's text also
 	 * keeps its contrast over the nebula, up to 0.09 of white there, past INK_BUDGET.hazeReserve, only while nothing else
-	 * lights it: a veiled flight's budget there would take it to about 3.7:1); reading copy, which nothing lights; for
-	 * farewell meteors, also the sky above the highest quiet copy on screen at the foot of the page. Default none.
+	 * lights it: a veiled flight's budget there would take it to about 3.7:1); reading copy, which nothing lights at rest.
+	 * Default none.
 	 */
 	clearOf?: readonly SkyRect[]
-	/**
-	 * The box start points are drawn from, in place of startArea(field); a start above METEOR.top moves down to it.
-	 * Farewell meteors start only below the top of the highest copy of the page's flow on screen.
-	 */
-	starts?: StartArea
+	/** Where it flies (flightArea): the box start points are drawn from, a start above METEOR.top moving down to it, and the line paths end above. */
+	area: FlightArea
 	/** Whether a shooting star may leave a train (METEOR.trainChance); a fireball's is its show's. Default true. */
 	trains?: boolean
 	/**
@@ -115,7 +112,7 @@ export interface PlanOptions {
 	 * fireball or none asks for `flights: 'long'`.
 	 */
 	fireball?: boolean
-	/** Candidate paths each pass tries, in place of METEOR.attempts: a caller whose `starts` is one point gains nothing by drawing it again. */
+	/** Candidate paths each pass tries, in place of METEOR.attempts: a caller whose `area` is one point gains nothing by drawing it again. */
 	attempts?: number
 }
 
@@ -156,41 +153,46 @@ export function meteorChroma(peak: number): number {
 /** White a unit of light adds on the wake's centerline: its core and its soft pass. */
 export const WAKE_GAIN = 1 + METEOR_LOOK.softAlpha
 
-/** A box start points are drawn from (CSS px). */
-export interface StartArea {
+/** A box start points are drawn from, and the line paths end above (CSS px). */
+export interface FlightArea {
 	x0: number
 	x1: number
 	y0: number
 	y1: number
+	maxEndY: number
 }
 
 /**
- * The box planFlight draws start points from unless the caller gives its own (PlanOptions.starts), in CSS px: width ×
- * METEOR.spawnX by height × spawnY. The box itself is not clamped: a start drawn above METEOR.top, where the navbar is,
+ * Where flights fly on a page scrolled `scrollY` px, in CSS px: width × spawnX by height × spawnY, with paths ending above
+ * height × maxEndY. The hero's copy is left-aligned and its sky reviewed, so over it these are METEOR's; once it gives way
+ * (SCENE.heroFadeFrom), METEOR.open's. The box itself is not clamped: a start drawn above METEOR.top, where the navbar is,
  * moves down to it.
  */
-export function startArea(field: MeteorField): StartArea {
+export function flightArea(field: MeteorField, scrollY: number): FlightArea {
 	const { width, height } = field
-	return { x0: width * METEOR.spawnX[0], x1: width * METEOR.spawnX[1], y0: height * METEOR.spawnY[0], y1: height * METEOR.spawnY[1] }
+	const open = scrollY > height * SCENE.heroFadeFrom
+	const { spawnX, spawnY } = open ? METEOR.open : METEOR
+	const maxEndY = open ? (width <= NARROW_MAX_WIDTH ? METEOR.open.narrowMaxEndY : METEOR.open.maxEndY) : METEOR.maxEndY
+	return { x0: width * spawnX[0], x1: width * spawnX[1], y0: height * spawnY[0], y1: height * spawnY[1], maxEndY: height * maxEndY }
 }
 
 /** A start point drawn from `area`, x and then y; one drawn above METEOR.top, where the navbar is, moves down to it. */
-export function drawStart(random: Random, area: StartArea): Point {
+export function drawStart(random: Random, area: FlightArea): Point {
 	return { x: between(random, area.x0, area.x1), y: Math.max(METEOR.top, between(random, area.y0, area.y1)) }
 }
 
 /**
  * Whether a point lies inside the screen's guards for where a transient's key points may fall: METEOR's edge margin in
- * from the left and right edges, below METEOR.top and not below METEOR.maxEndY of the height. A flight's end, a flash, a
+ * from the left and right edges, below METEOR.top and not below the line `lowest` (CSS px). A flight's end, a flash, a
  * swarm's pieces and a satellite's fade keep to them.
  */
-export function insideGuards(field: MeteorField, x: number, y: number): boolean {
-	return x >= METEOR.edgeMargin && x <= field.width - METEOR.edgeMargin && y >= METEOR.top && y <= field.height * METEOR.maxEndY
+export function insideGuards(field: MeteorField, x: number, y: number, lowest: number): boolean {
+	return x >= METEOR.edgeMargin && x <= field.width - METEOR.edgeMargin && y >= METEOR.top && y <= lowest
 }
 
 /** Whether a point is a start in clear sky: inside the guards and past the reach of every zone of `clearSky`, as a flash and a swarm's center need. */
-export function clearStart(field: MeteorField, clearSky: readonly SkyRect[], x: number, y: number): boolean {
-	return insideGuards(field, x, y) && quietAt(clearSky, x, y) === 0
+export function clearStart(field: MeteorField, clearSky: readonly SkyRect[], x: number, y: number, lowest: number): boolean {
+	return insideGuards(field, x, y, lowest) && quietAt(clearSky, x, y) === 0
 }
 
 /** Does the segment a→b touch the rectangle grown by `margin` on every side? (Liang-Barsky clipping.) */
@@ -276,11 +278,11 @@ interface Fit {
 }
 
 /**
- * Up to `options.attempts` (METEOR.attempts by default) candidate paths from start points in `options.starts` (startArea
- * by default), steered by `options.steer`, shorter on the fallback pass and every one a fireball if `options.fireball`;
- * the first that fits. A share of the launches (METEOR_PASS) then trade that flight for one that passes visibly behind
- * copy, where one fits in as many more candidates. Fireballs, flares and trains need clear sky, so a launch that came out
- * as one keeps it: their rates don't depend on the aim.
+ * Up to `options.attempts` (METEOR.attempts by default) candidate paths from start points in `options.area`, steered by
+ * `options.steer`, shorter on the fallback pass and every one a fireball if `options.fireball`; the first that fits. A
+ * share of the launches (METEOR_PASS) then trade that flight for one that passes visibly behind copy, where one fits in
+ * as many more candidates. Fireballs, flares and trains need clear sky, so a launch that came out as one keeps it:
+ * their rates don't depend on the aim.
  */
 function planFlight(random: Random, field: MeteorField, now: number, options: PassOptions): Meteor | null {
 	const { width, height } = field
@@ -289,7 +291,7 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 	const { steer, fallback, fireball = false, clearOf = [], nearCopy: copyAllowed = true, ink = 1, attempts = METEOR.attempts, trains = true } = options
 	const minPath = (narrow ? METEOR.narrowMinPath : METEOR.path[0]) * (fallback ? METEOR.fallbackScale : 1)
 	const maxPath = narrow ? width * METEOR.narrowMaxPathShare : Math.min(METEOR.path[1], METEOR.pathShare * longSide)
-	const area = options.starts ?? startArea(field)
+	const { area } = options
 	// The first of up to `attempts` candidates that fits and whose head spends at least `minBehind` of the flight visibly on copy
 	const fit = (minBehind: number): Fit | null => {
 		for (let attempt = 0; attempt < attempts; attempt++) {
@@ -307,7 +309,7 @@ function planFlight(random: Random, field: MeteorField, now: number, options: Pa
 			const path = { startX: start.x, startY: start.y, dirX: course.dirX, dirY: course.dirY, length, drag: METEOR.drag }
 			const end = meteorPoint(path, 1)
 			// Both ends on screen keep the straight path on screen, and the end clears the navbar and the bottom corners
-			if (!insideGuards(field, end.x, end.y)) continue
+			if (!insideGuards(field, end.x, end.y, area.maxEndY)) continue
 			// Clear of the zones the caller keeps every path away from
 			if (clearOf.some((rect) => segmentTouches(start, end, rect, QUIET.feather))) continue
 			// Within a feather of the padded copy the veil may dim it, and only the rects it comes that close to can; a fireball is too bright to veil

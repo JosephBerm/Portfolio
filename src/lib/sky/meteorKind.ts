@@ -1,17 +1,14 @@
 /**
- * The shooting stars as kinds of transient, over the hero and as farewell meteors at the foot of the page: what they
- * remember between launches, how a launch is planned and how they are timed. This module imports only types from
- * transients.ts, which reads their specs when it loads.
+ * The shooting stars as a kind of transient: what they remember between launches, how a launch is planned and how they
+ * are timed. This module imports only types from transients.ts, which reads their specs when it loads.
  */
 
-import { FAREWELL, METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, RADIANTS, SPEED_CLASSES, TRANSIENTS } from './config'
+import { METEOR, METEOR_BRIGHTNESS, METEOR_KINDS, METEOR_RATE, RADIANTS, SPEED_CLASSES, TRANSIENTS } from './config'
 import { nextGap } from './gaps'
-import { clearStart, drawStart, insideGuards, meteorLifetime, meteorMoving, meteorSpan, planMeteor, startArea, type Meteor, type PlanOptions, type Steer } from './meteors'
-import type { SkyRect } from './protocol'
-import { ZONE_REACH } from './quietIndex'
+import { clearStart, drawStart, insideGuards, meteorLifetime, meteorMoving, meteorSpan, planMeteor, type Meteor, type PlanOptions, type Steer } from './meteors'
 import { drawSpectrum, pickVisitSky, pointNearRadiant, radiantOver, showerRadiantAt, skyWindow, swarmPiece, visitSteer, type SteerOptions, type VisitSky } from './radiants'
 import { between, exponential, gaussian, type Random } from './random'
-import type { PlanContext, SkyField, TransientSpec } from './transients'
+import type { PlanContext, TransientSpec } from './transients'
 
 /**
  * What the shooting stars remember between launches: the visit's sky, the shower and the sporadic sources they come
@@ -38,27 +35,34 @@ function visitSkyOf(context: PlanContext): VisitSky {
 }
 
 /**
+ * A plan for one flight in the field: where flights fly now (`area`), at the light the contrast preference leaves on copy,
+ * with a shooting star's train only on a still page, and clear of the side rails and reading copy (`noFly`): the right
+ * rail's text keeps its contrast over the nebula only while no shooting star lights it (INK_BUDGET), and this is the one
+ * guard for veiled flights.
+ */
+function planInField(context: PlanContext, options: Pick<PlanOptions, 'steer' | 'flights' | 'nearCopy' | 'fireball'>): Meteor | null {
+	const { random, now, field, ink, still } = context
+	return planMeteor(random, field, now, { ...options, ink, clearOf: field.noFly, area: field.area, trains: still })
+}
+
+/**
  * A plan for one launch. The visit's sky is picked when there is none, and a steer from it gives the launch its source
  * and scatter. The steers are drawn first, the first and then METEOR.radiantTries fresh ones (one on narrow screens), each
  * a new source and scatter; long flights come first on every steer, and a shorter fallback on the same steers only when
- * none has room for a long one. The planner is told how much light the contrast preference leaves a shooting star on
- * copy, whether the plan may pass near copy at all, and to keep clear of the side rails and reading copy (the field's
- * `noFly` zones, which a `clearOf` in `options` adds to): the right rail's text keeps its contrast over the nebula only
- * while no shooting star lights it (INK_BUDGET), and this is the one guard for veiled flights. Returns null when nothing
- * fits, and keeps the visit's sky: copy, not the radiant, is what leaves no room. `options` adds to every planner call,
- * and its `flights: 'long'` leaves out the shorter fallback, which a fireball's try needs: the fallback would fly an
- * ordinary short flight in its place.
+ * none has room for a long one. The planner is told whether the plan may pass near copy at all. Returns null when nothing
+ * fits, and keeps the visit's sky: copy, not the radiant, is what leaves no room. `options` adds to every planner call, and
+ * its `flights: 'long'` leaves out the shorter fallback, which a fireball's try needs: the fallback would fly an ordinary
+ * short flight in its place.
  */
-export function planMeteorTransient(context: PlanContext, options: Omit<PlanOptions, 'steer' | 'nearCopy' | 'ink'> = {}): Meteor | null {
-	const { random, now, field, nearCopy, still, ink, narrow } = context
+export function planMeteorTransient(context: PlanContext, options: Pick<PlanOptions, 'fireball' | 'flights'> = {}): Meteor | null {
+	const { random, nearCopy, narrow } = context
 	const { flights = 'both' } = options
-	const clearOf = options.clearOf ? [...field.noFly, ...options.clearOf] : field.noFly
 	const sky = visitSkyOf(context)
 	const steers = Array.from({ length: 1 + (narrow ? 1 : METEOR.radiantTries) }, () => visitSteer(random, sky))
 	for (const pass of ['long', 'short'] as const) {
 		if (flights !== 'both' && flights !== pass) continue
 		for (const steer of steers) {
-			const plan = planMeteor(random, field, now, { ...options, steer, flights: pass, ink, nearCopy, clearOf, trains: still })
+			const plan = planInField(context, { ...options, steer, flights: pass, nearCopy })
 			if (plan) return plan
 		}
 	}
@@ -84,7 +88,7 @@ export function planFlash(context: PlanContext): Meteor | null {
 	for (let tries = 0; tries < FLASH_TRIES; tries++) {
 		const point = pointNearRadiant(random, sky, radius)
 		if (point === null) return null
-		if (!clearStart(field, field.clearSky, point.x, point.y)) continue
+		if (!clearStart(field, field.clearSky, point.x, point.y, field.height * METEOR.maxEndY)) continue
 		return {
 			startX: point.x,
 			startY: point.y,
@@ -124,13 +128,13 @@ function planPiece(context: PlanContext, sky: VisitSky, x: number, y: number, op
 	const { random, now, field, ink } = context
 	// A swarm flies like a shower (it never climbs), and its pieces near the radiant are short
 	const steer = visitSteer(random, sky, { shower: true, minPath: RADIANTS.nearRadiantPath, ...options })
-	const plan = planMeteor(random, field, now, { steer, ink, nearCopy: false, clearOf: field.noFly, starts: { x0: x, x1: x, y0: y, y1: y }, attempts: 1 })
+	const plan = planMeteor(random, field, now, { steer, ink, nearCopy: false, clearOf: field.noFly, area: { x0: x, x1: x, y0: y, y1: y, maxEndY: field.area.maxEndY }, attempts: 1 })
 	return plan && { ...plan, flare: false, train: false, variant: 'burst' }
 }
 
 /**
- * One try at a swarm of up to `count` pieces (METEOR_KINDS.burst): a center inside the guards, in the clear sky of the
- * start area, a radiant for it (the visit's shower's, or with `own` one of the swarm's own) and the lead there, then each
+ * One try at a swarm of up to `count` pieces (METEOR_KINDS.burst): a center inside the guards, in the clear sky of where
+ * flights fly now, a radiant for it (the visit's shower's, or with `own` one of the swarm's own) and the lead there, then each
  * other piece where the swarm's spread puts it. A place outside the guards or the swarm's time window, or within `laneGap`
  * of another piece's path, is drawn again, up to PIECE_TRIES times, and the piece is left out when none fits. One
  * spectrum serves the whole swarm. Empty when the center gives no radiant or no lead. A piece's `startedAt` is its
@@ -139,8 +143,9 @@ function planPiece(context: PlanContext, sky: VisitSky, x: number, y: number, op
 function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: number): Meteor[] {
 	const { random, now, field, still } = context
 	const { across, delay, firstOnset, lastOnset, radiantDistance, slowest, heading, speed: ownSpeed, leadPeak, leadFlight, leadWake, rankPower, faintest, flight, laneGap } = METEOR_KINDS.burst
-	const center = drawStart(random, startArea(field))
-	if (!clearStart(field, field.clearSky, center.x, center.y)) return []
+	const { maxEndY } = field.area
+	const center = drawStart(random, field.area)
+	if (!clearStart(field, field.clearSky, center.x, center.y, maxEndY)) return []
 	const radiant = own ? radiantOver(random, sky.window, center, radiantDistance, heading) : showerRadiantAt(sky, center, radiantDistance, slowest)
 	if (radiant === null) return []
 	const speed = own ? ownSpeed : sky.shower.speed
@@ -162,7 +167,7 @@ function planSwarm(context: PlanContext, sky: VisitSky, own: boolean, count: num
 		for (let tries = 0; tries < PIECE_TRIES; tries++) {
 			const offset = { east: gaussian(random) * width, north: gaussian(random) * width, behind: exponential(random, meanDelay) }
 			const place = swarmPiece(sky.window, radiant, speed, center, offset)
-			if (place === null || place.delay > lastOnset || place.delay < firstOnset || !insideGuards(field, place.x, place.y)) continue
+			if (place === null || place.delay > lastOnset || place.delay < firstOnset || !insideGuards(field, place.x, place.y, maxEndY)) continue
 			// A start within `laneGap` of another's line would put two pieces on nearly one path: the fan only widens downstream, so this is the closest they come
 			if (pieces.some((other) => Math.abs((place.x - other.startX) * other.dirY - (place.y - other.startY) * other.dirX) < laneGap)) continue
 			const piece = planPiece(context, sky, place.x, place.y, { ...course, peak, duration: [time, time] })
@@ -246,7 +251,7 @@ const DEG = Math.PI / 180
  * when no band of clear sky is long enough, and then leaves the visit's sky as it was.
  */
 export function planGrazer(context: PlanContext): Meteor | null {
-	const { random, now, field, ink } = context
+	const { field } = context
 	const { widthShare, tilt, angular, duration } = METEOR_KINDS.grazer
 	const { focal } = skyWindow(field.width, field.height)
 	const minPath = widthShare * field.width
@@ -272,7 +277,7 @@ export function planGrazer(context: PlanContext): Meteor | null {
 			speedClass: 'slow',
 		}
 	}
-	const plan = planMeteor(random, field, now, { steer, flights: 'long', ink, nearCopy: false, clearOf: field.noFly })
+	const plan = planInField(context, { steer, flights: 'long', nearCopy: false })
 	return plan && { ...plan, wake: METEOR.grazerWake, flare: false, train: false, variant: 'grazer' }
 }
 
@@ -342,7 +347,7 @@ function planMeteorLaunch(context: PlanContext): Meteor | null {
 /** The shooting stars' timing and planning. */
 export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	firstDelay: (random) => between(random, METEOR.firstDelay[0], METEOR.firstDelay[1]),
-	nextAfter: (meteor, random, sinceReveal, narrow) => meteorSpan(meteor) + nextGap(random, narrow ? METEOR_RATE.narrow : METEOR_RATE.hero, sinceReveal),
+	nextAfter: (meteor, random, sinceReveal, narrow) => meteorSpan(meteor) + nextGap(random, narrow ? METEOR_RATE.narrow : METEOR_RATE.wide, sinceReveal),
 	plan: planMeteorLaunch,
 	lifetime: meteorLifetime,
 	moving: meteorMoving,
@@ -354,67 +359,7 @@ export const METEOR_SPEC: TransientSpec<'meteor'> = {
 	lastOnset: (meteor) => (meteor.followers?.at(-1)?.startedAt ?? meteor.startedAt) - meteor.startedAt,
 	lease: true,
 	phones: true,
-	scene: 'hero',
 	forget: (visit) => {
 		visit.meteor.sky = null
 	},
-}
-
-/**
- * The top of the highest padded zone of the page's flow that is on screen (CSS px; above the screen where that zone is cut
- * off by it), or null while none is. The field's `pinned` zones are the very objects `quiet` holds for the side rails, so
- * every other zone in `quiet` is copy in the page's flow.
- */
-function flowEdge(field: SkyField): number | null {
-	let edge: number | null = null
-	for (const zone of field.quiet) {
-		if (zone.y >= field.height || zone.y + zone.height <= 0 || field.pinned.includes(zone)) continue
-		edge = edge === null ? zone.y : Math.min(edge, zone.y)
-	}
-	return edge
-}
-
-/**
- * Whether the screen leaves room for a farewell meteor: some copy of the page's flow is on screen, and its top lies above the
- * line paths must end above (METEOR.maxEndY). A farewell meteor flies below that top, so with the top at or below the line
- * none could end above it. On a tall screen Contact sits low even at the foot of the page, and there is no room.
- */
-export function farewellRoom(field: SkyField): boolean {
-	const edge = flowEdge(field)
-	return edge !== null && edge < METEOR.maxEndY * field.height
-}
-
-/**
- * A plan for one farewell meteor: a shooting star planned like any other (planMeteorTransient), but only in the sky below
- * the top of the highest copy of the page's flow on screen (flowEdge). The page above Contact has copy that carries no
- * quiet rect, which the veil knows nothing of: the starts are drawn from that edge down to the bottom of the screen, and
- * the sky above it is kept clear, so no path rises above the edge. Null when no copy of the flow is on screen.
- */
-export function planFarewell(context: PlanContext): Meteor | null {
-	const { field } = context
-	const edge = flowEdge(field)
-	if (edge === null) return null
-	// The planner keeps every path QUIET.feather (ZONE_REACH) away from a rect, so one ending that far above the edge leaves the paths at the edge or below it;
-	// a screen high, it covers all the sky above the edge that is on screen, whatever the edge
-	const above: SkyRect = { x: 0, y: edge - ZONE_REACH - field.height, width: field.width, height: field.height, headroom: 0 }
-	return planMeteorTransient(context, { clearOf: [above], starts: { ...startArea(field), y0: edge, y1: field.height } })
-}
-
-/**
- * The farewell meteors' timing and planning: shooting stars at the foot of the page, around Contact and the footer. They keep
- * a clock of their own, from the reveal and after each flight (FAREWELL.gap), at most FAREWELL.limit a visit, and wait for a
- * screen that leaves room.
- */
-export const FAREWELL_SPEC: TransientSpec<'farewell'> = {
-	firstDelay: (random) => nextGap(random, FAREWELL.gap, 0),
-	nextAfter: (meteor, random, sinceReveal) => meteor.duration + nextGap(random, FAREWELL.gap, sinceReveal),
-	plan: planFarewell,
-	lifetime: meteorLifetime,
-	moving: meteorMoving,
-	nearCopy: (meteor) => meteor.nearCopy,
-	lease: true,
-	phones: true,
-	scene: 'end',
-	room: farewellRoom,
-	limit: FAREWELL.limit,
 }

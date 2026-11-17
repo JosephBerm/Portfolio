@@ -7,12 +7,12 @@
  * fixed timer, not the display (WebKit's), the main thread relays the page's own animation frames for as long as
  * something moves. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
  * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
- * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there. The nebula's light moves on
- * the drift clock too and asks for no frames of its own. The landing scene at the foot of the page moves on a clock of its
- * own (the water, the clouds, the sun's breath, the beacons, the palms in the wind and the boat's crossing): while that is
- * on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive quality has stepped down, and for
- * none while paused, reduced, idle or on a canvas too slow to run it. It counts its own slow frames, from what its own
- * draws take, apart from adaptive quality's.
+ * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there, and every event flies there
+ * as it does over the hero. The nebula's light moves on the drift clock too and asks for no frames of its own. The landing
+ * scene at the foot of the page moves on a clock of its own (the water, the clouds, the sun's breath, the beacons, the
+ * palms in the wind and the boat's crossing): while that is on screen it asks for 30 frames a second on animation frames,
+ * 20 once it or adaptive quality has stepped down, and for none while paused, reduced, idle or on a canvas too slow to run
+ * it. It counts its own slow frames, from what its own draws take, apart from adaptive quality's.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
@@ -61,6 +61,7 @@ import {
 	dropTransients,
 	forgetVisitSky,
 	holdTransients,
+	launchReaches,
 	leaseHeld,
 	nextLaunchAt,
 	revealTransients,
@@ -139,7 +140,6 @@ const miami = createMiamiRuntime()
 /** Whether and where transients may launch, refilled by launchGate every tick (reused, so a tick makes no garbage). */
 const gate: LaunchGate = {
 	allowed: false,
-	scene: null,
 	calm: false,
 	still: false,
 	readingKnown: false,
@@ -418,15 +418,14 @@ function clockWorks(): boolean {
 	return relayOn ? strikes < PACING.watchdogStrikes : rafWorks
 }
 
-/** True when transients may launch at all right now, in a launch scene (each kind's own timing and scene aside) and before the descent has brought bright sky up the screen. */
+/** True when transients may launch at all right now (each kind's own timing aside), before the descent has brought bright sky up the screen. */
 function launchesAllowed(now: number, scene: SceneLevels): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && scene.launchScene !== null && scene.descent < DESCENT.eventStop
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && launchReaches(scrollY, height, reading.length > 0) && scene.descent < DESCENT.eventStop
 }
 
-/** Refills the launch gate for `now` (ms) in the tick's scene: whether and where transients may launch this tick. */
+/** Refills the launch gate for `now` (ms) in the tick's scene: whether transients may launch this tick. */
 function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.allowed = launchesAllowed(now, scene)
-	gate.scene = scene.launchScene
 	// Worker milliseconds against the key's seconds
 	gate.calm = now - lastRushAt >= TRANSIENTS.scrollQuiet * 1000
 	gate.still = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
@@ -467,7 +466,7 @@ function schedule(now: number): void {
 		refresh.pause()
 		const launchAt = nextLaunchAt(transients)
 		if (needsDraw && motion !== 'off') timerId = setTimeout(onTimer, 0)
-		// Asleep in a launch scene (an idle twinkle, say): wake only for the next launch
+		// Asleep (an idle twinkle, say): wake only for the next launch
 		else if (Number.isFinite(launchAt) && launchesAllowed(now, scene)) timerId = setTimeout(onTimer, Math.max(0, launchAt * 1000 - now))
 		return
 	}

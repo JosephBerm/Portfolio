@@ -449,9 +449,9 @@ const DOT_STOPS = Array.from({ length: DOT_STEPS + 1 }, (_, k): readonly [number
  * MIN_CORE_SIGMA_DEVICE_PX (a point that small aliases and shimmers as it moves, as a star's would), and has the same
  * shape at every pixel ratio. `fade` (0-1) multiplies its light, read at its center, as for a shooting star. `keeps` are the
  * quiet keeps it is drawn with (CLEAR_SKY_KEEPS), read there through transientQuietFactor every frame, and `fade` answers for
- * reading copy, so none of its light lands inside a quiet rect or on reading copy, even mid-ease or when a layout changes
- * under it: the dot reaches SATELLITE.dot.radius CSS px from there (a few more where the floor widens it), well short of
- * QUIET.padding.
+ * reading copy, so none of its light lands inside a quiet rect, even mid-ease or when a layout changes under it, or on
+ * reading copy at rest: the dot reaches SATELLITE.dot.radius CSS px from there (a few more where the floor widens it), well
+ * short of QUIET.padding.
  */
 function drawSatellite(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAssets, pass: SatellitePass, frame: SkyFrame, fade: (x: number, y: number) => number, keeps: QuietKeeps): void {
 	const { x, y, alpha, warmth } = satelliteAt(pass, frame.time)
@@ -526,9 +526,6 @@ export function drawTransient(ctx: OffscreenCanvasRenderingContext2D, assets: Sk
 		}
 		case 'satellite':
 			drawSatellite(ctx, assets, body, frame, kept, CLEAR_SKY_KEEPS)
-			return
-		case 'farewell':
-			drawShootingStar(ctx, assets, body, frame, keptAlong(body))
 			return
 		default: {
 			const unhandled: never = kind

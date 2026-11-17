@@ -299,10 +299,6 @@ export const SCENE = {
 	/** Viewport heights left to scroll where the end bookend starts and is complete. */
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
-	/** Shooting stars and satellites launch over the hero only while no more than this many viewport heights are scrolled. */
-	heroLaunchMaxScroll: 0.4,
-	/** Farewell meteors launch at the end bookend once its level (0 to 1) reaches this. */
-	endLaunchLevel: 0.9,
 } as const
 
 /**
@@ -661,11 +657,14 @@ export const PACING = {
 export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 1, rasterMsPerMp: 1, rasterMinMs: 4 } as const
 
 /**
- * Every short-lived sky event (shooting stars, satellites): at most `maxLife` seconds from first light to last, wake, train
- * and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least `minOnsetGap` seconds apart, since a motion onset
- * draws the eye; one of each kind at a time; on narrow screens at most `narrowLimit` per visit. Only one transient at a
- * time may plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the
- * haze), and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
+ * Every short-lived sky event (shooting stars, satellites), wherever the page is scrolled once its reading copy is
+ * known (until then only within `launchReach` viewport heights of the top), except at the foot of the page, where
+ * nothing launches with the landing scene on (DESCENT.eventStop): at most `maxLife`
+ * seconds from first light to last, wake, train and fades included (WCAG 2.2.2's 5 s, per animation); onsets at least
+ * `minOnsetGap` seconds apart, since a motion onset draws the eye; one of each kind at a time; on narrow screens at
+ * most `narrowLimit` per visit, more than a visitor who reads the whole page meets. Only one transient at a time may
+ * plan its light onto quiet copy (it holds the ink lease: each rect's INK_BUDGET counts one transient plus the haze),
+ * and none may do so until `crossingCooldown` seconds after the page reveal and after the last lease began, so copy
  * crossings stay rare: the cooldown is set to the shortest multiple of 5 s that keeps the crossings a minute over a
  * visit's first two minutes at or below what shooting stars 30 to 75 s apart made on every captured hero layout,
  * measured with the kinds of shooting star that fly in clear sky at their odds (each flies in place of an ordinary launch,
@@ -675,21 +674,24 @@ export const ADAPT = { slowFrameMs: 4, slowFrames: 30, thinning: 0.8, thinFade: 
  * under it. A plan that finds no room waits `retry` seconds, and never stops trying, since the room moves with the
  * scroll. A held launch looks again after `recheck` seconds. A launch waits `scrollQuiet` seconds after the last scroll step
  * of more than `calmStep` px (2,400 px/s at 60 Hz, past a wheel notch's peak, so only a fling or a jump holds one back, and a
- * visitor who keeps scrolling still sees events), and one that may pass near quiet copy after the last step of any size; after
- * a return (tab, idle, full motion) nothing launches for `afterReturn` seconds.
+ * visitor who keeps scrolling still sees events), and one that may pass near quiet copy after the last step of any size; one
+ * the scroll held draws a fresh wait of `afterScroll` seconds, so launches don't bunch where scrolling stops; after a return
+ * (tab, idle, full motion) nothing launches for `afterReturn` seconds.
  * From `longVisit.from` seconds after the reveal every gap stretches by 1 + (t - from) / `longVisit.scale`, at most
  * `longVisit.max` times (half the rate at 6 minutes, a third at 10), so a long visit never turns into a screensaver.
  */
 export const TRANSIENTS = {
+	launchReach: 0.4,
 	maxLife: 5,
 	minOnsetGap: 3,
-	narrowLimit: 6,
+	narrowLimit: 30,
 	crossingCooldown: 30,
 	cancelFade: 0.2,
 	retry: [5, 9],
 	recheck: 1,
 	scrollQuiet: 1.2,
 	calmStep: 40,
+	afterScroll: [1.5, 5],
 	afterReturn: 3,
 	longVisit: { from: 120, scale: 240, max: 3 },
 } as const
@@ -803,19 +805,19 @@ export interface GapLaw {
 /**
  * How often shooting stars launch. A dark rural site sees 1 to 3 sporadic meteors an hour in the evening and 4 to 10
  * before dawn (AMS), and a screen-sized window holds about 29% of an observer's field (IMO): a real window shows one
- * every 25 to 100 minutes, or one every 2 to 4 at a Perseid or Geminid peak. The hero runs about 120 times a dawn sky's
+ * every 25 to 100 minutes, or one every 2 to 4 at a Perseid or Geminid peak. This sky runs about 120 times a dawn sky's
  * rate (500 times an evening's, 10 to 20 times a shower peak's), a time-lapse of a strong shower night: gaps after each
- * flight follow `hero` (floor 4 s plus an exponential 8 s, at most 30 s: 11.7 s on average, about 4.7 a minute) or
+ * flight follow `wide` (floor 4 s plus an exponential 8 s, at most 30 s: 11.7 s on average, about 4.7 a minute) or
  * `narrow` on phones (21 s on average), stretched on long visits (TRANSIENTS.longVisit).
  */
 export const METEOR_RATE = {
-	hero: { floor: 4, mean: 8, cap: 30 },
+	wide: { floor: 4, mean: 8, cap: 30 },
 	narrow: { floor: 8, mean: 14, cap: 45 },
 } as const satisfies Record<string, GapLaw>
 
 /**
  * Brightness: real counts are dominated by faint meteors (each brighter magnitude has 1/r as many, r about 2.2 to 2.6);
- * the hero keeps only `faintShare` of ordinary flights faint, peaking within `faint`, so most stay easy to see, and the
+ * this sky keeps only `faintShare` of ordinary flights faint, peaking within `faint`, so most stay easy to see, and the
  * rest peak within `normal`. Lower in the window a meteor is farther away and dims by the square of its distance over the
  * distance at the top of the spawn area (so none ever brightens past `normal`), never below `rangeFloor` of its peak. On
  * average they peak at about 0.5, about 1 in 8 under 0.3; raise `normal` and `rangeFloor` if they read too faint: the
@@ -936,6 +938,12 @@ export const METEOR = {
 	spawnY: [0, 0.5],
 	/** Paths end above this share of the height, clear of the bottom corners; planMeteor's `clearOf` keeps them off the side rails' copy. */
 	maxEndY: 0.72,
+	/**
+	 * The start area and the line paths end above past the hero (flightArea), as viewport fractions: copy there is centered,
+	 * so flights start on either side, and may end lower, where `clearOf` keeps them off the rails. A phone's URL bar can
+	 * cover the bottom of the sky, so it ends higher.
+	 */
+	open: { spawnX: [0.015, 0.985], spawnY: [0, 0.8], maxEndY: 0.92, narrowMaxEndY: 0.85 },
 	/** Clearance below the top edge (under the 100px navbar) and inside the screen edges. */
 	top: 110,
 	edgeMargin: 12,
@@ -971,16 +979,6 @@ export const METEOR = {
 	/** A faint persistent train behind some fast flights (SPEED_CLASSES' `train`); a fireball's odds are its tier's (FIREBALL_TIERS). */
 	trainChance: 0.15,
 } as const
-
-/**
- * Farewell meteors: up to `limit` shooting stars a visit around Contact and the footer, once the end bookend is complete
- * enough (SCENE.endLaunchLevel), on their own clock: the first attempt `gap` after the reveal and the next after each
- * flight (GapLaw, stretched on long visits: floor 8 s plus an exponential 14 s, at most 45 s, so 21 s on average). They
- * fly only in the sky below the top of the highest quiet copy of the page's flow that is on screen, and may glide on
- * behind Contact and the footer like any shooting star (METEOR_VEIL). On a screen that leaves no room for a path there
- * (it must end above METEOR.maxEndY), a launch holds until the page scrolls to one that does.
- */
-export const FAREWELL = { gap: { floor: 8, mean: 14, cap: 45 }, limit: 2 } as const
 
 /**
  * Satellites: steady points lit by a Sun below the horizon (no twinkle, no wake, never blinking), gliding in a straight
@@ -1030,12 +1028,12 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
 
 /**
  * The comet, the sky's one long-lived body, drawn as a bright comet looks in a photograph: a star-like head in a soft
- * glow, one fan-shaped dust tail and a fainter, straight ion tail. It hangs in the upper right of the hero as far away
- * as the faint majority of stars, so the camera moves it as it moves them (DEPTH). It is pictured to scale with the
- * sky window (SKY_WINDOW): its lengths are degrees of it, and the ion tail lies `angle` degrees clockwise from the
- * right (up is -90), pointing away from the Sun, with the dust tail bending away from it. All of it is light added over
- * the sky, `tint` picks a star palette color for a part, and at the head the parts add to about 0.6 of white (0.55 for
- * the smallest size at 1366 px wide to 0.62 at 3840), under the brightest stars' 0.78.
+ * glow, one fan-shaped dust tail and a fainter, straight ion tail. It hangs as far away as the faint majority of stars,
+ * so the camera moves it as it moves them (DEPTH). It is pictured to scale with the sky window (SKY_WINDOW): its
+ * lengths are degrees of it, and the ion tail lies `angle` degrees clockwise from the right (up is -90), pointing away
+ * from the Sun, with the dust tail bending away from it. All of it is light added over the sky, `tint` picks a star
+ * palette color for a part, and at the head the parts add to about 0.6 of white (0.55 for the smallest size at 1366 px
+ * wide to 0.62 at 3840), under the brightest stars' 0.78.
  *
  * The head is a star sprite (`nucleus`: its alpha, `tint` and star `shape`) in the coma. The coma's light falls as 1/ρ
  * from a core `core` wide, up to `peak`, and is cut off smoothly at `radius`, over a broad `halo` (its own peak and
@@ -1080,16 +1078,13 @@ export const CLEAR_SKY_KEEPS = { quietKeep: 0, inkKeep: 0 } as const
  * the nearest place to `anchor`, the nucleus as shares of the width and height, on a grid of `step` px whose path stays
  * clear. The path is known when it starts, since the camera's drift and its own are functions of the drift clock, so its
  * box is swept along it for `life[0]` seconds of drift clock, grown by `clearance` px and by the pointer's lean (its
- * reach either way times the comet's nearness), and must keep clear of every quiet zone's reach, below the navbar
- * (METEOR.top) and above About's header row, copy the zones know nothing of, with its head inside the screen
- * (METEOR.edgeMargin). The box may overflow the right edge, where no copy lies, which is how it leaves. It takes the
- * first of `sizes` (shares of its full size) whose path stays clear that long and, only where none does, the first that
- * stays clear for `life[1]` seconds; a window with no such place has no comet. About's header row lies below the hero by
- * the offset of the last `aboutRow` entry whose width the screen reaches (SECTION_SHELL's top padding plus
- * .section-header's 10 px top margin, at Tailwind's md and lg breakpoints), and the box must stay clear of it when the
- * page has scrolled as far as a comet can still show. Where no place fits it looks again after `retry` seconds, from a
- * new drift clock and so along a new path. It is gone for the page view when the page scrolls from where it began to
- * show (SCROLL_CANCEL), when the sky is resized, or when copy comes within reach of its box, held or not.
+ * reach either way times the comet's nearness), and must keep clear of the reach of all copy and lie on screen, below the
+ * navbar (METEOR.top) and over its foot, with its head inside the sides (METEOR.edgeMargin). The box may overflow the right
+ * edge, where no copy lies, which is how it leaves. It takes the first of `sizes` (shares of its full size) whose path
+ * stays clear that long and, only where none does, the first that stays clear for `life[1]` seconds. Where no place fits
+ * it looks again after `retry` seconds, from a new drift clock and so along a new path. It is gone for the page view when
+ * the page scrolls from where it began to show (SCROLL_CANCEL), when the sky is resized, or when copy comes within reach of
+ * its box, held or not.
  */
 export const COMET = {
 	chance: 0.11,
@@ -1101,11 +1096,6 @@ export const COMET = {
 	life: [90, 60],
 	clearance: 24,
 	step: 8,
-	aboutRow: [
-		[0, 70],
-		[768, 90],
-		[1024, 110],
-	],
 	angle: -70,
 	drift: { speed: 0.062, heading: 8 },
 	nucleus: { alpha: 0.28, tint: 4, shape: 5 },

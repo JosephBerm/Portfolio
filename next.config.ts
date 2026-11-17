@@ -66,6 +66,13 @@ const nextConfig: NextConfig = {
 			{ source: '/((?!resume\\.pdf$).*)', headers: [{ key: 'Content-Security-Policy', value: contentSecurityPolicy }] },
 		]
 	},
+
+	experimental: {
+		// `next dev` and `next build` stop once with a reminder when the installed Next.js has a published
+		// security advisory, and `next upgrade --agent` moves to the latest safe release. This is the default
+		// policy, written down so the choice is visible (set by `next upgrade --agent=security`).
+		agentUpgrade: 'security',
+	},
 }
 
 export default nextConfig

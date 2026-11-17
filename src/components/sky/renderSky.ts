@@ -300,7 +300,8 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 
 /**
  * The landing scene's silhouettes and water, over the sky, the shooting stars and the comet, so what they cover hides what is
- * behind; draws nothing where the frame has no scene. The quiet zones drawSky has just indexed go with it, for the glitter.
+ * behind; draws nothing where the frame has no scene. The zones drawSky has just indexed (quiet copy and, on a wide screen,
+ * reading copy) go with it, for the glitter, which keeps clear of all of them.
  */
 export function drawLandingScene(ctx: OffscreenCanvasRenderingContext2D, frame: SkyFrame): void {
 	if (frame.miami) frame.miami.art.drawScene(ctx, frame.miami, frame, quietIndex)

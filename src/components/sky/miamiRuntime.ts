@@ -41,10 +41,11 @@ export interface MiamiStep {
 	quietEasing: boolean
 	/**
 	 * The page is at rest: the motion isn't full, or the page hasn't scrolled at all for TRANSIENTS.scrollQuiet seconds (the
-	 * stars have stopped gliding after it by then) and nothing flies. Under full motion the slow drift and the lean toward the
-	 * pointer go on through it: a stall pauses the drift, and the lean catches up in one step after it. Loading the scene's
-	 * art stalls the worker, so a load ahead of the bake waits for this; such a moment may never come, and the load then goes
-	 * when the bake is due.
+	 * stars have stopped gliding after it by then) and nothing flies. Its scroll half is the launch gate's `still` (a step of
+	 * any size breaks it), not its `calm`, which only a fling or a jump breaks. Under full motion the slow drift and the lean
+	 * toward the pointer go on through it: a stall pauses the drift, and the lean catches up in one step after it. Loading the
+	 * scene's art stalls the worker, so a load ahead of the bake waits for this; such a moment may never come, and the load
+	 * then goes when the bake is due.
 	 */
 	calm: boolean
 }

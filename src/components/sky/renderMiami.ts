@@ -270,10 +270,11 @@ function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 
 /**
  * The glitter under the sun: a set number of slots by tier, each a short dash of light at a place and time of its own, added to
- * the water through the quiet zones of the copy, which take all of it away inside their padding. At rest the field stands at
- * its still clock. While the level eases, a glint can't move from one place to another, so the frozen field fades out as the
- * live one fades in and both are drawn; under the contrast preference the rows at and below the footer take none. The slots a
- * step down has just taken away are drawn on, fading with `thin`, until it reaches 0.
+ * the water through the zones the stars keep clear of (quiet copy and, on a wide screen, reading copy), which take all of it
+ * away inside their padding. At rest the field stands at its still clock. While the level eases, a glint can't move from one
+ * place to another, so the frozen field fades out as the live one fades in and both are drawn; under the contrast preference
+ * the rows at and below the footer take none. The slots a step down has just taken away are drawn on, fading with `thin`,
+ * until it reaches 0.
  */
 function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex): void {
 	const { view, assets, stage, clock, level, fade, tier, thin } = scene
@@ -486,7 +487,8 @@ function drawPalms(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
  * and disc, the far city, the near city with its beacons, the sun's light wrapped round them, the water in strips, the ripples,
  * the glitter, the boat and its wake, the wings that keep the rails' copy readable over the warm sky, and in front of all of it
  * the key and the palms. It sets the blend it needs (drawSky leaves a different one) and puts the blend, the alpha, the
- * smoothing and the transform back at the end. `quiet` is the copy's quiet zones, which the glitter keeps clear of.
+ * smoothing and the transform back at the end. `quiet` is the index of the zones the stars keep clear of (quiet copy and, on
+ * a wide screen, reading copy), which the glitter keeps clear of too.
  */
 export function drawMiamiScene(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, quiet: QuietIndex): void {
 	const composite = ctx.globalCompositeOperation

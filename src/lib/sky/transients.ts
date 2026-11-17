@@ -9,6 +9,7 @@ import { FAREWELL_SPEC, METEOR_SPEC, createMeteorMemory, type MeteorMemory } fro
 import type { Meteor, MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
 import type { SkyRect } from './protocol'
+import { zoneReaches } from './quietIndex'
 import { between, type Random } from './random'
 import { SATELLITE_SPEC, type SatellitePass } from './satellites'
 import { readingPadding, screenQuietZones, screenReadingZones, scrollKept, type LaunchScene } from './scene'
@@ -47,11 +48,15 @@ export interface FieldInput {
 	reading: readonly SkyRect[]
 }
 
-/** The field every kind plans in now. The rails are padded once and the very same objects go in each list. */
+/**
+ * The field every kind plans in now. The rails are padded once and the very same objects go in each list. Every planner
+ * keeps within the screen's height, and only a satellite's line (one end just beyond a side) and the comet's box (it
+ * may overflow the right edge) go past a side, where no copy lies, so only the zones that can touch the screen matter.
+ */
 export function skyField(input: FieldInput): SkyField {
 	const { width, height, narrow, scrollY } = input
 	const rails = screenQuietZones([], scrollY, input.pinned)
-	const quiet = [...screenQuietZones(input.quiet, scrollY), ...rails]
+	const quiet = [...screenQuietZones(input.quiet, scrollY).filter((zone) => zoneReaches(zone, 0, 0, width, height)), ...rails]
 	const reading = screenReadingZones(input.reading, scrollY, height, readingPadding(narrow))
 	return { width, height, quiet, pinned: rails, noFly: [...rails, ...reading], clearSky: [...quiet, ...reading] }
 }
@@ -160,8 +165,6 @@ export interface TransientSchedule {
 	active: Transient[]
 	/** Next launch attempt per kind (s); Infinity until the reveal. */
 	nextAt: Record<TransientKind, number>
-	/** Plans in a row that found no room, per kind; at TRANSIENTS.maxFailedPlans the kind waits for a new layout. */
-	failedPlans: Record<TransientKind, number>
 	/** Launches this visit (narrow screens stop at TRANSIENTS.narrowLimit). */
 	launched: number
 	/** Launches this visit per kind: a kind with a `limit` stops there. */
@@ -178,7 +181,6 @@ export function createTransientSchedule(): TransientSchedule {
 	return {
 		active: [],
 		nextAt: { meteor: Infinity, satellite: Infinity, farewell: Infinity },
-		failedPlans: { meteor: 0, satellite: 0, farewell: 0 },
 		launched: 0,
 		kindLaunches: { meteor: 0, satellite: 0, farewell: 0 },
 		lastOnsetAt: -Infinity,
@@ -265,22 +267,14 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 	// Near copy only for a kind that may take the lease, while nobody holds it, the cooldown is over, nothing else is in the sky and no comet shows, so a satellite or the comet and a shooting star near the copy are never up together
 	const nearCopy = spec.lease && inkLeaseFree(schedule, now) && schedule.active.length === 0 && !gate.bodyShowing
 	const body = spec.plan({ random, now, field, visit: schedule.visit, nearCopy, ink: gate.ink, narrow: gate.narrow, sinceReveal: gate.sinceReveal })
-	if (body === null && (!nearCopy || spec.room !== undefined)) {
-		// Clear sky alone failing shows no lack of room, and on a phone counting it could stop shooting stars for the visit; nor does a plan
-		// of a kind whose room moves with the scroll, which posts no layout to try again on
-		schedule.nextAt[kind] = now + between(random, ...TRANSIENTS.retry)
-		return false
-	}
 	const lifetime = body === null ? 0 : spec.lifetime(body)
 	const reachesCopy = body !== null && spec.nearCopy(body)
 	// It never takes the ink lease: its kind never does, or the kind marks this body as one that doesn't
 	const clearSky = !spec.lease || (body !== null && spec.clearSky?.(body) === true)
-	// A plan that outlives TRANSIENTS.maxLife, or reaches copy it was told to keep clear of or may never reach, is a failed plan whatever the planner did
+	// Nothing fits, or a plan outlives TRANSIENTS.maxLife or reaches copy it was told to keep clear of or may never reach,
+	// whatever the planner did: the room moves with the scroll, which posts no layout to try again on, so the kind only waits
 	if (body === null || lifetime > TRANSIENTS.maxLife || (reachesCopy && (!nearCopy || clearSky))) {
-		const failed = schedule.failedPlans[kind] + 1
-		schedule.failedPlans[kind] = failed
-		// No room around the copy (a phone held sideways, say): stop trying until the layout changes
-		schedule.nextAt[kind] = failed >= TRANSIENTS.maxFailedPlans ? Infinity : now + between(random, ...TRANSIENTS.retry)
+		schedule.nextAt[kind] = now + between(random, ...TRANSIENTS.retry)
 		return false
 	}
 	const envelope: TransientEnvelope<K> = {
@@ -296,7 +290,6 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 	// The one cast: the envelope is of the kind it was planned for, and the union of envelopes is what the schedule holds
 	schedule.active.push(envelope as Transient)
 	schedule.lastOnsetAt = now + (spec.lastOnset?.(body) ?? 0)
-	schedule.failedPlans[kind] = 0
 	schedule.launched++
 	schedule.kindLaunches[kind]++
 	if (reachesCopy) schedule.crossingAfter = now + TRANSIENTS.crossingCooldown
@@ -332,18 +325,6 @@ export function cancelTransients(schedule: TransientSchedule, now: number): void
 /** Removes every active transient at once (hidden tab: nobody sees them; resize: their paths were planned for the old layout); the visit's memory stays. */
 export function dropTransients(schedule: TransientSchedule): void {
 	schedule.active.length = 0
-}
-
-/**
- * A new layout may have room again: kinds stopped after TRANSIENTS.maxFailedPlans failures retry after TRANSIENTS.retry.
- * The worker calls it when a layout arrives and when the viewport changes. `now` in seconds.
- */
-export function retryTransients(schedule: TransientSchedule, random: Random, now: number): void {
-	for (const kind of TRANSIENT_KINDS) {
-		if (schedule.failedPlans[kind] < TRANSIENTS.maxFailedPlans) continue
-		schedule.failedPlans[kind] = 0
-		schedule.nextAt[kind] = now + between(random, ...TRANSIENTS.retry)
-	}
 }
 
 /** The viewport changed: every spec forgets its part of the visit's memory (the shooting stars' sky). A layout doesn't call it: layouts also arrive for harmless re-measures. */

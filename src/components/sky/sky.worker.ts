@@ -62,7 +62,6 @@ import {
 	holdTransients,
 	leaseHeld,
 	nextLaunchAt,
-	retryTransients,
 	revealTransients,
 	skyField,
 	transientDemand,
@@ -882,7 +881,6 @@ function resize(nextWidth: number, nextHeight: number, nextDpr: number, now: num
 	forgetVisitSky(transients)
 	dropTransients(transients)
 	dropBody(comet)
-	retryTransients(transients, random, now / 1000)
 	// After the second quality step, CSS resolution at most (a zoomed-out page is already below it)
 	sizeCanvas(quality >= 2 ? Math.min(1, nextDpr) : nextDpr)
 	miami.setSize(width, height, dpr)
@@ -1054,7 +1052,6 @@ scope.addEventListener('message', (event) => {
 				if (quietEasing(now / 1000)) pendingLayout = message
 				else applyLayout(message, now)
 			}
-			retryTransients(transients, random, now / 1000)
 			needsDraw = true
 			break
 		}

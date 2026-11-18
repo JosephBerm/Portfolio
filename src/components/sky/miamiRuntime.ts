@@ -92,9 +92,10 @@ export interface MiamiFrame {
 
 /**
  * The scene's art: the code that bakes a stage into bitmaps and draws them (miamiArt.ts). It is most of the scene's code and
- * none of it is needed before the bake, so it is a chunk of its own, which the runtime loads as the page's end comes near.
- * The runtime reaches the art through this type alone, so its members are function properties, not methods: TypeScript
- * holds a function property to the parameters it declares, where it would let a method's implementation take narrower ones.
+ * none of it is needed before the bake, so it is a chunk of its own, which the runtime loads under the intro's loader
+ * (`warm`) or, where that didn't run, as the page's end comes near. The runtime reaches the art through this type alone,
+ * so its members are function properties, not methods: TypeScript holds a function property to the parameters it declares,
+ * where it would let a method's implementation take narrower ones.
  */
 export interface MiamiArt {
 	/** Builds the bitmaps for `stage` at pixel ratio `dpr`, a batch of rows a step (buildMiamiAssets). */
@@ -125,9 +126,10 @@ export interface MiamiRuntime {
 	/** Forgets what was built from the stage, as a lost GPU context requires; the next step builds it again. */
 	dropAssets(): void
 	/**
-	 * Loads the art now, while the intro's loader still covers the page, so its stall is never seen; settles once the load
-	 * has, loaded or failed. A runtime whose art is loaded, or whose scene has failed, or that has had a failed load, settles
-	 * at once; one already loading settles with that load.
+	 * Loads the art now, while the intro's loader still covers the page, so its stall comes under the loader; settles once
+	 * the load has, loaded or failed. A runtime with no stage (no landing scene on the page, as with SkyLanding switched
+	 * off), whose art is loaded, whose scene has failed, or that has had a failed load settles at once and loads nothing;
+	 * one already loading settles with that load.
 	 */
 	warm(): Promise<void>
 	/** Where the descent runs, for sceneAt; null with no stage. The same object until the stage changes. */
@@ -434,7 +436,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 			release()
 		},
 		warm() {
-			if (failed || art || loadFailures > 0) return Promise.resolve()
+			if (failed || art || loadFailures > 0 || stage === null) return Promise.resolve()
 			if (!loading) load()
 			return pendingLoad ?? Promise.resolve()
 		},
@@ -471,7 +473,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 				// Loading the art stalls the worker, so further ahead it waits for a calm, settled moment, and it goes when the bake is due
 				// or the scene is needed if none has come first. A load that failed is tried again only then. This rule usually finds the
 				// art loaded already, because the intro's loader covered the first load (`warm`): it loads only where that didn't run or
-				// failed (Save-Data, a sky that started after the intro, a failed warm)
+				// failed (Save-Data, a sky that started after the intro or once the loader was lifting, a stage that came after the
+				// worker prepared, a failed warm)
 				const near = lift < current.zShow + STAGE.loadAhead * size.height && pastHero
 				if (!art && !loading && (needed || (ahead && settled) || (loadFailures === 0 && near && settled && input.calm))) load()
 				// A stale build is never finished

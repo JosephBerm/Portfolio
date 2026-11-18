@@ -478,18 +478,22 @@ function savingData(): boolean {
 /**
  * Tells the page, once, that what the intro loader's lift will show is drawn: the first frame is on the canvas, a layout
  * has arrived, and no landing scene the visit starts inside is still building (built, failed, or not on screen). Where the
- * art's warm load runs (before the dusk, with the motion not 'off' and no request to save data), `prepared` follows that
- * load, loaded or failed, so the load's stall comes under the loader. The intro waits for it within its ceiling. Under
- * motion 'off' nothing draws to build a scene, so none is waited for. At a load under forced colors CSS hides the sky, so
- * this worker is never sent `init` and mountSky settles `prepared` itself.
+ * art's warm load runs (before the dusk, with the motion not 'off', no request to save data and a scene on the page),
+ * `prepared` follows that load, loaded or failed, so the load's stall comes under the loader unless the loader lifts at
+ * its ceiling first. The intro waits for it within its ceiling. Under motion 'off' nothing draws to build a scene, so
+ * none is waited for. At a load under forced colors CSS hides the sky, so this worker is never sent `init` and mountSky
+ * settles `prepared` itself.
  */
 function notePrepared(): void {
 	if (prepared || !ready || !layoutKnown || (motion !== 'off' && sceneRebuilding)) return
 	prepared = true
-	// The art loads under the loader as part of what the lift waits for, so its stall is never on a visible frame; the
-	// loader's ceiling bounds the wait
-	const warming = exitAt === null && motion !== 'off' && !savingData() ? miami.warm() : Promise.resolve()
-	void warming.then(() => scope.postMessage({ type: 'prepared' }))
+	// Decided in a task of its own, so whatever the page sent while the worker was starting is read first: an `emerge`
+	// already waiting means the loader is lifting, and the art then waits for the page's end. A load made here is part of
+	// what the lift waits for, and the loader's ceiling bounds that wait
+	setTimeout(() => {
+		const warming = exitAt === null && motion !== 'off' && !savingData() ? miami.warm() : Promise.resolve()
+		void warming.then(() => scope.postMessage({ type: 'prepared' }))
+	}, 0)
 }
 
 /**

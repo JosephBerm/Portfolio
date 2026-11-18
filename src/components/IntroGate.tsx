@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { intro } from '@/lib/animations'
 import { createIntroHolds, IntroHoldsContext, IntroPhaseContext, type IntroHolds, type IntroPhase } from '@/hooks/useIntroPhase'
 import styles from './IntroGate.module.css'
@@ -16,6 +16,13 @@ const NO_SCRIPT_CSS =
 
 /** The loader's fade, for IntroGate.module.css. */
 const LOADER_TIMING = { '--intro-fade': `${intro.fade}s` } as CSSProperties
+
+const subscribeNothing = () => () => {}
+
+/** True while React hydrates the server's HTML, false in a render on the client alone: a client navigation into the page. */
+function useHydrating(): boolean {
+	return useSyncExternalStore(subscribeNothing, () => false, () => true)
+}
 
 /** The element the URL fragment points at, if any (a malformed %-escape matches nothing). */
 function getHashTarget(): HTMLElement | null {
@@ -109,7 +116,10 @@ interface IntroGateProps {
  * same timeline through IntroPhaseContext.
  */
 export default function IntroGate({ backdrop, mark, children }: IntroGateProps) {
-	const [phase, setPhase] = useState<IntroPhase>('loading')
+	// The intro covers a document's load, which hydrates. A client navigation into home (from /links or the 404 page)
+	// renders the page on the client alone, so it shows at once; the first render's answer is the one kept
+	const hydrating = useHydrating()
+	const [phase, setPhase] = useState<IntroPhase>(() => (hydrating ? 'loading' : 'revealed'))
 	const [markLeaving, setMarkLeaving] = useState(false)
 	const [faded, setFaded] = useState(false)
 	const [holds] = useState(createIntroHolds)

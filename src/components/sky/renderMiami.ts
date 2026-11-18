@@ -97,16 +97,16 @@ export function drawMiamiSky(ctx: OffscreenCanvasRenderingContext2D, scene: Miam
 	}
 }
 
-/** The clouds, locked to the page in height and drifting right: each wraps round a span a little wider than the canvas, so it leaves and returns off screen. */
+/** The clouds, locked to the page in height and drifting with the wind on the air's clock: each wraps round a span a little wider than the canvas, so it leaves and returns off screen. */
 function drawClouds(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void {
-	const { view, assets, clock, fade } = scene
+	const { view, assets, wind, fade } = scene
 	const k = frame.dpr
 	ctx.globalAlpha = fade
 	for (const cloud of assets.clouds) {
 		const top = (view.end - cloud.z - cloud.height) * k
 		if (top >= frame.deviceHeight || top + cloud.height * k <= 0) continue
 		const span = frame.width + cloud.width + 40
-		const left = ((((cloud.x * frame.width - cloud.width / 2 + cloud.drift * clock + cloud.width) % span) + span) % span) - cloud.width
+		const left = ((((cloud.x * frame.width - cloud.width / 2 + cloud.drift * wind.airClock + cloud.width) % span) + span) % span) - cloud.width
 		ctx.drawImage(cloud.image, left * k, top, cloud.width * k, cloud.height * k)
 	}
 }
@@ -227,7 +227,7 @@ function drawWater(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 		covered = row.top + row.height
 		if (y1 <= 0 || y1 <= y0) continue
 		if (y0 >= frame.deviceHeight) return
-		rowShift(row, clock, level, shift)
+		rowShift(row, clock, level, scene.wind.sea, shift)
 		// A source rect above the picture would paint nothing, and the first rows' shifts reach up
 		ctx.drawImage(base.image, margin + shift.dx, Math.max(0, row.top / assets.dpr + shift.dy), stage.width, row.height / assets.dpr, 0, y0, frame.deviceWidth, y1 - y0)
 	}
@@ -240,13 +240,13 @@ function drawWater(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 }
 
 /**
- * The ripples: two layers of crests, each in eight bands from the waterline to the page's end, every band drifted right by its
- * own offset and wrapped by drawing its slice again where the slice ends. The two layers trade light over each band's own life.
+ * The ripples: two layers of crests, each in eight bands from the waterline to the page's end, every band drifted with the wind by
+ * its own offset and wrapped by drawing its slice again where the slice ends, whichever way the air has gone. The two layers trade light over each band's own life.
  * A band's slice reaches past its edges into its neighbours' rows, over which the two hand the crests from one to the other,
  * so no edge is a line across the water where one band's crests stop and the next one's start.
  */
 function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, waterY: number): void {
-	const { assets, clock, level, fade } = scene
+	const { assets, wind, clock, level, fade } = scene
 	const { ripples, slices, tileWidth } = assets.water
 	const k = frame.dpr
 	for (let layer = 0; layer < ripples.length; layer++) {
@@ -260,7 +260,9 @@ function drawRipples(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 			const y1 = waterY + Math.round(slice.to * k)
 			if (slice.to <= slice.from || y1 <= 0 || y0 >= frame.deviceHeight) continue
 			ctx.globalAlpha = alpha
-			const offset = rippleOffset(b, layer, clock) % tileWidth
+			let offset = rippleOffset(b, layer, wind.airClock) % tileWidth
+			// A wind toward the left has taken the crests back past their start: the tiles run from the same place in the tile's span
+			if (offset < 0) offset += tileWidth
 			for (let x = offset > 0 ? offset - tileWidth : 0; x < frame.width; x += tileWidth) {
 				ctx.drawImage(tile, 0, slice.top, tileWidth, slice.to - slice.from, x * k, y0, tileWidth * k, y1 - y0)
 			}
@@ -292,7 +294,7 @@ function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 		for (const field of GLINT_FIELDS) {
 			// The frozen field is drawn until the motion has all the level, the live one from the first of it
 			if (field === 'still' ? level >= 1 : level <= 0) continue
-			glintAt(slot, clock, level, field, glint)
+			glintAt(slot, clock, level, field, scene.wind.sea, glint)
 			const light = glint.alpha * open * stays
 			if (light < MIN_STAR_ALPHA) continue
 			const x = sunX + glint.across * columnReach(glint.depth, stage.sunR)
@@ -316,7 +318,7 @@ function drawGlitter(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, 
 function drawBoat(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame): void {
 	const { view, assets, stage, fade, clock, level } = scene
 	const { boat } = assets
-	if (!boat || !boatAt(clock, level, frame.width, stage.boatLength, stage.narrow, sail)) return
+	if (!boat || !boatAt(clock, level, frame.width, stage.boatLength, stage.narrow, scene.wind.sea, sail)) return
 	const k = frame.dpr
 	const footY = view.horizonY + BOAT.depth
 	ctx.globalAlpha = fade

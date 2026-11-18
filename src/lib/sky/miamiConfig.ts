@@ -147,9 +147,11 @@ export const SUN = {
 /**
  * Clouds, all locked to the page. `streaks` are thin, long bands at a t of the warm band: `x` is the center at clock 0 and
  * `width` the length, both as shares of the canvas width, `height` and `alpha` the band's, and `drift` the px a second it
- * moves right. `banks` are the heavy clouds with flat bottoms, by width class: `above` is the bottom's height above the
- * waterline in tallest towers (the top is that plus `height` px), `x` and `width` as for the streaks. `shape` makes a bank's
- * top: noise stretched `stretch`:1 horizontally, `octaves` of it, and a top edge blurred by at most `blur` px. The stretch is
+ * moves in the default weather's wind; a cloud rides the air's clock (`SceneWind.airClock`), faster in a stronger wind and
+ * the other way in a wind from the right. `banks` are the heavy clouds with flat bottoms, by width class: `above` is the
+ * bottom's height above the waterline in tallest towers (the top is that plus `height` px), `x` and `width` as for the
+ * streaks. `shape` makes a bank's top: noise stretched `stretch`:1 horizontally, `octaves` of it, and a top edge blurred
+ * by at most `blur` px. The stretch is
  * long and the edge soft because short lumps with a crisp edge read as a mountain range, not as cloud, and for the same
  * reason the banks are low. `place` settles banks that don't fit: one shrinks to at least `minHeight` px before it is
  * dropped, a bank moved down to fit sits a seeded `offset` px lower where the room allows, and tops stay at least `topGap`
@@ -232,7 +234,8 @@ export const BEACONS = { enabled: true, count: { wide: 3, narrow: 2 }, color: '#
  * `reflection` the skyline's dark reflection and `sliver` the thin line of light at the waterline. `strips` slice the
  * water into rows a device px tall growing by `growth` per row, with `margin` px to spare at the sides. `waves` are the
  * row shifts' sines: period, rows per cycle and share. `shiftX` and `shiftRow` are how far a row slides sideways and
- * vertically (px), `stillClock` the frozen time of the still pose. `ripple` and `glitter` shape the lens dashes of the
+ * vertically (px) at the default weather's sea, which scales them (`SceneWind.sea`, up to `miamiWater.ts`'s `ROUGHEST`),
+ * `stillClock` the frozen time of the still pose. `ripple` and `glitter` shape the lens dashes of the
  * crests and the glints: sizes in px, lives in seconds, `count` by width class (and `low` for the slowest tier), the glint
  * width's half at most 24 px, which the quiet padding around copy covers. The ripples' `bands` each trade the light of their
  * two layers over a life of their own, and two neighbouring bands hand their crests over across `reach` px either side of
@@ -282,7 +285,8 @@ export const WATER = {
  * out of sight before it returns. The scene's clock stands still while its moving parts are off screen, so `startX` is where
  * a visitor first finds the boat: a phone's is a third of the way across, in open water and clear of the left palm's trunk
  * (its wake can still run behind the trunk there), where nearer the edge the boat would stand against the trunk and its
- * wake would cross it. `bob` is how far and how fast it rocks; `wake` is the V behind it (half angle in degrees, lengths
+ * wake would cross it. `bob` is how far (`px` and `pitch`, at the default weather's sea, which scales both up to
+ * `miamiWater.ts`'s `ROUGHEST`) and how fast it rocks; `wake` is the V behind it (half angle in degrees, lengths
  * of boat it reaches, alpha and color) and `reflection` the px of its dark reflection. The hull and cabin are outlines with
  * x and height as shares of the length, up from the hull's foot, bow to the right; `mast` is the mast's height as a share
  * of the length.
@@ -363,9 +367,11 @@ export const PALMS = {
  * `hanging` degrees by how it hangs, times `gain[0] + gain[1] e`, leans `bias` degrees downwind by `e`, swings
  * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. These
  * are the angles of a palm whose fronds are `fullLength` px long: a palm with longer fronds moves by at least that much
- * less, so no tip moves faster than a palm of that size's. `flutter` is the tip's small, fast shear (`amount` px).
+ * less, so no tip moves faster than a palm of that size's. `flutter` is the tip's small, fast shear (`amount` px). The default
+ * weather's mean wind is `reference` m/s: the air's clock runs at the wind's speed over it (miamiWeather.ts).
  */
 export const WIND = {
+	reference: 5,
 	rest: [0.22, 0.36],
 	wander: 40,
 	stillGust: 0.3,
@@ -373,6 +379,27 @@ export const WIND = {
 	trunk: { period: [7, 9.5], sway: [0.004, 0.007], lean: [0.004, 0.012], second: 2.7, secondShare: 0.25, power: 1.8, tilt: 1 },
 	frond: { period: [3.5, 6], upper: [0.8, 1.3], side: [1.2, 2], hanging: [1.5, 2.6], gain: [0.75, 0.7], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.7, fullLength: 172 },
 	flutter: { period: [0.7, 1.2], amount: 1.2 },
+} as const
+
+/**
+ * The weather: one for the whole scene (miamiWeather.ts eases it on the scene's clock). A weather is how strong the wind is,
+ * `strength` (its mean at the palms' crowns, m/s, at most `strongest`), and which way it blows, `direction` (1 toward the right, -1
+ * toward the left); all else follows from those two. How rough the sea is follows from it too, by Cox and Munk's law: its slopes'
+ * variance is `sea.calm` plus `sea.perWind` per m/s of wind. Where the water meets copy, miamiWater.ts bounds what it takes from
+ * that. A visit starts in `start`. 'breeze' is the scene as designed: its still pose is the art-directed frame; 'storm' blows at
+ * `strongest`, the most the knob takes.
+ */
+export const WEATHER = {
+	start: 'breeze',
+	strongest: 20,
+	sea: { calm: 0.003, perWind: 0.00512 },
+	presets: {
+		calm: { strength: 1.5, direction: 1 },
+		breeze: { strength: 5, direction: 1 },
+		fresh: { strength: 8.5, direction: 1 },
+		gale: { strength: 14, direction: 1 },
+		storm: { strength: 20, direction: 1 },
+	},
 } as const
 
 /**

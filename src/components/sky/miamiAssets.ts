@@ -4,7 +4,7 @@ import { BEACONS, BOAT, CLOUDS, KEY, RAMP, SKYLINE, STAGE, SUN, WATER, WING } fr
 import { srgbToLinear } from '@/lib/sky/miamiRamp'
 import { CROWNS, EDGE_LEFT, EDGE_RIGHT, NEAR_TOWERS } from '@/lib/sky/miamiSkyline'
 import { placeBanks, rampFor, wingReach, type MiamiStage, type PlacedBank, type RailSide, type WingReach } from '@/lib/sky/miamiStage'
-import { columnReach, waterRows, type WaterRow } from '@/lib/sky/miamiWater'
+import { columnReach, GLOW_CUT, waterRows, type WaterRow } from '@/lib/sky/miamiWater'
 import type { WindPalm } from '@/lib/sky/miamiWind'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { hashCell, mulberry32 } from '@/lib/sky/random'
@@ -55,7 +55,7 @@ export interface MiamiWing {
 export interface MiamiCloud extends MiamiImage {
 	/** The height above the page's end of the bottom edge of the image. */
 	z: number
-	/** Its center at clock 0, and its pace to the right (px a second), as the stage placed it. */
+	/** Its center at clock 0, and its pace in the default weather's wind (px a second of the air's clock, either way), as the stage placed it. */
 	x: number
 	drift: number
 }
@@ -1705,7 +1705,7 @@ function* bakeWaterBase(stage: MiamiStage, skyline: Skyline): Generator<void, { 
 				}
 				const x = i - margin + 0.5
 				const across = (x - sunX) / reachPx
-				if (glowLight > 0 && across * across < 9) {
+				if (glowLight > 0 && across * across < GLOW_CUT * GLOW_CUT) {
 					const light = glowLight * Math.exp(-across * across)
 					r += glow[0] * light
 					g += glow[1] * light

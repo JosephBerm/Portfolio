@@ -1,4 +1,4 @@
-import { BOAT, WATER } from './miamiConfig'
+import { BOAT, STAGE, WATER } from './miamiConfig'
 import { hashCell } from './random'
 import { smoothstep } from './scene'
 
@@ -6,7 +6,9 @@ import { smoothstep } from './scene'
  * The water's motion as pure functions of a clock and a level, so any frame can be reproduced from the two numbers alone.
  * `clock` is the seconds of ambient motion the scene has run and `level` how much of it shows, 0 to 1: at 0 every function
  * answers with the still pose, a frozen picture of the water chosen to look well, and the clock itself stands still. The
- * boat that crosses the water is here too, since it rides on it.
+ * boat that crosses the water is here too, since it rides on it. The weather's sea (SceneWind.sea, the spread of its slopes against
+ * the default weather's) roughens the rows, widens the sun's glitter and rocks the boat, within bounds this file sets where the water
+ * meets copy; the ripples drift on the air's clock.
  */
 
 const TAU = Math.PI * 2
@@ -21,6 +23,27 @@ const SPOT_SALT = 0x73706f74
 function unit(a: number, b: number, salt: number): number {
 	return hashCell(a, b, WATER.glitter.seed + salt) / 4294967296
 }
+
+/** The most the waves move a row, against `shiftX` and `shiftRow`: their shares added up, as they all crest together. */
+const SWELL = WATER.waves.reduce((sum, wave) => sum + Math.abs(wave.share), 0)
+
+/**
+ * The most a row's shifts may grow with the sea: the vertical one stays inside the footer cap's full hold less the px a bake keeps
+ * standing while the footer moves (STAGE.rebuildTolerancePx), so a row at or below the footer's first line is cut only from rows the
+ * cap holds, and the sideways one inside the strips' margin, whatever the waves' shares add up to. A row's shift runs between the two
+ * ends each lists, so the larger end counts.
+ */
+const ROUGHEST = Math.min(
+	(WATER.capGap - STAGE.rebuildTolerancePx) / (Math.max(WATER.shiftRow.top, WATER.shiftRow.bottom) * SWELL),
+	WATER.strips.margin / (Math.max(WATER.shiftX.top, WATER.shiftX.atHalf) * SWELL)
+)
+
+/** The glow column is cut at this many of its widths either side of the sun, and a glint's place at this many deviations. */
+export const GLOW_CUT = 3
+const GLINT_CUT = 3
+
+/** The most the glitter may spread with the sea: its farthest glint stays inside the glow column. */
+const WIDEST = GLOW_CUT / (GLINT_CUT / Math.SQRT2)
 
 /** Each wave that rows ride on starts at its own seeded point of its cycle, so no two waves start together. */
 const WAVES = WATER.waves.map((wave, k) => ({ ...wave, start: TAU * unit(k, 0, WAVE_SALT) }))
@@ -69,18 +92,19 @@ export interface RowShift {
 /**
  * Where a strip of the water is moved at `clock`. Each row rides the waves at its own point of their cycles, so no part of the water moves
  * as one sheet. The sideways shift grows from `shiftX.top` at the waterline to `shiftX.atHalf` by half way down and then
- * stays; the vertical one grows to `shiftRow.bottom` at the bottom. At `level` 0 the rows stand where they do at
- * `WATER.stillClock`.
+ * stays; the vertical one grows to `shiftRow.bottom` at the bottom. Both grow with the sea's roughness `sea`, to at most
+ * ROUGHEST times. At `level` 0 the rows stand where they do at `WATER.stillClock`.
  */
-export function rowShift(row: WaterRow, clock: number, level: number, out: RowShift): RowShift {
+export function rowShift(row: WaterRow, clock: number, level: number, sea: number, out: RowShift): RowShift {
 	const { shiftX, shiftRow, stillClock } = WATER
 	const across = shiftX.top + (shiftX.atHalf - shiftX.top) * Math.min(1, row.depth / 0.5)
 	const down = shiftRow.top + (shiftRow.bottom - shiftRow.top) * row.depth ** shiftRow.power
-	let x = wave(row.index, stillClock, 0)
-	let y = wave(row.index, stillClock, Math.PI / 2)
+	const rough = Math.min(ROUGHEST, sea)
+	let x = wave(row.index, stillClock, 0) * rough
+	let y = wave(row.index, stillClock, Math.PI / 2) * rough
 	if (level > 0) {
-		x += (wave(row.index, clock, 0) - x) * level
-		y += (wave(row.index, clock, Math.PI / 2) - y) * level
+		x += (wave(row.index, clock, 0) * rough - x) * level
+		y += (wave(row.index, clock, Math.PI / 2) * rough - y) * level
 	}
 	out.dx = across * x
 	out.dy = down * y
@@ -95,12 +119,12 @@ function rippleBandDepth(band: number): number {
 
 /**
  * How far the crests of ripple band `band` in layer `layer` (0 for the first, 1 for the second, which drifts slower) have
- * drifted right at `clock` (CSS px, without wrapping): the drift grows from `drift[0]` px a second at the waterline to
- * `drift[1]` at the bottom, with the wind.
+ * drifted with the wind at the air's clock `airClock` (CSS px, without wrapping; negative where the air has gone left): the drift
+ * grows from `drift[0]` px a second of the default weather's wind at the waterline to `drift[1]` at the bottom.
  */
-export function rippleOffset(band: number, layer: number, clock: number): number {
+export function rippleOffset(band: number, layer: number, airClock: number): number {
 	const { drift, crestBRate } = WATER.ripple
-	return (drift[0] + (drift[1] - drift[0]) * rippleBandDepth(band)) * (layer === 0 ? 1 : crestBRate) * clock
+	return (drift[0] + (drift[1] - drift[0]) * rippleBandDepth(band)) * (layer === 0 ? 1 : crestBRate) * airClock
 }
 
 /**
@@ -149,9 +173,10 @@ export type GlintField = 'still' | 'live'
  * a caller draws both while the level is between 0 and 1. At 0 only the still field has any light, at 1 only the live one.
  * A slot is born again every few seconds at a new place, brightening and fading with a smooth envelope (under 1.25 flashes a
  * second), and where it stands, and the length of its own life, follow from the slot's number alone. Places are weighted toward
- * the horizon and thin out away from the sun's column.
+ * the horizon and thin out away from the sun's column, spread wider in a rougher sea by `sea` (to at most WIDEST times, which keeps
+ * every glint inside the glow column).
  */
-export function glintAt(slot: number, clock: number, level: number, field: GlintField, out: Glint): Glint {
+export function glintAt(slot: number, clock: number, level: number, field: GlintField, sea: number, out: Glint): Glint {
 	const { life, width, height, peak } = WATER.glitter
 	const { fade } = WATER.glow
 	const live = field === 'live'
@@ -164,7 +189,7 @@ export function glintAt(slot: number, clock: number, level: number, field: Glint
 	const depth = unit(slot, born, SPOT_SALT) ** 1.6
 	// A normal deviate (Box-Muller) from two draws, cut at three deviations; the column's density is exp(-(x / width) squared), whose deviation is width over the root of two
 	const deviate = Math.sqrt(-2 * Math.log(1 - unit(slot, born, SPOT_SALT + 1))) * Math.cos(TAU * unit(slot, born, SPOT_SALT + 2))
-	out.across = Math.max(-3, Math.min(3, deviate)) / Math.SQRT2
+	out.across = (Math.max(-GLINT_CUT, Math.min(GLINT_CUT, deviate)) / Math.SQRT2) * Math.min(WIDEST, sea)
 	out.depth = depth
 	const envelope = Math.sin(Math.PI * lifeShare)
 	out.alpha = share * peak * envelope * envelope * (1 - smoothstep(fade[0], fade[1], depth)) ** fade[2]
@@ -193,10 +218,10 @@ export interface BoatPose {
  * clock 0 (`BOAT.startX` of the width) until its wake, which trails the bow by `BOAT.wake.lengths` of its lengths, has left by the right edge;
  * then it waits out of sight for `BOAT.pause` seconds and comes in again from the left. All of it is a function of the clock, so a pause
  * holds it where it is and a Play goes on from there. As much as `level` shows it also rides the swell, sinking and dipping its bow by
- * `BOAT.bob` on one period; at level 0 it sits level on the water. `length` is the boat's own, in CSS px, and `width` the canvas's. False
- * while the boat is out of sight, which leaves `out` as it was.
+ * `BOAT.bob` on one period, more in a rougher sea (`sea`, as the rows take it); at level 0 it sits level on the water. `length` is the
+ * boat's own, in CSS px, and `width` the canvas's. False while the boat is out of sight, which leaves `out` as it was.
  */
-export function boatAt(clock: number, level: number, width: number, length: number, narrow: boolean, out: BoatPose): boolean {
+export function boatAt(clock: number, level: number, width: number, length: number, narrow: boolean, sea: number, out: BoatPose): boolean {
 	const klass = narrow ? 'narrow' : 'wide'
 	const speed = BOAT.speed[klass]
 	const from = -BOW * length
@@ -209,7 +234,8 @@ export function boatAt(clock: number, level: number, width: number, length: numb
 	const swell = (TAU * clock) / BOAT.bob.period
 	out.x = from + speed * into
 	out.bow = out.x + BOW * length
-	out.bob = BOAT.bob.px * level * Math.sin(swell)
-	out.pitch = BOAT.bob.pitch * level * Math.cos(swell)
+	const rocking = level * Math.min(ROUGHEST, sea)
+	out.bob = BOAT.bob.px * rocking * Math.sin(swell)
+	out.pitch = BOAT.bob.pitch * rocking * Math.cos(swell)
 	return true
 }

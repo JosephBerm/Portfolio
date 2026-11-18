@@ -373,7 +373,7 @@ export interface PlacedBank {
 	/** Its center at clock 0 and its width, as shares of the canvas width. */
 	x: number
 	width: number
-	/** Px a second to the right. */
+	/** Px a second in the default weather's wind, on the air's clock (either way). */
 	drift: number
 	/** Seeds the lumps of its top. */
 	seed: number

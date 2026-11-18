@@ -1,6 +1,7 @@
 import { ADAPT, DRIFT, HAZE_REBUILD_MS, PACING, SCENE } from '@/lib/sky/config'
-import { SCENE_PACING, STAGE } from '@/lib/sky/miamiConfig'
+import { SCENE_PACING, STAGE, WEATHER } from '@/lib/sky/miamiConfig'
 import { descentWindow as descentWindowOf, sameStage, stageFrom, viewAt, type MiamiStage, type MiamiView } from '@/lib/sky/miamiStage'
+import { steadyWeather, windAt, type SceneWind } from '@/lib/sky/miamiWeather'
 import { driftCap, easeAt, easeEnded, easing, fadeOutAt, type Ease } from '@/lib/sky/pacing'
 import type { LandingRect, SkyRect, SkyTokens } from '@/lib/sky/protocol'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
@@ -86,6 +87,8 @@ export interface MiamiFrame {
 	fade: number
 	/** How much of the light the last step down took away still shows: 1 as the step is taken, then falling to 0 over ADAPT.thinFade, and 0 at all other times. */
 	thin: number
+	/** The wind this frame is drawn in: the weather at this moment of the clock, the air's own clock, the still pose's wind and the course that led here. */
+	wind: SceneWind
 	/** A draw threw: the next step ends the scene, and the plain sky replaces the half-drawn frame. */
 	failed: boolean
 }
@@ -263,6 +266,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 	let seenTier: Tier | null = null
 	/** When (s) the last step up began, which the light it takes away fades from; null where none has. */
 	let thinSince: number | null = null
+	/** The landing scene's weather and its course: the start weather. */
+	const weather = steadyWeather(WEATHER.presets[WEATHER.start])
 
 	const view: MiamiView = {
 		end: 0,
@@ -554,7 +559,19 @@ export function createMiamiRuntime(): MiamiRuntime {
 			const tier = tierOf(input)
 			shownAt = input.now / 1000
 			const fade = easeSince === null ? 1 : smoothstep(0, STAGE.jumpEase, shownAt - easeSince)
-			shown ??= { stage: baked.key.stage, view, assets: baked.assets, art: baked.art, clock, level: 0, tier, fade, thin: 0, failed: false }
+			shown ??= {
+				stage: baked.key.stage,
+				view,
+				assets: baked.assets,
+				art: baked.art,
+				clock,
+				level: 0,
+				tier,
+				fade,
+				thin: 0,
+				failed: false,
+				wind: { speed: 0, sea: 0, airClock: 0, ease: weather },
+			}
 			shown.stage = baked.key.stage
 			shown.assets = baked.assets
 			shown.art = baked.art
@@ -563,6 +580,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 			shown.level = isStill(input.softwareFps) ? 0 : input.level
 			shown.tier = tier
 			shown.thin = thinAt(shownAt)
+			windAt(weather, clock, shown.wind)
 			return shown
 		},
 		noteSceneMs(milliseconds) {

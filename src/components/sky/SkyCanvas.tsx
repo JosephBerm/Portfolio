@@ -35,7 +35,7 @@ export default function SkyCanvas({ className, canvasClassName = '' }: SkyCanvas
 	// effect re-creates the controller, which starts at 'loading' and must catch up with the intro
 	useEffect(() => {
 		skyRef.current?.setPhase(phase)
-	}, [phase, canvasClassName])
+	}, [phase, canvasClassName, holds])
 
 	return <div ref={hostRef} className={className} aria-hidden="true" />
 }

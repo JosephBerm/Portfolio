@@ -2,7 +2,9 @@ import { scroll } from 'motion/react'
 import type { IntroPhase } from '@/hooks/useIntroPhase'
 import { lightHeadroom, minimumContrast, parseHexColor, parseRgbColor } from '@/lib/sky/color'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
+import { FORCED_COLORS_QUERY } from '@/lib/utils'
 import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
+import { setSkyViewRunning } from './skyView'
 
 /** Handle returned by mountSky. */
 export interface SkyController {
@@ -109,9 +111,6 @@ const NORMAL_FONT_WEIGHT = 400
  * anyway, in case an entrance moves copy another way (ms).
  */
 const ENTRANCE_SETTLE_MS = 1500
-
-/** High-contrast modes replace the palette: CSS hides the sky and the worker stops drawing. */
-const FORCED_COLORS_QUERY = '(forced-colors: active)'
 
 /**
  * A request for more contrast: the worker drops the haze, dims the stars and leaves no shooting-star light on the
@@ -517,8 +516,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		listeners.abort()
 		stopScroll()
 		stopPlayback()
-		// A failed or destroyed sky takes the pause control with it
+		// A failed or destroyed sky takes the pause and Hide/View controls with it, and brings the page's content back if it was hidden
 		setSkyRunning(false)
+		setSkyViewRunning(false)
 		canvasObserver.disconnect()
 		layoutObserver.disconnect()
 		copyObserver.disconnect()
@@ -541,8 +541,9 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 				case 'ready':
 					performance.mark('sky-ready')
 					canvas.dataset.ready = ''
-					// The first frame is on the canvas: the pause control may show
+					// The first frame is on the canvas: the pause and Hide/View controls may show
 					setSkyRunning(true)
+					setSkyViewRunning(true)
 					break
 				case 'prepared':
 					performance.mark('sky-prepared')

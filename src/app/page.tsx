@@ -9,7 +9,7 @@ import Background from '@/components/Background'
 import Navbar from '@/components/Navbar'
 import SidePane from '@/components/SidePane'
 import LinksList from '@/components/LinksList'
-import SkyPauseButton from '@/components/sky/SkyPauseButton'
+import SkyViewToggle from '@/components/sky/SkyViewToggle'
 import Introduction from '@/components/Introduction'
 import AboutMe from '@/components/AboutMe'
 import Experience from '@/components/Experience'
@@ -43,15 +43,19 @@ export default function HomePage() {
 				<SidePane side="left">
 					<LinksList />
 				</SidePane>
-				<SidePane side="right">
-					{/* The navbar's pause control slides away as the page scrolls down; this one stays on screen beside the sky */}
-					<SkyPauseButton
-						// At the top of the page, in a window 386px tall or less, the navbar's 100px covers this control,
-						// which sits above the 286px of rail below it, so there it has no box and no tab stop, and the
-						// navbar's control and the footer's are the ones left. The footer's control hides itself with this
-						// query negated (AppFooter.tsx), so change the 386px in both places together
-						className="[@media(max-height:386px)]:hidden"
-					/>
+				<SidePane
+					side="right"
+					control={
+						<SkyViewToggle
+							// At the top of the page, in a window 386px tall or less, the navbar's 100px covers this control,
+							// which sits above the 286px of rail below it, so there it has no box and no tab stop, and the
+							// footer's control is the one left. The footer's hides itself with this query negated
+							// (AppFooter.tsx), and skyView.ts reads it to know which control stands, so change the 386px
+							// in all three places together
+							className="[@media(max-height:386px)]:hidden"
+						/>
+					}
+				>
 					<a
 						href={`mailto:${email}`}
 						className="my-[20px] mx-auto p-[10px] font-mono text-xxs tracking-[0.2em] [writing-mode:vertical-rl]"
@@ -60,7 +64,9 @@ export default function HomePage() {
 					</a>
 				</SidePane>
 				<div className="z-[1] relative" id="content">
-					<main className="mx-auto w-full max-w-[1600px] min-h-screen px-[25px] md:px-[100px] lg:px-[150px] sm:px-[50px]">
+					{/* data-sky-hide: the Hide/View control hides every section with the rest of the page's content (skyView.ts); the
+					    footer hides its own copy, never the control in it */}
+					<main data-sky-hide className="mx-auto w-full max-w-[1600px] min-h-screen px-[25px] md:px-[100px] lg:px-[150px] sm:px-[50px]">
 						<Introduction />
 						<AboutMe />
 						<Experience />

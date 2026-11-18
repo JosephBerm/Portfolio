@@ -83,17 +83,21 @@ export default function Navbar() {
 	return (
 		<motion.header
 			ref={headerRef}
+			// The Hide/View control hides the navbar, its pause control included, with the page's content (globals.css)
+			data-sky-hide
 			// Focus moving into a header that has slid away would land on something off screen: show it (WCAG 2.4.7, 2.4.11)
 			onFocus={() => setHidden(false)}
 			initial={{ y: 0 }}
 			animate={{ y: hidden ? -70 : 0 }}
 			transition={{ duration: 0.25, ease: easing.smooth }}
 			className={cn(
-				// CSS transitions only the height and shadow; Motion alone animates y, so the hide/show honors reduced motion
+				// CSS transitions the height, the shadow and, once the page shows (#intro-content's data-intro-phase), the Hide/View
+				// fade, so nothing here transitions visibility under the intro's loader; Motion alone animates y, so the slide away
+				// and back on scroll honors reduced motion
 				// The gutter and the items' left margins widen at lg, not md: at the low end of md (768 wide, or a little less
 				// where a scrollbar takes room) the links, Resume and the pause control barely fit, and wider spacing would
 				// push the control past the right edge
-				'fixed top-0 z-[11] flex w-full items-center justify-between px-[25px] lg:px-[50px] backdrop-blur-[10px] transition-[height,box-shadow] duration-250',
+				'fixed top-0 z-[11] flex w-full items-center justify-between px-[25px] lg:px-[50px] backdrop-blur-[10px] transition-[height,box-shadow] in-[#intro-content[data-intro-phase=revealed]]:transition-[height,box-shadow,opacity,visibility] duration-250',
 				'bg-navy/85',
 				scrolled ? 'h-[70px] shadow-[0_10px_30px_-10px_var(--color-navy-shadow)]' : 'h-[100px]'
 			)}

@@ -19,6 +19,9 @@ export function cn(...inputs: ClassValue[]) {
 /** The OS reduce-motion setting as a media query; the home sky also listens to it for live changes. */
 export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
+/** Forced colors (a high-contrast mode replaces the palette) as a media query: the home sky hides under it, and the Hide/View control shows the page's content there. */
+export const FORCED_COLORS_QUERY = '(forced-colors: active)'
+
 /** Scrolls to the element and moves focus there, as a native in-page link would, so the next Tab continues from it. */
 export function smoothScrollTo(elementId: string): void {
 	const element = document.getElementById(elementId)

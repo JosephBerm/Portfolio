@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { PauseSVG, PlaySVG } from '@/components/icons'
+import { SKY_CONTROL } from '@/components/styles'
 import { cn } from '@/lib'
 import { serverSkyPlayback, setSkyPaused, skyPlayback, subscribeSkyPlayback } from './skyPause'
 
@@ -23,10 +24,7 @@ export default function SkyPauseButton({ className }: SkyPauseButtonProps) {
 			type="button"
 			aria-label={paused ? 'Play sky animation' : 'Pause sky animation'}
 			onClick={() => setSkyPaused(!paused)}
-			className={cn(
-				'flex h-[40px] w-[40px] shrink-0 cursor-pointer items-center justify-center rounded-[5px] text-green transition-colors duration-250 hover:bg-green-tint forced-colors:hidden [&_svg]:h-[20px] [&_svg]:w-[20px]',
-				className
-			)}
+			className={cn(SKY_CONTROL, className)}
 		>
 			{paused ? <PlaySVG /> : <PauseSVG />}
 		</button>

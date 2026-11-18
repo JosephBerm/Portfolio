@@ -440,6 +440,36 @@
 	p > .inline-link:focus-visible::after {
 		width: 0;
 	}
+	/* Hide/View: the page's content gives way to the sky (src/components/sky/skyView.ts marks <html> with data-sky-only, and
+	   makes every data-sky-hide element inert meanwhile). Each fades out and then loses its visibility, never its box:
+	   nothing reflows, so the document's height, the scroll and every rect the sky measures stay where they are, and showing
+	   it again only takes the attribute away. It comes back over 0.6s, the time the sky takes to fade its stars back out of
+	   the copy's way (QUIET.ease in src/lib/sky/config.ts). Forced colors hide the sky and print needs none: there the
+	   content always shows. The fade's transitions apply only once the page shows: under the home intro's loader, where
+	   the control can't be pressed, the content's visibility never transitions (the "Home intro" block below). */
+	:where(#intro-content[data-intro-phase='revealed']) [data-sky-hide] {
+		transition:
+			opacity 0.6s var(--ease-smooth),
+			visibility 0.6s;
+	}
+	/* A link that hides keeps every link's 0.25s ease on hover and focus (the base layer's a rule, which this layer
+	   outranks), named property by property, so its color and focus ring don't snap */
+	:where(#intro-content[data-intro-phase='revealed']) a[data-sky-hide] {
+		transition:
+			color 0.25s var(--ease-smooth),
+			outline-color 0.25s var(--ease-smooth),
+			outline-offset 0.25s var(--ease-smooth),
+			outline-width 0.25s var(--ease-smooth),
+			opacity 0.6s var(--ease-smooth),
+			visibility 0.6s;
+	}
+	@media screen and (forced-colors: none) {
+		html[data-sky-only] [data-sky-hide] {
+			opacity: 0;
+			visibility: hidden;
+			transition-duration: 0.4s;
+		}
+	}
 }
 
 /* Mobile menu blur overlay */

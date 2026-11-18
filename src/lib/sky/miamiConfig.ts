@@ -397,7 +397,8 @@ export const PALMS = {
  * frequencies follow its size alone: the wind sets how hard and when it is pushed, and how soon its swings die out (which
  * slows a gust's ring by at most 2.2% for a trunk and 6.3% for a frond at `WEATHER.strongest`), never the natural pace
  * it sways at. `flutter` is the outer half's shear, at most `most` px, on seeded periods of the scene's clock: it grows as the push
- * squared at first, and is half of `most` where that square is `half`.
+ * squared at first, and is half of `most` where that square is `half`. The far shore's palm tops are `shore.height` m tall and stand
+ * at one depth, `shore.perMetre` px to a metre, and take the air `shore.offset` seconds of its clock apart from the near palms'.
  */
 export const WIND = {
 	reference: 5,
@@ -415,6 +416,7 @@ export const WIND = {
 		upper: [0.5, 0.85], side: [0.75, 1.3], hanging: [0.95, 1.65], windward: 0.35, lag: 0.8, outerShare: 0.7, fullLength: 172,
 	},
 	flutter: { period: [0.7, 1.2], most: 4, half: 15 },
+	shore: { height: [9, 13], perMetre: 2.8, offset: 131.7 },
 } as const
 
 /**

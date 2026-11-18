@@ -2,10 +2,10 @@ import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND, WING } from '@/lib/sky/miamiConfig'
 import type { RailSide } from '@/lib/sky/miamiStage'
 import { boatAt, columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type BoatPose, type Glint, type GlintField, type RowShift, type WaterRow } from '@/lib/sky/miamiWater'
-import { createPalmPose, palmPose } from '@/lib/sky/miamiWind'
+import { createPalmPose, palmPose, shoreShift } from '@/lib/sky/miamiWind'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep } from '@/lib/sky/scene'
-import type { MiamiImage, MiamiWing } from './miamiAssets'
+import { releaseFade, type MiamiAssets, type MiamiImage, type MiamiWing } from './miamiAssets'
 import { drawCrown, trunkOutline } from './miamiPalmArt'
 import type { MiamiFrame } from './miamiRuntime'
 import type { SkyFrame } from './renderSky'
@@ -162,9 +162,39 @@ function beaconLight(index: number, count: number, clock: number, level: number)
 }
 
 /**
+ * The far shore's palm tops, each from its atlas cell through the near image's own transform (`a` and `d` device px a near-image px,
+ * `top` where the near image's top row lands), sheared about the waterline, the image's bottom row, by how far the wind has moved its
+ * crown. At the lowest tier they ease into their still pose as the light the step down took away fades (MiamiFrame.thin), and then
+ * skip the wind. It leaves the transform at identity.
+ */
+function drawShore(target: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, a: number, d: number, top: number): void {
+	const shore = scene.assets.shore
+	if (!shore) return
+	const bottom = scene.assets.near.image.height
+	const level = scene.tier >= 2 ? scene.level * scene.thin : scene.level
+	for (const palm of shore.palms) {
+		const k = shoreShift(palm, scene.wind, scene.clock, level) / palm.top
+		target.setTransform(a, 0, -a * k, d, a * k * bottom, top)
+		target.drawImage(shore.atlas, palm.sx, palm.sy, palm.w, palm.h, palm.u, palm.v, palm.w, palm.h)
+	}
+	target.setTransform(1, 0, 0, 1, 0, 0)
+}
+
+/** The fade-in's layer, `width` by `height` device px, made on the assets the first frame that needs it; null where no 2D context comes, and then for the rest of that fade, which draws without it. */
+function fadeLayer(assets: MiamiAssets, width: number, height: number): OffscreenCanvasRenderingContext2D | null {
+	if (assets.fade === false) return null
+	if (assets.fade && assets.fade.canvas.width === width && assets.fade.canvas.height === height) return assets.fade
+	releaseFade(assets)
+	assets.fade = new OffscreenCanvas(width, height).getContext('2d') ?? false
+	return assets.fade || null
+}
+
+/**
  * The cities along the waterline: the far one, then the near one with the cranes and the low base, standing on the waterline
- * (sunk by their drops while the page is coming down, and covered by the water as they sink), and the beacons on the tallest
- * towers. A picture baked for a stage of another width stretches over this one until the new one is built.
+ * (sunk by their drops while the page is coming down, and covered by the water as they sink), the far shore's palm tops on it, and
+ * the beacons on the tallest towers. While the scene fades in after a jump, the near city's band that holds the palm tops is composed
+ * with them at full strength and faded in as one, so a palm top a tower hides never shows through the tower while both are half
+ * faded. A picture baked for a stage of another width stretches over this one until the new one is built.
  */
 function drawCities(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame, waterY: number): void {
 	const { view, assets, fade } = scene
@@ -178,7 +208,27 @@ function drawCities(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, f
 	ctx.globalAlpha = fade
 	const nearBottom = waterY + Math.round(view.nearDrop * k)
 	const nearHeight = Math.round(near.height * k)
-	ctx.drawImage(near.image, 0, nearBottom - nearHeight, frame.deviceWidth, nearHeight)
+	const nearTop = nearBottom - nearHeight
+	const a = frame.deviceWidth / near.image.width
+	const d = nearHeight / near.image.height
+	const shore = assets.shore
+	// The palm tops stand in the near image's lowest rows, which sink under the canvas through the descent: then none of them
+	// is posed or drawn
+	const shoreShows = shore !== null && nearTop + (near.image.height - shore.band) * d < frame.deviceHeight
+	const layer = fade < 1 && shore && shoreShows ? fadeLayer(assets, near.image.width, shore.band) : null
+	if (layer && shore) {
+		// Above the band no palm top stands, so those rows fade in as they are; the band is composed first
+		const above = near.image.height - shore.band
+		ctx.drawImage(near.image, 0, 0, near.image.width, above, 0, nearTop, frame.deviceWidth, above * d)
+		layer.globalCompositeOperation = 'copy'
+		layer.drawImage(near.image, 0, above, near.image.width, shore.band, 0, 0, near.image.width, shore.band)
+		layer.globalCompositeOperation = 'source-over'
+		drawShore(layer, scene, 1, 1, -above)
+		ctx.drawImage(layer.canvas, 0, nearTop + above * d, frame.deviceWidth, shore.band * d)
+	} else {
+		ctx.drawImage(near.image, 0, nearTop, frame.deviceWidth, nearHeight)
+		if (shoreShows) drawShore(ctx, scene, a, d, nearTop)
+	}
 	// Beacons pulse, or burn steadily at their still level, and sink with their towers. A beacon is light on a dark tower, and the towers
 	// climb against the page toward the copy as it comes down, so each fades out before its dot comes within the sun's margin of the
 	// copy's lowest edge, and stays out above it, at the peak of its pulse too: none of its light is ever behind the copy
@@ -486,7 +536,7 @@ function drawPalms(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 
 /**
  * The scene's silhouettes and the water, drawn over the stars and the sky's events, back to front: the clouds, the sun's halo
- * and disc, the far city, the near city with its beacons, the sun's light wrapped round them, the water in strips, the ripples,
+ * and disc, the far city, the near city with the far shore's palm tops and its beacons, the sun's light wrapped round them, the water in strips, the ripples,
  * the glitter, the boat and its wake, the wings that keep the rails' copy readable over the warm sky, and in front of all of it
  * the key and the palms. It sets the blend it needs (drawSky leaves a different one) and puts the blend, the alpha, the
  * smoothing and the transform back at the end. `quiet` is the index of the zones the stars keep clear of (quiet copy and, on

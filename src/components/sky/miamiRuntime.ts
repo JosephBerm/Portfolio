@@ -105,6 +105,8 @@ export interface MiamiArt {
 	build: (stage: MiamiStage, dpr: number, tokens: SkyTokens) => Generator<void, MiamiAssets | null, undefined>
 	/** Closes every bitmap of a build (closeMiamiAssets). */
 	close: (assets: MiamiAssets) => void
+	/** Lets go of what only the ease in after a jump needed, as that ease ends, whether or not a frame draws then (releaseFade). */
+	settle: (assets: MiamiAssets) => void
 	/** The scene's ground, right after the page's navy and before any star (drawMiamiSky). */
 	drawSky: (ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, frame: SkyFrame) => void
 	/** Its silhouettes and water, over the sky and what flies in it (drawMiamiScene). */
@@ -508,9 +510,11 @@ export function createMiamiRuntime(): MiamiRuntime {
 				return true
 			}
 			if (easeSince !== null && input.now / 1000 - easeSince >= STAGE.jumpEase) {
-				// The last frame drawn may still show the ease part way: one more shows its end
+				// The last frame drawn may still show the ease part way: one more shows its end. What only the ease needed goes now, so a scene
+				// scrolled away before its end keeps none of it
 				if (shownAt - easeSince < STAGE.jumpEase) redraw = true
 				easeSince = null
+				if (baked) baked.art.settle(baked.assets)
 			}
 			// The horizon's own ease has run out: if the scene was on screen for it, one more frame shows where it ended. So has the fade of the light
 			// a step down took away: a worker about to sleep would otherwise keep showing it part way

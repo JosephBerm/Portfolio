@@ -1,4 +1,4 @@
-import { buildMiamiAssets, closeMiamiAssets } from './miamiAssets'
+import { buildMiamiAssets, closeMiamiAssets, releaseFade } from './miamiAssets'
 import type { MiamiArt } from './miamiRuntime'
 import { drawMiamiScene, drawMiamiSky } from './renderMiami'
 
@@ -7,4 +7,4 @@ import { drawMiamiScene, drawMiamiSky } from './renderMiami'
  * imports this one, and the worker's other files import the files only it reaches for types alone, so the bundler emits
  * the art as a chunk of its own and the worker's first download carries none of it.
  */
-export const MIAMI_ART: MiamiArt = { build: buildMiamiAssets, close: closeMiamiAssets, drawSky: drawMiamiSky, drawScene: drawMiamiScene }
+export const MIAMI_ART: MiamiArt = { build: buildMiamiAssets, close: closeMiamiAssets, settle: releaseFade, drawSky: drawMiamiSky, drawScene: drawMiamiScene }

@@ -45,7 +45,7 @@ function along(range: readonly [number, number], share: number): number {
 	return range[0] + (range[1] - range[0]) * share
 }
 
-/** What the wind needs to know of a place: where it stands, m from the scene's middle, right positive; how far its air lags the near palms' (0 for them); a seed for its own eddies. */
+/** What the wind needs to know of a place: where it stands, m from the scene's middle, right positive; how far its air lags the near palms' on the air's clock, s; a seed for its own eddies. */
 interface WindPlace {
 	x: number
 	offset: number
@@ -68,6 +68,14 @@ export interface WindPalm extends WindPlace {
 	hinged: number
 	/** The fan's half-width in degrees: it tells a frond that stands up from one that hangs. */
 	spread: number
+}
+
+/** What the wind needs to know of a palm top on the far shore: where it stands (m), its crown's px above the waterline, its leaves' px and its modes. */
+export interface ShorePalm extends WindPlace {
+	top: number
+	radius: number
+	trunkHz: number
+	leafHz: number
 }
 
 /** A palm's pose, reused from call to call: its lists are filled out to the palm's frond count once and never replaced. */
@@ -501,4 +509,29 @@ export function palmPose(palm: WindPalm, wind: SceneWind, clock: number, level: 
 		}
 	}
 	return out
+}
+
+/** How far a palm top's crown stands downwind of its foot's line (CSS px): its trunk's lean by `trunkPush` and its leaves' by `leafPush`. */
+function shoreCrown(top: ShorePalm, side: number, trunkPush: number, leafPush: number): number {
+	return side * (WIND.trunk.lean * top.top * trunkPush + top.radius * WIND.frond.lean * RADIANS * sat(leafPush))
+}
+
+/**
+ * How far (CSS px) the wind has moved a palm top on the far shore from where the bake drew it, at `clock`, scaled by `level`: its
+ * trunk and its leaves answer the far shore's own gusts as a near palm's do. At `level` 0 it stands in the still pose of the frame's
+ * weather, 0 for the default's, and finds no gust.
+ */
+export function shoreShift(top: ShorePalm, wind: SceneWind, clock: number, level: number): number {
+	const bake = shoreCrown(top, 1, 1, 1)
+	const stillPush = restPush(wind.speed)
+	const still = shoreCrown(top, wind.speed < 0 ? -1 : 1, stillPush, stillPush) - bake
+	if (level <= 0) return still
+	const blowing = Math.abs(wind.speed)
+	setMode(trunkMode, top.trunkHz, WIND.trunk.zeta, WIND.trunk.zetaPerWind, blowing)
+	const found = arrive(top, wind, clock, reachOf(top.trunkHz, wind, clock))
+	const mass = massAt(wind.ease, clock)
+	const trunkPush = pushAt(top, wind, clock, trunkMode, -1, found, mass)
+	setMode(frondMode, top.leafHz, WIND.frond.zeta, WIND.frond.zetaPerWind, blowing)
+	const leafPush = pushAt(top, wind, clock, frondMode, -1, found, mass)
+	return still + level * (shoreCrown(top, wind.speed < 0 ? -1 : 1, trunkPush, leafPush) - bake - still)
 }

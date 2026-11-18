@@ -1,11 +1,11 @@
 import { luminance, mixRgb, parseHexColor } from '@/lib/sky/color'
 import { HAZE_MAX_PIXELS } from '@/lib/sky/config'
-import { BEACONS, BOAT, CLOUDS, KEY, RAMP, SKYLINE, STAGE, SUN, WATER, WING } from '@/lib/sky/miamiConfig'
+import { BEACONS, BOAT, CLOUDS, KEY, RAMP, SKYLINE, STAGE, SUN, WATER, WIND, WING } from '@/lib/sky/miamiConfig'
 import { srgbToLinear } from '@/lib/sky/miamiRamp'
 import { CROWNS, EDGE_LEFT, EDGE_RIGHT, NEAR_TOWERS } from '@/lib/sky/miamiSkyline'
 import { placeBanks, rampFor, wingReach, type MiamiStage, type PlacedBank, type RailSide, type WingReach } from '@/lib/sky/miamiStage'
 import { columnReach, GLOW_CUT, waterRows, type WaterRow } from '@/lib/sky/miamiWater'
-import type { WindPalm } from '@/lib/sky/miamiWind'
+import { frondHz, trunkHz, type ShorePalm, type WindPalm } from '@/lib/sky/miamiWind'
 import type { Rgb, SkyTokens } from '@/lib/sky/protocol'
 import { hashCell, mulberry32 } from '@/lib/sky/random'
 import { smoothstep } from '@/lib/sky/scene'
@@ -144,6 +144,23 @@ export interface MiamiKey {
 	sides: readonly MiamiKeySide[]
 }
 
+/** A palm top on the far shore as the wind and the draw see it: its cell in the shore's atlas, and where that cell's top left stands in the near image, device px. */
+export interface ShoreTop extends ShorePalm {
+	sx: number
+	sy: number
+	w: number
+	h: number
+	u: number
+	v: number
+}
+
+/** The far shore's palm tops, each in a cell of one atlas, and the device rows of the near image from the highest cell's top down to the waterline. */
+export interface MiamiShore {
+	atlas: ImageBitmap
+	palms: readonly ShoreTop[]
+	band: number
+}
+
 /** Everything the scene draws from, built for one stage at one pixel ratio and closed together. */
 export interface MiamiAssets {
 	/** The pixel ratio the device-resolution bitmaps (sun, city, glitter, boat, palm sprites) were built at; the rest are built in CSS px. */
@@ -157,6 +174,10 @@ export interface MiamiAssets {
 	/** The far city; none where the contrast preference leaves it out. */
 	far: MiamiImage | null
 	near: MiamiNear
+	/** The far shore's palm tops, drawn apart from the near city so the wind can move them; none where every one is hidden. */
+	shore: MiamiShore | null
+	/** While the scene fades in after a jump, the shore's band of the near city composed with its palm tops (drawCities): made by the draw that first needs it, freed as that ease ends whether or not a frame draws (releaseFade, the runtime's MiamiArt.settle) and by closeMiamiAssets. False where no 2D context came for it: that fade draws without it, and releaseFade clears the mark for the next. */
+	fade: OffscreenCanvasRenderingContext2D | null | false
 	beacon: MiamiImage
 	water: MiamiWater
 	glitter: MiamiGlitter
@@ -1085,13 +1106,17 @@ function crownRise(crown: number, height: number): number {
 	}
 }
 
-/** A small palm on the low base: where it stands (x from the canvas's left, in CSS px), how high its crown is above the waterline and how wide. */
+/** A small palm on the low base: where it stands (x from the canvas's left, in CSS px), how high its crown is above the waterline and how wide, and how tall it is, m. */
 interface Palm {
 	x: number
 	top: number
 	radius: number
 	seed: number
+	metres: number
 }
+
+/** The salt a far palm top's height is drawn with, from its own seed: a draw of the planter would move every palm top after it. */
+const METRES_SALT = 0x6d657472
 
 /** Everything the city is made of for one stage, in CSS px, before any of it is drawn. */
 interface Skyline {
@@ -1191,7 +1216,8 @@ function planSkyline(stage: MiamiStage): Skyline {
 		const lift = 26 + planter() * 10
 		const seed = Math.floor(planter() * 4294967296)
 		if (Math.abs(x - sunX) < gapHalf * 1.2) continue
-		palms.push({ x, top: Math.max(lift, (base[Math.round(x)] ?? 0) + 1), radius, seed })
+		const metres = lerp(WIND.shore.height[0], WIND.shore.height[1], hashCell(seed, 0, METRES_SALT) / 4294967296)
+		palms.push({ x, top: Math.max(lift, (base[Math.round(x)] ?? 0) + 1), radius, seed, metres })
 	}
 
 	const cranes =
@@ -1354,10 +1380,15 @@ function drawPalmTop(mask: Uint8Array, width: number, height: number, palm: Palm
 
 /**
  * The near city as one band along the waterline, at device resolution: every tower with its crown, with rect edges snapped to
- * whole device pixels, the cranes, the low base with its palm tops, and the clusters at the edges, all in the near color.
- * Returns the band, with the beacons' places on it.
+ * whole device pixels, the cranes, the low base and the clusters at the edges, all in the near color. The low base's palm tops go
+ * to cells of an atlas of their own, each drawn as it would have been in the band, so the wind can move them; one the city covers
+ * whole is left out. Returns the band, with the beacons' places on it, and the shore's atlas.
  */
-function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<void, { pixels: ImageData; width: number; height: number; beacons: MiamiBeacon[] }, undefined> {
+function* bakeNear(
+	stage: MiamiStage,
+	skyline: Skyline,
+	dpr: number
+): Generator<void, { pixels: ImageData; width: number; height: number; beacons: MiamiBeacon[]; shore: { pixels: ImageData; palms: ShoreTop[]; band: number } | null }, undefined> {
 	const width = deviceSize(stage.width, dpr)
 	const heightCss = Math.ceil(Math.max(CITY_TOP_UNITS * stage.unit, 60)) + 2
 	const height = Math.ceil(heightCss * dpr)
@@ -1404,13 +1435,74 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 		drawCrane(mask, width, height, crane * dpr, SKYLINE.cranes.apex * stage.unit * dpr, dpr)
 		yield
 	}
+	// Each palm top in a cell of its own, at whole device px from its place in the band, so a cell holds the coverage the band would have
+	const cells: { top: ShoreTop; mask: Uint8Array }[] = []
 	let planted = 0
 	for (const palm of skyline.palms) {
 		const baseTop = skyline.base[Math.min(skyline.base.length - 1, Math.round(palm.x))] ?? 0
-		drawPalmTop(mask, width, height, palm, palm.x * dpr, height - baseTop * dpr, height - palm.top * dpr, dpr)
+		// Its crown leans up to 2 px right of its foot, and its leaves reach a radius round it and hang below it, past the base's top where
+		// the base dips beside its foot: the cell runs down to the waterline
+		const u = Math.max(0, Math.floor((palm.x - palm.radius - 3) * dpr))
+		const right = Math.min(width, Math.ceil((palm.x + palm.radius + 5) * dpr))
+		const v = Math.max(0, Math.floor(height - (palm.top + palm.radius + 3) * dpr))
+		const w = right - u
+		const h = height - v
+		if (w <= 0 || h <= 0) continue
+		const cell = new Uint8Array(w * h)
+		const footY = height - baseTop * dpr - v
+		drawPalmTop(cell, w, h, palm, palm.x * dpr - u, footY, height - palm.top * dpr - v, dpr)
+		// Its trunk runs on down into the city, only where the city already covers it whole, so the still frame is unchanged and a crown
+		// the wind leans keeps its foot on the city where the base's top falls away beside it, but for a gap of a few device px
+		const below = new Uint8Array(w * h)
+		strokeLine(below, w, h, palm.x * dpr - u, footY, palm.x * dpr - u, h, Math.max(1, dpr))
+		for (let j = 0; j < h; j++) {
+			for (let i = 0; i < w; i++) {
+				const k = j * w + i
+				if ((below[k] ?? 0) > 0 && (mask[(v + j) * width + u + i] ?? 0) === 255) cell[k] = Math.max(cell[k] ?? 0, below[k] ?? 0)
+			}
+		}
+		let shows = false
+		for (let j = 0; j < h && !shows; j++) for (let i = 0; i < w; i++) if ((cell[j * w + i] ?? 0) > 0 && (mask[(v + j) * width + u + i] ?? 0) < 255) shows = true
+		if (shows) {
+			// The far shore stands at one depth, so one px per metre places every palm top on it, in the order it stands on screen
+			const perMetre = WIND.shore.perMetre
+			const top: ShoreTop = {
+				x: (palm.x - stage.width / 2) / perMetre,
+				offset: WIND.shore.offset,
+				seed: palm.seed,
+				top: palm.top,
+				radius: palm.radius,
+				trunkHz: trunkHz(palm.metres),
+				leafHz: frondHz(palm.radius / perMetre, palm.seed, 0),
+				sx: 0,
+				sy: 0,
+				w,
+				h,
+				u,
+				v,
+			}
+			cells.push({ top, mask: cell })
+		}
 		if (++planted % PALMS_PER_STEP === 0) yield
 	}
 	yield
+	// The cells side by side in one atlas
+	let shore: { pixels: ImageData; palms: ShoreTop[]; band: number } | null = null
+	if (cells.length > 0) {
+		let atlasWidth = 0
+		let atlasHeight = 0
+		let highest = height
+		for (const { top } of cells) {
+			top.sx = atlasWidth
+			atlasWidth += top.w
+			atlasHeight = Math.max(atlasHeight, top.h)
+			highest = Math.min(highest, top.v)
+		}
+		const atlas = new Uint8Array(atlasWidth * atlasHeight)
+		for (const { top, mask: cell } of cells) for (let j = 0; j < top.h; j++) atlas.set(cell.subarray(j * top.w, (j + 1) * top.w), j * atlasWidth + top.sx)
+		const pixels = yield* silhouette(atlas, atlasWidth, atlasHeight, hexRgb(SKYLINE.near))
+		shore = { pixels, palms: cells.map(({ top }) => top), band: height - highest }
+	}
 
 	// Beacons: the tallest few towers in view that stand clear of the sun, each at the highest point of its crown
 	const beacons: MiamiBeacon[] = []
@@ -1426,7 +1518,7 @@ function* bakeNear(stage: MiamiStage, skyline: Skyline, dpr: number): Generator<
 	}
 
 	const pixels = yield* silhouette(mask, width, height, hexRgb(SKYLINE.near))
-	return { pixels, width, height, beacons }
+	return { pixels, width, height, beacons, shore }
 }
 
 /** The sky's color at a place (x from the canvas's left, z above the page's end), read from the baked sky. */
@@ -2078,6 +2170,7 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 
 		const nearBaked = yield* bakeNear(stage, skyline, dpr)
 		const near: MiamiNear = { image: own(nearBaked.pixels), width: nearBaked.width / dpr, height: nearBaked.height / dpr, beacons: nearBaked.beacons }
+		const shore: MiamiShore | null = nearBaked.shore ? { atlas: own(nearBaked.shore.pixels), palms: nearBaked.shore.palms, band: nearBaked.shore.band } : null
 		yield
 		let far: MiamiImage | null = null
 		if (!stage.more) {
@@ -2124,7 +2217,7 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 			(bitmap) => made.push(bitmap)
 		)
 
-		const assets: MiamiAssets = { dpr, sky, wings: { left, right }, clouds, sun, far, near, beacon, water, glitter, boat, key, crowns, palms }
+		const assets: MiamiAssets = { dpr, sky, wings: { left, right }, clouds, sun, far, near, shore, fade: null, beacon, water, glitter, boat, key, crowns, palms }
 		// The assets own the bitmaps now
 		made.length = 0
 		return assets
@@ -2133,7 +2226,13 @@ export function* buildMiamiAssets(stage: MiamiStage, dpr: number, tokens: SkyTok
 	}
 }
 
-/** Closes every bitmap of a build the scene is done with. */
+/** Lets go of the fade-in's layer, as the ease in after a jump ends: a canvas of no size holds no pixels. A layer no context came for is tried again by the next fade. */
+export function releaseFade(assets: MiamiAssets): void {
+	if (assets.fade) assets.fade.canvas.width = 0
+	assets.fade = null
+}
+
+/** Closes every bitmap of a build the scene is done with, and lets go of its fade-in's layer. */
 export function closeMiamiAssets(assets: MiamiAssets): void {
 	assets.sky.image.close()
 	assets.wings.left?.sky.close()
@@ -2145,6 +2244,8 @@ export function closeMiamiAssets(assets: MiamiAssets): void {
 	assets.sun.halo.image.close()
 	assets.far?.image.close()
 	assets.near.image.close()
+	assets.shore?.atlas.close()
+	releaseFade(assets)
 	assets.beacon.image.close()
 	assets.water.base.image.close()
 	for (const tile of assets.water.ripples) tile.close()

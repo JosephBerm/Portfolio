@@ -45,9 +45,30 @@ function until(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - performance.now())))
 }
 
-/** The intro's ceiling: intro.ceiling after the page could first be seen (navigation start, or a prerendered page's activation). */
-function ceiling(): Promise<void> {
-	return until((navigationEntry()?.activationStart ?? 0) + intro.ceiling * 1000)
+/** The page can't be seen yet: a tab opened in the background, or a page the browser is still prerendering. */
+function unseen(): boolean {
+	return document.visibilityState !== 'visible' || (document as Document & { prerendering?: boolean }).prerendering === true
+}
+
+/**
+ * When the page could first be seen, in ms after navigation start: for a page already shown, navigation start or a
+ * prerendered page's activation; for one not shown yet (a tab opened in the background, a page still prerendering), the
+ * moment it is first shown. Nothing is waited for once `lift` aborts.
+ */
+function firstSeen(lift: AbortSignal): Promise<number> {
+	if (!unseen()) return Promise.resolve(navigationEntry()?.activationStart ?? 0)
+	return new Promise((resolve) => {
+		const shown = () => {
+			if (!unseen()) resolve(performance.now())
+		}
+		document.addEventListener('visibilitychange', shown, { signal: lift })
+		document.addEventListener('prerenderingchange', shown, { signal: lift })
+	})
+}
+
+/** The intro's ceiling: intro.ceiling after the page could first be seen. */
+async function ceiling(lift: AbortSignal): Promise<void> {
+	await until((await firstSeen(lift)) + intro.ceiling * 1000)
 }
 
 /**
@@ -98,7 +119,7 @@ async function pageReady(content: HTMLElement, holds: IntroHolds, lift: AbortSig
 
 /** The intro may end: its mark has played and held, and the page is ready or the ceiling has passed. */
 async function introReady(loader: HTMLElement, content: HTMLElement, holds: IntroHolds, lift: AbortSignal): Promise<void> {
-	await Promise.all([markSettled(loader), Promise.race([pageReady(content, holds, lift), ceiling()])])
+	await Promise.all([markSettled(loader), Promise.race([pageReady(content, holds, lift), ceiling(lift)])])
 }
 
 interface IntroGateProps {

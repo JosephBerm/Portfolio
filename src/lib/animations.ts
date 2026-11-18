@@ -35,9 +35,10 @@ export const duration = {
 } as const
 
 /**
- * The home intro, in seconds. LoadingLogo and IntroGate hand these to IntroGate.module.css as custom properties: the
- * mark's entry plays in CSS from the first paint, and the loader lifts once that entry has played and held (the floor)
- * and the page is ready, waiting for the page no later than `ceiling` after navigation start.
+ * The home intro, in seconds. LoadingLogo hands the mark's times to IntroGate.module.css as custom properties, and
+ * IntroGate the loader's fade; IntroGate's script times the rest. The mark's entry plays in CSS from the first paint, and
+ * the loader lifts once that entry has played and held (the floor) and the page is ready, waiting for the page no later
+ * than `ceiling` after it could first be seen.
  */
 export const intro = {
 	/** The hexagon's trace. */
@@ -56,7 +57,7 @@ export const intro = {
 	fade: 0.5,
 	/** Between the loader leaving and the page's entrances. */
 	pause: 0.25,
-	/** The latest, after navigation start (a prerendered page's activation), that the intro waits for the page to be ready; its floor still plays in full. */
+	/** The latest, after the page could first be seen (navigation start, a prerendered page's activation, or the first showing of a tab opened in the background), that the intro waits for the page to be ready; its floor still plays in full. */
 	ceiling: 5,
 } as const
 

@@ -39,6 +39,8 @@ export interface MiamiStep {
 	ambientOn: boolean
 	/** The quiet zones are still easing toward a new layout. */
 	quietEasing: boolean
+	/** The stars have begun to come out (the dusk). Before it the intro's loader covers the sky, so a change needs no ease. */
+	showing: boolean
 	/**
 	 * The page is at rest: the motion isn't full, or the page hasn't scrolled at all for TRANSIENTS.scrollQuiet seconds (the
 	 * stars have stopped gliding after it by then) and nothing flies. Its scroll half is the launch gate's `still` (a step of
@@ -90,9 +92,10 @@ export interface MiamiFrame {
 
 /**
  * The scene's art: the code that bakes a stage into bitmaps and draws them (miamiArt.ts). It is most of the scene's code and
- * none of it is needed before the bake, so it is a chunk of its own, which the runtime loads as the page's end comes near.
- * The runtime reaches the art through this type alone, so its members are function properties, not methods: TypeScript
- * holds a function property to the parameters it declares, where it would let a method's implementation take narrower ones.
+ * none of it is needed before the bake, so it is a chunk of its own, which the runtime loads under the intro's loader
+ * (`warm`) or, where that didn't run, as the page's end comes near. The runtime reaches the art through this type alone,
+ * so its members are function properties, not methods: TypeScript holds a function property to the parameters it declares,
+ * where it would let a method's implementation take narrower ones.
  */
 export interface MiamiArt {
 	/** Builds the bitmaps for `stage` at pixel ratio `dpr`, a batch of rows a step (buildMiamiAssets). */
@@ -122,6 +125,13 @@ export interface MiamiRuntime {
 	setContrast(more: boolean): void
 	/** Forgets what was built from the stage, as a lost GPU context requires; the next step builds it again. */
 	dropAssets(): void
+	/**
+	 * Loads the art now, while the intro's loader still covers the page, so its stall comes under the loader; settles once
+	 * the load has, loaded or failed. A runtime with no stage (no landing scene on the page, as with SkyLanding switched
+	 * off), whose art is loaded, whose scene has failed, or that has had a failed load settles at once and loads nothing;
+	 * one already loading settles with that load.
+	 */
+	warm(): Promise<void>
 	/** Where the descent runs, for sceneAt; null with no stage. The same object until the stage changes. */
 	descentWindow(): DescentWindow | null
 	/** Advances the clock and the build. True when a frame must draw (a build finished, an ease ended, the scene failed). */
@@ -182,10 +192,11 @@ const isStill = (softwareFps: number): boolean => softwareFps / SCENE_PACING.sof
 const movesBelow = (stage: MiamiStage): number => Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 
 /**
- * Loads of the scene's art a visit may make. The first comes at a calm, settled moment once the page's end is near, or when
- * the bake is due or the scene is needed; a failed load is tried again when the bake is due or the scene is needed (the
- * bundler has already retried a network error once by then). A second failure ends the scene as a failed build does, with
- * the plain sky for the rest of the visit and no error event.
+ * Loads of the scene's art a visit may make. The first comes while the intro's loader covers the page (`warm`), or, when
+ * that didn't run, at a calm, settled moment once the page's end is near, or when the bake is due or the scene is needed; a
+ * failed load is tried again when the bake is due or the scene is needed (the bundler has already retried a network error
+ * once by then). A second failure ends the scene as a failed build does, with the plain sky for the rest of the visit and
+ * no error event.
  */
 const LOAD_ATTEMPTS = 2
 
@@ -215,6 +226,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 	let art: MiamiArt | null = null
 	/** A load of the art is under way. */
 	let loading = false
+	/** The load under way, settled once it has (loaded or failed, never rejected), so `warm` can wait for it; null while none is. */
+	let pendingLoad: Promise<void> | null = null
 	/** Loads of the art that have failed (LOAD_ATTEMPTS). */
 	let loadFailures = 0
 	/** Ticks in a row that had spent the slice before the build was reached, for the build under way (STAGE.starveTicks). */
@@ -334,14 +347,16 @@ export function createMiamiRuntime(): MiamiRuntime {
 	/** Asks for the art. Its outcome is only recorded: the next step acts on it, so the scene changes state only inside a tick. */
 	const load = (): void => {
 		loading = true
-		loadArt().then(
+		pendingLoad = loadArt().then(
 			(loaded) => {
 				art = loaded
 				loading = false
+				pendingLoad = null
 			},
 			() => {
 				loadFailures++
 				loading = false
+				pendingLoad = null
 			}
 		)
 	}
@@ -420,6 +435,11 @@ export function createMiamiRuntime(): MiamiRuntime {
 		dropAssets() {
 			release()
 		},
+		warm() {
+			if (failed || art || loadFailures > 0 || stage === null) return Promise.resolve()
+			if (!loading) load()
+			return pendingLoad ?? Promise.resolve()
+		},
 		descentWindow: () => descent,
 		step(input) {
 			motionShare(input)
@@ -451,7 +471,10 @@ export function createMiamiRuntime(): MiamiRuntime {
 				// A rebuild waits for the page to settle, as the haze does
 				const settled = input.now - changedAt >= HAZE_REBUILD_MS && !input.quietEasing
 				// Loading the art stalls the worker, so further ahead it waits for a calm, settled moment, and it goes when the bake is due
-				// or the scene is needed if none has come first. A load that failed is tried again only then
+				// or the scene is needed if none has come first. A load that failed is tried again only then. This rule usually finds the
+				// art loaded already, because the intro's loader covered the first load (`warm`): it loads only where that didn't run or
+				// failed (Save-Data, a sky that started after the intro or once the loader was lifting, a stage that came after the
+				// worker prepared, a failed warm)
 				const near = lift < current.zShow + STAGE.loadAhead * size.height && pastHero
 				if (!art && !loading && (needed || (ahead && settled) || (loadFailures === 0 && near && settled && input.calm))) load()
 				// A stale build is never finished
@@ -470,8 +493,9 @@ export function createMiamiRuntime(): MiamiRuntime {
 						building = null
 						if (previous) previous.art.close(previous.assets)
 						redraw = true
-						// Eased in from the time the build ended: the tick's own time is from before it, and a long build would show the scene whole in one frame
-						if (urgent) easeSince = performance.now() / 1000
+						// Eased in from the time the build ended: the tick's own time is from before it, and a long build would show the scene whole in one frame.
+						// Before the dusk nothing shows, so the scene shows whole in the frame this build asks for
+						if (urgent && input.showing) easeSince = performance.now() / 1000
 					}
 				}
 			} catch {

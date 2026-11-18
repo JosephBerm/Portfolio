@@ -1,21 +1,28 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
-import { duration, easing } from '@/lib'
-import { IntroPhaseContext, type IntroPhase } from '@/hooks/useIntroPhase'
-import LoadingLogo from '@/components/LoadingLogo'
-
-/** Pause after loader exit before page entrance animations begin (seconds). */
-const POST_LOADER_PAUSE = 0.25
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
+import { intro } from '@/lib/animations'
+import { createIntroHolds, IntroHoldsContext, IntroPhaseContext, type IntroHolds, type IntroPhase } from '@/hooks/useIntroPhase'
+import styles from './IntroGate.module.css'
 
 /**
- * Without JavaScript the timers never run: hide the loader, show the server-rendered page and drop Motion's inline
- * initial states (opacity 0 and entrance offsets), which a stylesheet's !important outranks. The sky's landing room
- * (empty space for a canvas that is never drawn) goes too, so the page has no gap.
+ * Without JavaScript the loader never lifts: hide it, show the server-rendered page and let it scroll (the "Home intro"
+ * block in globals.css hides and holds it until the reveal), and drop Motion's inline initial states (opacity 0 and
+ * entrance offsets), which a stylesheet's !important outranks. The sky's landing room (empty space for a canvas that is
+ * never drawn) goes too, so the page has no gap.
  */
 const NO_SCRIPT_CSS =
-	'#intro-loader{display:none!important}#intro-content{display:block!important}#intro-content [style*="opacity"]{opacity:1!important;transform:none!important}[data-sky-landing]{display:none}'
+	'#intro-loader{display:none!important}#intro-content{visibility:visible!important}#intro-content [style*="opacity"]{opacity:1!important;transform:none!important}[data-sky-landing]{display:none}html{overflow:visible!important;background-color:transparent!important}html body{overflow-x:hidden!important}'
+
+/** The loader's fade, for IntroGate.module.css. */
+const LOADER_TIMING = { '--intro-fade': `${intro.fade}s` } as CSSProperties
+
+const subscribeNothing = () => () => {}
+
+/** True while React hydrates the server's HTML, false in a render on the client alone: a client navigation into the page. */
+function useHydrating(): boolean {
+	return useSyncExternalStore(subscribeNothing, () => false, () => true)
+}
 
 /** The element the URL fragment points at, if any (a malformed %-escape matches nothing). */
 function getHashTarget(): HTMLElement | null {
@@ -28,77 +35,203 @@ function getHashTarget(): HTMLElement | null {
 	}
 }
 
+/** This document's navigation entry. Its activationStart (Chromium) is when a page the browser prerendered was shown; TypeScript's DOM types don't list it yet. */
+function navigationEntry(): (PerformanceNavigationTiming & { activationStart?: number }) | undefined {
+	return performance.getEntriesByType('navigation')[0] as (PerformanceNavigationTiming & { activationStart?: number }) | undefined
+}
+
+/** Resolves `ms` after navigation start (the origin of performance.now()), at once if that has passed. */
+function until(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - performance.now())))
+}
+
+/** The page can't be seen yet: a tab opened in the background, or a page the browser is still prerendering. */
+function unseen(): boolean {
+	return document.visibilityState !== 'visible' || (document as Document & { prerendering?: boolean }).prerendering === true
+}
+
+/**
+ * When the page could first be seen, in ms after navigation start: navigation start, a prerendered page's activation, or
+ * the first showing of a tab opened in the background. Where the browser keeps `visibility-state` performance entries
+ * (Chromium), a showing that came before this runs is read from them; elsewhere the visibility as this runs decides, so a
+ * page shown then counts from navigation start and a hidden one from its next showing. Nothing is waited for once `lift`
+ * aborts.
+ */
+function firstSeen(lift: AbortSignal): Promise<number> {
+	const activation = navigationEntry()?.activationStart ?? 0
+	const shown = performance.getEntriesByType('visibility-state').find((entry) => entry.name === 'visible' && entry.startTime >= activation)
+	if (shown) return Promise.resolve(shown.startTime)
+	if (!unseen()) return Promise.resolve(activation)
+	return new Promise((resolve) => {
+		const onShow = () => {
+			if (!unseen()) resolve(performance.now())
+		}
+		document.addEventListener('visibilitychange', onShow, { signal: lift })
+		document.addEventListener('prerenderingchange', onShow, { signal: lift })
+	})
+}
+
+/** The intro's ceiling: intro.ceiling after the page could first be seen. */
+async function ceiling(lift: AbortSignal): Promise<void> {
+	await until((await firstSeen(lift)) + intro.ceiling * 1000)
+}
+
+/**
+ * On a load of a URL with a fragment (a shared link, a nav link opened in a new tab), puts its target at the top again
+ * under the loader: the browser scrolled there as the page loaded, and fonts loading since may have moved it. It runs
+ * after the fonts have loaded, so the sky can prepare at the landing position, and once more as the loader starts to
+ * lift, so the target is placed after everything readiness waited for; never after. A reload or a history traversal
+ * keeps the position the browser restored. 'instant' overrides the CSS smooth scroll, as a native load does.
+ */
+function settleOnFragment(): void {
+	const type = navigationEntry()?.type
+	if (type === 'reload' || type === 'back_forward') return
+	getHashTarget()?.scrollIntoView({ block: 'start', behavior: 'instant' })
+}
+
+/**
+ * The intro's floor: the mark's entry (its CSS animations) has played and then held for intro.hold. Those animations
+ * start with the first frame that renders them (in a tab opened in the background, when it is first shown), so the floor
+ * counts from what the visitor saw. A mark with no entry (reduced motion) has no floor.
+ */
+async function markSettled(loader: HTMLElement): Promise<void> {
+	const entry = loader.getAnimations({ subtree: true })
+	if (entry.length === 0) return
+	await Promise.all(entry.map((animation) => animation.finished.catch(() => undefined)))
+	const ends = entry.map((animation) =>
+		animation.startTime === null ? performance.now() : Number(animation.startTime) + Number(animation.effect?.getComputedTiming().endTime ?? 0)
+	)
+	await until(Math.max(...ends) + intro.hold * 1000)
+}
+
+/** The images in `content` whose box reaches into the viewport. */
+function imagesOnScreen(content: HTMLElement): HTMLImageElement[] {
+	return Array.from(content.querySelectorAll('img')).filter((image) => {
+		const box = image.getBoundingClientRect()
+		return box.width > 0 && box.bottom > 0 && box.top < window.innerHeight
+	})
+}
+
+/**
+ * The page is ready to show: its fonts have loaded, a fragment's target is in place, every hold has settled and the
+ * images on screen are decoded. `lift` aborts once the loader starts to lift; from then on the visitor owns the scroll
+ * position, so a late font load no longer moves the page.
+ */
+async function pageReady(content: HTMLElement, holds: IntroHolds, lift: AbortSignal): Promise<void> {
+	await document.fonts.ready
+	if (!lift.aborted) settleOnFragment()
+	await Promise.allSettled([holds.settled(), ...imagesOnScreen(content).map((image) => image.decode())])
+}
+
+/** The intro may end: its mark has played and held, and the page is ready or the ceiling has passed. */
+async function introReady(loader: HTMLElement, content: HTMLElement, holds: IntroHolds, lift: AbortSignal): Promise<void> {
+	await Promise.all([markSettled(loader), Promise.race([pageReady(content, holds, lift), ceiling(lift)])])
+}
+
 interface IntroGateProps {
-	/** Mounted once, outside the remounted tree, so it is already in place when the loader lifts (the home sky). */
+	/** Mounted once, outside the loader, so it is already in place when the loader lifts (the home sky). */
 	backdrop?: React.ReactNode
+	/** The loader's mark, rendered on the server (LoadingLogo) so it plays before any script runs. */
+	mark: React.ReactNode
 	children: React.ReactNode
 }
 
 /**
- * Plays the intro loader, then reveals the server-rendered page passed as `children`.
- * The page's entrance animations are mount-driven, so the content mounts at reveal time.
- * The backdrop follows the same timeline through IntroPhaseContext.
+ * Plays the intro loader over the server-rendered page passed as `children`, which is laid out and hydrated under it and
+ * shown without a remount. The loader lifts once its mark has played and held and the page is ready. Components it hosts
+ * hand it work to wait for through useIntroHolds() (the sky's first view), within intro.ceiling. The backdrop follows the
+ * same timeline through IntroPhaseContext.
  */
-export default function IntroGate({ backdrop, children }: IntroGateProps) {
-	const [isLoading, setIsLoading] = useState(true)
-	const [loaderGone, setLoaderGone] = useState(false)
-	const [showContent, setShowContent] = useState(false)
+export default function IntroGate({ backdrop, mark, children }: IntroGateProps) {
+	// The intro covers a document's load, which hydrates. A client navigation into home (from /links or the 404 page)
+	// renders the page on the client alone, so it shows at once; the first render's answer is the one kept
+	const hydrating = useHydrating()
+	const [phase, setPhase] = useState<IntroPhase>(() => (hydrating ? 'loading' : 'revealed'))
+	const [markLeaving, setMarkLeaving] = useState(false)
+	const [faded, setFaded] = useState(false)
+	const [holds] = useState(createIntroHolds)
+	const loaderRef = useRef<HTMLDivElement>(null)
+	const contentRef = useRef<HTMLDivElement>(null)
 
+	// The loader lifts once its mark has played and held and the page is ready, within the ceiling: the mark starts to
+	// leave, then the loader fades as the stars come out. From the lift on, nothing the readiness work does moves the page
 	useEffect(() => {
-		const timer = setTimeout(() => setIsLoading(false), duration.loader * 1000)
-		return () => clearTimeout(timer)
-	}, [])
+		const loader = loaderRef.current
+		const content = contentRef.current
+		if (!loader || !content) return
+		performance.mark('intro-armed')
+		const lift = new AbortController()
+		let live = true
+		void introReady(loader, content, holds, lift.signal).then(() => {
+			if (!live) return
+			// The last moment the loader covers the page: a fragment's target is put in place after everything readiness waited for
+			settleOnFragment()
+			lift.abort()
+			performance.mark('intro-exit')
+			setMarkLeaving(true)
+			setTimeout(() => {
+				if (live) setPhase('exiting')
+			}, intro.exitLead * 1000)
+		})
+		return () => {
+			live = false
+			lift.abort()
+		}
+	}, [holds])
 
-	// Loader has fully exited the DOM — wait, then reveal page content
+	// The loader fades (IntroGate.module.css); once that has played, it leaves the DOM. A loader with no fade (a stylesheet
+	// that turns animations off) leaves at once
 	useEffect(() => {
-		if (!loaderGone) return
-		const pause = setTimeout(() => setShowContent(true), POST_LOADER_PAUSE * 1000)
+		const loader = loaderRef.current
+		if (phase !== 'exiting' || !loader) return
+		let live = true
+		const leave = () => {
+			if (live) setFaded(true)
+		}
+		void Promise.all(loader.getAnimations().map((animation) => animation.finished)).then(leave, leave)
+		return () => {
+			live = false
+		}
+	}, [phase])
+
+	// The loader is gone: after a short pause the page shows and its entrances start
+	useEffect(() => {
+		if (!faded) return
+		const pause = setTimeout(() => {
+			performance.mark('intro-revealed')
+			setPhase('revealed')
+		}, intro.pause * 1000)
 		return () => clearTimeout(pause)
-	}, [loaderGone])
-
-	// The browser's own fragment scroll ran while the content was display:none, so a /#section URL (a shared link,
-	// or a nav link opened in a new tab) would land at the top. Jump there once the revealed tree has mounted; the
-	// frame lets mount-time measurement settle, and 'instant' overrides the CSS smooth scroll like a native load.
-	useEffect(() => {
-		if (!showContent) return
-		const frame = requestAnimationFrame(() => getHashTarget()?.scrollIntoView({ block: 'start', behavior: 'instant' }))
-		return () => cancelAnimationFrame(frame)
-	}, [showContent])
-
-	const phase: IntroPhase = showContent ? 'revealed' : isLoading ? 'loading' : 'exiting'
+	}, [faded])
 
 	return (
 		<IntroPhaseContext value={phase}>
-			<noscript>
-				<style>{NO_SCRIPT_CSS}</style>
-			</noscript>
-			{backdrop}
-			<AnimatePresence onExitComplete={() => setLoaderGone(true)}>
-				{isLoading && (
-					<motion.div
-						key="loader"
+			<IntroHoldsContext value={holds}>
+				<noscript>
+					<style>{NO_SCRIPT_CSS}</style>
+				</noscript>
+				{backdrop}
+				{phase !== 'revealed' && !faded && (
+					<div
+						ref={loaderRef}
 						id="intro-loader"
-						initial={{ opacity: 1 }}
-						exit={{ opacity: 0 }}
-						transition={{ duration: duration.loaderExit, ease: easing.smooth }}
-						className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-dark-navy"
+						data-intro-phase={phase}
+						data-mark={markLeaving ? 'leaving' : undefined}
+						style={LOADER_TIMING}
+						className={`fixed inset-y-0 left-0 w-screen z-[1000] flex flex-col items-center justify-center bg-dark-navy touch-pinch-zoom ${styles.loader}`}
 					>
-						<LoadingLogo />
-					</motion.div>
+						{mark}
+					</div>
 				)}
-			</AnimatePresence>
-			{/*
-			 * Server-rendered so HTML-only crawlers can read it. display:none until the loader is gone keeps
-			 * layout, scroll and in-view reveals inert; the key flip then remounts the tree so every
-			 * mount-driven entrance animation starts exactly when the content used to mount.
-			 */}
-			<div
-				key={showContent ? 'revealed' : 'preload'}
-				id="intro-content"
-				className={showContent ? 'overflow-hidden' : 'hidden'}
-			>
-				{children}
-			</div>
+				{/*
+				 * Server-rendered so HTML-only crawlers can read it. Laid out and hydrated under the loader, but hidden and still
+				 * until the reveal (the "Home intro" block in globals.css), so its fonts load, a fragment lands and the sky measures
+				 * it; the reveal changes its visibility only. Entrances that play as it appears wait for useIntroRevealed().
+				 */}
+				<div ref={contentRef} id="intro-content" data-intro-phase={phase} className="overflow-hidden">
+					{children}
+				</div>
+			</IntroHoldsContext>
 		</IntroPhaseContext>
 	)
 }

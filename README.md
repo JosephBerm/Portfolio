@@ -73,7 +73,7 @@ src/
 ├── components/   UI components
 │   ├── icons/            SVG icon components
 │   ├── motion/           Animation wrappers
-│   ├── sky/              Home night sky: client island, controller, pause store and control, and Web Worker renderer, including the landing scene (miamiRuntime.ts, and the art it loads as the page's end comes near: miamiArt.ts, renderMiami.ts, miamiAssets.ts, miamiPalmArt.ts)
+│   ├── sky/              Home night sky: client island, controller, pause store and control, and Web Worker renderer, including the landing scene (miamiRuntime.ts, and the art it loads with import(): miamiArt.ts, renderMiami.ts, miamiAssets.ts, miamiPalmArt.ts)
 │   └── links/            /links components
 │       └── schedule/     /links/schedule components
 ├── hooks/        Client hooks

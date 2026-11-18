@@ -8,11 +8,13 @@ import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
 export interface SkyController {
 	/** Follows IntroGate: the stars come out as the loader lifts, and shooting stars and satellites start once the page shows. */
 	setPhase(phase: IntroPhase): void
+	/** Settles once what the intro loader's lift will show is drawn (the worker's `prepared`), and at once where the sky can't run, fails or is destroyed. The home intro waits for it, within its ceiling. */
+	readonly prepared: Promise<void>
 	destroy(): void
 }
 
 /** Controller for browsers that can't run the sky: the plain navy page stays. */
-const NOOP: SkyController = { setPhase: () => {}, destroy: () => {} }
+const NOOP: SkyController = { setPhase: () => {}, prepared: Promise.resolve(), destroy: () => {} }
 
 /**
  * Marks the page while no sky runs, because the browser can't start it or it failed: `data-sky-off` on <html> collapses the
@@ -302,15 +304,28 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 
 	let phase: IntroPhase = 'loading'
 	let size = { width: 0, height: 0, dpr: 0 }
-	let flowRoots: Element[] = []
-	let pinnedRoots: Element[] = []
-	let landingRoot: Element | null = null
+	// The page is laid out from the first paint, unseen under the intro's loader until the reveal (IntroGate), and its copy
+	// never remounts: its roots are found once, so the worker knows where the copy stands before the stars come out. Copy
+	// in fixed elements (the side rails) stays put on screen while the page scrolls
+	const quietRoots = Array.from(document.querySelectorAll(QUIET_SELECTOR))
+	const pinnedRoots = quietRoots.filter((root) => getComputedStyle(root).position === 'fixed')
+	const flowRoots = quietRoots.filter((root) => !pinnedRoots.includes(root))
+	// The landing room, if the page has one
+	const landingRoot = document.querySelector(LANDING_SELECTOR)
 	let reading: SkyRect[] = []
 	let lastLayout = ''
 	const headrooms = new Map<string, number>()
 	let lastScrollY = window.scrollY
 	let settleTimer: ReturnType<typeof setTimeout> | undefined
 	let destroyed = false
+	// Settled by the worker's `prepared`, or by destroy, which a failure goes through
+	let settlePrepared: () => void = () => {}
+	const prepared = new Promise<void>((resolve) => {
+		settlePrepared = resolve
+	})
+	// Forced colors: CSS hides the sky (Background.module.css), so its canvas never has a size, the worker is never sent
+	// `init` and nothing is drawn; the lift has nothing to wait for
+	if (forcedColors.matches) settlePrepared()
 
 	// Document height, quiet rects, the landing's box and reading rects as last walked; runs after layout (observer callbacks,
 	// timers) and posts only when they changed
@@ -329,10 +344,10 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		post({ type: 'layout', documentHeight, quiet, pinned, landing, reading })
 	}
 
-	// Reading copy's rects, from the reveal on, as for quiet copy: a page's worth of walking that only a reflow or new copy
-	// changes, so a settle leaves them as they are
+	// Reading copy's rects, as for quiet copy: a page's worth of walking that only a reflow or new copy changes, so a settle
+	// leaves them as they are
 	const measureReading = () => {
-		if (offscreen || destroyed || phase !== 'revealed') return
+		if (offscreen || destroyed) return
 		const reader = { ...copyReader(tokens, headrooms), headroom: () => 0 }
 		reading = Array.from(document.querySelectorAll(READING_SELECTOR)).flatMap((root) => quietRects(root, window.scrollY, reader, READING_RULES))
 	}
@@ -401,9 +416,15 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	// The page and the quiet copy can change size after fonts load or on resize: measure again
 	const layoutObserver = new ResizeObserver(measureAll)
 	layoutObserver.observe(document.body)
+	for (const root of quietRoots) layoutObserver.observe(root)
+	if (landingRoot) layoutObserver.observe(landingRoot)
 	// New copy can change its lines without changing a size (a tab of the Experience section, say). This one fires before layout
 	// and so forces one, which only a change of copy pays for: scrolling and entrances don't fire it
 	const copyObserver = new MutationObserver(measureAll)
+	const main = document.querySelector('main')
+	if (main) copyObserver.observe(main, { childList: true, subtree: true, characterData: true })
+	// The fonts load under the loader too: measure again once they have
+	void document.fonts.ready.then(measureAll)
 
 	// Motion's scroll() shares one frame-batched listener with the navbar's useScroll. Keep both parameters:
 	// Motion only passes the scroll info (with the offset in px) to two-argument callbacks.
@@ -488,6 +509,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	const destroy = () => {
 		if (destroyed) return
 		destroyed = true
+		settlePrepared()
 		clearTimeout(settleTimer)
 		// The pending pointer message and tick would go to a worker that is gone, which can no longer turn the relay off
 		cancelAnimationFrame(pointerFrame)
@@ -517,9 +539,14 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			const message = event.data
 			switch (message.type) {
 				case 'ready':
+					performance.mark('sky-ready')
 					canvas.dataset.ready = ''
 					// The first frame is on the canvas: the pause control may show
 					setSkyRunning(true)
+					break
+				case 'prepared':
+					performance.mark('sky-prepared')
+					settlePrepared()
 					break
 				case 'error':
 					fail()
@@ -544,21 +571,10 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			if (next === phase || destroyed) return
 			phase = next
 			if (!offscreen) post({ type: phase === 'revealed' ? 'reveal' : 'emerge' })
-			if (phase !== 'revealed') return
-			// The revealed page has just committed: find its quiet copy, then measure again as the entrance and fonts settle
-			const roots = Array.from(document.querySelectorAll(QUIET_SELECTOR))
-			// Copy in fixed elements (the side rails) stays put on screen while the page scrolls
-			pinnedRoots = roots.filter((root) => getComputedStyle(root).position === 'fixed')
-			flowRoots = roots.filter((root) => !pinnedRoots.includes(root))
-			for (const root of roots) layoutObserver.observe(root)
-			// The landing room, if the page has one
-			landingRoot = document.querySelector(LANDING_SELECTOR)
-			if (landingRoot) layoutObserver.observe(landingRoot)
-			const main = document.querySelector('main')
-			if (main) copyObserver.observe(main, { childList: true, subtree: true, characterData: true })
-			settleLater()
-			void document.fonts.ready.then(measureAll)
+			// The page's entrances play from the reveal: measure again once they have had time to settle
+			if (phase === 'revealed') settleLater()
 		},
+		prepared,
 		destroy,
 	}
 }

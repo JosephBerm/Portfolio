@@ -250,7 +250,6 @@
 		height: 100%;
 		width: 100%;
 		position: relative;
-		transition: all 0.25s var(--ease-smooth);
 		background: var(--color-light-navy);
 		border-radius: 4px;
 	}
@@ -269,7 +268,11 @@
 			var(--color-card-1)
 		);
 		border-radius: inherit;
-		transition: all 0.25s var(--ease-smooth);
+		transition: opacity 0.25s var(--ease-smooth), --gradiant-angle 0.25s var(--ease-smooth);
+	}
+	/* Hover and focus change only the glow (opacity, rotation) and the links' color and focus ring, so each transition names its properties: the cards sit in a size container, where Chromium replayed their "all" transitions from initial values under the home intro's loader and showed the hidden cards. */
+	.gradient-card a {
+		transition-property: color, outline-color, outline-offset, outline-width;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.gradient-card::before,
@@ -453,6 +456,29 @@ body.overflow-hidden #content > * {
 		pointer-events: all;
 		user-select: auto;
 	}
+}
+
+/* Home intro (src/components/IntroGate.tsx): under the loader the page is laid out, so its fonts load, a link to one of
+   its sections lands and the sky can measure it, but it isn't painted, and the reveal changes its visibility only.
+   Meanwhile only the browser scrolls it (a fragment, a restored position): the root clips, and body drops its own
+   overflow so it never scrolls by itself. IntroGate's no-script style undoes the hiding and the clip. */
+/* Home keeps its scrollbar's room for the whole visit: the page has the same width while the root clips as once its
+   scrollbar fills that room, and so does 100vw (the sky's and the loader's width), which some browsers take that room out of */
+html:has(#intro-content) {
+	scrollbar-gutter: stable;
+}
+#intro-content:not([data-intro-phase='revealed']) {
+	visibility: hidden;
+}
+html:has(#intro-content:not([data-intro-phase='revealed'])) {
+	overflow: hidden;
+}
+html:has(#intro-content:not([data-intro-phase='revealed'])) body {
+	overflow: visible;
+}
+/* While the loader is opaque, the room kept for the scrollbar takes its color */
+html:has(#intro-content[data-intro-phase='loading']) {
+	background-color: var(--color-dark-navy);
 }
 
 /* ============================================

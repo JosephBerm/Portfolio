@@ -57,13 +57,12 @@ export default function AboutMe() {
 				>
 					<div className="img-wrapper">
 						<div className="photo-container">
-							{/* Static import supplies the real dimensions; eager so it loads as soon as content mounts. */}
+							{/* Static import supplies the real dimensions. Lazy, next/image's default: the page is laid out under the intro's loader, so the browser fetches it once it comes near the screen, with no preload in the head */}
 							<Image
 								src={myPicture}
 								alt="Professional headshot of Joseph Bermudez"
 								sizes="(max-width: 480px) 70vw, 300px"
 								className="rounded-[4px] object-cover w-full h-auto"
-								loading="eager"
 							/>
 						</div>
 					</div>

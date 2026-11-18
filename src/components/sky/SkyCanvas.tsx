@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useIntroPhase } from '@/hooks/useIntroPhase'
+import { useIntroHolds, useIntroPhase } from '@/hooks/useIntroPhase'
 import { mountSky, type SkyController } from './mountSky'
 
 interface SkyCanvasProps {
@@ -16,23 +16,26 @@ export default function SkyCanvas({ className, canvasClassName = '' }: SkyCanvas
 	const hostRef = useRef<HTMLDivElement>(null)
 	const skyRef = useRef<SkyController | null>(null)
 	const phase = useIntroPhase()
+	const holds = useIntroHolds()
 
 	useEffect(() => {
 		const host = hostRef.current
 		if (!host) return
 		const sky = mountSky(host, canvasClassName)
 		skyRef.current = sky
+		// The intro waits, within its ceiling, for what the sky shows as the loader lifts
+		holds?.add(sky.prepared)
 		return () => {
 			skyRef.current = null
 			sky.destroy()
 		}
-	}, [canvasClassName])
+	}, [canvasClassName, holds])
 
 	// Declared after the mount effect, so on mount it runs once the controller exists. It also runs when the mount
 	// effect re-creates the controller, which starts at 'loading' and must catch up with the intro
 	useEffect(() => {
 		skyRef.current?.setPhase(phase)
-	}, [phase, canvasClassName])
+	}, [phase, canvasClassName, holds])
 
 	return <div ref={hostRef} className={className} aria-hidden="true" />
 }

@@ -32,10 +32,33 @@ export const duration = {
 	media: 0.6,
 	/** Hero / first-impression animations (0.75s). */
 	entrance: 0.75,
-	/** How long the intro loader stays on screen before it starts exiting (3s); the loading logo times its exit from it. */
-	loader: 3,
-	/** Delay before page entrance animations (matches loader exit). */
-	loaderExit: 0.5,
+} as const
+
+/**
+ * The home intro, in seconds. LoadingLogo hands the mark's times to IntroGate.module.css as custom properties, and
+ * IntroGate the loader's fade; IntroGate's script times the rest. The mark's entry plays in CSS from the first paint, and
+ * the loader lifts once that entry has played and held (the floor) and the page is ready, waiting for the page no later
+ * than `ceiling` after it could first be seen.
+ */
+export const intro = {
+	/** The hexagon's trace. */
+	draw: 1.6,
+	/** The J starts to fade in just after the trace closes. */
+	letterDelay: 1.73,
+	/** The J's fade. */
+	letter: 0.4,
+	/** The whole mark holds still this long once the J has landed, before it may leave. */
+	hold: 0.62,
+	/** The mark shrinks away (fades, under reduced motion). */
+	markOut: duration.normal,
+	/** The mark starts to leave this long before the loader fades and the stars come out. */
+	exitLead: 0.25,
+	/** The loader's fade. */
+	fade: 0.5,
+	/** Between the loader leaving and the page's entrances. */
+	pause: 0.25,
+	/** The latest, after the page could first be seen (navigation start, a prerendered page's activation, or the first showing of a tab opened in the background), that the intro waits for the page to be ready; its floor still plays in full. */
+	ceiling: 5,
 } as const
 
 /**

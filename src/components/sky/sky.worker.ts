@@ -13,7 +13,10 @@
  * palms in the wind and the boat's crossing): while that is on screen it asks for 30 frames a second on animation frames,
  * 20 once it or adaptive quality has stepped down, and for none while paused, reduced, idle or on a canvas too slow to run
  * it. It counts its own slow frames, from what its own draws take, apart from adaptive quality's.
- * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded as the page's end comes near.
+ * Before the stars come out it asks for frames only to build a landing scene the visit starts inside, which the intro's
+ * loader still covers.
+ * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded while the intro's loader covers the
+ * page, before the worker says it has prepared, or, where that didn't run, as the page's end comes near.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
@@ -201,6 +204,10 @@ let timerId: ReturnType<typeof setTimeout> | undefined
 let hazeTimer: ReturnType<typeof setTimeout> | undefined
 let needsDraw = false
 let ready = false
+let prepared = false
+let layoutKnown = false
+/** The landing scene's `rebuilding`, as the latest frame decision (demandNow) read it: notePrepared waits on it. */
+let sceneRebuilding = false
 
 /** Whether animation frames can be relied on. False where the worker has none and after repeated stalls: a 60 Hz timer then stands in for the display. */
 let rafWorks = typeof scope.requestAnimationFrame === 'function'
@@ -321,6 +328,7 @@ const miamiStep: MiamiStep = {
 	motionFull: false,
 	ambientOn: false,
 	quietEasing: false,
+	showing: false,
 	calm: false,
 }
 
@@ -338,6 +346,7 @@ function stepInput(now: number): MiamiStep {
 	miamiStep.motionFull = motion === 'full'
 	miamiStep.ambientOn = driftGate.on
 	miamiStep.quietEasing = quietEasing(now / 1000)
+	miamiStep.showing = exitAt !== null
 	// Loading the scene's art stalls the worker, so a load ahead of the bake waits for a page at rest: under full motion, no
 	// scroll at all, however slow, for TRANSIENTS.scrollQuiet (the stars have stopped gliding after it by then) and nothing in
 	// flight. Under any other motion the stars hold still and flights fade out
@@ -348,6 +357,7 @@ function stepInput(now: number): MiamiStep {
 /** What the frame clock sees now (reused). */
 const frameState: FrameState = {
 	live: false,
+	preparing: false,
 	scrolling: false,
 	full: false,
 	transientDemand: NO_FRAMES,
@@ -395,6 +405,9 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 && !miami.stillOnScreen(scrollY, documentHeight, softwareFps) ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	// The landing scene's own frames, and the fade frames of an ease in or a rebuild, which would otherwise wait for the next input
 	const sceneDemand = miami.demand(stepInput(now))
+	// Before the dusk only a landing scene the visit starts inside asks for frames: it builds under the intro's loader
+	frameState.preparing = ctx !== null && visible && motion !== 'off' && exitAt === null && sceneDemand.rebuilding
+	sceneRebuilding = sceneDemand.rebuilding
 	frameState.sceneFps = sceneDemand.fps
 	frameState.sceneCap = sceneDemand.cap
 	frameState.sceneOnScreen = sceneDemand.onScreen
@@ -457,6 +470,32 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	return gate
 }
 
+/** The visitor asked to save data (Chromium only; elsewhere it reads as no). */
+function savingData(): boolean {
+	return (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
+}
+
+/**
+ * Tells the page, once, that what the intro loader's lift will show is drawn: the first frame is on the canvas, a layout
+ * has arrived, and no landing scene the visit starts inside is still building (built, failed, or not on screen). Where the
+ * art's warm load runs (before the dusk, with the motion not 'off', no request to save data and a scene on the page),
+ * `prepared` follows that load, loaded or failed, so the load's stall comes under the loader unless the loader lifts at
+ * its ceiling first. The intro waits for it within its ceiling. Under motion 'off' nothing draws to build a scene, so
+ * none is waited for. At a load under forced colors CSS hides the sky, so this worker is never sent `init` and mountSky
+ * settles `prepared` itself.
+ */
+function notePrepared(): void {
+	if (prepared || !ready || !layoutKnown || (motion !== 'off' && sceneRebuilding)) return
+	prepared = true
+	// Decided in a task of its own, so whatever the page sent while the worker was starting is read first: an `emerge`
+	// already waiting means the loader is lifting, and the art then waits for the page's end. A load made here is part of
+	// what the lift waits for, and the loader's ceiling bounds that wait
+	setTimeout(() => {
+		const warming = exitAt === null && motion !== 'off' && !savingData() ? miami.warm() : Promise.resolve()
+		void warming.then(() => scope.postMessage({ type: 'prepared' }))
+	}, 0)
+}
+
 /**
  * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star or a
  * satellite, scrolling, the drift, the lean, the stars gliding to rest) wake on animation frames, in step with the
@@ -472,6 +511,9 @@ function schedule(now: number): void {
 	timerId = undefined
 	const scene = sceneAt(scrollY, height, documentHeight, miami.descentWindow())
 	const demand = demandNow(now, scene)
+	// After the frame decision: schedule runs after every message and at the end of every tick, after its draw, so `prepared`
+	// follows the frame that shows the scene. A hidden tab never gets here; it posts once shown
+	notePrepared()
 	// A worker clock that isn't the display's is replaced by the page's for as long as something moves
 	setRelay(demand.vsync && rafWorks && refresh.unaligned)
 	if (demand.vsync) {
@@ -646,10 +688,10 @@ function starReadingBlend(blend: QuietBlend): QuietBlend {
 
 /**
  * Starts easing toward new rects: the ones on screen now become `from`, so a layout never changes the zones in one
- * frame. A layout that arrives mid-ease waits for it to end (the newest wins), because starting from the previous target
- * would jump every star by what the running ease had not yet shown; a shooting star keeps clear of the waiting one
- * meanwhile (QuietBlend.next). Any layout still waiting is older than this one, so it is dropped here: applied later, it
- * would put the zones back on a stale layout for good.
+ * frame. Before the dusk, with nothing on screen, it takes them at once. A layout that arrives mid-ease waits for it to
+ * end (the newest wins), because starting from the previous target would jump every star by what the running ease had
+ * not yet shown; a shooting star keeps clear of the waiting one meanwhile (QuietBlend.next). Any layout still waiting is
+ * older than this one, so it is dropped here: applied later, it would put the zones back on a stale layout for good.
  */
 function applyLayout(message: LayoutMessage, now: number): void {
 	quietBefore = quiet
@@ -658,7 +700,8 @@ function applyLayout(message: LayoutMessage, now: number): void {
 	quiet = message.quiet
 	pinned = message.pinned
 	reading = message.reading
-	layoutAt = now / 1000
+	// Before the dusk no star shows, so the zones take new copy at once; from the dusk on they ease (QUIET.ease)
+	layoutAt = exitAt === null ? null : now / 1000
 	pendingLayout = null
 }
 
@@ -1097,12 +1140,13 @@ scope.addEventListener('message', (event) => {
 			if (!rafId && timerId === undefined && !relayOn) needsDraw = true
 			break
 		case 'layout': {
+			layoutKnown = true
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
-			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease, so the stars
-			// near it, reading copy included, fade instead of changing in one frame. A change mid-ease waits for the ease to
-			// end, while what flies and what plans answer to the newest copy at once (newestReading, QuietBlend.next, the
-			// frame's quietAhead and the launch gate's field).
+			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease from the dusk on
+			// (before it, nothing shows and the zones take it at once), so the stars near it, reading copy included, fade instead
+			// of changing in one frame. A change mid-ease waits for the ease to end, while what flies and what plans answer to the
+			// newest copy at once (newestReading, QuietBlend.next, the frame's quietAhead and the launch gate's field).
 			const latest = pendingLayout ?? { quiet, pinned, reading }
 			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
 				if (quietEasing(now / 1000)) pendingLayout = message

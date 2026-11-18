@@ -90,9 +90,11 @@ export type SkyMainMessage =
 	/** One animation frame of the page, sent on every frame while the worker has asked for a relay and not otherwise. */
 	| { type: 'tick' }
 
-/** Sky worker to main thread: the first frame is on the canvas, the sky can't run, or the page's animation frames are wanted or not. */
+/** Sky worker to main thread: the first frame is on the canvas, what the intro loader's lift will show is drawn, the sky can't run, or the page's animation frames are wanted or not. */
 export type SkyWorkerMessage =
 	| { type: 'ready' }
+	/** What the intro loader's lift will show is drawn: the first frame, a layout in hand, any landing scene the visit starts inside built or failed, and the scene's art loaded or failed where the worker loads it under the loader (notePrepared in sky.worker.ts). Sent once. */
+	| { type: 'prepared' }
 	| { type: 'error'; message: string }
 	/** Whether the main thread should send a `tick` on every animation frame of the page. Sent only when that changes. */
 	| { type: 'relay'; on: boolean }

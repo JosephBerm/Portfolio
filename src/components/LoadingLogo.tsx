@@ -1,59 +1,74 @@
-'use client'
-
-import { motion, useReducedMotion } from 'motion/react'
-import { easing, duration } from '@/lib'
+import type { CSSProperties } from 'react'
+import { easing, intro } from '@/lib/animations'
+import { cubicBezierCss, splitEasing } from '@/lib/cubicBezier'
 import { LOGO_HEXAGON_POINTS, LOGO_J_PATH, LOGO_J_UNITS_TO_TEXT } from '@/components/icons/logoGlyphs'
+import styles from './IntroGate.module.css'
 
-/** Total stroke length of the hexagon path — used for dash-draw animation. */
-const HEXAGON_STROKE_LENGTH = 189
+/** The drawing's viewBox: both layers share it, and the glyph's box keeps its aspect ratio. */
+const VIEW_WIDTH = 470
+const VIEW_HEIGHT = 541
+const VIEW_BOX = `0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`
 
-/** Duration tokens for the loading sequence (seconds). */
-const DRAW_DURATION = 1.6
-const LETTER_DELAY = 1.73
-const LETTER_DURATION = 0.4
-/** The logo starts shrinking this long before the loader overlay starts fading. */
-const EXIT_LEAD = 0.25
+/** easing.smooth across the whole trace, split between the two halves that uncover it one after the other. */
+const TRACE = splitEasing(easing.smooth, 0.5)
 
+/** The mark's timing, from `intro` and `easing`, for IntroGate.module.css. */
+const TIMING = {
+	aspectRatio: `${VIEW_WIDTH} / ${VIEW_HEIGHT}`,
+	'--intro-draw': `${intro.draw}s`,
+	'--intro-trace-first': `${(intro.draw * TRACE.share).toFixed(3)}s`,
+	'--intro-trace-first-ease': cubicBezierCss(TRACE.first),
+	'--intro-trace-second': `${(intro.draw * (1 - TRACE.share)).toFixed(3)}s`,
+	'--intro-trace-second-ease': cubicBezierCss(TRACE.second),
+	'--intro-letter': `${intro.letter}s`,
+	'--intro-letter-delay': `${intro.letterDelay}s`,
+	'--intro-letter-ease': cubicBezierCss(easing.easeOut),
+	'--intro-mark-out': `${intro.markOut}s`,
+} as CSSProperties
+
+/**
+ * The intro loader's mark, rendered on the server so it plays from the first paint, while the page's scripts load: the
+ * hexagon traces itself, then the J fades in. The trace is covers in the loader's color turning away about the hexagon's
+ * center, so everything that moves is a transform or an opacity (IntroGate.module.css) and nothing the main thread does
+ * meanwhile can stall it.
+ */
 export default function LoadingLogo() {
-	// Reduced motion skips scale animations entirely (the logo would vanish on mount), so fade it out instead.
-	const reduceMotion = useReducedMotion()
-
 	return (
 		<div className="w-[100px] h-[100px]">
-			<motion.svg
-				xmlns="http://www.w3.org/2000/svg"
-				viewBox="0 0 470 541"
-				shapeRendering="geometricPrecision"
-				initial={{ scale: 1, opacity: 1 }}
-				animate={reduceMotion ? { opacity: 0 } : { scale: 0 }}
-				transition={{ duration: duration.normal, delay: duration.loader - EXIT_LEAD, ease: easing.smooth }}
-			>
-				<g transform="translate(0 0.000001)">
-					{/* Hexagon — draws itself via strokeDashoffset */}
-					<motion.polygon
-						points={LOGO_HEXAGON_POINTS}
-						transform="matrix(6.92958-3.9992 3.9992 6.92958-311.439 124.023001)"
-						fill="transparent"
-						stroke="var(--color-green)"
-						strokeWidth="4"
-						strokeLinecap="round"
-						strokeDasharray={HEXAGON_STROKE_LENGTH}
-						initial={{ strokeDashoffset: HEXAGON_STROKE_LENGTH }}
-						animate={{ strokeDashoffset: 0 }}
-						transition={{ duration: DRAW_DURATION, ease: easing.smooth }}
-					/>
-
-					{/* "J" outline (Roboto Bold glyph, no font needed) — fades in after hexagon draw completes */}
-					<motion.path
-						d={LOGO_J_PATH}
-						transform={`matrix(.550733 0.007079-.007079 0.550733 156.845001 366.174001) ${LOGO_J_UNITS_TO_TEXT}`}
-						fill="var(--color-green)"
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						transition={{ duration: LETTER_DURATION, delay: LETTER_DELAY, ease: easing.easeOut }}
-					/>
-				</g>
-			</motion.svg>
+			<div className={styles.glyph} style={TIMING}>
+				<svg className={styles.layer} xmlns="http://www.w3.org/2000/svg" viewBox={VIEW_BOX} shapeRendering="geometricPrecision">
+					<g transform="translate(0 0.000001)">
+						<polygon
+							points={LOGO_HEXAGON_POINTS}
+							transform="matrix(6.92958-3.9992 3.9992 6.92958-311.439 124.023001)"
+							fill="transparent"
+							stroke="var(--color-green)"
+							strokeWidth="4"
+							strokeLinecap="round"
+						/>
+					</g>
+				</svg>
+				<div className={styles.trace}>
+					<div className={styles.traceLeft}>
+						<div className={styles.cover} />
+					</div>
+					<div className={styles.traceRight}>
+						<div className={styles.cover} />
+					</div>
+				</div>
+				<div className={styles.letter}>
+					<svg className={styles.layer} xmlns="http://www.w3.org/2000/svg" viewBox={VIEW_BOX} shapeRendering="geometricPrecision">
+						<g transform="translate(0 0.000001)">
+							{/* "J" outline (Roboto Bold glyph, no font needed) */}
+							<path
+								d={LOGO_J_PATH}
+								transform={`matrix(.550733 0.007079-.007079 0.550733 156.845001 366.174001) ${LOGO_J_UNITS_TO_TEXT}`}
+								fill="var(--color-green)"
+							/>
+						</g>
+					</svg>
+				</div>
+			</div>
 		</div>
 	)
 }

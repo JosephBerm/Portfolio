@@ -250,7 +250,6 @@
 		height: 100%;
 		width: 100%;
 		position: relative;
-		transition: all 0.25s var(--ease-smooth);
 		background: var(--color-light-navy);
 		border-radius: 4px;
 	}
@@ -269,7 +268,11 @@
 			var(--color-card-1)
 		);
 		border-radius: inherit;
-		transition: all 0.25s var(--ease-smooth);
+		transition: opacity 0.25s var(--ease-smooth), --gradiant-angle 0.25s var(--ease-smooth);
+	}
+	/* Hover and focus change only the glow (opacity, rotation) and the links' color, so each transition names its property: under the home intro's loader an "all" transition replays as the fonts load and shows the hidden card. */
+	.gradient-card a {
+		transition-property: color;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.gradient-card::before,

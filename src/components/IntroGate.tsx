@@ -78,9 +78,10 @@ async function ceiling(lift: AbortSignal): Promise<void> {
 
 /**
  * On a load of a URL with a fragment (a shared link, a nav link opened in a new tab), puts its target at the top again
- * under the loader: the browser scrolled there as the page loaded, and fonts loading since may have moved it. A reload
- * or a history traversal keeps the position the browser restored. 'instant' overrides the CSS smooth scroll, as a
- * native load does.
+ * under the loader: the browser scrolled there as the page loaded, and fonts loading since may have moved it. It runs
+ * after the fonts have loaded, so the sky can prepare at the landing position, and once more as the loader starts to
+ * lift, so the target is placed after everything readiness waited for; never after. A reload or a history traversal
+ * keeps the position the browser restored. 'instant' overrides the CSS smooth scroll, as a native load does.
  */
 function settleOnFragment(): void {
 	const type = navigationEntry()?.type
@@ -163,6 +164,8 @@ export default function IntroGate({ backdrop, mark, children }: IntroGateProps) 
 		let live = true
 		void introReady(loader, content, holds, lift.signal).then(() => {
 			if (!live) return
+			// The last moment the loader covers the page: a fragment's target is put in place after everything readiness waited for
+			settleOnFragment()
 			lift.abort()
 			performance.mark('intro-exit')
 			setMarkLeaving(true)

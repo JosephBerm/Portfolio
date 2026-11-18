@@ -270,9 +270,9 @@
 		border-radius: inherit;
 		transition: opacity 0.25s var(--ease-smooth), --gradiant-angle 0.25s var(--ease-smooth);
 	}
-	/* Hover and focus change only the glow (opacity, rotation) and the links' color, so each transition names its property: under the home intro's loader an "all" transition replays as the fonts load and shows the hidden card. */
+	/* Hover and focus change only the glow (opacity, rotation) and the links' color and focus ring, so each transition names its properties: the cards sit in a size container, where Chromium replayed their "all" transitions from initial values under the home intro's loader and showed the hidden cards. */
 	.gradient-card a {
-		transition-property: color;
+		transition-property: color, outline-color, outline-offset, outline-width;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.gradient-card::before,

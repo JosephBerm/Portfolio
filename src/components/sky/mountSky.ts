@@ -1,7 +1,7 @@
 import { scroll } from 'motion/react'
 import type { IntroPhase } from '@/hooks/useIntroPhase'
 import { lightHeadroom, minimumContrast, parseHexColor, parseRgbColor } from '@/lib/sky/color'
-import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
+import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWeather, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { FORCED_COLORS_QUERY } from '@/lib/utils'
 import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
 import { contentHidden, setSkyViewRunning, SKY_HIDE_SELECTOR, subscribeSkyView } from './skyView'
@@ -410,6 +410,18 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			[offscreen]
 		)
 		offscreen = null
+		// In development, ?sky-weather=<name> starts the landing scene in that weather and #sky-weather=<name> changes it later, so weathers
+		// and their changes can be looked at before any control posts one
+		if (process.env.NODE_ENV === 'development') {
+			const ask = (asked: string | null | undefined) => {
+				if (!asked) return
+				// Typing an address is someone here: an idle sky wakes first, so the change eases while the scene's motion shows
+				post({ type: 'activity' })
+				post({ type: 'weather', weather: asked as SkyWeather })
+			}
+			ask(new URLSearchParams(window.location.search).get('sky-weather'))
+			window.addEventListener('hashchange', () => ask(/^#sky-weather=(\w+)$/.exec(window.location.hash)?.[1]), { signal })
+		}
 		measureAll()
 	}
 

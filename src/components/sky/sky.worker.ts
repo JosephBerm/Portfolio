@@ -10,10 +10,10 @@
  * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there, and every event flies
  * there as it does over the hero. The nebula's light moves on the drift clock too, and its place with the camera's
  * scroll, and it asks for no frames of its own. The landing scene at the foot of the page moves on a clock of its own
- * (the water, the clouds, the sun's breath, the beacons, the palms in the wind and the boat's crossing): while that is
- * on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive quality has stepped down, and
- * for none while paused, reduced, idle or on a canvas too slow to run it. It counts its own slow frames, from what its
- * own draws take, apart from adaptive quality's.
+ * (the water, the clouds, the sun's breath, the beacons, the palms in the wind of the scene's one weather and the
+ * boat's crossing): while that is on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive
+ * quality has stepped down, and for none while paused, reduced, idle or on a canvas too slow to run it. It counts its
+ * own slow frames, from what its own draws take, apart from adaptive quality's.
  * Before the stars come out it asks for frames only to build a landing scene the visit starts inside, which the intro's
  * loader still covers.
  * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded while the intro's loader covers the
@@ -1177,6 +1177,11 @@ scope.addEventListener('message', (event) => {
 			// Builds the nebula, or lets it go, for the new preference
 			clearTimeout(hazeTimer)
 			rebuildHaze()
+			needsDraw = true
+			break
+		case 'weather':
+			// The next tick takes it, and draws its still pose while no motion shows
+			miami.setWeather(message.weather)
 			needsDraw = true
 			break
 		case 'scroll':

@@ -1,9 +1,9 @@
 import { ADAPT, DRIFT, HAZE_REBUILD_MS, PACING, SCENE } from '@/lib/sky/config'
 import { SCENE_PACING, STAGE, WEATHER } from '@/lib/sky/miamiConfig'
 import { descentWindow as descentWindowOf, sameStage, stageFrom, viewAt, type MiamiStage, type MiamiView } from '@/lib/sky/miamiStage'
-import { steadyWeather, windAt, type SceneWind } from '@/lib/sky/miamiWeather'
+import { changeWeather, steadyWeather, windAt, windOf, type SceneWind, type WindState } from '@/lib/sky/miamiWeather'
 import { driftCap, easeAt, easeEnded, easing, fadeOutAt, type Ease } from '@/lib/sky/pacing'
-import type { LandingRect, SkyRect, SkyTokens } from '@/lib/sky/protocol'
+import type { LandingRect, SkyRect, SkyTokens, SkyWeather } from '@/lib/sky/protocol'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep, type DescentWindow } from '@/lib/sky/scene'
 import type { MiamiAssets } from './miamiAssets'
@@ -128,6 +128,14 @@ export interface MiamiRuntime {
 	setSize(width: number, height: number, dpr: number): void
 	/** The contrast preference (prefers-contrast: more). */
 	setContrast(more: boolean): void
+	/**
+	 * Changes the landing scene's weather to the preset `name`: the next step eases to it over WEATHER.ease seconds of the
+	 * scene's clock, which runs only while the scene's moving parts are on screen, so a change asked with the scene off screen
+	 * eases once it is reached. It lands at once while no motion shows (idle, or a canvas too slow for the scene), from the
+	 * moment the motion is paused or reduced, its FRAME.motionEase ease-out included, before the dusk (MiamiStep.showing),
+	 * or before the scene has shown a frame.
+	 */
+	setWeather(name: SkyWeather): void
 	/** Forgets what was built from the stage, as a lost GPU context requires; the next step builds it again. */
 	dropAssets(): void
 	/**
@@ -268,8 +276,12 @@ export function createMiamiRuntime(): MiamiRuntime {
 	let seenTier: Tier | null = null
 	/** When (s) the last step up began, which the light it takes away fades from; null where none has. */
 	let thinSince: number | null = null
-	/** The landing scene's weather and its course: the start weather. */
-	const weather = steadyWeather(WEATHER.presets[WEATHER.start])
+	/** The landing scene's weather and its course: the start weather, then each change asked. */
+	let weather = steadyWeather(WEATHER.presets[WEATHER.start])
+	/** A weather asked for (setWeather), which the next step starts. */
+	let weatherAsked: WindState | null = null
+	/** Scratch for the weather at the moment of a change. */
+	const windNow: SceneWind = { speed: 0, turbulence: 0, sea: 0, airClock: 0, ease: weather }
 
 	const view: MiamiView = {
 		end: 0,
@@ -439,6 +451,10 @@ export function createMiamiRuntime(): MiamiRuntime {
 			more = next
 			restage()
 		},
+		setWeather(name) {
+			// The name is typed, and the development hook passes any query string as one
+			if (Object.hasOwn(WEATHER.presets, name)) weatherAsked = windOf(WEATHER.presets[name])
+		},
 		dropAssets() {
 			release()
 		},
@@ -469,6 +485,18 @@ export function createMiamiRuntime(): MiamiRuntime {
 			const lift = Math.max(0, input.documentHeight - input.scrollY - size.height)
 			// What moves of its own runs only while its moving parts are on screen, and not at all on a canvas too slow for it
 			if (lift < movesBelow(current) && !isStill(input.softwareFps)) clock += input.level * elapsed
+			// The motion the scene shows, as its frames will: none on a canvas too slow for it
+			const level = isStill(input.softwareFps) ? 0 : input.level
+			if (weatherAsked) {
+				// A weather asked for eases on the scene's clock, which runs only while the scene's moving parts are on screen,
+				// so a change asked elsewhere waits for the scene, and one the motion stops part way through waits with the
+				// clock. While no motion shows, from the moment the motion is paused or reduced (its ease-out included, while
+				// the palms still settle), before the dusk, while the intro's loader covers the sky, and before the scene's
+				// first frame, it lands at once, so the still pose, or the first frame seen, shows it
+				weather = changeWeather(weather, weatherAsked, clock, input.motionFull && level > 0 && input.showing && shownAt > -Infinity ? WEATHER.ease : 0, windNow)
+				weatherAsked = null
+				redraw = true
+			}
 			try {
 				// The scene shows now, and a bake not ready for it must be finished at once
 				const needed = lift < current.zShow

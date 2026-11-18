@@ -146,7 +146,8 @@ function crossIn(link: WeatherEase, p: number, q: number, x: number, offset: num
 /**
  * Every gust that reached a place `x` m across the scene (right positive), `offset` seconds of the air's clock behind the scene's
  * middle, in (`after`, `upTo`] of the scene's clock: when the air carrying it got there, from the course of the weather. Writes into
- * `out`, newest change first, and returns how many it found (at most out.times.length).
+ * `out`, newest change first, and returns how many it found (at most out.times.length). `after` must lie within WEATHER.memory of
+ * the newest change's clock.
  */
 export function gustArrivals(ease: WeatherEase, after: number, upTo: number, x: number, offset: number, out: Arrivals): number {
 	let count = 0

@@ -1,5 +1,7 @@
 /** Types shared by the home sky's main-thread controller and its worker. Types only: nothing here runs. */
 
+import type { WEATHER } from './miamiConfig'
+
 /** An sRGB color as 0-255 channels. */
 export type Rgb = readonly [number, number, number]
 
@@ -43,12 +45,15 @@ export interface LandingRect {
 /**
  * How much the sky may change on its own:
  * - `full`: twinkle, drift, scroll parallax and its glide, pointer lean and transients, and the landing scene's water,
- *   clouds, sun, beacons, palms in the wind and the boat's crossing
+ *   clouds, sun, beacons, palms in the wind of the scene's weather and the boat's crossing
  * - `reduced`: prefers-reduced-motion, or the visitor paused the sky (skyPause.ts): fades and brightness only, and the
  *   landing scene rests in its still pose
  * - `off`: forced colors hide the sky, so nothing is drawn
  */
 export type SkyMotion = 'full' | 'reduced' | 'off'
+
+/** A weather of the landing scene, by name: one of WEATHER.presets. */
+export type SkyWeather = keyof typeof WEATHER.presets
 
 /** Main thread to sky worker. Sizes are CSS px; `dpr` is already capped. */
 export type SkyMainMessage =
@@ -75,6 +80,8 @@ export type SkyMainMessage =
 	| { type: 'motion'; motion: SkyMotion }
 	| { type: 'visible'; visible: boolean }
 	| { type: 'contrast'; more: boolean }
+	/** The landing scene's weather changes to this one, eased over WEATHER.ease seconds of its clock (which runs only while its moving parts are on screen), and at once while no motion shows, from a pause or reduced motion on, before the dusk, or before its first frame. An unknown name is ignored. */
+	| { type: 'weather'; weather: SkyWeather }
 	| { type: 'scroll'; y: number }
 	| {
 			type: 'layout'

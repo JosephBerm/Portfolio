@@ -427,11 +427,17 @@ export const WIND = {
  * meanders by a few tenths of a m/s whatever its mean, and a strong one's eddies grow with it), times a preset's `gustiness` where
  * one is set. How rough the sea is follows from it too, by Cox and Munk's law: its slopes' variance is `sea.calm` plus
  * `sea.perWind` per m/s of wind. Where the water meets copy, miamiWater.ts bounds what it takes from that. A visit starts in
- * `start`. 'breeze' is the scene as designed: its still pose is the art-directed frame; 'storm' blows at `strongest`, the most the
- * knob takes.
+ * `start`, and a change eases over `ease` seconds of the scene's clock, which runs only while the scene's moving parts are on
+ * screen, and lands at once while no motion shows, from the moment the motion is paused or reduced, before the dusk, or before
+ * the scene's first frame; the course of the weather keeps the changes that governed the last `memory` seconds of the scene's
+ * clock, longer than any gust's answer lasts (a trunk's ring at the slowest mode WIND.trunk allows, in no wind, plus the longest
+ * gust, in the lightest wind that brings one). 'breeze' is the scene as designed: its still pose is the art-directed frame;
+ * 'storm' blows at `strongest`, the most the knob takes.
  */
 export const WEATHER = {
 	start: 'breeze',
+	ease: 24,
+	memory: 170,
 	strongest: 20,
 	turbulence: { strong: 0.09, light: 0.15, most: 0.3 },
 	sea: { calm: 0.003, perWind: 0.00512 },

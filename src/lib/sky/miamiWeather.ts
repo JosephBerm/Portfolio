@@ -3,7 +3,9 @@ import { WEATHER, WIND } from './miamiConfig'
 /**
  * The landing scene's weather: one blows through the whole scene at a time, and everything in it that moves with the wind reads
  * it. A weather is set by its strength and its direction alone; how gusty it is and how rough the sea is follow from those. It
- * lives in the worker's start-up code and reaches the scene's art as numbers in its frame.
+ * lives in the worker's start-up code and reaches the scene's art as numbers in its frame. A change of weather eases on the
+ * scene's own clock, and the course of the weather since the oldest moment the wind still reads is kept, so the air's clock is a
+ * pure function of the clock: any frame can be drawn again from it, and a change of weather never alters a frame before it.
  */
 
 /** A weather as it is set. */
@@ -32,7 +34,8 @@ export interface WindState {
  * `airClock`. `mass` numbers the air the scene had then: even while it moves, or last moved, toward the right and odd toward the
  * left, one more each time the wind has turned round, since air that comes back after minutes is no longer the air that left.
  * `turn` is when this change's wind passes through 0 toward the other side, from which the air is the next one (Infinity where it
- * doesn't turn round). `before` is the change before it, else null: before `since` the weather then held at `from`.
+ * doesn't turn round). `before` is the change before it, while the wind may still read a moment it governed (WEATHER.memory),
+ * else null: before `since` the weather then held at `from`.
  */
 export interface WeatherEase {
 	from: WindState
@@ -149,4 +152,33 @@ export function windAt(ease: WeatherEase, clock: number, out: SceneWind): SceneW
 	out.airClock = airIn(link, clock)
 	out.ease = ease
 	return out
+}
+
+/**
+ * A change to `to` from wherever the weather stands at `clock`, over `span` seconds of the scene's clock; 0 lands at once. The
+ * course keeps every change that governs a moment within WEATHER.memory seconds before `clock`, and a change asked at the same clock
+ * as the newest takes its place, since that one then governs no moment, so changes asked while the clock stands still never pile up.
+ * `scratch` is filled on the way.
+ */
+export function changeWeather(ease: WeatherEase, to: WindState, clock: number, span: number, scratch: SceneWind): WeatherEase {
+	const now = windAt(ease, clock, scratch)
+	const link = governing(ease, clock)
+	const gustiness = link.from.gustiness + (link.to.gustiness - link.from.gustiness) * easedShare(link, clock)
+	const mass = massIn(link, clock)
+	// The air turns round where the wind passes through 0 toward the side it last moved away from: within the ease, by smoothstep's
+	// inverse, or at once where the change lands at once or starts from no wind. Within a few ulps of a turn the eased wind's
+	// sign can disagree with the air's number, so the share is held to [0, 1], which turns the air at once there
+	let turn = Infinity
+	if (to.speed * (mass % 2 === 0 ? 1 : -1) < 0) {
+		const share = Math.min(1, Math.max(0, now.speed / (now.speed - to.speed)))
+		turn = span > 0 && now.speed !== 0 ? clock + span * (0.5 - Math.sin(Math.asin(1 - 2 * share) / 3)) : clock
+	}
+	// The newest change, where it began at this same clock, governs no moment once this one does; the oldest stays, since the
+	// weather it held before it is the course's past
+	const kept = ease.since === clock && ease.before ? ease.before : ease
+	let oldest = kept
+	while (oldest.before && oldest.since > clock - WEATHER.memory) oldest = oldest.before
+	// What governed only moments older than that is never read again
+	oldest.before = null
+	return { from: { speed: now.speed, gustiness, sea: now.sea }, to, since: clock, span, airClock: now.airClock, mass, turn, before: kept }
 }

@@ -330,7 +330,7 @@ function calmest(ease: WeatherEase, since: number): number {
 /**
  * How far back the gusts of a tree whose trunk sways at `hz` can still be answered at `clock`: the longest gust, the trunk's ring as
  * the calmest wind any of them can have come in damps it, and a second for the outer halves' lateness. In no wind that is the
- * longest it can be.
+ * longest it can be, which WEATHER.memory outlasts.
  */
 function reachOf(hz: number, wind: SceneWind, clock: number): number {
 	const { zeta, zetaPerWind } = WIND.trunk

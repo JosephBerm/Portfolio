@@ -2057,8 +2057,13 @@ const KEY_UNEVEN = { share: [0.2, 0.08], spacing: [48, 12] } as const
 
 /** The palms the stage shows, each with its crown laid out and what the wind needs to know of it. */
 function plantPalms(stage: MiamiStage): MiamiCrown[] {
-	// A frond's farthest pixel from the crown, as a share of its chord: the tip, a chord along and its sag down, and a leaflet's length beyond it
-	const farthest = Math.hypot(1, variantDroop(PALM_ART.frond, PALM_ART.frond.variants - 1)) + PALM_ART.frond.leafLength
+	// A frond's farthest pixel from the crown, as a share of its chord: the tip, a chord along and its sag down, and a leaflet's length
+	// beyond it, with the most any weather's stream lengthens a chord and deepens a droop: the stream never passes (1 + c) / c, c being
+	// the fronds' saturation
+	const { stream, streamDroop } = PALM_ART.layout
+	const most = (1 + WIND.frond.saturation) / WIND.frond.saturation
+	const longer = (1 + stream * most) / (1 - stream * 0.45)
+	const farthest = longer * (Math.hypot(1, variantDroop(PALM_ART.frond, PALM_ART.frond.variants - 1) * streamDroop) + PALM_ART.frond.leafLength)
 	return placePalms(stage).map((palm) => {
 		const plan = planCrown(palm)
 		const longest = Math.max(...plan.fronds.map((frond) => frond.length), ...plan.back.map((frond) => frond.length))

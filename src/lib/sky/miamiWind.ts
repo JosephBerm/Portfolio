@@ -90,11 +90,13 @@ export interface PalmPose {
 	crownX: number
 	/** Degrees the crown turns with the trunk's tip. */
 	tilt: number
+	/** How far the weather's mean wind streams the fronds: 1 at the default weather, 0 in no wind, negative in a wind from the right. */
+	stream: number
 }
 
 /** A pose with nothing in it yet; `palmPose` fills it. */
 export function createPalmPose(): PalmPose {
-	return { inner: [], outer: [], flutter: [], crownX: 0, tilt: 0 }
+	return { inner: [], outer: [], flutter: [], crownX: 0, tilt: 0, stream: 1 }
 }
 
 /** A damped oscillator of unit static gain, damped `zeta0` plus `perWind` per m/s of a wind of `wind` m/s: what its answers need, reused from call to call. */
@@ -467,6 +469,8 @@ export function palmPose(palm: WindPalm, wind: SceneWind, clock: number, level: 
 	const crownStill = stillSign * trunk.lean * palm.height * still
 	const leanStill = stillSign * frond.lean * sat(still)
 	const outerStill = stillSign * frond.outerShare * frond.lean * beyond(sat(still))
+	// The crowns stream with the mean wind, never with a gust: their fronds' answer to the gusts is their own
+	out.stream = stillSign * sat(still)
 	if (move <= 0) {
 		out.crownX = crownStill
 		out.tilt = 0

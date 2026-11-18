@@ -50,6 +50,8 @@ export interface CrownArt {
 	back: { count: readonly [number, number]; length: number; weight: number }
 	/** How much longer and flatter the fronds that point nearest to level run downwind, and how much shorter and fuller upwind, as a share. */
 	stream: number
+	/** The most a frond's droop's share against its chord moves from the default's either way as the stream changes. */
+	streamDroop: number
 	/** How much shorter the oldest fronds, the ones that hang, are than the ones that arch out, as a share: their tips are broken and dry, and the crown stays wider than it is tall. */
 	aged: number
 	/** The knot at the crown, as a share of a frond's length. */
@@ -194,6 +196,8 @@ export interface FrondPlan {
 	variant: number
 	/** The side it hangs on: 1 for the right, -1 for the left, where the sprite is mirrored. */
 	side: 1 | -1
+	/** How much the stream reaches it, 0 to 1: the most for the fronds that point nearest to level. */
+	streamed: number
 }
 
 /** A crown at rest: the hinged fronds from the left to the right, and the short rigid ones behind them. */
@@ -210,6 +214,23 @@ function droopRange(frond: FrondArt): readonly [number, number] {
 /** The droop of baked shape `variant`: the shapes divide the droop's whole range evenly. */
 export function variantDroop(frond: FrondArt, variant: number): number {
 	return along(droopRange(frond), frond.variants > 1 ? variant / (frond.variants - 1) : 0)
+}
+
+/** A frond's chord and droop under a stream, against no stream: how much longer it reaches, and how much flatter it hangs. */
+interface Streamed {
+	reach: number
+	flatter: number
+}
+
+/**
+ * How the stream shapes a frond it reaches by `level` (FrondPlan.streamed): `amount` of the default's stream on its `downwind` side.
+ * The default's stream lays a crown out (planCrown), and a weather's draws it (drawCrown).
+ */
+function streamed(level: number, downwind: boolean, amount: number, out: Streamed): Streamed {
+	const { stream } = PALM_ART.layout
+	out.reach = downwind ? 1 + stream * amount * (0.25 + 0.75 * level) : 1 - stream * amount * 0.45 * level
+	out.flatter = downwind ? 1 - stream * 1.4 * level * amount : 1 + stream * 0.4 * level * amount
+	return out
 }
 
 /** The baked shape nearest a droop. */
@@ -249,20 +270,21 @@ export function planCrown(palm: PlacedPalm): CrownPlan {
 		angles.push(-frond.spread + (2 * frond.spread * covered) / total)
 	}
 
+	const stream: Streamed = { reach: 1, flatter: 1 }
 	const fronds: FrondPlan[] = angles.map((angle, i) => {
 		const share = Math.abs(angle) / frond.spread
 		const downwind = angle > 0
 		// The fronds that point nearest to level are the ones the wind streams: downwind they run longer and flatter, upwind shorter and fuller
 		const level = Math.exp(-(((Math.abs(angle) - STREAM_AT) / STREAM_WIDTH) ** 2))
-		const reach = (downwind ? 1 + layout.stream * (0.25 + 0.75 * level) : 1 - layout.stream * 0.45 * level) * along(frond.length, roll(i, LENGTH_SALT))
+		const reach = streamed(level, downwind, 1, stream).reach * along(frond.length, roll(i, LENGTH_SALT))
 		const droop = frond.droop[0] + frond.droop[1] * share ** frond.droop[2] + (roll(i, DROOP_SALT) - 0.5) * 2 * frond.droop[3]
-		const flatter = downwind ? 1 - layout.stream * 1.4 * level : 1 + layout.stream * 0.4 * level
 		const aged = 1 - layout.aged * smoothstep(AGED_FROM, 1, share)
 		return {
 			angle,
 			length: palm.frond * reach * aged * (frond.shape[0] + frond.shape[1] * Math.min(1, share * frond.shape[2])),
-			variant: nearestVariant(frond, droop * flatter),
+			variant: nearestVariant(frond, droop * stream.flatter),
 			side: downwind ? 1 : -1,
+			streamed: level,
 		}
 	})
 
@@ -281,6 +303,7 @@ export function planCrown(palm: PlacedPalm): CrownPlan {
 			length: palm.frond * layout.back.length * (0.85 + 0.3 * roll(i, BACK_SALT + 2)),
 			variant: clamp(Math.round((Math.abs(angle) / SKIRT_AT) * (BACK_VARIANTS - 1)), 0, BACK_VARIANTS - 1),
 			side: angle > 0 ? 1 : -1,
+			streamed: 0,
 		}
 	})
 	return { fronds, back }
@@ -624,17 +647,18 @@ export function knotOutline(palm: PlacedPalm, radius: number, out: Float32Array)
 
 /**
  * Sets the context's transform for a frond whose crown is at (`x`, `y`) device px, turned `degrees` from straight up (downwind
- * positive), drawn `scale` times its baked size. A frond on the left is the right-hand shape mirrored, so its droop stays down.
- * The six numbers it sets are left in `out`, for the outer part, which turns about the hinge from the same start.
+ * positive), drawn `scale` times its baked size, and `along` and `across` times that again along its chord and across it. A frond on
+ * the left is the right-hand shape mirrored, so its droop stays down. The six numbers it sets are left in `out`, for the outer part,
+ * which turns about the hinge from the same start.
  */
-function setFrond(ctx: OffscreenCanvasRenderingContext2D, x: number, y: number, degrees: number, side: 1 | -1, scale: number, out: Float64Array): void {
+function setFrond(ctx: OffscreenCanvasRenderingContext2D, x: number, y: number, degrees: number, side: 1 | -1, scale: number, along: number, across: number, out: Float64Array): void {
 	const turn = (side * degrees - 90) * RADIANS
 	const cos = Math.cos(turn)
 	const sin = Math.sin(turn)
-	out[0] = side * scale * cos
-	out[1] = scale * sin
-	out[2] = -side * scale * sin
-	out[3] = scale * cos
+	out[0] = side * scale * along * cos
+	out[1] = scale * along * sin
+	out[2] = -side * scale * across * sin
+	out[3] = scale * across * cos
 	out[4] = x
 	out[5] = y
 	ctx.setTransform(out[0], out[1], out[2], out[3], out[4], out[5])
@@ -642,13 +666,18 @@ function setFrond(ctx: OffscreenCanvasRenderingContext2D, x: number, y: number, 
 
 /** The inner part's matrix of the frond being drawn, reused. */
 const matrix = new Float64Array(6)
+/** A frond's stream in this weather and in the default's, reused. */
+const nowStream: Streamed = { reach: 1, flatter: 1 }
+const planStream: Streamed = { reach: 1, flatter: 1 }
 
 /**
  * Draws a crown: the short fronds behind it, then the hinged ones, each as its inner sprite and its outer sprite turned about the
  * hinge, in the near color. (`x`, `y`) is the crown in CSS px and `k` the device px to a CSS px. `tier` is how far the scene has stepped
  * down for a slow canvas: only at the first does the outer part shear with the flutter, and at the last each hinged frond is drawn in
- * one piece, which halves its draws and leaves its bend out. The trunk and the knot are the caller's, so they can be drawn under a
- * transform of their own. It leaves the context's transform set to the last frond's.
+ * one piece, which halves its draws and leaves its bend out. Each hinged frond is drawn from its own sprite in every weather, its
+ * chord and its droop scaled by the weather's stream (`pose.stream`) against the default's, which laid it out: the default weather
+ * draws every frond as it was baked. The trunk and the knot are the caller's, so they can be drawn under a transform of their own.
+ * It leaves the context's transform set to the last frond's.
  */
 export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmSprites, palm: PlacedPalm, plan: CrownPlan, pose: PalmPose, x: number, y: number, k: number, tier: number): void {
 	const set = sprites[palm.set]
@@ -659,14 +688,20 @@ export function drawCrown(ctx: OffscreenCanvasRenderingContext2D, sprites: PalmS
 		const frond = plan.back[i]
 		const sprite = frond ? set.back[frond.variant] : undefined
 		if (!frond || !sprite) continue
-		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[rest + i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / (set.length * PALM_ART.layout.back.length), matrix)
+		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[rest + i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / (set.length * PALM_ART.layout.back.length), 1, 1, matrix)
 		ctx.drawImage(sprite.image, sprite.left, sprite.top, sprite.width, sprite.height)
 	}
 	for (let i = 0; i < rest; i++) {
 		const frond = plan.fronds[i]
 		const variant = frond ? set.variants[frond.variant] : undefined
 		if (!frond || !variant) continue
-		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / set.length, matrix)
+		// The weather's stream against the default's: longer and flatter downwind, shorter and fuller upwind, whichever side that is
+		streamed(frond.streamed, pose.stream >= 0 ? frond.angle > 0 : frond.angle < 0, Math.abs(pose.stream), nowStream)
+		streamed(frond.streamed, frond.angle > 0, 1, planStream)
+		const along = nowStream.reach / planStream.reach
+		const droop = Math.log(PALM_ART.layout.streamDroop)
+		const across = along * Math.exp(droop * Math.tanh(Math.log(nowStream.flatter / planStream.flatter) / droop))
+		setFrond(ctx, x * k, y * k, frond.angle + (pose.inner[i] ?? 0) + pose.tilt, frond.side, (k * frond.length) / set.length, along, across, matrix)
 		if (tier >= 2) {
 			ctx.drawImage(variant.whole.image, variant.whole.left, variant.whole.top, variant.whole.width, variant.whole.height)
 			continue

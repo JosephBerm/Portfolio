@@ -331,7 +331,9 @@ export const KEY = { wide: { left: [0.062, 0.26], right: [0.04, 0.09] }, narrow:
  * are `aged` shorter. `knot` is the radius of the knot at the crown as a share of a frond's length. Behind the fronds stands
  * a back layer of short, heavy fronds: how many (`count`), their `length` as a share of a frond's and their `weight` against
  * a frond's. Two hang around the trunk's top and the rest stand in the widest gaps between the fronds in front, which makes
- * the heart solid.
+ * the heart solid. The stream follows the weather's mean wind (PalmPose.stream: the default's stream at the default weather, none
+ * in no wind, the other way in a wind from the right), each frond keeping its own sprite, and its leaflets, in every weather: its
+ * droop's share against its chord is eased into `streamDroop` of the default's either way, so its leaflets never stretch past that.
  *
  * `frond` is how one frond is drawn. It fans `spread` degrees either side of straight up; its length is a seeded share
  * (`length`) of the palm's, longer toward the sides by `shape`, and its droop follows `droop`, one of `variants` baked shapes.
@@ -351,7 +353,7 @@ export const PALMS = {
 	shortHeight: 500,
 	frondFromTrunk: 0.3,
 	onScreen: 0.8,
-	layout: { clusters: [2, 3], jitter: 0.5, clump: 3.9, back: { count: [5, 6], length: 0.5, weight: 1.4 }, stream: 0.28, aged: 0.22, knot: 0.15 },
+	layout: { clusters: [2, 3], jitter: 0.5, clump: 3.9, back: { count: [5, 6], length: 0.5, weight: 1.4 }, stream: 0.28, streamDroop: 1.6, aged: 0.22, knot: 0.15 },
 	frond: {
 		spread: 124, length: [0.86, 1.06], shape: [0.66, 0.42, 1.3], droop: [0.24, 0.4, 1.3, 0.04],
 		variants: 5, hinge: 0.48, midrib: 2, core: 0.05, hub: 0.15, leafLength: 0.17, leafAngle: [30, 48], leafSag: 0.5, leafWidth: [2.4, 1.6],
@@ -447,6 +449,7 @@ export const WEATHER = {
 		fresh: { strength: 8.5, direction: 1 },
 		gale: { strength: 14, direction: 1 },
 		storm: { strength: 20, direction: 1 },
+		norther: { strength: 8, direction: -1 },
 	},
 } as const
 

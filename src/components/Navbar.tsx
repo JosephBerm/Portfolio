@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { motion, useMotionValueEvent, useScroll } from 'motion/react'
 import { Logo, MenuSVG } from '@/components/icons'
-import SkyPauseButton from '@/components/sky/SkyPauseButton'
+import SkyMenu from '@/components/sky/SkyMenu'
 import { cn, delayedReveal, duration, easing, smoothScrollTo } from '@/lib'
 import { NAV_SECTIONS } from '@/lib/navigation'
 import { useIntroRevealed } from '@/hooks/useIntroPhase'
@@ -13,7 +13,7 @@ import { useIntroRevealed } from '@/hooks/useIntroPhase'
 /** The md breakpoint, where the nav links sit inline and the mobile menu no longer applies. */
 const DESKTOP_QUERY = '(min-width: 768px)'
 
-/** Delay between successive nav items, and then the Resume button and the sky's pause control, as they drop in when the page shows (seconds). */
+/** Delay between successive nav items, and then the Resume button and the sky menu, as they drop in when the page shows (seconds). */
 const NAV_STAGGER = 0.1
 
 /** Nav entrance: drops in from -20px; each item's delay comes through Motion's `custom` prop. */
@@ -25,6 +25,8 @@ export default function Navbar() {
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 	const burgerRef = useRef<HTMLButtonElement>(null)
 	const headerRef = useRef<HTMLElement>(null)
+	// The sky menu's panel is open: the header stays in place, so the panel never hangs under a header that slid away
+	const skyMenuOpen = useRef(false)
 	const revealed = useIntroRevealed()
 
 	// Frame-batched scroll position: re-renders only when `scrolled` / `hidden` actually change
@@ -32,10 +34,11 @@ export default function Navbar() {
 	useMotionValueEvent(scrollY, 'change', (current) => {
 		const previous = scrollY.getPrevious() ?? 0
 		// Never hide the header while it holds keyboard focus, or the focused control would be out of sight. :focus-visible,
-		// so a mouse click on a nav link (which leaves focus on it in Chrome) still lets the header hide as before
+		// so a mouse click on a nav link (which leaves focus on it in Chrome) still lets the header hide as before. Nor while
+		// the sky menu is open
 		const focused = Boolean(headerRef.current?.querySelector(':focus-visible'))
 		setScrolled(current > 0)
-		setHidden(current > previous && current > 0 && !focused)
+		setHidden(current > previous && current > 0 && !focused && !skyMenuOpen.current)
 	})
 
 	// While the mobile menu is open: lock page scroll, take the dimmed page out of the tab order (inert), close on
@@ -83,7 +86,7 @@ export default function Navbar() {
 	return (
 		<motion.header
 			ref={headerRef}
-			// The Hide/View control hides the navbar, its pause control included, with the page's content (globals.css)
+			// The Hide/View control hides the navbar, its sky menu included, with the page's content (globals.css)
 			data-sky-hide
 			// Focus moving into a header that has slid away would land on something off screen: show it (WCAG 2.4.7, 2.4.11)
 			onFocus={() => setHidden(false)}
@@ -95,8 +98,8 @@ export default function Navbar() {
 				// fade, so nothing here transitions visibility under the intro's loader; Motion alone animates y, so the slide away
 				// and back on scroll honors reduced motion
 				// The gutter and the items' left margins widen at lg, not md: at the low end of md (768 wide, or a little less
-				// where a scrollbar takes room) the links, Resume and the pause control barely fit, and wider spacing would
-				// push the control past the right edge
+				// where a scrollbar takes room) the links, Resume and the sky menu's button barely fit, and wider spacing would
+				// push the button past the right edge
 				'fixed top-0 z-[11] flex w-full items-center justify-between px-[25px] lg:px-[50px] backdrop-blur-[10px] transition-[height,box-shadow] in-[#intro-content[data-intro-phase=revealed]]:transition-[height,box-shadow,opacity,visibility] duration-250',
 				'bg-navy/85',
 				scrolled ? 'h-[70px] shadow-[0_10px_30px_-10px_var(--color-navy-shadow)]' : 'h-[100px]'
@@ -181,7 +184,7 @@ export default function Navbar() {
 					</motion.div>
 				</div>
 
-				{/* Sky pause control: last, so the tab order is the order on screen at every width */}
+				{/* Sky menu (the sky's pause control, its music and Hide): last, so the tab order is the order on screen at every width */}
 				<motion.div
 					variants={navItemVariants}
 					custom={(NAV_SECTIONS.length + 1) * NAV_STAGGER}
@@ -190,7 +193,12 @@ export default function Navbar() {
 					// The open phone menu's panel covers this corner, so the control leaves the tab order with it (WCAG 2.4.11)
 					inert={mobileMenuOpen}
 				>
-					<SkyPauseButton className="ml-[10px] lg:ml-[15px]" />
+					<SkyMenu
+						className="ml-[10px] lg:ml-[15px]"
+						onOpenChange={(open) => {
+							skyMenuOpen.current = open
+						}}
+					/>
 				</motion.div>
 			</nav>
 		</motion.header>

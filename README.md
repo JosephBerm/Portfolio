@@ -73,7 +73,8 @@ src/
 ├── components/   UI components
 │   ├── icons/            SVG icon components
 │   ├── motion/           Animation wrappers
-│   ├── sky/              Home night sky: client island, controller, pause and Hide/View stores and controls, and Web Worker renderer, including the landing scene (miamiRuntime.ts, and the art it loads with import(): miamiArt.ts, renderMiami.ts, miamiAssets.ts, miamiPalmArt.ts)
+│   ├── popover/          Popover primitive (Popover API) with its switch and action rows
+│   ├── sky/              Home night sky: client island, controller, the sky menu, the pause, Hide/View and music stores, the Hide/View control, the landing scene's music, and Web Worker renderer, including the landing scene (miamiRuntime.ts, and the art it loads with import(): miamiArt.ts, renderMiami.ts, miamiAssets.ts, miamiPalmArt.ts)
 │   └── links/            /links components
 │       └── schedule/     /links/schedule components
 ├── hooks/        Client hooks
@@ -81,7 +82,7 @@ src/
 │   └── sky/              Home sky model (DOM-free): tuning, star catalog, scene and shooting-star math, camera and drift (camera.ts), frame pacing (pacing.ts), presence (presence.ts), the quiet-copy index (quietIndex.ts), the scheduler for short-lived events (transients.ts) with the shooting-star kinds (meteorKind.ts), what a fireball does in flight (fireball.ts) and the satellite kind (satellites.ts), the radiants, speeds, brightness and spectra a visit's shooting stars take, and where and when each piece of a swarm lights (radiants.ts), the law for the gaps between launches (gaps.ts), the comet's light and the pace of its own drift (comet.ts), its place, fades and start rule (bodies.ts), the nebula, gas moving on the drift clock behind every star, which recedes as the page scrolls on, with its seeded noise (nebula.ts, noise.ts), and the landing scene's stage, sky ramp, skyline data, water, wind, gusts and weather (miamiStage.ts, miamiRamp.ts, miamiSkyline.ts, miamiWater.ts, miamiWind.ts, miamiGusts.ts, miamiWeather.ts, tunables in miamiConfig.ts)
 ├── assets/       Fonts and images imported statically
 └── emails/       React Email templates
-public/           Static files served from the site root
+public/           Static files served from the site root (audio/ holds the landing scene's song)
 ```
 
 ## Agent notes

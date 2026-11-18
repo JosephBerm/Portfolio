@@ -22,8 +22,8 @@ export const SKY_HIDE_SELECTOR = '[data-sky-hide]'
 /** From this width up the side rails show (SidePane.tsx's md, Tailwind's 48rem), and the control stands in the right-hand one. */
 const RAILS_QUERY = '(min-width: 48rem)'
 /**
- * In a window this short the rail's control has no box and the footer's stands instead (page.tsx, AppFooter.tsx). Both
- * queries are those classes' own limits: change them together.
+ * In a window this short the rail's control has no box and the footer's stands instead (page.tsx, AppFooter.tsx), and the
+ * sky menu offers no Hide (SkyMenu.tsx). Both queries are those classes' own limits: change them together.
  */
 const SHORT_QUERY = '(max-height: 386px)'
 

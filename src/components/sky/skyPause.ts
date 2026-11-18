@@ -1,7 +1,7 @@
 /**
- * Whether the home sky moves, as a small external store rather than React context: its readers are the navbar's pause
- * control and mountSky, which isn't React. A page view is one mount of the home page: the last
- * unsubscribe forgets what was read and any Play pressed under reduced motion, so the next mount reads storage and the OS setting
+ * Whether the home sky moves, as a small external store rather than React context: its readers are the navbar's sky menu
+ * (its Animation switch, the sky's pause control) and mountSky, which isn't React. A page view is one mount of the home page: the last
+ * unsubscribe forgets what was read and any Animation turned on under reduced motion, so the next mount reads storage and the OS setting
  * afresh. Nothing here touches window, matchMedia or localStorage at module scope, so server-rendered client code can
  * import it.
  */
@@ -16,11 +16,11 @@ const PAUSED_KEY = 'sky-paused'
 
 /** Subscribers in this tab: the controls and mountSky. */
 const listeners = new Set<() => void>()
-/** A sky is drawing (its worker has drawn a first frame); the control shows only then. */
+/** A sky is drawing (its worker has drawn a first frame); the sky menu shows only then. */
 let running = false
 /** The stored pause, read once; null until first read. */
 let stored: boolean | null = null
-/** Play pressed while the OS asks for reduced motion: honored for this page view (one mount of the home page) only, never stored. */
+/** Animation turned on while the OS asks for reduced motion: honored for this page view (one mount of the home page) only, never stored. */
 let playOverride = false
 let reducedMotion: MediaQueryList | null = null
 let stopWatching: (() => void) | null = null
@@ -47,7 +47,7 @@ function notify(): void {
 	for (const listener of listeners) listener()
 }
 
-/** True when the sky should hold still: the visitor paused it, or reduced motion is on and they haven't pressed Play in this page view. */
+/** True when the sky should hold still: the visitor paused it, or reduced motion is on and they haven't turned Animation on in this page view. */
 export function skyPaused(): boolean {
 	return storedPause() || (reduced().matches && !playOverride)
 }
@@ -70,7 +70,7 @@ export function setSkyRunning(next: boolean): void {
 	notify()
 }
 
-/** Pauses or resumes the sky. A pause is remembered in this browser; Play forgets it, and under reduced motion lasts for this page view. */
+/** Pauses or resumes the sky. A pause is remembered in this browser; turning Animation on forgets it, and under reduced motion lasts for this page view. */
 export function setSkyPaused(paused: boolean): void {
 	stored = paused
 	playOverride = !paused && reduced().matches
@@ -88,7 +88,7 @@ export function subscribeSkyPlayback(listener: () => void): () => void {
 	listeners.add(listener)
 	if (!stopWatching) {
 		const watch = new AbortController()
-		// Reduced motion turned on or off: an earlier Play no longer applies
+		// Reduced motion turned on or off: an Animation turned on earlier no longer applies
 		reduced().addEventListener(
 			'change',
 			() => {

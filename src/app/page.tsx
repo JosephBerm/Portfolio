@@ -50,8 +50,8 @@ export default function HomePage() {
 							// At the top of the page, in a window 386px tall or less, the navbar's 100px covers this control,
 							// which sits above the 286px of rail below it, so there it has no box and no tab stop, and the
 							// footer's control is the one left. The footer's hides itself with this query negated
-							// (AppFooter.tsx), and skyView.ts reads it to know which control stands, so change the 386px
-							// in all three places together
+							// (AppFooter.tsx), skyView.ts reads it to know which control stands, and the sky menu offers its
+							// Hide only where this control stands (SkyMenu.tsx), so change the 386px in all four places together
 							className="[@media(max-height:386px)]:hidden"
 						/>
 					}

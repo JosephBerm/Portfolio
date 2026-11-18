@@ -4,6 +4,7 @@ import { lightHeadroom, minimumContrast, parseHexColor, parseRgbColor } from '@/
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWeather, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { FORCED_COLORS_QUERY } from '@/lib/utils'
 import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
+import { setSkySoundLanding } from './skySound'
 import { contentHidden, setSkyViewRunning, SKY_HIDE_SELECTOR, subscribeSkyView } from './skyView'
 
 /** Handle returned by mountSky. */
@@ -550,9 +551,11 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		stopScroll()
 		stopPlayback()
 		stopView()
-		// A failed or destroyed sky takes the pause and Hide/View controls with it, and brings the page's content back if it was hidden
+		// A failed or destroyed sky takes the sky menu and the Hide/View controls with it, brings the page's content back if it
+		// was hidden, and stops the landing scene's music
 		setSkyRunning(false)
 		setSkyViewRunning(false)
+		setSkySoundLanding(null)
 		canvasObserver.disconnect()
 		layoutObserver.disconnect()
 		copyObserver.disconnect()
@@ -575,9 +578,11 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 				case 'ready':
 					performance.mark('sky-ready')
 					canvas.dataset.ready = ''
-					// The first frame is on the canvas: the pause and Hide/View controls may show
+					// The first frame is on the canvas: the sky menu and the Hide/View controls may show, and the menu offers music
+					// where there is a landing room to play it at
 					setSkyRunning(true)
 					setSkyViewRunning(true)
+					setSkySoundLanding(landingRoot)
 					break
 				case 'prepared':
 					performance.mark('sky-prepared')

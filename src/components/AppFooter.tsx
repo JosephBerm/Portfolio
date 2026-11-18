@@ -38,7 +38,7 @@ export default function AppFooter() {
 						{name}
 					</p>
 				</a>
-				{/* Only where the right rail shows no control: below md, and in the short windows where the rail hides its own. The 386px is the rail's own limit in page.tsx, negated rather than written as a min-height, so no window height (a fractional one, say) shows both controls or neither; skyView.ts reads it too, to know which control stands, so change the three together. It stays on screen while the rest of the page's content is hidden, so it sits outside every data-sky-hide element.
+				{/* Only where the right rail shows no control: below md, and in the short windows where the rail hides its own. The 386px is the rail's own limit in page.tsx, negated rather than written as a min-height, so no window height (a fractional one, say) shows both controls or neither; skyView.ts reads it too, to know which control stands, and SkyMenu.tsx to offer its Hide only where the rail's stands, so change the four together. It stays on screen while the rest of the page's content is hidden, so it sits outside every data-sky-hide element.
 				Absolute, so its late appearance shifts nothing; anchored to the link, so it clears the link at every width and moves with the text. After the link in the document, so Tab reaches it last in the footer */}
 				<SkyViewToggle className="absolute bottom-0 left-full ml-[24px] md:not-[@media(max-height:386px)]:hidden" />
 			</div>

@@ -21,3 +21,37 @@ export function useIntroPhase(): IntroPhase {
 export function useIntroRevealed(): boolean {
 	return use(IntroPhaseContext) === 'revealed'
 }
+
+/** Work the home intro waits for before it ends, within intro.ceiling: what the loader's lift will show should be ready. */
+export interface IntroHolds {
+	/** Adds work to wait for. Call it from an effect of a component the intro hosts, in the commit that mounts it. */
+	add(work: Promise<unknown>): void
+	/** Settles once every work added has settled, fulfilled or not, including work added while it waits. */
+	settled(): Promise<void>
+}
+
+/** A fresh set of holds, one per <IntroGate>. */
+export function createIntroHolds(): IntroHolds {
+	const works: Promise<unknown>[] = []
+	return {
+		add(work) {
+			works.push(work)
+		},
+		// Waits again for whatever was added while it waited, so a hold added late is still waited for
+		settled: async () => {
+			for (let seen = 0; seen < works.length; ) {
+				const batch = works.slice(seen)
+				seen = works.length
+				await Promise.allSettled(batch)
+			}
+		},
+	}
+}
+
+/** Provided by <IntroGate>; null outside it, where nothing waits. */
+export const IntroHoldsContext = createContext<IntroHolds | null>(null)
+
+/** The intro's holds, for a component whose first view the loader's lift should wait for (the home sky). Null outside <IntroGate>. */
+export function useIntroHolds(): IntroHolds | null {
+	return use(IntroHoldsContext)
+}

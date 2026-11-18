@@ -8,11 +8,13 @@ import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
 export interface SkyController {
 	/** Follows IntroGate: the stars come out as the loader lifts, and shooting stars and satellites start once the page shows. */
 	setPhase(phase: IntroPhase): void
+	/** Settles once what the intro loader's lift will show is drawn (the worker's `prepared`), and at once where the sky can't run, fails or is destroyed. The home intro waits for it, within its ceiling. */
+	readonly prepared: Promise<void>
 	destroy(): void
 }
 
 /** Controller for browsers that can't run the sky: the plain navy page stays. */
-const NOOP: SkyController = { setPhase: () => {}, destroy: () => {} }
+const NOOP: SkyController = { setPhase: () => {}, prepared: Promise.resolve(), destroy: () => {} }
 
 /**
  * Marks the page while no sky runs, because the browser can't start it or it failed: `data-sky-off` on <html> collapses the
@@ -316,6 +318,14 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	let lastScrollY = window.scrollY
 	let settleTimer: ReturnType<typeof setTimeout> | undefined
 	let destroyed = false
+	// Settled by the worker's `prepared`, or by destroy, which a failure goes through
+	let settlePrepared: () => void = () => {}
+	const prepared = new Promise<void>((resolve) => {
+		settlePrepared = resolve
+	})
+	// Forced colors: CSS hides the sky (Background.module.css), so its canvas never has a size, the worker is never sent
+	// `init` and nothing is drawn; the lift has nothing to wait for
+	if (forcedColors.matches) settlePrepared()
 
 	// Document height, quiet rects, the landing's box and reading rects as last walked; runs after layout (observer callbacks,
 	// timers) and posts only when they changed
@@ -499,6 +509,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 	const destroy = () => {
 		if (destroyed) return
 		destroyed = true
+		settlePrepared()
 		clearTimeout(settleTimer)
 		// The pending pointer message and tick would go to a worker that is gone, which can no longer turn the relay off
 		cancelAnimationFrame(pointerFrame)
@@ -528,9 +539,14 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			const message = event.data
 			switch (message.type) {
 				case 'ready':
+					performance.mark('sky-ready')
 					canvas.dataset.ready = ''
 					// The first frame is on the canvas: the pause control may show
 					setSkyRunning(true)
+					break
+				case 'prepared':
+					performance.mark('sky-prepared')
+					settlePrepared()
 					break
 				case 'error':
 					fail()
@@ -558,6 +574,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 			// The page's entrances play from the reveal: measure again once they have had time to settle
 			if (phase === 'revealed') settleLater()
 		},
+		prepared,
 		destroy,
 	}
 }

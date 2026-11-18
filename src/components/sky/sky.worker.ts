@@ -203,6 +203,10 @@ let timerId: ReturnType<typeof setTimeout> | undefined
 let hazeTimer: ReturnType<typeof setTimeout> | undefined
 let needsDraw = false
 let ready = false
+let prepared = false
+let layoutKnown = false
+/** The landing scene's `rebuilding`, as the latest frame decision (demandNow) read it: notePrepared waits on it. */
+let sceneRebuilding = false
 
 /** Whether animation frames can be relied on. False where the worker has none and after repeated stalls: a 60 Hz timer then stands in for the display. */
 let rafWorks = typeof scope.requestAnimationFrame === 'function'
@@ -402,6 +406,7 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	const sceneDemand = miami.demand(stepInput(now))
 	// Before the dusk only a landing scene the visit starts inside asks for frames: it builds under the intro's loader
 	frameState.preparing = ctx !== null && visible && motion !== 'off' && exitAt === null && sceneDemand.rebuilding
+	sceneRebuilding = sceneDemand.rebuilding
 	frameState.sceneFps = sceneDemand.fps
 	frameState.sceneCap = sceneDemand.cap
 	frameState.sceneOnScreen = sceneDemand.onScreen
@@ -465,6 +470,18 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 }
 
 /**
+ * Tells the page, once, that what the intro loader's lift will show is drawn: the first frame is on the canvas, a layout
+ * has arrived, and no landing scene the visit starts inside is still building (built, failed, or not on screen). The
+ * intro waits for it within its ceiling. Under motion 'off' nothing draws to build a scene, so none is waited for. At a
+ * load under forced colors CSS hides the sky, so this worker is never sent `init` and mountSky settles `prepared` itself.
+ */
+function notePrepared(): void {
+	if (prepared || !ready || !layoutKnown || (motion !== 'off' && sceneRebuilding)) return
+	prepared = true
+	scope.postMessage({ type: 'prepared' })
+}
+
+/**
  * Arranges the next wake-up for the strictest demand of the sky right now. Moving things (a shooting star or a
  * satellite, scrolling, the drift, the lean, the stars gliding to rest) wake on animation frames, in step with the
  * display, and tick draws on every k-th of them. Where the worker's own animation frames come from a fixed timer instead
@@ -479,6 +496,9 @@ function schedule(now: number): void {
 	timerId = undefined
 	const scene = sceneAt(scrollY, height, documentHeight, miami.descentWindow())
 	const demand = demandNow(now, scene)
+	// After the frame decision: schedule runs after every message and at the end of every tick, after its draw, so `prepared`
+	// follows the frame that shows the scene. A hidden tab never gets here; it posts once shown
+	notePrepared()
 	// A worker clock that isn't the display's is replaced by the page's for as long as something moves
 	setRelay(demand.vsync && rafWorks && refresh.unaligned)
 	if (demand.vsync) {
@@ -1105,6 +1125,7 @@ scope.addEventListener('message', (event) => {
 			if (!rafId && timerId === undefined && !relayOn) needsDraw = true
 			break
 		case 'layout': {
+			layoutKnown = true
 			documentHeight = message.documentHeight
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
 			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease from the dusk on

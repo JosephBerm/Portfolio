@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { intro } from '@/lib/animations'
-import { IntroPhaseContext, type IntroPhase } from '@/hooks/useIntroPhase'
+import { createIntroHolds, IntroHoldsContext, IntroPhaseContext, type IntroHolds, type IntroPhase } from '@/hooks/useIntroPhase'
 import styles from './IntroGate.module.css'
 
 /**
@@ -70,18 +70,28 @@ async function markSettled(loader: HTMLElement): Promise<void> {
 	await until(Math.max(...ends) + intro.hold * 1000)
 }
 
+/** The images in `content` whose box reaches into the viewport. */
+function imagesOnScreen(content: HTMLElement): HTMLImageElement[] {
+	return Array.from(content.querySelectorAll('img')).filter((image) => {
+		const box = image.getBoundingClientRect()
+		return box.width > 0 && box.bottom > 0 && box.top < window.innerHeight
+	})
+}
+
 /**
- * The page is ready to show: its fonts have loaded and a fragment's target is in place. `lift` aborts once the loader
- * starts to lift; from then on the visitor owns the scroll position, so a late font load no longer moves the page.
+ * The page is ready to show: its fonts have loaded, a fragment's target is in place, every hold has settled and the
+ * images on screen are decoded. `lift` aborts once the loader starts to lift; from then on the visitor owns the scroll
+ * position, so a late font load no longer moves the page.
  */
-async function pageReady(lift: AbortSignal): Promise<void> {
+async function pageReady(content: HTMLElement, holds: IntroHolds, lift: AbortSignal): Promise<void> {
 	await document.fonts.ready
 	if (!lift.aborted) settleOnFragment()
+	await Promise.allSettled([holds.settled(), ...imagesOnScreen(content).map((image) => image.decode())])
 }
 
 /** The intro may end: its mark has played and held, and the page is ready or the ceiling has passed. */
-async function introReady(loader: HTMLElement, lift: AbortSignal): Promise<void> {
-	await Promise.all([markSettled(loader), Promise.race([pageReady(lift), ceiling()])])
+async function introReady(loader: HTMLElement, content: HTMLElement, holds: IntroHolds, lift: AbortSignal): Promise<void> {
+	await Promise.all([markSettled(loader), Promise.race([pageReady(content, holds, lift), ceiling()])])
 }
 
 interface IntroGateProps {
@@ -94,24 +104,28 @@ interface IntroGateProps {
 
 /**
  * Plays the intro loader over the server-rendered page passed as `children`, which is laid out and hydrated under it and
- * shown without a remount. The loader lifts once its mark has played and held and the page is ready. The backdrop
- * follows the same timeline through IntroPhaseContext.
+ * shown without a remount. The loader lifts once its mark has played and held and the page is ready. Components it hosts
+ * hand it work to wait for through useIntroHolds() (the sky's first view), within intro.ceiling. The backdrop follows the
+ * same timeline through IntroPhaseContext.
  */
 export default function IntroGate({ backdrop, mark, children }: IntroGateProps) {
 	const [phase, setPhase] = useState<IntroPhase>('loading')
 	const [markLeaving, setMarkLeaving] = useState(false)
 	const [faded, setFaded] = useState(false)
+	const [holds] = useState(createIntroHolds)
 	const loaderRef = useRef<HTMLDivElement>(null)
+	const contentRef = useRef<HTMLDivElement>(null)
 
 	// The loader lifts once its mark has played and held and the page is ready, within the ceiling: the mark starts to
 	// leave, then the loader fades as the stars come out. From the lift on, nothing the readiness work does moves the page
 	useEffect(() => {
 		const loader = loaderRef.current
-		if (!loader) return
+		const content = contentRef.current
+		if (!loader || !content) return
 		performance.mark('intro-armed')
 		const lift = new AbortController()
 		let live = true
-		void introReady(loader, lift.signal).then(() => {
+		void introReady(loader, content, holds, lift.signal).then(() => {
 			if (!live) return
 			lift.abort()
 			performance.mark('intro-exit')
@@ -124,7 +138,7 @@ export default function IntroGate({ backdrop, mark, children }: IntroGateProps) 
 			live = false
 			lift.abort()
 		}
-	}, [])
+	}, [holds])
 
 	// The loader fades (IntroGate.module.css); once that has played, it leaves the DOM. A loader with no fade (a stylesheet
 	// that turns animations off) leaves at once
@@ -153,30 +167,32 @@ export default function IntroGate({ backdrop, mark, children }: IntroGateProps) 
 
 	return (
 		<IntroPhaseContext value={phase}>
-			<noscript>
-				<style>{NO_SCRIPT_CSS}</style>
-			</noscript>
-			{backdrop}
-			{phase !== 'revealed' && !faded && (
-				<div
-					ref={loaderRef}
-					id="intro-loader"
-					data-intro-phase={phase}
-					data-mark={markLeaving ? 'leaving' : undefined}
-					style={LOADER_TIMING}
-					className={`fixed inset-y-0 left-0 w-screen z-[1000] flex flex-col items-center justify-center bg-dark-navy touch-pinch-zoom ${styles.loader}`}
-				>
-					{mark}
+			<IntroHoldsContext value={holds}>
+				<noscript>
+					<style>{NO_SCRIPT_CSS}</style>
+				</noscript>
+				{backdrop}
+				{phase !== 'revealed' && !faded && (
+					<div
+						ref={loaderRef}
+						id="intro-loader"
+						data-intro-phase={phase}
+						data-mark={markLeaving ? 'leaving' : undefined}
+						style={LOADER_TIMING}
+						className={`fixed inset-y-0 left-0 w-screen z-[1000] flex flex-col items-center justify-center bg-dark-navy touch-pinch-zoom ${styles.loader}`}
+					>
+						{mark}
+					</div>
+				)}
+				{/*
+				 * Server-rendered so HTML-only crawlers can read it. Laid out and hydrated under the loader, but hidden and still
+				 * until the reveal (the "Home intro" block in globals.css), so its fonts load, a fragment lands and the sky measures
+				 * it; the reveal changes its visibility only. Entrances that play as it appears wait for useIntroRevealed().
+				 */}
+				<div ref={contentRef} id="intro-content" data-intro-phase={phase} className="overflow-hidden">
+					{children}
 				</div>
-			)}
-			{/*
-			 * Server-rendered so HTML-only crawlers can read it. Laid out and hydrated under the loader, but hidden and still
-			 * until the reveal (the "Home intro" block in globals.css), so its fonts load, a fragment lands and the sky measures
-			 * it; the reveal changes its visibility only. Entrances that play as it appears wait for useIntroRevealed().
-			 */}
-			<div id="intro-content" data-intro-phase={phase} className="overflow-hidden">
-				{children}
-			</div>
+			</IntroHoldsContext>
 		</IntroPhaseContext>
 	)
 }

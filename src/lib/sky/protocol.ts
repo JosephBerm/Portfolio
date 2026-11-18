@@ -27,6 +27,11 @@ export interface SkyRect {
 	 * the main thread (`lightHeadroom`), so the worker mirrors no theme color and no text size.
 	 */
 	headroom: number
+	/**
+	 * Copy that stays on screen while the page's content is hidden (the Hide/View control, outside every `data-sky-hide`
+	 * element): the sky keeps clear of it then too. Absent on every other rect.
+	 */
+	stays?: true
 }
 
 /** The box of the empty room at the page's end that the landing scene fills, in document coordinates (CSS px). */
@@ -83,6 +88,12 @@ export type SkyMainMessage =
 			/** The landing's box, or null where the page has none (forced colors, print, or the scene switched off in SkyLanding) or it has no box. */
 			landing: LandingRect | null
 	  }
+	/**
+	 * Whether the page's copy shows (the Hide/View control). While it is hidden the sky keeps stars and events clear of the
+	 * side rails' copy and of copy still on screen (SkyRect.stays) alone; the landing scene's stage stays fitted to the copy
+	 * as measured, so nothing on it moves when the copy shows again.
+	 */
+	| { type: 'copy'; shown: boolean }
 	/** The visitor is still here without scrolling (pointer, keys, focus); at most one a second. */
 	| { type: 'activity' }
 	/** A fine pointer's position for the lean, -1 to 1 from the viewport center (x right, y down); null once it leaves. At most one per animation frame. */

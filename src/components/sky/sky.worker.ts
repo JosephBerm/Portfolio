@@ -60,7 +60,7 @@ import {
 } from '@/lib/sky/pacing'
 import { createPresence, isIdle, notePresence, presenceLevel } from '@/lib/sky/presence'
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
-import { emergenceDone, hazeEmergence, readingPadding, sameRects, sceneAt, screenQuietZones, screenReadingZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
+import { copyInForce, emergenceDone, hazeEmergence, readingPadding, sameRects, sceneAt, screenQuietZones, screenReadingZones, smoothstep, type QuietBlend, type SceneLevels } from '@/lib/sky/scene'
 import {
 	cancelTransients,
 	createTransientSchedule,
@@ -126,6 +126,10 @@ let pinnedBefore: readonly SkyRect[] = []
 let readingBefore: readonly SkyRect[] = []
 // The newest layout that arrived while an ease was running, applied when it ends
 let pendingLayout: LayoutMessage | null = null
+/** The page's copy shows; false while the visitor views the sky alone (the Hide/View control). */
+let copyShown = true
+/** The newest layout as measured, whether or not the copy shows: whether one has arrived (notePrepared waits for it) and reading copy is known, and what the zones come back to. */
+let measured: LayoutMessage | null = null
 
 // Milliseconds on the worker clock
 let lastScrollAt = -Infinity
@@ -208,7 +212,6 @@ let hazeTimer: ReturnType<typeof setTimeout> | undefined
 let needsDraw = false
 let ready = false
 let prepared = false
-let layoutKnown = false
 /** The landing scene's `rebuilding`, as the latest frame decision (demandNow) read it: notePrepared waits on it. */
 let sceneRebuilding = false
 
@@ -237,9 +240,14 @@ let relayTickDoneAt = -Infinity
 /** How many display refreshes pass per drawn frame while something moves. */
 const divisor: Divisor = { k: 1, slowerSince: null }
 
-/** Reading copy as the last layout measured it, in force or waiting: what flies and what plans answer to it at once, with no ease. */
+/** Reading copy in force, or waiting: what flies and what plans answer to at once, with no ease. */
 function newestReading(): readonly SkyRect[] {
 	return pendingLayout?.reading ?? reading
+}
+
+/** The page's reading copy has been measured, whether or not it shows now. */
+function readingKnown(): boolean {
+	return (measured?.reading.length ?? 0) > 0
 }
 
 /** Reading copy near the screen now, in screen coordinates, grown as READING says for this width. */
@@ -449,7 +457,7 @@ function clockWorks(): boolean {
 
 /** True when transients may launch at all right now (each kind's own timing aside), before the descent has brought bright sky up the screen. */
 function launchesAllowed(now: number, scene: SceneLevels): boolean {
-	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && launchReaches(scrollY, height, newestReading().length > 0) && scene.descent < DESCENT.eventStop
+	return motion === 'full' && visible && revealAt !== null && !isIdle(presence, now) && launchReaches(scrollY, height, readingKnown()) && scene.descent < DESCENT.eventStop
 }
 
 /** Seconds since the reveal at `now` (ms); 0 before it. */
@@ -463,7 +471,7 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	// Worker milliseconds against the key's seconds
 	gate.calm = now - lastRushAt >= TRANSIENTS.scrollQuiet * 1000
 	gate.still = now - lastScrollAt >= TRANSIENTS.scrollQuiet * 1000
-	gate.readingKnown = newestReading().length > 0
+	gate.readingKnown = readingKnown()
 	gate.narrow = narrowScreen
 	gate.sinceReveal = sinceReveal(now)
 	gate.scrollY = scrollY
@@ -489,7 +497,7 @@ function savingData(): boolean {
  * settles `prepared` itself.
  */
 function notePrepared(): void {
-	if (prepared || !ready || !layoutKnown || (motion !== 'off' && sceneRebuilding)) return
+	if (prepared || !ready || !measured || (motion !== 'off' && sceneRebuilding)) return
 	prepared = true
 	// Decided in a task of its own, so whatever the page sent while the worker was starting is read first: an `emerge`
 	// already waiting means the loader is lifting, and the art then waits for the page's end. A load made here is part of
@@ -688,6 +696,38 @@ function starBlend(blend: QuietBlend): QuietBlend {
 function starReadingBlend(blend: QuietBlend): QuietBlend {
 	const zones = (rects: readonly SkyRect[]) => screenReadingZones(rects, scrollY, height, readingPadding(narrowScreen))
 	return { from: blend.level < 1 ? zones(readingBefore) : [], to: zones(reading), level: blend.level }
+}
+
+/**
+ * Puts a layout's copy in force, as far as the copy shows (copyInForce). Copy that appears, moves or goes eases in over
+ * QUIET.ease from the dusk on (before it, nothing shows and the zones take it at once), so the stars near it fade
+ * instead of changing in one frame. A change that puts back the copy the running ease started from, whatever sent it
+ * (the copy hidden and shown again in quick succession, or a layout back where it was, a tab clicked there and back),
+ * runs that ease back from where it stands, since turning round jumps nothing; any other change mid-ease waits for it
+ * to end (applyLayout), while what flies and what plans answer to the newest copy at once (newestReading,
+ * QuietBlend.next, the frame's quietAhead and the launch gate's field).
+ */
+function adoptLayout(message: LayoutMessage, now: number): void {
+	const next = copyInForce(message, copyShown)
+	const latest = pendingLayout ?? { quiet, pinned, reading }
+	if (sameRects(next.quiet, latest.quiet) && sameRects(next.pinned, latest.pinned) && sameRects(next.reading, latest.reading)) return
+	const t = now / 1000
+	if (!quietEasing(t)) applyLayout(next, now)
+	else if (layoutAt !== null && sameRects(next.quiet, quietBefore) && sameRects(next.pinned, pinnedBefore) && sameRects(next.reading, readingBefore)) {
+		// Back to where the ease began: swap its ends and move its start so its level on this frame is unchanged (smoothstep is
+		// symmetric), so the stars turn round where they are
+		const towardQuiet = quiet
+		const towardPinned = pinned
+		const towardReading = reading
+		quiet = quietBefore
+		pinned = pinnedBefore
+		reading = readingBefore
+		quietBefore = towardQuiet
+		pinnedBefore = towardPinned
+		readingBefore = towardReading
+		layoutAt = t - (QUIET.ease - (t - layoutAt))
+		pendingLayout = null
+	} else pendingLayout = next
 }
 
 /**
@@ -1148,22 +1188,21 @@ scope.addEventListener('message', (event) => {
 			// A running loop (the relay's included) paces scroll redraws itself; a sleeping worker draws one now
 			if (!rafId && timerId === undefined && !relayOn) needsDraw = true
 			break
-		case 'layout': {
-			layoutKnown = true
+		case 'layout':
+			measured = message
 			documentHeight = message.documentHeight
+			// The landing scene's stage is fitted to the copy as measured, shown or not
 			miami.setLayout({ documentHeight, landing: message.landing, quiet: message.quiet, pinned: message.pinned })
-			// Copy that appears or moves (the reveal, an entrance settling, a reflow) eases in over QUIET.ease from the dusk on
-			// (before it, nothing shows and the zones take it at once), so the stars near it, reading copy included, fade instead
-			// of changing in one frame. A change mid-ease waits for the ease to end, while what flies and what plans answer to the
-			// newest copy at once (newestReading, QuietBlend.next, the frame's quietAhead and the launch gate's field).
-			const latest = pendingLayout ?? { quiet, pinned, reading }
-			if (!sameRects(message.quiet, latest.quiet) || !sameRects(message.pinned, latest.pinned) || !sameRects(message.reading, latest.reading)) {
-				if (quietEasing(now / 1000)) pendingLayout = message
-				else applyLayout(message, now)
-			}
+			adoptLayout(message, now)
 			needsDraw = true
 			break
-		}
+		case 'copy':
+			if (message.shown === copyShown) break
+			copyShown = message.shown
+			// The copy goes, or comes back, as copy a layout moves does
+			if (measured) adoptLayout(measured, now)
+			needsDraw = true
+			break
 		case 'activity':
 			// The schedule below judges this moment's presence, so a sky that slept restarts its frames at once
 			noteInput(now)

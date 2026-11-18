@@ -144,6 +144,15 @@ export function sameRects(a: readonly SkyRect[], b: readonly SkyRect[]): boolean
 	)
 }
 
+/**
+ * The copy the sky keeps clear of: all of a layout's while the page's copy shows, and while it is hidden (the Hide/View
+ * control) only the side rails' copy, where the right rail's control stands, and the quiet rects of copy still on screen
+ * (`stays`: the footer's control). The landing scene's stage reads the layout itself, so it never changes with this.
+ */
+export function copyInForce<T extends { readonly quiet: readonly SkyRect[]; readonly reading: readonly SkyRect[] }>(layout: T, shown: boolean): T {
+	return shown ? layout : { ...layout, quiet: layout.quiet.filter((rect) => rect.stays), reading: [] }
+}
+
 /** quietAt for one zone. */
 function zoneQuiet(zone: SkyRect, x: number, y: number): number {
 	const dx = Math.max(zone.x - x, 0, x - zone.x - zone.width)

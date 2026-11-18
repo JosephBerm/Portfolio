@@ -4,7 +4,7 @@ import { lightHeadroom, minimumContrast, parseHexColor, parseRgbColor } from '@/
 import type { SkyMainMessage, SkyMotion, SkyRect, SkyTokens, SkyWorkerMessage } from '@/lib/sky/protocol'
 import { FORCED_COLORS_QUERY } from '@/lib/utils'
 import { setSkyRunning, skyPaused, subscribeSkyPlayback } from './skyPause'
-import { setSkyViewRunning } from './skyView'
+import { contentHidden, setSkyViewRunning, SKY_HIDE_SELECTOR, subscribeSkyView } from './skyView'
 
 /** Handle returned by mountSky. */
 export interface SkyController {
@@ -210,13 +210,20 @@ function copyReader(tokens: SkyTokens, headrooms: Map<string, number>): CopyRead
 	return { shift, headroom }
 }
 
-/** A box moved by its entrance `shift` and down by `offsetY` (the scroll offset, for document coordinates), or null when it has no area. */
-function quietRect(box: DOMRectReadOnly, shift: Shift, offsetY: number, headroom: number): SkyRect | null {
+/**
+ * A box moved by its entrance `shift` and down by `offsetY` (the scroll offset, for document coordinates), or null when it
+ * has no area. `stays` marks copy the Hide/View control leaves on screen (SkyRect.stays).
+ */
+function quietRect(box: DOMRectReadOnly, shift: Shift, offsetY: number, headroom: number, stays: boolean): SkyRect | null {
 	const left = box.left - shift.x
 	const top = box.top - shift.y
 	const right = box.right - shift.x
 	const bottom = box.bottom - shift.y
-	return right > left && bottom > top ? { x: left, y: top + offsetY, width: right - left, height: bottom - top, headroom } : null
+	if (right <= left || bottom <= top) return null
+	const rect: SkyRect = { x: left, y: top + offsetY, width: right - left, height: bottom - top, headroom }
+	// Only the rects that stay carry the mark, so every other rect, and the layout message, reads as before
+	if (stays) rect.stays = true
+	return rect
 }
 
 /** The left edge, net of entrances, of the block that lays out `element`'s lines. */
@@ -239,6 +246,9 @@ function boxOpacity(box: Element): number {
  */
 function quietRects(root: Element, offsetY: number, reader: CopyReader, rules: RectRules = QUIET_RULES): SkyRect[] {
 	const rects: SkyRect[] = []
+	// Copy outside every element the Hide/View control hides (the control itself) stays on screen while the rest is hidden
+	const rootHides = root.closest(SKY_HIDE_SELECTOR) !== null
+	const stays = (element: Element) => !rootHides && element.closest(SKY_HIDE_SELECTOR) === null
 	const range = document.createRange()
 	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
 	for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -248,15 +258,16 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader, rules: R
 		const shift = reader.shift(element)
 		const headroom = reader.headroom(element)
 		const edge = rules.toBlockEdge ? blockLeft(element, reader) : Infinity
+		const kept = stays(element)
 		for (const line of range.getClientRects()) {
-			const rect = quietRect(line, shift, offsetY, headroom)
+			const rect = quietRect(line, shift, offsetY, headroom, kept)
 			if (!rect) continue
 			rects.push(edge < rect.x ? { ...rect, x: edge, width: rect.width + rect.x - edge } : rect)
 		}
 	}
 	for (const control of root.querySelectorAll(rules.boxes)) {
 		if (boxOpacity(control) < rules.faintBelow) continue
-		const rect = quietRect(control.getBoundingClientRect(), reader.shift(control), offsetY, reader.headroom(control))
+		const rect = quietRect(control.getBoundingClientRect(), reader.shift(control), offsetY, reader.headroom(control), stays(control))
 		if (rect) rects.push(rect)
 	}
 	return rects
@@ -264,9 +275,10 @@ function quietRects(root: Element, offsetY: number, reader: CopyReader, rules: R
 
 /**
  * Starts the night sky inside `host`: creates the canvas, hands it to the sky worker and forwards size, scroll, the
- * pointer's place for the lean, activity (pointer, keys and focus), visibility, preference and layout changes, and the
- * page's animation frames while the worker asks for them. Returns a no-op controller where OffscreenCanvas or workers
- * are missing or the theme tokens can't be read, which leaves the plain navy background.
+ * pointer's place for the lean, activity (pointer, keys and focus), visibility, preference and layout changes, whether
+ * the page's content is hidden, and the page's animation frames while the worker asks for them. Returns a no-op
+ * controller where OffscreenCanvas or workers are missing or the theme tokens can't be read, which leaves the plain navy
+ * background.
  */
 export function mountSky(host: HTMLElement, canvasClassName: string): SkyController {
 	if (!supported()) return unavailable()
@@ -300,6 +312,15 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		post({ type: 'motion', motion: next })
 	}
 	const stopPlayback = subscribeSkyPlayback(syncMotion)
+	// The page's content hidden or shown again (the Hide/View control): the sky keeps stars and events clear of it only while it shows
+	let sentShown = !contentHidden()
+	const syncCopy = () => {
+		const shown = !contentHidden()
+		if (shown === sentShown) return
+		sentShown = shown
+		post({ type: 'copy', shown })
+	}
+	const stopView = subscribeSkyView(syncCopy)
 
 	let phase: IntroPhase = 'loading'
 	let size = { width: 0, height: 0, dpr: 0 }
@@ -516,6 +537,7 @@ export function mountSky(host: HTMLElement, canvasClassName: string): SkyControl
 		listeners.abort()
 		stopScroll()
 		stopPlayback()
+		stopView()
 		// A failed or destroyed sky takes the pause and Hide/View controls with it, and brings the page's content back if it was hidden
 		setSkyRunning(false)
 		setSkyViewRunning(false)

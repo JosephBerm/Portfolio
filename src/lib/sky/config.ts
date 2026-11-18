@@ -284,25 +284,29 @@ export const QUIET_REACH = QUIET.padding + QUIET.feather
 export const READING = { padding: QUIET.padding, narrowPadding: 0, narrowStarReach: { far: 12, mid: 24, near: 36 }, margin: QUIET_REACH + 56 } as const
 
 /**
- * Scroll narrative: the full sky in the hero, a calmer one while reading (the drift a little over half as fast, a fainter
- * nebula, the stars a little dimmer, all alike, so brighter still means nearer), and a bookend near the end of the page.
- * Levels blend continuously with scroll, so the narrative needs no clock of its own. No star reads as punctuation behind
- * reading copy: it keeps clear of it as of quiet copy (READING, LAYERS). `haze` is the nebula's level (NEBULA); `drift`
- * scales the drift clock's rate (DRIFT); `lean` scales the pointer lean (LEAN), which every scene has in full.
+ * Scroll narrative: the full sky in the hero, a calmer one while reading (the drift a little over half as fast, the stars
+ * a little dimmer, all alike, so brighter still means nearer), and a bookend near the end of the page. The nebula belongs
+ * to the hero and recedes as the page goes on (`hazeHold`). Levels blend continuously with scroll, so the narrative needs
+ * no clock of its own. No star reads as punctuation behind reading copy: it keeps clear of it as of quiet copy (READING,
+ * LAYERS). `haze` is the nebula's level in the hero (NEBULA); `drift` scales the drift clock's rate (DRIFT); `lean` scales
+ * the pointer lean (LEAN), which every scene has in full.
  */
 export const SCENE = {
 	hero: { stars: { far: 1, mid: 1, near: 1 }, haze: 1, twinkle: 1, drift: 1, lean: 1 },
-	reading: { stars: { far: 0.85, mid: 0.85, near: 0.85 }, haze: 0.24, twinkle: 0.8, drift: 0.6, lean: 1 },
-	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, haze: 0.3, twinkle: 0.8, drift: 0.8, lean: 1 },
+	reading: { stars: { far: 0.85, mid: 0.85, near: 0.85 }, twinkle: 0.8, drift: 0.6, lean: 1 },
+	end: { stars: { far: 0.9, mid: 0.9, near: 0.9 }, twinkle: 0.8, drift: 0.8, lean: 1 },
 	/** Viewport heights scrolled where the hero starts and finishes giving way to reading. */
 	heroFadeFrom: 0.5,
 	heroFadeTo: 1.3,
 	/**
-	 * The nebula (the haze level) belongs to the first screen: it gives way sooner, between these heights, because copy
-	 * scrolls over it while the stars still shine at full level.
+	 * The nebula recedes as the page scrolls on, its light lost as light is through more and more dust: it keeps all of it
+	 * until the first `hazeHold` height (viewport heights scrolled), its loss eases in by the second, and from there it loses
+	 * its light by a factor of e every `hazeRecede`, then goes out between the two `hazeGone` heights, from about a quarter
+	 * of its light in the hero. The end bookend takes out whatever is left on a short page.
 	 */
-	hazeFadeFrom: 0.08,
-	hazeFadeTo: 0.5,
+	hazeHold: [0.075, 0.125],
+	hazeRecede: 1.25,
+	hazeGone: [1.8, 2.8],
 	/** Viewport heights left to scroll where the end bookend starts and is complete. */
 	endFadeFrom: 0.85,
 	endFadeTo: 0.15,
@@ -367,9 +371,10 @@ export interface NebulaOctave {
  *
  * Needs a new sweep: anything `bound()` reads (`ceiling`, `copy`, `grain`, `grid`, `HAZE_BRIGHT`, `HAZE_MAX_PIXELS`,
  * `HAZE_TOP_FADE`, `source.oxygenMix`, `source.scatter`, the `source.oxygen : source.hydrogen` ratio, `ionization.star`,
- * `ionization.zone`, `retreat`, `unit`, `portrait`, `aspect`, the color tokens), `SCENE`'s haze levels and fades, or moving
- * the copy. Free: `salt`, `streams`, `speed`, `gasRate`, `presence`, `start`, `motion`, `pieces`, `stretch`, spread,
- * octaves, `flow`, `sway`, `lobes`, `toward`, `cavity`, `dust`, `ionization.r0`, `cn`, `from`, `span`, and the mist's levels.
+ * `ionization.zone`, `retreat`, `unit`, `portrait`, `aspect`, the color tokens), `SCENE`'s haze levels and fades
+ * (`hero.haze`, `hazeHold`, `hazeRecede`, `hazeGone`, and the end bookend's heights, which take it out), or moving the
+ * copy. Free: `salt`, `streams`, `speed`, `gasRate`, `presence`, `start`, `motion`, `pieces`, `stretch`, spread, octaves,
+ * `flow`, `sway`, `lobes`, `toward`, `cavity`, `dust`, `ionization.r0`, `cn`, `from`, `span`, and the mist's levels.
  */
 export const NEBULA = {
 	/** Seed salt, with SKY_SEED. Changing it recomposes the gas. */
@@ -1191,9 +1196,10 @@ export const COMET = {
  * brightest far star on the same pixel), times `safety` for rounding and resampling, and at most `ceiling`, so a shooting
  * star is a glimmer behind any copy, never a streak that competes with it. That leaves slate body text about 0.05, the
  * tagline and the rails about 0.15 and the name and green text the ceiling. In Chromium the nebula's ceiling (NEBULA.ceiling)
- * adds at most 0.025 of white under the tagline and 0.023 under Contact's paragraph, at any clock. Firefox's synthetic bold
- * makes the tagline's second line about 39 px longer and Safari's about 52 px (simulated from WebKit's source, not run on a
- * Mac), so there it reaches about 0.025 and 0.026 of white on the glyphs, which the tagline's headroom takes. The right rail
+ * adds at most 0.025 of white under the tagline, at any clock and any scroll, and nothing under Contact's paragraph on the
+ * measured pages, which reach Contact after the nebula has gone out (SCENE.hazeGone). Firefox's synthetic bold makes the
+ * tagline's second line about 39 px longer and Safari's about 52 px (simulated from WebKit's source, not run on a Mac), so
+ * there it reaches about 0.025 and 0.026 of white on the glyphs, which the tagline's headroom takes. The right rail
  * can stand in the gas beyond the reserve, up to 0.09 of white and at least 6.4:1, because no transient ever lights the rails
  * (planMeteor's `clearOf`, CLEAR_SKY_KEEPS): its own headroom is its limit.
  */

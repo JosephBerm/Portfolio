@@ -33,10 +33,10 @@ export interface DescentWindow {
 }
 
 /**
- * Scroll narrative: the full sky in the hero, a calmer one while reading, and a bookend near the end of the page.
- * Continuous in scroll, so it never needs its own animation clock. Where the page has a landing scene,
- * `descentWindow` says where the last stretch lies, and the stars, drift and haze give way to it; without one every level
- * is exactly the narrative's.
+ * Scroll narrative: the full sky in the hero, a calmer one while reading, and a bookend near the end of the page, with the
+ * nebula receding from the hero as the page goes on. Continuous in scroll, so it never needs its own animation clock.
+ * Where the page has a landing scene, `descentWindow` says where the last stretch lies, and the stars, drift and haze give
+ * way to it; without one every level is exactly the narrative's.
  */
 export function sceneAt(scrollY: number, viewportHeight: number, documentHeight: number, descentWindow: DescentWindow | null = null): SceneLevels {
 	const scrolled = scrollY / viewportHeight
@@ -52,12 +52,15 @@ export function sceneAt(scrollY: number, viewportHeight: number, documentHeight:
 	const mix = (key: 'twinkle' | 'drift' | 'lean') => hero * SCENE.hero[key] + reading * SCENE.reading[key] + end * SCENE.end[key]
 	const stars = (layer: SkyLayer) =>
 		(hero * SCENE.hero.stars[layer] + reading * SCENE.reading.stars[layer] + end * SCENE.end.stars[layer]) * (1 - dusk) + DESCENT.stars[layer] * dusk
-	// The nebula gives way sooner than the stars (SCENE.hazeFadeFrom), on the same end bookend
-	const hazeHero = 1 - smoothstep(SCENE.hazeFadeFrom, SCENE.hazeFadeTo, scrolled)
-	const hazeEnd = (1 - hazeHero) * endShare
+	// The nebula recedes as the page scrolls on, its loss easing in over SCENE.hazeHold, and the end bookend and the descent
+	// take out whatever is left
+	const [holdFrom, holdTo] = SCENE.hazeHold
+	const over = Math.max(0, scrolled - holdFrom)
+	const travel = over < holdTo - holdFrom ? (over * over) / (2 * (holdTo - holdFrom)) : scrolled - (holdFrom + holdTo) / 2
+	const recede = Math.exp(-travel / SCENE.hazeRecede) * (1 - smoothstep(SCENE.hazeGone[0], SCENE.hazeGone[1], scrolled))
 	return {
 		stars: { far: stars('far'), mid: stars('mid'), near: stars('near') },
-		haze: (hazeHero * SCENE.hero.haze + (1 - hazeHero - hazeEnd) * SCENE.reading.haze + hazeEnd * SCENE.end.haze) * (1 - smoothstep(DESCENT.hazeOut[0], DESCENT.hazeOut[1], descent)),
+		haze: SCENE.hero.haze * recede * (1 - endShare) * (1 - smoothstep(DESCENT.hazeOut[0], DESCENT.hazeOut[1], descent)),
 		twinkle: mix('twinkle'),
 		drift: mix('drift') * (1 - dusk) + DESCENT.drift * dusk,
 		lean: mix('lean'),

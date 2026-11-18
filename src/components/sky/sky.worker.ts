@@ -262,8 +262,7 @@ function contrastLevels(): typeof CONTRAST_NORMAL | typeof CONTRAST_MORE {
 }
 
 /**
- * The nebula's level before its own emergence: the scene's times the contrast preference's. frameAt draws at it and
- * updateNebula decides by it, so the two can't drift apart when another level comes.
+ * The nebula's level before its own emergence: the scene's times the contrast preference's, which frameAt draws at.
  */
 function hazeLevel(scene: SceneLevels): number {
 	return scene.haze * contrastLevels().haze
@@ -740,12 +739,13 @@ function updateCamera(now: number, scene: SceneLevels): void {
  * Steps the nebula, whose light moves on the drift clock: a slice of the field's next evaluation, and a composition into
  * the bitmap drawSky blits once the clock has reached a later step (advanceHaze). While the clock stands still (a pause,
  * idle, a hidden tab) it starts nothing, and it does nothing at all where there is no nebula (no 2D context came for it,
- * or a composition threw) or where its light is out (the contrast preference, or DESCENT.hazeOut on the way down to the
- * landing scene). The scroll's own fade only dims it, to SCENE.reading.haze, so it keeps working while reading. It never
- * sets needsDraw: the clock only moves on frames the drift already asks for.
+ * or a composition threw) or where its light is out for good (the contrast preference, or DESCENT.hazeOut on the way down
+ * to the landing scene). The scroll takes its light out past the first reading sections (SCENE.hazeGone), but it keeps
+ * working there, so a page that comes back up finds its states built and never stalls a tick to build them. It never sets
+ * needsDraw: the clock only moves on frames the drift already asks for.
  */
 function updateNebula(scene: SceneLevels): void {
-	if (!nebula || !assets || hazeLevel(scene) <= MIN_STAR_ALPHA) return
+	if (!nebula || !assets || contrastLevels().haze <= MIN_STAR_ALPHA || scene.descent >= DESCENT.hazeOut[1]) return
 	try {
 		const bitmap = advanceHaze(nebula, camera.clock, quality > 0)
 		if (bitmap) {

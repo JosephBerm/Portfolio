@@ -107,8 +107,11 @@ export function createStarField(): StarField {
 /** Drawing resources: the atlas follows the pixel ratio and the haze the size; the comet's bitmap is painted for each comet that shows. */
 export interface SkyAssets {
 	atlas: StarAtlas
-	/** The bitmap each frame blits, replaced as the drift clock moves. */
+	/** The bitmap each frame blits a screen's worth of, replaced as the drift clock moves: the screen and the strip below it. */
 	haze: ImageBitmap | null
+	/** The haze bitmap's px per CSS px, and how many of its rows cover the screen (NebulaField): kept with it, as a frame needs them. */
+	hazeScale: number
+	hazeRows: number
 	/** The comet's coma and tails as one bitmap of light (buildCometArt), painted when it starts to show and closed once it is gone; null while none shows. */
 	comet: ImageBitmap | null
 	/** Star tints: --color-white, then the pale stellar tints. */
@@ -152,6 +155,8 @@ export interface SkyFrame {
 	twinkle: number
 	/** The nebula's level: scene × contrast × its own emergence. It draws at this over HAZE_BRIGHT. */
 	haze: number
+	/** How far up the screen the nebula has moved (CSS px, nebulaShift): the screen shows its bitmap from that row down. */
+	hazeShift: number
 	/** Padded quiet rects in screen coordinates, easing from the previous measurement to the current one. */
 	quiet: QuietBlend
 	/** Reading copy near the screen (screenReadingZones) and the landing scene's band below eventFloorY, while anything that answers to them is in the sky, else none. */
@@ -287,10 +292,12 @@ export function drawSky(ctx: OffscreenCanvasRenderingContext2D, assets: SkyAsset
 	if (frame.miami) frame.miami.art.drawSky(ctx, frame.miami, frame)
 	ctx.globalCompositeOperation = 'lighter'
 	if (assets.haze && frame.haze > MIN_STAR_ALPHA) {
-		// Nearest-neighbor keeps the dither grain intact when the haze buffer is scaled up
+		// The screen's worth of rows the gas has moved up to, a whole row at a time, so the grain moves with the gas and never
+		// shimmers; nearest-neighbor keeps it intact when the haze buffer is scaled up
+		const top = Math.min(assets.haze.height - assets.hazeRows, Math.max(0, Math.round(frame.hazeShift * assets.hazeScale)))
 		ctx.imageSmoothingEnabled = false
 		ctx.globalAlpha = frame.haze / HAZE_BRIGHT
-		ctx.drawImage(assets.haze, 0, 0, frame.deviceWidth, frame.deviceHeight)
+		ctx.drawImage(assets.haze, 0, top, assets.haze.width, assets.hazeRows, 0, 0, frame.deviceWidth, frame.deviceHeight)
 		ctx.imageSmoothingEnabled = true
 	}
 	quietIndex.update(frame.starQuiet, frame.width, frame.height, EDGE)

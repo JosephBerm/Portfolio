@@ -18,8 +18,9 @@
  * functions are read.
  */
 
+import { scrollShift, type Camera } from './camera'
 import { lightWeights, mixRgb } from './color'
-import { COMET, HAZE_BRIGHT, HAZE_MAX_PIXELS, HAZE_TOP_FADE, NARROW_MAX_WIDTH, NEBULA, SKY_SEED, type NebulaLobe, type NebulaOctave } from './config'
+import { CAMERA, COMET, HAZE_BRIGHT, HAZE_MAX_PIXELS, HAZE_TOP_FADE, NARROW_MAX_WIDTH, NEBULA, SCENE, SKY_SEED, type NebulaLobe, type NebulaOctave } from './config'
 import { createNoise, noise2, NOISE_GRADIENT, NOISE_VARIANCE, quadrature, type NoiseTable } from './noise'
 import type { SkyTokens } from './protocol'
 import { hashCell, mulberry32, type Random } from './random'
@@ -31,10 +32,17 @@ export interface NebulaField {
 	columns: number
 	rows: number
 	spacing: number
-	/** The bitmap's size: the CSS size, scaled down above HAZE_MAX_PIXELS, and that scale. */
+	/**
+	 * The bitmap's size: the CSS width and the CSS height with the strip below the screen, scaled down where the screen's own
+	 * area passes HAZE_MAX_PIXELS, and that scale. `screenRows` of its rows cover the screen, from whichever row the gas has
+	 * moved up to.
+	 */
 	width: number
 	height: number
 	scale: number
+	screenRows: number
+	/** The strip of field below the screen, CSS px (nebulaStrip). */
+	below: number
 	/** Pieces of work in one evaluation. */
 	pieces: number
 	/** Starts evaluating the light at drift-clock `clock` into `into` (columns × rows × 3 floats, levels over navy). No per-node work. */
@@ -156,6 +164,8 @@ interface SlabSpec {
 interface Shared {
 	width: number
 	height: number
+	/** The screen's height: rows below it are the strip the scroll brings up, which the flow's mean leaves out. */
+	shown: number
 	unit: number
 	spacing: number
 	flow: NoiseTable
@@ -329,7 +339,7 @@ function createSway(grid: Grid, unit: number, random: Random): Sway {
 function createSlab(spec: SlabSpec, shared: Shared): Slab {
 	const { table, salt, flowShare, turn, swayShare, envelope, flowWeight } = spec
 	const { octaves, hurst, axis, gamma, warp } = spec.look
-	const { width, height, unit, spacing, flow, flowQ, sway, pieces } = shared
+	const { width, height, shown, unit, spacing, flow, flowQ, sway, pieces } = shared
 	const fine = gridOf(width, height, spacing)
 	const middle = gridOf(width, height, spacing * 2)
 	const coarse = gridOf(width, height, spacing * 4)
@@ -423,10 +433,12 @@ function createSlab(spec: SlabSpec, shared: Shared): Slab {
 		const raw = new Float32Array(coarse.n * 4)
 		const mean = new Float64Array(4)
 		let total = 0
+		// The mean is taken over the screen's own rows and the one past its foot, so the strip below changes no flow on screen
+		const shownRows = Math.min(coarse.rows, Math.ceil(shown / coarse.h) + 1)
 		for (let j = 0; j < coarse.rows; j++) {
 			for (let i = 0; i < coarse.columns; i++) {
 				const m = j * coarse.columns + i
-				const e = flowWeight((i + 0.5) * coarse.h, (j + 0.5) * coarse.h)
+				const e = j < shownRows ? flowWeight((i + 0.5) * coarse.h, (j + 0.5) * coarse.h) : 0
 				total += e
 				for (let q = 0; q < 4; q++) {
 					let v = 0
@@ -642,12 +654,33 @@ function createSlab(spec: SlabSpec, shared: Shared): Slab {
 }
 
 /**
+ * The strip of field below a screen `height` CSS px tall: as far up as the scroll carries the gas (NEBULA.depth) before its
+ * light is out (SCENE.hazeGone), with the camera's longest lag on top.
+ */
+export function nebulaStrip(height: number): number {
+	return Math.ceil(-scrollShift(NEBULA.depth.nearness, 0, (SCENE.hazeGone[1] + CAMERA.maxLag) * height))
+}
+
+/**
+ * How far up the screen the nebula has moved (CSS px): its share (NEBULA.depth) of the scroll the camera has followed, so it
+ * glides and settles with the stars, times `motion`, the motion level, so it hangs at its place over the hero wherever the
+ * camera holds still (reduced motion) and eases there and back with the motion. The scroll the camera has followed is its
+ * spring's place plus the scroll it skipped while motion was stopped: the page's scroll, once the spring settles.
+ */
+export function nebulaShift(camera: Camera, motion: number): number {
+	return Math.max(0, -scrollShift(NEBULA.depth.nearness, 0, camera.scroll.value + camera.shift) * motion)
+}
+
+/**
  * The nebula's light for a CSS size, seeded and fixed like the star catalog: every visitor sees the same bytes at one clock.
  * The static fields, the baked flow and the lookup tables are built once here; `begin` and `piece` then evaluate the light at
  * a clock with no allocation.
  */
 export function createNebula(width: number, height: number, tokens: SkyTokens): NebulaField {
 	const { copy, ceiling, ionization, cavity, source, presence, stretch, dust } = NEBULA
+	// The field covers the screen and the strip below it that the scroll brings up
+	const below = nebulaStrip(height)
+	const fieldHeight = height + below
 
 	// Where the gas sits: CSS px per reference px, how many nodes, and the bitmap's size
 	const land = smoothstep(NEBULA.aspect[0], NEBULA.aspect[1], width / height)
@@ -658,8 +691,8 @@ export function createNebula(width: number, height: number, tokens: SkyTokens): 
 	const spacing = Math.max(NEBULA.grid.floor[narrow], NEBULA.grid.step * unit, Math.sqrt((width * height) / NEBULA.grid.maxNodes))
 	const scale = Math.min(1, Math.sqrt(HAZE_MAX_PIXELS / Math.max(1, width * height)))
 	const bitmapWidth = Math.max(1, Math.round(width * scale))
-	const bitmapHeight = Math.max(1, Math.round(height * scale))
-	const grid = gridOf(width, height, spacing)
+	const bitmapHeight = Math.max(1, Math.round(fieldHeight * scale))
+	const grid = gridOf(width, fieldHeight, spacing)
 	const { columns, rows, n } = grid
 
 	// The cluster and the lobes hang off the lower right corner, and slide right as a narrower window narrows the copy's room
@@ -740,9 +773,9 @@ export function createNebula(width: number, height: number, tokens: SkyTokens): 
 	const mistTable = createNoise(stream(NEBULA.streams.mist))
 	const flowTable = createNoise(stream(NEBULA.streams.flow))
 	const flowQ = quadrature(flowTable)
-	const sway = createSway(gridOf(width, height, spacing * 4), unit, stream(NEBULA.streams.sway))
+	const sway = createSway(gridOf(width, fieldHeight, spacing * 4), unit, stream(NEBULA.streams.sway))
 	const pieceList: (() => void)[] = [() => sway.run()]
-	const shared: Shared = { width, height, unit, spacing, flow: flowTable, flowQ, sway, pieces: pieceList }
+	const shared: Shared = { width, height: fieldHeight, shown: height, unit, spacing, flow: flowTable, flowQ, sway, pieces: pieceList }
 	const bodySlab = createSlab(
 		{
 			table: bodyTable,
@@ -847,6 +880,8 @@ export function createNebula(width: number, height: number, tokens: SkyTokens): 
 		width: bitmapWidth,
 		height: bitmapHeight,
 		scale,
+		screenRows: Math.min(bitmapHeight, Math.max(1, Math.round(height * scale))),
+		below,
 		pieces: pieceList.length,
 		begin(clock, into) {
 			target = into

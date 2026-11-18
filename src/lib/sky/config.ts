@@ -80,8 +80,9 @@ export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as
  * browsers) leaves the brightest stars at most about 54 px to glide on a 900 px screen. A jump of more than
  * `snapViewports` viewport heights in one step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always
  * snaps, which follows the scroll exactly. A spring with less than `restPx` CSS px of motion left (at nearness 1)
- * settles on its target and stops asking for frames. The sky's short-lived events move with the scroll's part of it, at
- * their own nearness (TRANSIENT_NEARNESS).
+ * settles on its target and stops asking for frames. The nebula (NEBULA.depth) and the sky's short-lived events
+ * (TRANSIENT_NEARNESS) move with the scroll's part of it alone, on this same scale and through the same spring, the
+ * nebula farther than any star and the events as near as the nearest, so `scrollParallax` and `maxLag` move them too.
  */
 export const CAMERA = { scrollParallax: 0.21, scrollOmega: 14, maxLag: 0.18, snapViewports: 1, restPx: 0.01 } as const
 
@@ -302,7 +303,8 @@ export const SCENE = {
 	 * The nebula recedes as the page scrolls on, its light lost as light is through more and more dust: it keeps all of it
 	 * until the first `hazeHold` height (viewport heights scrolled), its loss eases in by the second, and from there it loses
 	 * its light by a factor of e every `hazeRecede`, then goes out between the two `hazeGone` heights, from about a quarter
-	 * of its light in the hero. The end bookend takes out whatever is left on a short page.
+	 * of its light in the hero. Its field reaches below the screen as far as the scroll carries it up to there (NEBULA.depth),
+	 * and the end bookend takes out whatever is left on a short page.
 	 */
 	hazeHold: [0.075, 0.125],
 	hazeRecede: 1.25,
@@ -360,25 +362,36 @@ export interface NebulaOctave {
 }
 
 /**
- * The nebula, the light the haze level draws: gas moving on the drift clock, behind every star (nebula.ts is the model and
- * hazeRuntime.ts composes it). Two thin slabs of turbulent gas lie along the line of sight: the body, lit and colored by the
- * ionization of a cluster below the page's lower right corner, from steel blue through blue to hydrogen violet, and a faint
- * sky-wide mist whose dust takes light from the body. Seeded like the catalog (SKY_SEED): at one clock every visitor sees the
- * same bytes, and retuning a value here recomposes the gas, so look at it again. Lengths are reference px: CSS px at a 900 px
- * tall window, times the unit below. Pairs that differ by screen read [wide, narrow], narrow being NARROW_MAX_WIDTH or less.
- * Its light at any node and any clock stays under `ceiling` in white-equivalent and blue, so one sweep of `bound()` covers
- * all time (to about 1% of WCAG luminance in the oxygen zone: NebulaField.bound).
+ * The nebula, the light the haze level draws: gas moving on the drift clock, behind every star, so a scroll carries it up
+ * the screen more slowly than any of them (`depth`; nebula.ts is the model and hazeRuntime.ts composes it). Two thin slabs
+ * of turbulent gas lie along the line of sight: the body, lit and colored by the ionization of a cluster below the page's
+ * lower right corner, from steel blue through blue to hydrogen violet, and a faint sky-wide mist whose dust takes light from
+ * the body. Seeded like the catalog (SKY_SEED): at one clock every visitor sees the same bytes, and retuning a value here
+ * recomposes the gas, so look at it again. Lengths are reference px: CSS px at a 900 px tall window, times the unit below.
+ * Pairs that differ by screen read [wide, narrow], narrow being NARROW_MAX_WIDTH or less. Its light at any node and any
+ * clock stays under `ceiling` in white-equivalent and blue, so one sweep of `bound()` covers all time (to about 1% of WCAG
+ * luminance in the oxygen zone: NebulaField.bound).
  *
  * Needs a new sweep: anything `bound()` reads (`ceiling`, `copy`, `grain`, `grid`, `HAZE_BRIGHT`, `HAZE_MAX_PIXELS`,
  * `HAZE_TOP_FADE`, `source.oxygenMix`, `source.scatter`, the `source.oxygen : source.hydrogen` ratio, `ionization.star`,
- * `ionization.zone`, `retreat`, `unit`, `portrait`, `aspect`, the color tokens), `SCENE`'s haze levels and fades
- * (`hero.haze`, `hazeHold`, `hazeRecede`, `hazeGone`, and the end bookend's heights, which take it out), or moving the
- * copy. Free: `salt`, `streams`, `speed`, `gasRate`, `presence`, `start`, `motion`, `pieces`, `stretch`, spread, octaves,
- * `flow`, `sway`, `lobes`, `toward`, `cavity`, `dust`, `ionization.r0`, `cn`, `from`, `span`, and the mist's levels.
+ * `ionization.zone`, `retreat`, `unit`, `portrait`, `aspect`, the color tokens), `depth`, CAMERA's `scrollParallax` and
+ * `maxLag`, `SCENE`'s haze levels and fades (`hero.haze`, `hazeHold`, `hazeRecede`, `hazeGone`, and the end bookend's
+ * heights, which take it out), or moving the copy. Free: `salt`, `streams`, `speed`, `gasRate`, `presence`, `start`,
+ * `motion`, `pieces`, `stretch`, spread, octaves, `flow`, `sway`, `lobes`, `toward`, `cavity`, `dust`, `ionization.r0`,
+ * `cn`, `from`, `span`, and the mist's levels.
  */
 export const NEBULA = {
 	/** Seed salt, with SKY_SEED. Changing it recomposes the gas. */
 	salt: 0x6e6572,
+	/**
+	 * How far away the gas hangs: `nearness` is its share of the camera's scroll, as a star's is (DEPTH), so it moves up the
+	 * screen at `nearness` times CAMERA.scrollParallax of the scroll, slower than the faintest star (0.24): the farthest thing
+	 * in the sky. It follows the scroll through the camera's spring, so it glides and settles with the stars, and it takes no
+	 * share of the drift or the lean: the gas's own flow is its motion on the drift clock, and it has no net drift, so it never
+	 * creeps toward the copy. Its field reaches below the screen as far as the scroll carries it before its light is out
+	 * (SCENE.hazeGone, plus CAMERA.maxLag), so the strip the scroll brings up is gas, with no edge.
+	 */
+	depth: { nearness: 0.2 },
 	/**
 	 * The id of each noise's own seeded stream, so changing one never reshuffles the others: a new flow never reshuffles the
 	 * gas. `body` 8 and `flow` 3 were chosen by scanning ids and by eye.
@@ -419,8 +432,8 @@ export const NEBULA = {
 	motion: { step: 0.2, fieldEvery: 0.6, sliceMs: 2, duty: 0.03, maxStep: 1, weight: 0.2, composeRise: 3, fieldRise: 10 },
 	/**
 	 * The field's nodes: `step` reference px apart, but no closer than `floor` CSS px [wide, narrow], and no more than
-	 * `maxNodes` in a window, which holds the tables' memory on a rotated 4K screen and changes none of the 66 windows the
-	 * sweep measured.
+	 * `maxNodes` on a screen, which holds the tables' memory on a rotated 4K screen and changes none of the 66 windows the
+	 * sweep measured; the strip below the screen (`depth`) adds its own share, about an eighth.
 	 */
 	grid: { step: 6, floor: [6, 8], maxNodes: 60000 },
 	/**
@@ -575,7 +588,11 @@ export const NEBULA = {
  */
 export const HAZE_TOP_FADE = [70, 420] as const
 
-/** Largest nebula bitmap (px), and largest bake of the landing scene's sky (miamiAssets.ts): each is made at CSS resolution or less and scaled up. */
+/**
+ * Largest share of the nebula's bitmap a screen shows (px; the strip below the screen that the scroll brings up comes on
+ * top, NEBULA.depth), and largest bake of the landing scene's sky (miamiAssets.ts): each is made at CSS resolution or less
+ * and scaled up.
+ */
 export const HAZE_MAX_PIXELS = 2_100_000
 
 /**
@@ -1196,11 +1213,12 @@ export const COMET = {
  * brightest far star on the same pixel), times `safety` for rounding and resampling, and at most `ceiling`, so a shooting
  * star is a glimmer behind any copy, never a streak that competes with it. That leaves slate body text about 0.05, the
  * tagline and the rails about 0.15 and the name and green text the ceiling. In Chromium the nebula's ceiling (NEBULA.ceiling)
- * adds at most 0.025 of white under the tagline, at any clock and any scroll, and nothing under Contact's paragraph on the
- * measured pages, which reach Contact after the nebula has gone out (SCENE.hazeGone). Firefox's synthetic bold makes the
- * tagline's second line about 39 px longer and Safari's about 52 px (simulated from WebKit's source, not run on a Mac), so
- * there it reaches about 0.025 and 0.026 of white on the glyphs, which the tagline's headroom takes. The right rail
- * can stand in the gas beyond the reserve, up to 0.09 of white and at least 6.4:1, because no transient ever lights the rails
+ * adds at most 0.025 of white under the tagline, at any clock and any settled scroll, and about 0.0252 at 2160x3840 while
+ * the camera still lags a scroll from the top, which the tagline's headroom takes. It adds nothing under Contact's paragraph
+ * on the measured pages, which reach Contact after the nebula has gone out (SCENE.hazeGone). Firefox's synthetic bold makes
+ * the tagline's second line about 39 px longer and Safari's about 52 px (simulated from WebKit's source, not run on a Mac),
+ * so there it reaches about 0.025 and 0.026 of white on the glyphs, which the tagline's headroom takes. The right rail can
+ * stand in the gas beyond the reserve, up to 0.09 of white and at least 6.4:1, because no transient ever lights the rails
  * (planMeteor's `clearOf`, CLEAR_SKY_KEEPS): its own headroom is its limit.
  */
 export const INK_BUDGET = { ceiling: 0.2, safety: 0.9, hazeReserve: 0.025 } as const

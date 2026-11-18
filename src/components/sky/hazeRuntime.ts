@@ -12,8 +12,9 @@ interface FieldState {
 
 /**
  * The nebula as the worker runs it: the field's float states, evaluated a slice of a tick at a time, and the compositions
- * that mix two of them into the bitmap drawSky blits. It holds the time-sliced state; skyAssets.ts keeps building immutable
- * bitmaps, and pacing.ts keeps the rule for when each of them happens (hazeTimes).
+ * that mix two of them into the bitmap drawSky blits a screen's worth of, from the row the scroll has carried the gas up
+ * to. It holds the time-sliced state; skyAssets.ts keeps building immutable bitmaps, and pacing.ts keeps the rule for when
+ * each of them happens (hazeTimes).
  */
 export interface HazeRuntime {
 	field: NebulaField

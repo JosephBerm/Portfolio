@@ -7,12 +7,13 @@
  * fixed timer, not the display (WebKit's), the main thread relays the page's own animation frames for as long as
  * something moves. A missing or stalled animation-frame clock is answered by a watchdog and then a 60 Hz timer. Hidden
  * tabs, paused or reduced motion, and visits with no input for a while sleep, the last once the drift and twinkle have
- * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there, and every event flies there
- * as it does over the hero. The nebula's light moves on the drift clock too and asks for no frames of its own. The landing
- * scene at the foot of the page moves on a clock of its own (the water, the clouds, the sun's breath, the beacons, the
- * palms in the wind and the boat's crossing): while that is on screen it asks for 30 frames a second on animation frames,
- * 20 once it or adaptive quality has stepped down, and for none while paused, reduced, idle or on a canvas too slow to run
- * it. It counts its own slow frames, from what its own draws take, apart from adaptive quality's.
+ * eased out. While reading the stars still drift, slowly, so the worker keeps drawing there, and every event flies
+ * there as it does over the hero. The nebula's light moves on the drift clock too, and its place with the camera's
+ * scroll, and it asks for no frames of its own. The landing scene at the foot of the page moves on a clock of its own
+ * (the water, the clouds, the sun's breath, the beacons, the palms in the wind and the boat's crossing): while that is
+ * on screen it asks for 30 frames a second on animation frames, 20 once it or adaptive quality has stepped down, and
+ * for none while paused, reduced, idle or on a canvas too slow to run it. It counts its own slow frames, from what its
+ * own draws take, apart from adaptive quality's.
  * Before the stars come out it asks for frames only to build a landing scene the visit starts inside, which the intro's
  * loader still covers.
  * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded while the intro's loader covers the
@@ -39,6 +40,7 @@ import { catalogKeep, densityKeep } from '@/lib/sky/catalog'
 import { ADAPT, CONTRAST_MORE, CONTRAST_NORMAL, DEPTH, FRAME, HAZE_REBUILD_MS, MIN_STAR_ALPHA, NARROW_MAX_WIDTH, PACING, QUIET, SCROLL_LAG, TRANSIENTS } from '@/lib/sky/config'
 import { DESCENT } from '@/lib/sky/miamiConfig'
 import { eventFloorY } from '@/lib/sky/miamiStage'
+import { nebulaShift } from '@/lib/sky/nebula'
 import {
 	createRefreshEstimate,
 	driftCap,
@@ -742,7 +744,8 @@ function updateCamera(now: number, scene: SceneLevels): void {
  * or a composition threw) or where its light is out for good (the contrast preference, or DESCENT.hazeOut on the way down
  * to the landing scene). The scroll takes its light out past the first reading sections (SCENE.hazeGone), but it keeps
  * working there, so a page that comes back up finds its states built and never stalls a tick to build them. It never sets
- * needsDraw: the clock only moves on frames the drift already asks for.
+ * needsDraw: the clock only moves on frames the drift already asks for, and its climb up the screen is the camera's glide,
+ * which asks for its own.
  */
 function updateNebula(scene: SceneLevels): void {
 	if (!nebula || !assets || contrastLevels().haze <= MIN_STAR_ALPHA || scene.descent >= DESCENT.hazeOut[1]) return
@@ -812,6 +815,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		dusk: emergenceDone(dusk) ? Infinity : dusk,
 		twinkle: twinkleLevel(scene),
 		haze: hazeLevel(scene) * hazeEmergence(dusk),
+		hazeShift: nebulaShift(camera, easeAt(motionLevel, FRAME.motionEase, t)),
 		quiet: quietZones,
 		reading: transients.active.length > 0 || bodyShowing(comet) ? landingZones(readingZones()) : [],
 		starQuiet: narrowScreen ? quietZones : starBlend(quietZones),
@@ -923,14 +927,15 @@ function probeRaster(now: number): void {
  * closing the old ones. The one place that closes and rebuilds the nebula. Where no 2D context comes for it, or the
  * contrast preference leaves it no light, both are null, and the sky goes on without them.
  */
-function buildNebula(tokens: SkyTokens): Pick<SkyAssets, 'haze'> {
+function buildNebula(tokens: SkyTokens): Pick<SkyAssets, 'haze' | 'hazeScale' | 'hazeRows'> {
 	if (nebula) closeHaze(nebula)
 	nebula = null
 	assets?.haze?.close()
 	// No light to show under the contrast preference: nothing to build or hold until it changes
-	if (contrastLevels().haze <= MIN_STAR_ALPHA) return { haze: null }
+	if (contrastLevels().haze <= MIN_STAR_ALPHA) return { haze: null, hazeScale: 1, hazeRows: 0 }
 	nebula = createHaze(width, height, tokens)
-	return { haze: nebula ? composeHaze(nebula, camera.clock, quality > 0) : null }
+	if (!nebula) return { haze: null, hazeScale: 1, hazeRows: 0 }
+	return { haze: composeHaze(nebula, camera.clock, quality > 0), hazeScale: nebula.field.scale, hazeRows: nebula.field.screenRows }
 }
 
 /** Builds the sprite atlas and the nebula for the current size and ratio, closing the old bitmaps; a comet that shows is painted again by the next frame. */

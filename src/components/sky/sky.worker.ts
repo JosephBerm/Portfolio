@@ -13,6 +13,8 @@
  * palms in the wind and the boat's crossing): while that is on screen it asks for 30 frames a second on animation frames,
  * 20 once it or adaptive quality has stepped down, and for none while paused, reduced, idle or on a canvas too slow to run
  * it. It counts its own slow frames, from what its own draws take, apart from adaptive quality's.
+ * Before the stars come out it asks for frames only to build a landing scene the visit starts inside, which the intro's
+ * loader still covers.
  * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded as the page's end comes near.
  */
 
@@ -321,6 +323,7 @@ const miamiStep: MiamiStep = {
 	motionFull: false,
 	ambientOn: false,
 	quietEasing: false,
+	showing: false,
 	calm: false,
 }
 
@@ -338,6 +341,7 @@ function stepInput(now: number): MiamiStep {
 	miamiStep.motionFull = motion === 'full'
 	miamiStep.ambientOn = driftGate.on
 	miamiStep.quietEasing = quietEasing(now / 1000)
+	miamiStep.showing = exitAt !== null
 	// Loading the scene's art stalls the worker, so a load ahead of the bake waits for a page at rest: under full motion, no
 	// scroll at all, however slow, for TRANSIENTS.scrollQuiet (the stars have stopped gliding after it by then) and nothing in
 	// flight. Under any other motion the stars hold still and flights fade out
@@ -348,6 +352,7 @@ function stepInput(now: number): MiamiStep {
 /** What the frame clock sees now (reused). */
 const frameState: FrameState = {
 	live: false,
+	preparing: false,
 	scrolling: false,
 	full: false,
 	transientDemand: NO_FRAMES,
@@ -395,6 +400,8 @@ function demandNow(now: number, scene: SceneLevels): FrameDemand {
 	frameState.twinkleFps = driftGate.on && scene.twinkle > 0 && !miami.stillOnScreen(scrollY, documentHeight, softwareFps) ? (quality > 0 ? FRAME.slowTwinkleFps : FRAME.twinkleFps) : 0
 	// The landing scene's own frames, and the fade frames of an ease in or a rebuild, which would otherwise wait for the next input
 	const sceneDemand = miami.demand(stepInput(now))
+	// Before the dusk only a landing scene the visit starts inside asks for frames: it builds under the intro's loader
+	frameState.preparing = ctx !== null && visible && motion !== 'off' && exitAt === null && sceneDemand.rebuilding
 	frameState.sceneFps = sceneDemand.fps
 	frameState.sceneCap = sceneDemand.cap
 	frameState.sceneOnScreen = sceneDemand.onScreen

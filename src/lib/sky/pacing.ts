@@ -50,8 +50,10 @@ export function motionFps(devicePxPerSecond: number): number {
 
 /** What the frame clock needs to know now: the worker fills it from its own state at each frame decision (reused, no garbage). */
 export interface FrameState {
-	/** A context, the tab visible, motion not 'off' and the dusk begun; otherwise nothing draws. */
+	/** A context, the tab visible, motion not 'off' and the dusk begun; otherwise nothing draws, but for `preparing`. */
 	live: boolean
+	/** The dusk hasn't begun, but a landing scene the visit starts inside is still building: its build asks for fade frames, which the intro's loader still covers. */
+	preparing: boolean
 	/** Scrolled within FRAME.scrollSettleMs. */
 	scrolling: boolean
 	/** Full motion: scrolling then moves the stars (every refresh); otherwise it only fades them. */
@@ -78,7 +80,7 @@ export interface FrameState {
 
 /** The strictest demand of every part of the sky this tick. */
 export function frameDemand(state: FrameState): FrameDemand {
-	if (!state.live) return NO_FRAMES
+	if (!state.live) return state.preparing ? FADE_FRAMES : NO_FRAMES
 	return combineDemands(
 		state.transientDemand,
 		state.scrolling ? (state.full || state.sceneOnScreen ? EVERY_FRAME : FADE_FRAMES) : NO_FRAMES,

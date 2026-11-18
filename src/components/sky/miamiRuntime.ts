@@ -39,6 +39,8 @@ export interface MiamiStep {
 	ambientOn: boolean
 	/** The quiet zones are still easing toward a new layout. */
 	quietEasing: boolean
+	/** The stars have begun to come out (the dusk). Before it the intro's loader covers the sky, so a change needs no ease. */
+	showing: boolean
 	/**
 	 * The page is at rest: the motion isn't full, or the page hasn't scrolled at all for TRANSIENTS.scrollQuiet seconds (the
 	 * stars have stopped gliding after it by then) and nothing flies. Its scroll half is the launch gate's `still` (a step of
@@ -470,8 +472,9 @@ export function createMiamiRuntime(): MiamiRuntime {
 						building = null
 						if (previous) previous.art.close(previous.assets)
 						redraw = true
-						// Eased in from the time the build ended: the tick's own time is from before it, and a long build would show the scene whole in one frame
-						if (urgent) easeSince = performance.now() / 1000
+						// Eased in from the time the build ended: the tick's own time is from before it, and a long build would show the scene whole in one frame.
+						// Before the dusk nothing shows, so the scene shows whole in the frame this build asks for
+						if (urgent && input.showing) easeSince = performance.now() / 1000
 					}
 				}
 			} catch {

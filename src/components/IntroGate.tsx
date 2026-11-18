@@ -51,18 +51,23 @@ function unseen(): boolean {
 }
 
 /**
- * When the page could first be seen, in ms after navigation start: for a page already shown, navigation start or a
- * prerendered page's activation; for one not shown yet (a tab opened in the background, a page still prerendering), the
- * moment it is first shown. Nothing is waited for once `lift` aborts.
+ * When the page could first be seen, in ms after navigation start: navigation start, a prerendered page's activation, or
+ * the first showing of a tab opened in the background. Where the browser keeps `visibility-state` performance entries
+ * (Chromium), a showing that came before this runs is read from them; elsewhere the visibility as this runs decides, so a
+ * page shown then counts from navigation start and a hidden one from its next showing. Nothing is waited for once `lift`
+ * aborts.
  */
 function firstSeen(lift: AbortSignal): Promise<number> {
-	if (!unseen()) return Promise.resolve(navigationEntry()?.activationStart ?? 0)
+	const activation = navigationEntry()?.activationStart ?? 0
+	const shown = performance.getEntriesByType('visibility-state').find((entry) => entry.name === 'visible' && entry.startTime >= activation)
+	if (shown) return Promise.resolve(shown.startTime)
+	if (!unseen()) return Promise.resolve(activation)
 	return new Promise((resolve) => {
-		const shown = () => {
+		const onShow = () => {
 			if (!unseen()) resolve(performance.now())
 		}
-		document.addEventListener('visibilitychange', shown, { signal: lift })
-		document.addEventListener('prerenderingchange', shown, { signal: lift })
+		document.addEventListener('visibilitychange', onShow, { signal: lift })
+		document.addEventListener('prerenderingchange', onShow, { signal: lift })
 	})
 }
 

@@ -38,6 +38,7 @@ const eslintConfig = defineConfig([
 			'src/components/sky/miamiPalmArt.ts',
 			'src/lib/sky/miamiWater.ts',
 			'src/lib/sky/miamiWind.ts',
+			'src/lib/sky/miamiGusts.ts',
 			'src/lib/sky/miamiSkyline.ts',
 		],
 		rules: {
@@ -46,7 +47,7 @@ const eslintConfig = defineConfig([
 				{
 					patterns: [
 						{
-							regex: '(^|/)(miamiArt|miamiAssets|renderMiami|miamiPalmArt|miamiWater|miamiWind|miamiSkyline)$',
+							regex: '(^|/)(miamiArt|miamiAssets|renderMiami|miamiPalmArt|miamiWater|miamiWind|miamiGusts|miamiSkyline)$',
 							allowTypeImports: true,
 							message: "The landing scene's art loads as a chunk of its own: import it for types only, and reach it through MiamiArt.",
 						},

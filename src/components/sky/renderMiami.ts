@@ -2,7 +2,7 @@ import { CLEAR_SKY_KEEPS, MIN_STAR_ALPHA } from '@/lib/sky/config'
 import { BEACONS, BOAT, SKYLINE, STAGE, SUN, WATER, WIND, WING } from '@/lib/sky/miamiConfig'
 import type { RailSide } from '@/lib/sky/miamiStage'
 import { boatAt, columnReach, glintAt, rippleAlpha, rippleOffset, rowShift, type BoatPose, type Glint, type GlintField, type RowShift, type WaterRow } from '@/lib/sky/miamiWater'
-import { createPalmPose, gustAt, palmPose } from '@/lib/sky/miamiWind'
+import { createPalmPose, palmPose } from '@/lib/sky/miamiWind'
 import type { QuietIndex } from '@/lib/sky/quietIndex'
 import { smoothstep } from '@/lib/sky/scene'
 import type { MiamiImage, MiamiWing } from './miamiAssets'
@@ -448,8 +448,8 @@ function drawKey(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fram
 
 /**
  * The key and the palms, in front of everything, at the foreground's pace (the page's own, moved by `palmShift`): the key, then
- * each palm with its trunk, the knot at its crown and its fronds, posed by the wind at the clock. A gust crosses the scene at a pace of
- * its own, so each palm is asked for the gust that reaches its own place. A palm whose farthest frond is still under the canvas is
+ * each palm with its trunk, the knot at its crown and its fronds, posed by the frame's wind at the clock: a gust reaches each palm
+ * when the air carrying it does. A palm whose farthest frond is still under the canvas is
  * skipped, which it is for most of the descent. They only darken what is behind them, so nothing here can lift the ground behind
  * any copy. The context's transform is left for the caller to put back.
  */
@@ -470,7 +470,7 @@ function drawPalms(ctx: OffscreenCanvasRenderingContext2D, scene: MiamiFrame, fr
 		if (crownY - crown.reach >= frame.height) continue
 		const baseY = view.end - palm.baseZ + view.palmShift
 		const crownX = palm.crownX * xs
-		palmPose(crown.wind, gustAt(clock - crownX / WIND.gust.travel), clock, level, pose)
+		palmPose(crown.wind, scene.wind, clock, level, pose)
 		// The crown stands downwind of where the trunk's curve ends, by the lean and the sway of the pose
 		const x = crownX + pose.crownX
 		ctx.setTransform(k, 0, 0, k, 0, 0)

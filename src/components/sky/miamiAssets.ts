@@ -1970,7 +1970,7 @@ function plantPalms(stage: MiamiStage): MiamiCrown[] {
 	return placePalms(stage).map((palm) => {
 		const plan = planCrown(palm)
 		const longest = Math.max(...plan.fronds.map((frond) => frond.length), ...plan.back.map((frond) => frond.length))
-		return { palm, plan, wind: windPalm(palm, plan), knot: knotOutline(palm, PALM_ART.layout.knot * palm.frond, new Float32Array(0)), reach: farthest * longest }
+		return { palm, plan, wind: windPalm(palm, plan, stage.width), knot: knotOutline(palm, PALM_ART.layout.knot * palm.frond, new Float32Array(0)), reach: farthest * longest }
 	})
 }
 

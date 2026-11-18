@@ -1,6 +1,6 @@
 import { PALMS, SKYLINE } from '@/lib/sky/miamiConfig'
 import type { MiamiStage } from '@/lib/sky/miamiStage'
-import type { PalmPose, WindPalm } from '@/lib/sky/miamiWind'
+import { frondHz, trunkHz, type PalmPose, type WindPalm } from '@/lib/sky/miamiWind'
 import { hashCell } from '@/lib/sky/random'
 import { smoothstep } from '@/lib/sky/scene'
 
@@ -138,6 +138,8 @@ export interface PlacedPalm {
 	seed: number
 	/** The trunk's length from foot to crown, px. */
 	length: number
+	/** The palm's real height, m (PALMS' `height`), from which the wind's physics follows. */
+	metres: number
 }
 
 /**
@@ -176,6 +178,7 @@ export function placePalms(stage: MiamiStage): PlacedPalm[] {
 			set: entry.set,
 			seed: hashCell(index, stage.narrow ? 1 : 0, PALMS.seed),
 			length: Math.hypot(crownX - baseX, crownZ - FOOT_Z),
+			metres: entry.height,
 		})
 	})
 	return placed
@@ -283,10 +286,25 @@ export function planCrown(palm: PlacedPalm): CrownPlan {
 	return { fronds, back }
 }
 
-/** The wind's view of a palm and its crown. */
-export function windPalm(palm: PlacedPalm, plan: CrownPlan): WindPalm {
-	const angles = [...plan.fronds.map((frond) => frond.angle), ...plan.back.map((frond) => frond.angle)]
-	return { seed: palm.seed, height: palm.length, frond: palm.frond, angles, hinged: plan.fronds.length, spread: PALM_ART.frond.spread }
+/**
+ * The wind's view of a palm and its crown on a stage `width` px wide: where it stands in metres (its trunk's px over its real height
+ * make a metre), and its trunk's and each frond's first mode, from their real sizes.
+ */
+export function windPalm(palm: PlacedPalm, plan: CrownPlan, width: number): WindPalm {
+	const perMetre = palm.length / palm.metres
+	const fronds = [...plan.fronds, ...plan.back]
+	return {
+		seed: palm.seed,
+		x: (palm.crownX - width / 2) / perMetre,
+		offset: 0,
+		height: palm.length,
+		trunkHz: trunkHz(palm.metres),
+		frond: palm.frond,
+		angles: fronds.map((frond) => frond.angle),
+		frondHz: fronds.map((frond, i) => frondHz(frond.length / perMetre, palm.seed, i)),
+		hinged: plan.fronds.length,
+		spread: PALM_ART.frond.spread,
+	}
 }
 
 /** A frond's shape in its own px: +x along its chord from where it leaves the crown, +y toward the side it hangs on. */

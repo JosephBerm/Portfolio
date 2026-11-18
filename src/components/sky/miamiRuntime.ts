@@ -570,7 +570,7 @@ export function createMiamiRuntime(): MiamiRuntime {
 				fade,
 				thin: 0,
 				failed: false,
-				wind: { speed: 0, sea: 0, airClock: 0, ease: weather },
+				wind: { speed: 0, turbulence: 0, sea: 0, airClock: 0, ease: weather },
 			}
 			shown.stage = baked.key.stage
 			shown.assets = baked.assets

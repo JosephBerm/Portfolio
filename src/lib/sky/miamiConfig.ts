@@ -316,7 +316,10 @@ export const KEY = { wide: { left: [0.062, 0.26], right: [0.04, 0.09] }, narrow:
  * The palms. `wide` and `narrow` list one palm per entry: `crown` is [share of the width, t above the waterline] where the
  * fronds spring from, `base` the trunk's foot as a share of the width, `bow` how far the trunk bows (px), `trunk` its
  * width at the foot and the crown, `frond` the frond length, `fronds` how many, `set` which sprite set draws them and
- * `minWidth` the narrowest screen that shows the palm. `scale` multiplies the wide sizes by the canvas height over `per`,
+ * `minWidth` the narrowest screen that shows the palm. `height` is the palm's real height in metres, from which the wind's
+ * physics follows: how fast its trunk sways, and with its trunk's px, how big a metre is there, so where it stands and how long
+ * its fronds are. The wide palms stand at one depth, so their heights keep them at one px per metre between them: a palm moved or
+ * resized takes a height that keeps it so. `scale` multiplies the wide sizes by the canvas height over `per`,
  * clamped to `min` and `max`. Under `shortHeight` px tall only the shorter entry (the second of `wide`) shows. A frond is
  * at least `frondFromTrunk` of its trunk's length, and a crown lies at least `onScreen` of a frond's length below the top
  * of the canvas.
@@ -339,11 +342,11 @@ export const KEY = { wide: { left: [0.062, 0.26], right: [0.04, 0.09] }, narrow:
  */
 export const PALMS = {
 	wide: [
-		{ crown: [0.058, 0.62], base: 0.075, bow: 34, trunk: [18, 10], frond: 172, fronds: 11, set: 'large', minWidth: 0 },
-		{ crown: [0.172, 0.34], base: 0.15, bow: -14, trunk: [16, 9], frond: 128, fronds: 11, set: 'small', minWidth: 0 },
-		{ crown: [0.978, 0.32], base: 0.962, bow: 12, trunk: [14, 8], frond: 104, fronds: 10, set: 'small', minWidth: 1100 },
+		{ crown: [0.058, 0.62], base: 0.075, bow: 34, trunk: [18, 10], frond: 172, fronds: 11, set: 'large', minWidth: 0, height: 14 },
+		{ crown: [0.172, 0.34], base: 0.15, bow: -14, trunk: [16, 9], frond: 128, fronds: 11, set: 'small', minWidth: 0, height: 11 },
+		{ crown: [0.978, 0.32], base: 0.962, bow: 12, trunk: [14, 8], frond: 104, fronds: 10, set: 'small', minWidth: 1100, height: 10.5 },
 	],
-	narrow: [{ crown: [0.085, 0.52], base: 0.03, bow: -18, trunk: [13, 7.5], frond: 100, fronds: 11, set: 'large', minWidth: 0 }],
+	narrow: [{ crown: [0.085, 0.52], base: 0.03, bow: -18, trunk: [13, 7.5], frond: 100, fronds: 11, set: 'large', minWidth: 0, height: 12 }],
 	scale: { per: 900, min: 0.82, max: 1.25 },
 	shortHeight: 500,
 	frondFromTrunk: 0.3,
@@ -358,40 +361,77 @@ export const PALMS = {
 } as const
 
 /**
- * The wind. It is left to right everywhere, and the gust level `e` rests between `rest` while wandering over `wander`
- * seconds; the still pose holds it at `stillGust`. A `gust` arrives after a calm of `gap` seconds, rises over `rise`, holds,
- * falls over `fall` and peaks within `peak`; it crosses the scene at `travel` px a second, from a seeded list of gusts that
- * repeats every `loop` seconds. A `trunk` sways with its own `period`, by `sway` and `lean` shares of the palm's height, with a
- * second mode (period divided by `second`, at `secondShare` of the amplitude), displacement along the trunk growing as
- * `power` and its crown tilting at most `tilt` degrees. A `frond` swings with its own `period` by `upper`, `side` or
- * `hanging` degrees by how it hangs, times `gain[0] + gain[1] e`, leans `bias` degrees downwind by `e`, swings
- * `windward` of that on the upwind side, and its outer part lags by `lag` radians at `outerShare` of the swing. These
- * are the angles of a palm whose fronds are `fullLength` px long: a palm with longer fronds moves by at least that much
- * less, so no tip moves faster than a palm of that size's. `flutter` is the tip's small, fast shear (`amount` px). The default
- * weather's mean wind is `reference` m/s: the air's clock runs at the wind's speed over it (miamiWeather.ts).
+ * The wind and how a tree answers it (miamiWind.ts, its gusts in miamiGusts.ts); WEATHER says which wind blows. The push is the
+ * wind's drag on a crown, 1 at the default weather's mean wind `reference` (m/s): it grows as the wind to `push.power` (drag grows
+ * as its square, and a crown that streamlines takes less: a Vogel number near -0.7), and gusts and eddies fade out below
+ * `push.calm` m/s. All the wind does besides its mean grows with the weather's turbulence (SceneWind.turbulence), and is as listed
+ * here at the default weather's. Between gusts the push wanders with the rest level, `rest` (gust levels; the push is a level over
+ * `stillGust`), on three bands of the air's turbulence near `wander` seconds of the air's clock. Each `gust.every` seconds of the
+ * air's clock hold one gust or none (`share` of them hold one), at a place, with a hold and a `push` drawn from a hash of the cell's
+ * index, so the gusts never come round again. A gust rises over `rise`, holds and falls over `fall` seconds as it passes at the
+ * reference wind, longer in a lighter wind and shorter in a stronger one, since the air carries it past faster (down to the lightest
+ * wind that brings one, `push.calm`). Its push differs along its path by up to `vary` of it, over `reach` m, and it travels at
+ * `pace` times the wind, so neighbouring trees feel each gust at a moment and a strength of their own. The gusts, the wander and the
+ * `eddies` are frozen in the air: each reaches a tree when the air carrying it does (miamiWeather.ts's air clock), and a wind that
+ * turns round brings new air. The eddies are bands at the reference wind's frequencies, from `hz` up, each about `waves.step` times
+ * the last, with amplitudes as the frequency to the -1/3 (the inertial range); one longer than `coherent` m reaches every tree in
+ * turn, a shorter one reaches each tree as its own, and one shorter than `crown` m reaches each frond as its own and `flap` times as
+ * strong, while the trunk feels `crownShare` of it. Each band's frequency is moved by up to `waves.jitter` of it either way by a hash,
+ * so no two keep a simple ratio, and its size and phase drift at random along the air, between points `waves.cycles` of its own
+ * periods apart and at least `waves.least` seconds of the air's clock, so a trunk has time to follow each. The bands reach a tree at
+ * the wind's pace, so a mode answers one only well away from its own frequency: not at all within `resonance.near` times it either way,
+ * and in full beyond `resonance.far` times it. Near its own frequency a mode answers the air as a damped oscillator answers a
+ * continuous spectrum, with a narrowband swing at that frequency whatever the wind: its size is the spectrum's at the frequency the
+ * wind carries past it at that pace (the bands' amplitudes at the -1/3 power, with `crownShare` and `flap` easing to 1 between
+ * `crown` and `coherent` m of an eddy's length), times the oscillator's resonant gain and `resonance.gain`; its size and phase drift
+ * at random between points `resonance.span` of its decay times apart, drawn from hashes of its tree and of which air it is, never
+ * from the air's clock.
+ * A `trunk` is a damped oscillator of `hz` at `atHeight` m tall, going as the height's inverse
+ * square (a palm's trunk keeps one diameter as it grows), within `range`, damped `zeta` plus `zetaPerWind` per m/s of wind; its
+ * crown stands `lean` of its px height downwind per unit of push, turns with its tip by `tipSlope` of its offset over its height,
+ * and a point lower down moves by its share of the height to `power`. A `frond` is a damped oscillator of `hz` at `atLength` m long,
+ * going as the length's inverse, `spread` either way by seed, within `range`, damped as the trunk; it leans `lean` degrees at a push
+ * of 1, saturating as it streamlines (`saturation`), its own motion scaled by how it hangs (`upper`, `side`, `hanging`) and by
+ * `windward` on the upwind side; its outer half answers `lag` radians later at `outerShare` of it and bends further only past the
+ * default's wind (`beyond`). A palm whose fronds are longer than `fullLength` px moves by that much less. A tree's natural
+ * frequencies follow its size alone: the wind sets how hard and when it is pushed, and how soon its swings die out (which
+ * slows a gust's ring by at most 2.2% for a trunk and 6.3% for a frond at `WEATHER.strongest`), never the natural pace
+ * it sways at. `flutter` is the outer half's shear, at most `most` px, on seeded periods of the scene's clock: it grows as the push
+ * squared at first, and is half of `most` where that square is `half`.
  */
 export const WIND = {
 	reference: 5,
+	push: { power: 1.3, calm: 1.2 },
 	rest: [0.22, 0.36],
 	wander: 40,
 	stillGust: 0.3,
-	gust: { gap: [9, 22], rise: 1.4, hold: [0.5, 1.2], fall: 4, peak: [0.7, 1], travel: 180, loop: 300, seed: 0x47555354 },
-	trunk: { period: [7, 9.5], sway: [0.004, 0.007], lean: [0.004, 0.012], second: 2.7, secondShare: 0.25, power: 1.8, tilt: 1 },
-	frond: { period: [3.5, 6], upper: [0.8, 1.3], side: [1.2, 2], hanging: [1.5, 2.6], gain: [0.75, 0.7], bias: [8, 13], windward: 0.35, lag: 0.8, outerShare: 0.7, fullLength: 172 },
-	flutter: { period: [0.7, 1.2], amount: 1.2 },
+	gust: { every: 13, share: 0.6, rise: 1.4, hold: [0.5, 1.2], fall: 4, push: [0.55, 0.95], vary: 0.25, reach: [150, 400], pace: [0.85, 1.15], seed: 0x47555354 },
+	eddies: { hz: 0.07, count: 7, coherent: 18, crown: 8, crownShare: 0.4, flap: 2 },
+	waves: { step: 1.6, jitter: 0.08, cycles: 3, least: 80 },
+	resonance: { gain: 1, span: 1.5, near: 2.5, far: 3.5 },
+	trunk: { lean: 0.0064, hz: 0.25, atHeight: 12, range: [0.12, 0.45], zeta: 0.05, zetaPerWind: 0.008, tipSlope: 4 / 3, power: 1.8 },
+	frond: {
+		lean: 9.5, saturation: 0.6, beyond: 0.25, hz: 0.6, atLength: 4, spread: 0.1, range: [0.3, 1.6], zeta: 0.15, zetaPerWind: 0.01,
+		upper: [0.5, 0.85], side: [0.75, 1.3], hanging: [0.95, 1.65], windward: 0.35, lag: 0.8, outerShare: 0.7, fullLength: 172,
+	},
+	flutter: { period: [0.7, 1.2], most: 4, half: 15 },
 } as const
 
 /**
- * The weather: one for the whole scene (miamiWeather.ts eases it on the scene's clock). A weather is how strong the wind is,
- * `strength` (its mean at the palms' crowns, m/s, at most `strongest`), and which way it blows, `direction` (1 toward the right, -1
- * toward the left); all else follows from those two. How rough the sea is follows from it too, by Cox and Munk's law: its slopes'
- * variance is `sea.calm` plus `sea.perWind` per m/s of wind. Where the water meets copy, miamiWater.ts bounds what it takes from
- * that. A visit starts in `start`. 'breeze' is the scene as designed: its still pose is the art-directed frame; 'storm' blows at
- * `strongest`, the most the knob takes.
+ * The weather: one for the whole scene (miamiWeather.ts eases it on the scene's clock, miamiWind.ts makes its wind). A weather is
+ * how strong the wind is, `strength` (its mean at the palms' crowns, m/s, at most `strongest`), and which way it blows, `direction`
+ * (1 toward the right, -1 toward the left); all else follows from those two. How gusty it is follows from its strength: the eddies'
+ * share of the mean wind is `turbulence.strong` plus `turbulence.light` m/s over the wind, at most `turbulence.most` (a light wind
+ * meanders by a few tenths of a m/s whatever its mean, and a strong one's eddies grow with it), times a preset's `gustiness` where
+ * one is set. How rough the sea is follows from it too, by Cox and Munk's law: its slopes' variance is `sea.calm` plus
+ * `sea.perWind` per m/s of wind. Where the water meets copy, miamiWater.ts bounds what it takes from that. A visit starts in
+ * `start`. 'breeze' is the scene as designed: its still pose is the art-directed frame; 'storm' blows at `strongest`, the most the
+ * knob takes.
  */
 export const WEATHER = {
 	start: 'breeze',
 	strongest: 20,
+	turbulence: { strong: 0.09, light: 0.15, most: 0.3 },
 	sea: { calm: 0.003, perWind: 0.00512 },
 	presets: {
 		calm: { strength: 1.5, direction: 1 },

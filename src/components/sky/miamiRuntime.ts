@@ -124,6 +124,12 @@ export interface MiamiRuntime {
 	setContrast(more: boolean): void
 	/** Forgets what was built from the stage, as a lost GPU context requires; the next step builds it again. */
 	dropAssets(): void
+	/**
+	 * Loads the art now, while the intro's loader still covers the page, so its stall is never seen; settles once the load
+	 * has, loaded or failed. A runtime whose art is loaded, or whose scene has failed, or that has had a failed load, settles
+	 * at once; one already loading settles with that load.
+	 */
+	warm(): Promise<void>
 	/** Where the descent runs, for sceneAt; null with no stage. The same object until the stage changes. */
 	descentWindow(): DescentWindow | null
 	/** Advances the clock and the build. True when a frame must draw (a build finished, an ease ended, the scene failed). */
@@ -184,10 +190,11 @@ const isStill = (softwareFps: number): boolean => softwareFps / SCENE_PACING.sof
 const movesBelow = (stage: MiamiStage): number => Math.max(stage.zWater + stage.warmArt, stage.horizonEnter)
 
 /**
- * Loads of the scene's art a visit may make. The first comes at a calm, settled moment once the page's end is near, or when
- * the bake is due or the scene is needed; a failed load is tried again when the bake is due or the scene is needed (the
- * bundler has already retried a network error once by then). A second failure ends the scene as a failed build does, with
- * the plain sky for the rest of the visit and no error event.
+ * Loads of the scene's art a visit may make. The first comes while the intro's loader covers the page (`warm`), or, when
+ * that didn't run, at a calm, settled moment once the page's end is near, or when the bake is due or the scene is needed; a
+ * failed load is tried again when the bake is due or the scene is needed (the bundler has already retried a network error
+ * once by then). A second failure ends the scene as a failed build does, with the plain sky for the rest of the visit and
+ * no error event.
  */
 const LOAD_ATTEMPTS = 2
 
@@ -217,6 +224,8 @@ export function createMiamiRuntime(): MiamiRuntime {
 	let art: MiamiArt | null = null
 	/** A load of the art is under way. */
 	let loading = false
+	/** The load under way, settled once it has (loaded or failed, never rejected), so `warm` can wait for it; null while none is. */
+	let pendingLoad: Promise<void> | null = null
 	/** Loads of the art that have failed (LOAD_ATTEMPTS). */
 	let loadFailures = 0
 	/** Ticks in a row that had spent the slice before the build was reached, for the build under way (STAGE.starveTicks). */
@@ -336,14 +345,16 @@ export function createMiamiRuntime(): MiamiRuntime {
 	/** Asks for the art. Its outcome is only recorded: the next step acts on it, so the scene changes state only inside a tick. */
 	const load = (): void => {
 		loading = true
-		loadArt().then(
+		pendingLoad = loadArt().then(
 			(loaded) => {
 				art = loaded
 				loading = false
+				pendingLoad = null
 			},
 			() => {
 				loadFailures++
 				loading = false
+				pendingLoad = null
 			}
 		)
 	}
@@ -422,6 +433,11 @@ export function createMiamiRuntime(): MiamiRuntime {
 		dropAssets() {
 			release()
 		},
+		warm() {
+			if (failed || art || loadFailures > 0) return Promise.resolve()
+			if (!loading) load()
+			return pendingLoad ?? Promise.resolve()
+		},
 		descentWindow: () => descent,
 		step(input) {
 			motionShare(input)
@@ -453,7 +469,9 @@ export function createMiamiRuntime(): MiamiRuntime {
 				// A rebuild waits for the page to settle, as the haze does
 				const settled = input.now - changedAt >= HAZE_REBUILD_MS && !input.quietEasing
 				// Loading the art stalls the worker, so further ahead it waits for a calm, settled moment, and it goes when the bake is due
-				// or the scene is needed if none has come first. A load that failed is tried again only then
+				// or the scene is needed if none has come first. A load that failed is tried again only then. This rule usually finds the
+				// art loaded already, because the intro's loader covered the first load (`warm`): it loads only where that didn't run or
+				// failed (Save-Data, a sky that started after the intro, a failed warm)
 				const near = lift < current.zShow + STAGE.loadAhead * size.height && pastHero
 				if (!art && !loading && (needed || (ahead && settled) || (loadFailures === 0 && near && settled && input.calm))) load()
 				// A stale build is never finished

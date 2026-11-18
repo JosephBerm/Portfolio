@@ -15,7 +15,8 @@
  * it. It counts its own slow frames, from what its own draws take, apart from adaptive quality's.
  * Before the stars come out it asks for frames only to build a landing scene the visit starts inside, which the intro's
  * loader still covers.
- * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded as the page's end comes near.
+ * The scene's art, the code that bakes and draws it, is a chunk of its own, loaded while the intro's loader covers the
+ * page, before the worker says it has prepared, or, where that didn't run, as the page's end comes near.
  */
 
 import { bodyFading, bodyShowing, bodyView, createSkyBody, dropBody, holdBody, releaseBody, revealBody, updateBody, type BodyStep } from '@/lib/sky/bodies'
@@ -469,16 +470,26 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	return gate
 }
 
+/** The visitor asked to save data (Chromium only; elsewhere it reads as no). */
+function savingData(): boolean {
+	return (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
+}
+
 /**
  * Tells the page, once, that what the intro loader's lift will show is drawn: the first frame is on the canvas, a layout
- * has arrived, and no landing scene the visit starts inside is still building (built, failed, or not on screen). The
- * intro waits for it within its ceiling. Under motion 'off' nothing draws to build a scene, so none is waited for. At a
- * load under forced colors CSS hides the sky, so this worker is never sent `init` and mountSky settles `prepared` itself.
+ * has arrived, and no landing scene the visit starts inside is still building (built, failed, or not on screen). Where the
+ * art's warm load runs (before the dusk, with the motion not 'off' and no request to save data), `prepared` follows that
+ * load, loaded or failed, so the load's stall comes under the loader. The intro waits for it within its ceiling. Under
+ * motion 'off' nothing draws to build a scene, so none is waited for. At a load under forced colors CSS hides the sky, so
+ * this worker is never sent `init` and mountSky settles `prepared` itself.
  */
 function notePrepared(): void {
 	if (prepared || !ready || !layoutKnown || (motion !== 'off' && sceneRebuilding)) return
 	prepared = true
-	scope.postMessage({ type: 'prepared' })
+	// The art loads under the loader as part of what the lift waits for, so its stall is never on a visible frame; the
+	// loader's ceiling bounds the wait
+	const warming = exitAt === null && motion !== 'off' && !savingData() ? miami.warm() : Promise.resolve()
+	void warming.then(() => scope.postMessage({ type: 'prepared' }))
 }
 
 /**

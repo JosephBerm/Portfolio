@@ -17,7 +17,7 @@ export interface MeteorField {
 	quiet: readonly SkyRect[]
 }
 
-/** A straight path in screen CSS px, flown from its start with atmospheric drag (see travel). */
+/** A straight path in screen CSS px where its plan put it at launch, flown from its start with atmospheric drag (see travel); the camera carries it from there (meteorMoved). */
 export interface MeteorPath {
 	startX: number
 	startY: number
@@ -382,6 +382,12 @@ export function planMeteor(random: Random, field: MeteorField, now: number, opti
 export function travel(progress: number, drag: number): number {
 	const p = Math.min(1, Math.max(0, progress))
 	return (p - drag * p * p * p) / (1 - drag)
+}
+
+/** A shooting star moved `dy` px down the screen, a burst's later pieces with it: where the camera shows it (transientShift). */
+export function meteorMoved(meteor: Meteor, dy: number): Meteor {
+	if (dy === 0) return meteor
+	return { ...meteor, startY: meteor.startY + dy, ...(meteor.followers && { followers: meteor.followers.map((follower) => meteorMoved(follower, dy)) }) }
 }
 
 /** Where the head is at flight progress p (clamped to 0-1), in screen CSS px. */

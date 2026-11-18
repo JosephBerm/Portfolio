@@ -151,6 +151,7 @@ const gate: LaunchGate = {
 	narrow: false,
 	sinceReveal: 0,
 	scrollY: 0,
+	cameraScroll: 0,
 	// Built afresh on each call: the scheduler asks only for a due kind that may plan. From the newest layout, waiting or in
 	// force, as the frame dims at a waiting one (QuietBlend.next), so no plan made after a resize's layout arrives crosses
 	// the rails it moved
@@ -465,6 +466,8 @@ function launchGate(now: number, scene: SceneLevels): LaunchGate {
 	gate.narrow = narrowScreen
 	gate.sinceReveal = sinceReveal(now)
 	gate.scrollY = scrollY
+	// The camera as its last step left it: the sky the stars were last drawn on, which a launch hangs its plan on
+	gate.cameraScroll = camera.scroll.value
 	gate.ink = contrastLevels().meteorInk * scene.inkShare
 	gate.bodyShowing = bodyShowing(comet)
 	return gate
@@ -815,6 +818,7 @@ function frameAt(now: number, target: OffscreenCanvas): SkyFrame {
 		starReading: narrowScreen ? starReadingBlend(quietZones) : { from: [], to: [], level: 1 },
 		quietAhead: transients.active.length > 0 ? screenReadingZones(pendingLayout?.quiet ?? quiet, scrollY, height, SCROLL_LAG.reach) : [],
 		scrollY,
+		cameraScroll: camera.scroll.value,
 		meteorInk: contrast.meteorInk * scene.inkShare,
 		descent: scene.descent,
 		snap: !skyMoved,

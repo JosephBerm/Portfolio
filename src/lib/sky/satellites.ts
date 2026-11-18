@@ -17,7 +17,7 @@ import type { PlanContext, TransientSpec } from './transients'
 /** Radians per degree. */
 const DEG = Math.PI / 180
 
-/** One satellite pass: a straight line at constant speed in screen CSS px, with its fades. */
+/** One satellite pass: a straight line at constant speed in screen CSS px where its plan put it at launch (the camera carries it from there, transientShift, satelliteMoved), with its fades. */
 export interface SatellitePass {
 	startX: number
 	startY: number
@@ -97,6 +97,11 @@ export function planSatellite(context: PlanContext): SatellitePass | null {
 /** True while the pass lasts: its point glides, so it needs every animation frame. */
 export function satelliteMoving(pass: SatellitePass, now: number): boolean {
 	return now - pass.startedAt < pass.life
+}
+
+/** A pass moved `dy` px down the screen: where the camera shows it (transientShift). */
+export function satelliteMoved(pass: SatellitePass, dy: number): SatellitePass {
+	return dy === 0 ? pass : { ...pass, startY: pass.startY + dy }
 }
 
 /**

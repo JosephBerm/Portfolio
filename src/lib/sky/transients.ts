@@ -1,10 +1,12 @@
 /**
  * The sky's short-lived events (transients: shooting stars and satellites) and the scheduler that launches, retires and
- * cancels them. This module knows no kind: each kind's module exports a spec and imports only types from here, so every
- * spec exists by the time the registry below reads it.
+ * cancels them. Each hangs on the sky where its plan put it, and the camera carries it from there (transientShift).
+ * This module knows no kind: each kind's module exports a spec and imports only types from here, so every spec exists
+ * by the time the registry below reads it.
  */
 
-import { TRANSIENTS } from './config'
+import { scrollShift } from './camera'
+import { TRANSIENT_NEARNESS, TRANSIENTS } from './config'
 import { METEOR_SPEC, createMeteorMemory, type MeteorMemory } from './meteorKind'
 import { flightArea, type FlightArea, type Meteor, type MeteorField } from './meteors'
 import { EVERY_FRAME, FADE_FRAMES, NO_FRAMES, fadeOutAt, type FrameDemand } from './pacing'
@@ -76,6 +78,8 @@ export interface TransientEnvelope<K extends TransientKind> {
 	scrollBound: boolean
 	/** scrollY at launch: the scroll cancel measures from here. */
 	launchScrollY: number
+	/** The scroll the camera showed at launch (Camera.scroll.value, page px): the sky its plan was laid on, which the camera carries it from (transientShift). */
+	launchCamera: number
 	/** When the pause (or reduced motion) cancelled it: it fades out over TRANSIENTS.cancelFade. Null while it runs its course. */
 	cancelledAt: number | null
 }
@@ -160,6 +164,8 @@ export interface LaunchGate {
 	sinceReveal: number
 	/** The page scroll now (px): a launch records it, and a scroll cancel measures from it. */
 	scrollY: number
+	/** The scroll the camera shows now (Camera.scroll.value, page px), which a launch records: the sky its plan is laid on. */
+	cameraScroll: number
 	/** The field to plan in, built afresh on each call, so the launch step builds it once, only for a due kind it may plan. */
 	field(): SkyField
 	/** The contrast preference's meteorInk (the worker's contrastLevels()) times the descent's inkShare (SceneLevels): PlanContext.ink. */
@@ -213,13 +219,22 @@ export function holdTransients(schedule: TransientSchedule, now: number): void {
 /**
  * Share of its light a transient keeps: the pause fade (over TRANSIENTS.cancelFade once cancelled) and, for one the scroll
  * cancel takes (scrollBound), scrollKept from its launch scroll with the pause fade as its own `fade`. Anything else keeps
- * flying while the page scrolls: whatever copy, or the landing scene's band, comes under it takes its light where it draws
- * (transientQuietFactor with CLEAR_SKY_KEEPS, flightKept). The scheduler retires it at 0, and the worker draws it with this
- * as drawTransient's `fade`.
+ * flying while the page scrolls, carried with the sky (transientShift): whatever copy, or the landing scene's band, comes
+ * to where it is drawn takes its light there (transientQuietFactor with CLEAR_SKY_KEEPS, flightKept). The scheduler retires
+ * it at 0, and the worker draws it with this as drawTransient's `fade`.
  */
 export function transientFade(transient: Transient, now: number, scrollY: number): number {
 	const fade = fadeOutAt(transient.cancelledAt, TRANSIENTS.cancelFade, now)
 	return transient.scrollBound ? scrollKept(transient.launchScrollY, scrollY, fade) : fade
+}
+
+/**
+ * How far the camera has carried a transient down the screen since its launch (CSS px; scrolling down carries it up): it
+ * hangs on the sky at TRANSIENT_NEARNESS, so the scroll moves it as it moves a star that near, through the same spring.
+ * `cameraScroll` is the scroll the camera shows now (Camera.scroll.value).
+ */
+export function transientShift(transient: Transient, cameraScroll: number): number {
+	return scrollShift(TRANSIENT_NEARNESS, transient.launchCamera, cameraScroll)
 }
 
 /** An active transient holds the ink lease: its light may reach quiet copy. */
@@ -294,6 +309,7 @@ function launchKind<K extends TransientKind>(schedule: TransientSchedule, random
 		clearSky,
 		scrollBound: !gate.readingKnown || reachesCopy || spec.lingers?.(body) === true,
 		launchScrollY: gate.scrollY,
+		launchCamera: gate.cameraScroll,
 		cancelledAt: null,
 	}
 	// The one cast: the envelope is of the kind it was planned for, and the union of envelopes is what the schedule holds

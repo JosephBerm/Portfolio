@@ -80,7 +80,8 @@ export const DEPTH = { reference: 1.57, compression: 0.14, maxNearness: 1.6 } as
  * browsers) leaves the brightest stars at most about 54 px to glide on a 900 px screen. A jump of more than
  * `snapViewports` viewport heights in one step (an instant scrollTo, say) snaps instead of sweeping the sky; 0 always
  * snaps, which follows the scroll exactly. A spring with less than `restPx` CSS px of motion left (at nearness 1)
- * settles on its target and stops asking for frames.
+ * settles on its target and stops asking for frames. The sky's short-lived events move with the scroll's part of it, at
+ * their own nearness (TRANSIENT_NEARNESS).
  */
 export const CAMERA = { scrollParallax: 0.21, scrollOmega: 14, maxLag: 0.18, snapViewports: 1, restPx: 0.01 } as const
 
@@ -712,6 +713,19 @@ export const TRANSIENTS = {
 } as const
 
 /**
+ * How near the sky's short-lived events hang, on the stars' scale (DEPTH): every shooting star of every kind, with its
+ * wake, train, sparks and pieces, and every satellite is drawn where its plan put it, moved by this nearness times the
+ * scroll's share of the camera's travel since its launch (transientShift), so a scroll carries it with the sky, through
+ * the same spring, as it carries a star this near. Meteors burn 70 to 120 km up and low orbits pass 400 to 2,000 km up,
+ * 10^10 to 10^11 times nearer than the nearest star, so they lie in front of every star; the scale stops at the brightest
+ * stars (DEPTH.maxNearness), where the frame clock paces motion and the nearest stars move at a third of the page's speed,
+ * so they hang there, with the planet. The comet, faint and far off, keeps to the faint stars (BODY_NEARNESS). The drift
+ * and the pointer's lean move the near stars a few px in an event's few seconds and are left out, so on a page at rest an
+ * event stays where its plan put it, clear of the copy.
+ */
+export const TRANSIENT_NEARNESS = DEPTH.maxNearness
+
+/**
  * The screen as a window on the sky, for the geometry of the transients crossing it: its longer side spans `fov`
  * degrees and its center looks `elevation` degrees above a horizon just below the screen, so a 16:10 window spans about
  * 18° at its bottom corners to 60° at the top of its center (twinkle already grows toward the bottom,
@@ -946,9 +960,10 @@ export const METEOR_KINDS = {
  * Shooting stars: where they start, the layout guards, their length, drag, wake, flares and trains. Directions, speeds
  * and brightness come from the visit's sky (RADIANTS, SPEED_CLASSES, METEOR_BRIGHTNESS) and rates from METEOR_RATE. Each
  * lights up and peaks in clear sky and may glide on behind quiet copy, veiled to what the copy can take (METEOR_VEIL,
- * INK_BUDGET). Its layout guards keep every transient below the navbar (`top`), inside the edges (`edgeMargin`) and clear
- * of the bottom corners (`maxEndY`), and a shooting star also clear of the side rails and reading copy (planMeteor's
- * `clearOf`).
+ * INK_BUDGET). Its layout guards place every transient's plan below the navbar (`top`), inside the edges (`edgeMargin`)
+ * and clear of the bottom corners (`maxEndY`), and a shooting star's also clear of the side rails and reading copy
+ * (planMeteor's `clearOf`); a scroll then carries it with the sky (TRANSIENT_NEARNESS), past them if it goes far enough,
+ * and its light answers to the copy where it is drawn.
  */
 export const METEOR = {
 	/** Seconds after the page reveal before the first one, once the hero entrance and side rails have settled. */

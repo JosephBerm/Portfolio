@@ -187,6 +187,15 @@ export function cameraOffset(camera: Camera, out: Vec): Vec {
 	return out
 }
 
+/**
+ * How far the scroll carries something of nearness `q` down the screen while the camera's scroll (Camera.scroll.value)
+ * goes from `from` to `to` (CSS px; a page scrolled down carries it up): the scroll's part of cameraOffset at that
+ * nearness, as a star that near moves by it.
+ */
+export function scrollShift(q: number, from: number, to: number): number {
+	return -q * CAMERA.scrollParallax * (to - from)
+}
+
 /** How fast the camera moves with the drift at `rate`, the scroll's glide and the lean included (CSS px/s at nearness 1): what the frame clock paces. A star of nearness q moves q times as fast on screen. */
 export function cameraSpeed(camera: Camera, rate: number): number {
 	driftVelocity(camera.clock, drift)
